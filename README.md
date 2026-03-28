@@ -161,3 +161,4 @@ Si aun no aparece telefono en flutter devices, revisa docs/abrir_tutor_en_celula
   - Registrar consumo
   - Reemplazo por equivalentes
   - Calificacion de recetas
+# programatesis
