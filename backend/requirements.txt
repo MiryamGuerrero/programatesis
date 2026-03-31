@@ -9,3 +9,4 @@ supabase==2.15.0
 httpx==0.28.1
 orjson==3.10.16
 python-multipart==0.0.20
+openpyxl==3.1.5

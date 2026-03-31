@@ -4,8 +4,8 @@ from app.core.db import db_cursor
 def get_oms_reference(indicador_codigo: str, id_sexo: int, edad_meses: int) -> tuple[float | None, float | None, float | None] | None:
     sql = """
         select r.l, r.m, r.s
-        from referencia.oms_referencia r
-        inner join referencia.indicador_antropometrico i on i.id = r.id_indicador
+                from dom_referencia_oms.oms_referencia_zscore r
+                inner join dom_referencia_oms.indicador_antropometrico i on i.id = r.id_indicador
         where i.codigo = %s
           and r.id_sexo = %s
           and r.meses = %s
@@ -23,7 +23,7 @@ def get_oms_reference(indicador_codigo: str, id_sexo: int, edad_meses: int) -> t
 def get_patient_active_condition_ids(id_paciente: str) -> list[int]:
     sql = """
         select id_condicion
-        from clinico.diagnostico_paciente
+                from dom_clinica_diagnosticos.diagnostico_paciente
         where id_paciente = %s
           and activa = true
     """

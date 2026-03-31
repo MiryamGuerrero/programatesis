@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
 from app.core.config import get_settings
+from app.core.db import db_cursor
 
 
 @dataclass
@@ -12,6 +13,75 @@ class UserContext:
     user_id: str
     role: str
     email: str | None
+
+
+_KNOWN_ROLES = {"admin", "medico", "nutricionista", "tutor"}
+
+
+def _normalize_role(raw_role: str | None) -> str | None:
+    if not raw_role:
+        return None
+
+    token = raw_role.strip().lower()
+    if token in ("", "authenticated", "anon"):
+        return None
+
+    role_by_id = {
+        "1": "admin",
+        "2": "medico",
+        "3": "nutricionista",
+        "4": "tutor",
+    }
+    if token in role_by_id:
+        return role_by_id[token]
+
+    aliases = {
+        "admin": "admin",
+        "administrador": "admin",
+        "medico": "medico",
+        "nutricionista": "nutricionista",
+        "nutritionist": "nutricionista",
+        "tutor": "tutor",
+    }
+    normalized = aliases.get(token)
+    if normalized in _KNOWN_ROLES:
+        return normalized
+
+    return None
+
+
+def _get_role_from_user_table(user_id: str, email: str | None) -> str | None:
+    sql_by_id = """
+        select lower(r.nombre::text)
+        from dom_identidad_usuarios.usuario u
+        inner join dom_identidad_catalogos.rol r on r.id = u.id_rol
+        where u.id::text = %s
+        limit 1
+    """
+    sql_by_email = """
+        select lower(r.nombre::text)
+        from dom_identidad_usuarios.usuario u
+        inner join dom_identidad_catalogos.rol r on r.id = u.id_rol
+        where lower(u.email) = lower(%s)
+        limit 1
+    """
+
+    try:
+        with db_cursor() as cur:
+            cur.execute(sql_by_id, (user_id,))
+            row = cur.fetchone()
+            if row and row[0]:
+                return _normalize_role(str(row[0]))
+
+            if email:
+                cur.execute(sql_by_email, (email,))
+                row = cur.fetchone()
+                if row and row[0]:
+                    return _normalize_role(str(row[0]))
+    except Exception:
+        return None
+
+    return None
 
 
 def _verify_token_with_supabase_auth(token: str) -> dict:
@@ -77,12 +147,31 @@ def decode_supabase_token(token: str) -> dict:
 
 def build_user_context(claims: dict) -> UserContext:
     app_meta = claims.get("app_metadata") or {}
-    role = app_meta.get("role") or claims.get("role") or "tutor"
+    user_meta = claims.get("user_metadata")
+    if not isinstance(user_meta, dict):
+        user_meta = {}
+
     user_id = claims.get("sub")
     email = claims.get("email")
 
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing sub claim")
+
+    role = _normalize_role(
+        app_meta.get("role")
+        or app_meta.get("rol")
+        or claims.get("role")
+        or claims.get("rol")
+        or user_meta.get("role")
+        or user_meta.get("rol")
+        or user_meta.get("id_rol")
+    )
+
+    if role is None:
+        role = _get_role_from_user_table(user_id=user_id, email=email)
+
+    if role is None:
+        role = "tutor"
 
     return UserContext(user_id=user_id, role=role, email=email)
 

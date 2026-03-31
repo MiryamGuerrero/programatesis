@@ -21,14 +21,57 @@ extension AppRoleX on AppRole {
 }
 
 AppRole parseRole(String? rawRole) {
-  switch ((rawRole ?? "").toLowerCase()) {
+  return tryParseRole(rawRole) ?? AppRole.tutor;
+}
+
+AppRole? tryParseRole(dynamic rawRole) {
+  if (rawRole == null) {
+    return null;
+  }
+
+  if (rawRole is int) {
+    return _parseRoleById(rawRole);
+  }
+
+  final token = rawRole.toString().trim().toLowerCase();
+  if (token.isEmpty || token == "authenticated" || token == "anon") {
+    return null;
+  }
+
+  final roleId = int.tryParse(token);
+  if (roleId != null) {
+    return _parseRoleById(roleId);
+  }
+
+  switch (token) {
     case "admin":
+    case "administrador":
       return AppRole.admin;
     case "medico":
+    case "medic":
       return AppRole.medico;
     case "nutricionista":
+    case "nutricionist":
+    case "nutritionist":
       return AppRole.nutricionista;
-    default:
+    case "tutor":
       return AppRole.tutor;
+    default:
+      return null;
+  }
+}
+
+AppRole? _parseRoleById(int roleId) {
+  switch (roleId) {
+    case 1:
+      return AppRole.admin;
+    case 2:
+      return AppRole.medico;
+    case 3:
+      return AppRole.nutricionista;
+    case 4:
+      return AppRole.tutor;
+    default:
+      return null;
   }
 }

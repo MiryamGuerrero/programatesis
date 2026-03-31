@@ -1,6 +1,6 @@
-"""Service layer split by ownership domains.
+"""Service layer organized by role modules and shared domains.
 
-admin_medico: clinical and follow-up logic for admin/medico workflows.
-nutricion_tutor: nutrition planning and tutor-facing recommendation flows.
-compartido: shared domain logic reused across both service domains.
+roles: role-owned business logic grouped by admin, medico, nutricionista, and tutor modules.
+shared: cross-role domain logic reused by role services and endpoints.
+compartido: legacy shared package kept during migration.
 """
