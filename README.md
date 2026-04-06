@@ -8,6 +8,21 @@ Componentes de la app:
 - Backend FastAPI en backend/app
 - Base de datos y scripts SQL en supabase y base_de_datos.sql
 
+## Estructura operativa (raiz)
+
+En la raiz se mantienen solo componentes operativos para ejecutar la aplicacion:
+
+- backend
+- frontend
+- supabase
+- datosal
+- docs
+- README.md
+- base_de_datos.sql
+- start_web.ps1
+
+Los scripts legacy de migracion/importacion ad-hoc no forman parte del runtime y fueron retirados para mantener arquitectura limpia.
+
 ## Modulos funcionales por rol
 
 - Admin:

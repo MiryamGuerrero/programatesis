@@ -1,233 +1,92 @@
 # Arquitectura por capas - Reuma Nutri
 
-## 1. Descripcion general
+## 1. Objetivo
 
-La arquitectura del sistema sigue un modelo en capas con separacion de responsabilidades:
+El proyecto adopta una arquitectura por capas con organizacion por rol y modulo.
+La meta es que cada parte tenga una responsabilidad clara y que la app pueda evolucionar sin mezclar UI, reglas de negocio y acceso a datos.
 
-- Capa de presentacion: Flutter (web y mobile).
-- Capa de servicios y logica: FastAPI (Python).
-- Capa de persistencia y autenticacion: Supabase + PostgreSQL.
+## 2. Capas oficiales
 
-Esta estructura permite mantener el sistema mas ordenado, escalable y facil de evolucionar.
+### 2.1 Presentacion
 
-## 2. Capas del sistema
-
-### 2.1 Capa de presentacion (Flutter)
-
-Ubicacion principal:
-
-- frontend/flutter_app/lib/main_web.dart
-- frontend/flutter_app/lib/main_tutor_mobile.dart
-- frontend/flutter_app/lib/features
+- Frontend Flutter: frontend/flutter_app/lib
+- Backend API HTTP: backend/app/api
 
 Responsabilidad:
 
-- Web: interfaz para admin, medico y nutricionista.
-- Mobile: interfaz para tutor/cuidador.
-- Captura de datos, validaciones basicas de formulario y navegacion.
+- Exponer pantallas, rutas y contratos HTTP.
+- No colocar reglas de negocio complejas en esta capa.
 
-### 2.2 Capa de servicios y logica (FastAPI)
+### 2.2 Aplicacion y negocio
 
-Ubicacion principal (estado actual):
-
-- backend/app/main.py
-- backend/app/api/v1/router.py
-- backend/app/api/v1/endpoints/roles
-- backend/app/services/roles
-- backend/app/services/shared
+- Servicios por rol: backend/app/services/roles
+- Servicios compartidos: backend/app/services/shared
 
 Responsabilidad:
 
-- Centralizar procesos con reglas, calculos y decisiones automaticas.
-- Ejemplos funcionales:
-  - calculo de IMC
-  - diagnostico OMS
-  - reglas alimentarias
-  - recetas permitidas
-  - plan automatico
-  - adherencia
-  - preferencias aprendidas
+- Orquestar casos de uso.
+- Aplicar reglas de negocio.
+- Mantener logica desacoplada de detalles de infraestructura.
 
-Estado de implementacion consolidado:
+### 2.3 Infraestructura y persistencia
 
-- Los endpoints de rol importan directo desde servicios por modulo en app/services/roles/<rol>/modules.
-- No se usan wrappers de compatibilidad para servicios de rol.
-- Se retiraron los paquetes legacy de servicios que duplicaban responsabilidades.
-
-### 2.3 Capa de datos, autenticacion y archivos (Supabase)
-
-Ubicacion principal:
-
-- base_de_datos.sql
-- supabase/rls_policies.sql
-- supabase/seed_catalogs.sql
-- supabase/seed_oms_demo.sql
+- Repositorios: backend/app/repositories
+- Conectores core: backend/app/core
+- SQL operativo: supabase
 
 Responsabilidad:
 
-- Persistencia transaccional en PostgreSQL.
-- Autenticacion y control de acceso por rol.
-- Politicas de seguridad por fila (RLS).
-- Almacenamiento de archivos (por ejemplo, imagenes de recetas).
+- Adaptadores de base de datos y proveedores externos.
+- Credenciales, seguridad, acceso a PostgreSQL/Supabase.
 
-## 3. Carpetas por rol para modulos
+## 3. Estructura por rol
 
-Para mejorar comprension y mantenimiento, cada rol tiene modulos explicitos en backend y frontend.
+### 3.1 Backend
 
-### 3.1 Backend (implementacion real de servicios por rol)
+- API por rol: backend/app/api/v1/endpoints/roles
+- Servicios por rol: backend/app/services/roles
 
-Ruta base:
+Roles activos:
 
-- backend/app/services/roles
+- admin
+- medico
+- nutricionista
+- tutor
 
-Estructura activa:
+Cada rol debe contener su carpeta modules con sus submodulos funcionales.
 
-- admin:
-  - modules
-- medico:
-  - modules/diagnostico_oms
-  - modules/adherencia
-- nutricionista:
-  - modules/ingredientes
-  - modules/recetas
-  - modules/plan_nutricional
-  - modules/preferencias
-- tutor:
-  - modules/reemplazos
+### 3.2 Frontend
 
-Servicios transversales:
+- Features por rol: frontend/flutter_app/lib/features
 
-- backend/app/services/shared
+Cada rol se organiza en modules para evitar pantallas planas y mantener ownership por dominio.
 
-Limpieza aplicada en la migracion:
+## 4. Enrutamiento orientado a objetos
 
-- Eliminados wrappers de compatibilidad en backend/app/services/roles/*.
-- Eliminados paquetes legacy backend/app/services/admin_medico.
-- Eliminados paquetes legacy backend/app/services/nutricion_tutor.
-- Eliminados paquetes legacy backend/app/services/compartido.
+El armado del router principal ahora es declarativo y OOP en:
 
-### 3.2 Backend (workspaces de organizacion por rol)
+- backend/app/api/v1/route_registry.py
 
-Ruta base:
+Beneficios:
 
-- backend/app/workspaces/roles
+- Registro unico de modulos HTTP.
+- Clasificacion por capa y por rol.
+- Menos acoplamiento en router.py.
 
-Estructura:
+## 5. Regla de integracion de capas
 
-- admin:
-  - modules/usuarios
-  - modules/catalogos
-- medico:
-  - modules/registro_clinico
-  - modules/diagnostico_oms
-  - modules/reglas_medicas
-  - modules/adherencia
-- nutricionista:
-  - modules/ingredientes
-  - modules/recetas
-  - modules/plan_nutricional
-  - modules/reglas_nutricionales
-  - modules/preferencias
-- tutor:
-  - modules/plan
-  - modules/consumo
-  - modules/reemplazos
-  - modules/calificacion
+- Flujo simple (CRUD sin inteligencia): Flutter -> API CRUD/Supabase.
+- Flujo inteligente (reglas/etiquetas/diagnostico): Flutter -> FastAPI -> repositorios/DB.
 
-Nota:
+La inteligencia se concentra en servicios de negocio y no en pantallas.
 
-- Estas carpetas ordenan ownership funcional por rol para trabajo de equipo y planificacion.
-- La ejecucion principal de negocio vive en app/services/roles y app/api/v1/endpoints/roles.
+## 6. Politica de repositorio operativo
 
-### 3.3 Frontend (modulos por rol)
+En la raiz del repositorio deben quedar solo archivos operativos para correr la app.
+Los scripts de migracion/ad-hoc y documentos legacy fuera de uso se eliminan para mantener el proyecto limpio.
 
-Ruta base:
+## 7. Resultado esperado
 
-- frontend/flutter_app/lib/features
-
-Estructura:
-
-- admin/modules:
-  - usuarios
-  - catalogos
-- medico/modules:
-  - registro_clinico
-  - diagnostico_oms
-  - reglas_medicas
-  - adherencia
-- nutricionista/modules:
-  - ingredientes
-  - recetas
-  - plan_nutricional
-  - reglas_nutricionales
-  - preferencias
-- tutor/modules:
-  - plan
-  - consumo
-  - reemplazos
-  - calificacion
-
-Estado de implementacion:
-
-- Las pantallas principales de rol se movieron a modules/<modulo>/.
-- role_shell usa imports directos a rutas de modules.
-
-## 4. Regla de integracion entre capas
-
-Regla de uso recomendada:
-
-- Operaciones simples (CRUD directo sin reglas complejas):
-  - Flutter puede consultar/escribir directo en Supabase.
-- Operaciones complejas (calculo, reglas, decisiones automaticas):
-  - Flutter debe llamar FastAPI.
-  - FastAPI procesa la logica y consulta/actualiza Supabase.
-
-## 5. Flujo operativo
-
-### Flujo simple
-
-Flutter -> Supabase
-
-Uso tipico:
-
-- catalogos simples
-- lecturas de datos sin motor de reglas
-
-### Flujo inteligente
-
-Flutter -> FastAPI -> Supabase
-
-Uso tipico:
-
-- diagnosticos antropometricos
-- filtrado de ingredientes y recetas permitidas
-- construccion de planes
-- calculos de adherencia
-
-Mapa rapido de endpoints de rol (backend):
-
-- /api/v1/imc-calculo -> medico/modules/diagnostico_oms
-- /api/v1/diagnostico-oms -> medico/modules/diagnostico_oms
-- /api/v1/reglas-evaluacion -> shared/rule_engine_service
-- /api/v1/adherencia-calculo -> medico/modules/adherencia
-- /api/v1/ingredientes-permitidos -> nutricionista/modules/ingredientes
-- /api/v1/recetas-permitidas -> nutricionista/modules/recetas
-- /api/v1/plan-automatico -> nutricionista/modules/plan_nutricional
-- /api/v1/preferencias-aprendidas -> nutricionista/modules/preferencias
-- /api/v1/reemplazo-equivalente -> tutor/modules/reemplazos
-
-## 6. Beneficios de esta arquitectura
-
-- Separacion clara entre UI, logica y datos.
-- Menor acoplamiento entre cliente y reglas de negocio.
-- Escalabilidad funcional por capas y por rol.
-- Mejor mantenibilidad y pruebas por componente.
-- Estructura de servicios sin duplicidad ni rutas legacy intermedias.
-
-## 7. Sustento conceptual
-
-Esta organizacion es coherente con principios de arquitectura por capas y separacion de responsabilidades, alineados con:
-
-- Software Architecture in Practice (Bass, Clements, Kazman)
-- Clean Architecture (Robert C. Martin)
-- Patterns of Enterprise Application Architecture (Martin Fowler)
+- Menos deuda tecnica por scripts sueltos.
+- Estructura predecible por rol y modulo.
+- Mantenimiento mas simple para equipo backend y frontend.
