@@ -64,7 +64,7 @@ class _TutorOnlyScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              Text(
+              const Text(
                 "Inicia sesion con una cuenta tutor o usa la app web para otros roles.",
                 textAlign: TextAlign.center,
               ),

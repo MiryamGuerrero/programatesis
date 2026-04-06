@@ -97,9 +97,9 @@ class _LoginPageState extends State<LoginPage> {
 
           return Stack(
             children: [
-              Positioned.fill(
+              const Positioned.fill(
                 child: DecoratedBox(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -112,20 +112,20 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-              _DecorativeBlob(
+              const _DecorativeBlob(
                 top: -90,
                 right: -70,
                 size: 260,
-                colors: const [
+                colors: [
                   Color(0xFF81C784),
                   Color(0xFF4DD0E1),
                 ],
               ),
-              _DecorativeBlob(
+              const _DecorativeBlob(
                 bottom: -100,
                 left: -60,
                 size: 290,
-                colors: const [
+                colors: [
                   Color(0xFFFFA284),
                   Color(0xFFFF7043),
                 ],
@@ -222,7 +222,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           _buildBrandHeader(context),
           const SizedBox(height: 28),
-          _FeatureBullet(
+          const _FeatureBullet(
             icon: Icons.eco_rounded,
             title: "Recetas antiinflamatorias",
             description:
@@ -230,14 +230,14 @@ class _LoginPageState extends State<LoginPage> {
             iconColor: _mintStrong,
           ),
           const SizedBox(height: 14),
-          _FeatureBullet(
+          const _FeatureBullet(
             icon: Icons.favorite_rounded,
             title: "Seguimiento facil",
             description: "Controla avances nutricionales en un solo lugar.",
             iconColor: _coral,
           ),
           const SizedBox(height: 14),
-          _FeatureBullet(
+          const _FeatureBullet(
             icon: Icons.water_drop_rounded,
             title: "Experiencia clara",
             description: "Visualizacion simple para familias y especialistas.",
