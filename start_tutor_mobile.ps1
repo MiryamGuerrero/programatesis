@@ -1,3 +1,8 @@
+param(
+  [string]$DeviceId,
+  [string]$ApiBaseUrl = "http://10.0.2.2:8000/api/v1"
+)
+
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -54,37 +59,16 @@ if (-not $healthy) {
   throw "Backend no responde en /health."
 }
 
-$webPort = 3000
-$webListening = Get-NetTCPConnection -State Listen -LocalPort $webPort -ErrorAction SilentlyContinue
-if ($webListening) {
-  try {
-    $webResp = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$webPort" -TimeoutSec 2
-    if ($webResp.StatusCode -ge 200 -and $webResp.StatusCode -lt 500) {
-      Write-Output "La web ya esta activa en http://localhost:$webPort"
-      return
-    }
-  }
-  catch {
-  }
-
-  $foundFree = $false
-  for ($p = 3001; $p -le 3010; $p++) {
-    $busy = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue
-    if (-not $busy) {
-      $webPort = $p
-      $foundFree = $true
-      break
-    }
-  }
-
-  if (-not $foundFree) {
-    throw "Puertos 3000-3010 ocupados. Libera uno y vuelve a ejecutar start_web.ps1"
-  }
-}
-
 Set-Location $frontendDir
 flutter pub get
-flutter run -d chrome --web-port $webPort -t lib/main_web.dart `
+
+if ([string]::IsNullOrWhiteSpace($DeviceId)) {
+  Write-Host "Dispositivos disponibles:"
+  flutter devices
+  throw "Debes indicar -DeviceId para el tutor movil."
+}
+
+flutter run -d $DeviceId -t lib/main_tutor_mobile.dart `
   --dart-define=SUPABASE_URL=$($cfg["SUPABASE_URL"]) `
   --dart-define=SUPABASE_ANON_KEY=$($cfg["SUPABASE_ANON_KEY"]) `
-  --dart-define=FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
+  --dart-define=FASTAPI_BASE_URL=$ApiBaseUrl

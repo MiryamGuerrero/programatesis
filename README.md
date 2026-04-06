@@ -55,6 +55,11 @@ Los scripts legacy de migracion/importacion ad-hoc no forman parte del runtime y
 - POST /api/v1/adherencia-calculo
 - POST /api/v1/preferencias-aprendidas
 
+## Arranque por canal y rol
+
+- Web (roles admin, medico, nutricionista): ejecutar start_web.ps1
+- Movil (rol tutor): ejecutar start_tutor_mobile.ps1 con -DeviceId
+
 ## Seguridad
 
 - Roles soportados: admin, medico, nutricionista, tutor.

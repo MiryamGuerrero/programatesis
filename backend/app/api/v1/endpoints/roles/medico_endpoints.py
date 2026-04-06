@@ -14,7 +14,7 @@ from app.schemas.domain import (
 from app.services.roles.medico.modules.adherencia.adherence_analysis_service import (
     calculate_adherence,
 )
-from app.services.roles.medico.modules.diagnostico_oms.anthropometry_diagnosis_service import (
+from app.services.shared.cerebro.clasificacion_estado_nutricional_oms.anthropometry_diagnosis_service import (
     calcular_imc,
     clasificar_imc_general,
     diagnostico_oms,
