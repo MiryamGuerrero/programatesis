@@ -12,15 +12,121 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 });
 
 final dioProvider = Provider<Dio>((ref) {
-  return buildApiClient();
+  final client = ref.watch(supabaseClientProvider);
+  final dio = buildApiClient();
+
+  dio.interceptors.add(
+    QueuedInterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await _resolveValidAccessToken(client);
+        if (token != null && token.isNotEmpty) {
+          options.headers["Authorization"] = "Bearer $token";
+        } else {
+          options.headers.remove("Authorization");
+        }
+
+        return handler.next(options);
+      },
+      onError: (error, handler) async {
+        final statusCode = error.response?.statusCode;
+        final request = error.requestOptions;
+        final alreadyRetried = request.extra["auth_retry"] == true;
+
+        if (statusCode == 401 && !alreadyRetried) {
+          try {
+            final refreshed = await client.auth.refreshSession();
+            final newToken =
+                refreshed.session?.accessToken ?? client.auth.currentSession?.accessToken;
+
+            if (newToken != null && newToken.isNotEmpty) {
+              request.headers["Authorization"] = "Bearer $newToken";
+              request.extra["auth_retry"] = true;
+
+              final retried = await dio.fetch<dynamic>(request);
+              return handler.resolve(retried);
+            }
+          } catch (_) {
+            // Fall through to force sign-out below.
+          }
+
+          try {
+            await client.auth.signOut();
+          } catch (_) {
+            // Ignore sign-out errors; original 401 is still returned.
+          }
+        }
+
+        return handler.next(error);
+      },
+    ),
+  );
+
+  return dio;
 });
+
+Future<String?> _resolveValidAccessToken(SupabaseClient client) async {
+  var session = client.auth.currentSession;
+
+  if (session == null) {
+    return null;
+  }
+
+  final nowEpochSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  final expiresAt = session.expiresAt;
+  final expiresSoon = expiresAt != null && expiresAt <= (nowEpochSeconds + 45);
+
+  if (expiresSoon) {
+    try {
+      final refreshed = await client.auth.refreshSession();
+      session = refreshed.session ?? client.auth.currentSession;
+    } catch (_) {
+      // Return current token if refresh fails; the 401 retry flow will handle fallback.
+    }
+  }
+
+  final token = session?.accessToken;
+  if (token == null || token.isEmpty) {
+    return null;
+  }
+
+  return token;
+}
+
+Future<Session?> _ensureValidSession(
+  SupabaseClient client,
+  Session? session,
+) async {
+  if (session == null) {
+    return null;
+  }
+
+  final nowEpochSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  final expiresAt = session.expiresAt;
+  final expiresSoon = expiresAt != null && expiresAt <= (nowEpochSeconds + 45);
+
+  if (!expiresSoon) {
+    return session;
+  }
+
+  try {
+    final refreshed = await client.auth.refreshSession();
+    return refreshed.session ?? client.auth.currentSession;
+  } catch (_) {
+    try {
+      await client.auth.signOut();
+    } catch (_) {
+      // Ignore sign-out errors.
+    }
+    return null;
+  }
+}
 
 final authSessionProvider = StreamProvider<Session?>((ref) async* {
   final client = ref.watch(supabaseClientProvider);
-  yield client.auth.currentSession;
+  yield await _ensureValidSession(client, client.auth.currentSession);
 
   await for (final event in client.auth.onAuthStateChange) {
-    yield event.session;
+    yield await _ensureValidSession(client, event.session);
   }
 });
 
@@ -119,7 +225,7 @@ Future<AppRole?> _resolveRoleFromUsersTable({
   required String userId,
   required String? email,
 }) async {
-  const candidateSchemas = ["dom_identidad_usuarios", "usuarios"];
+  const candidateSchemas = ["usuarios"];
 
   for (final schema in candidateSchemas) {
     try {

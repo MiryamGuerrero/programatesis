@@ -1,5 +1,3 @@
-import "dart:convert";
-
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
@@ -13,13 +11,11 @@ class RecetasPage extends ConsumerStatefulWidget {
 }
 
 class _RecetasPageState extends ConsumerState<RecetasPage> {
-  final _pacienteController = TextEditingController();
-  final _momentoController = TextEditingController();
+  final _searchController = TextEditingController();
 
   bool _loading = false;
-  List<Map<String, dynamic>> _recetas = [];
-  Map<String, dynamic>? _permitidas;
   String? _error;
+  List<Map<String, dynamic>> _recetas = const [];
 
   @override
   void initState() {
@@ -29,8 +25,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
   @override
   void dispose() {
-    _pacienteController.dispose();
-    _momentoController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -59,73 +54,45 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     }
   }
 
-  Future<void> _consultarPermitidas() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _permitidas = null;
-    });
-
-    try {
-      final api = ref.read(inteligenciaRepositoryProvider);
-      final data = await api.recetasPermitidas(
-        idPaciente: _pacienteController.text.trim(),
-        idMomento: int.tryParse(_momentoController.text),
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _permitidas = data);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final query = _searchController.text.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? _recetas
+        : _recetas.where((row) {
+            final nombre = row["nombre"]?.toString().toLowerCase() ?? "";
+            return nombre.contains(query);
+          }).toList();
+
     return ListView(
       children: [
         Text("Recetas", style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        const Text(
+          "Extraccion directa desde CRUD. Sin flujo de IDs manuales para consulta basica.",
+          style: TextStyle(color: Color(0xFF5B6978), fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 12),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 10,
+          runSpacing: 10,
           children: [
             SizedBox(
-              width: 280,
+              width: 360,
               child: TextField(
-                controller: _pacienteController,
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  labelText: "ID Paciente para filtrar permitidas",
+                  labelText: "Buscar receta",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
                 ),
               ),
-            ),
-            SizedBox(
-              width: 140,
-              child: TextField(
-                controller: _momentoController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "ID Momento",
-                ),
-              ),
-            ),
-            FilledButton.icon(
-              onPressed: _loading ? null : _consultarPermitidas,
-              icon: const Icon(Icons.filter_alt),
-              label: const Text("Recetas permitidas"),
             ),
             OutlinedButton.icon(
               onPressed: _loading ? null : _loadRecetas,
               icon: const Icon(Icons.refresh),
-              label: const Text("Listado base"),
+              label: const Text("Recargar"),
             ),
           ],
         ),
@@ -139,29 +106,41 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             ),
           ),
         ],
-        const SizedBox(height: 12),
-        if (_permitidas != null)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SelectableText(
-                  const JsonEncoder.withIndent("  ").convert(_permitidas)),
-            ),
-          ),
-        const SizedBox(height: 8),
-        Text("Repositorio de recetas",
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        for (final receta in _recetas)
-          Card(
-            child: ListTile(
-              title: Text(receta["nombre"]?.toString() ?? ""),
-              subtitle: Text(
-                  "id=${receta["id"]} | kcal=${receta["calorias_totales"]}"),
-            ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Chip(label: Text("Total: ${_recetas.length}")),
+            Chip(label: Text("Visibles: ${visible.length}")),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text("No hay recetas para el filtro actual."),
+          )
+        else
+          ...visible.map(
+            (receta) {
+              final kcalRaw = receta["calorias_totales"];
+              final kcalText = kcalRaw == null ? "Sin dato" : kcalRaw.toString();
+
+              return Card(
+                child: ListTile(
+                  title: Text(receta["nombre"]?.toString() ?? "Receta"),
+                  subtitle: Text("Calorias totales: $kcalText"),
+                ),
+              );
+            },
           ),
       ],
     );
   }
 }
-

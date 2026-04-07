@@ -30,12 +30,30 @@ class InteligenciaApiRepository {
 
       return Map<String, dynamic>.from(response.data as Map);
     } on DioException catch (exc) {
+      final code = exc.response?.statusCode;
+      if (code == 401) {
+        throw Exception("Sesion expirada. Inicia sesion nuevamente.");
+      }
+      if (code == 403) {
+        throw Exception("No tienes permisos para ejecutar esta accion.");
+      }
+
       final data = exc.response?.data;
       if (data is Map && data["detail"] != null) {
         throw Exception(data["detail"].toString());
       }
 
-      final code = exc.response?.statusCode;
+      if (data is Map && data["message"] != null) {
+        throw Exception(data["message"].toString());
+      }
+
+      if (exc.type == DioExceptionType.connectionTimeout ||
+          exc.type == DioExceptionType.sendTimeout ||
+          exc.type == DioExceptionType.receiveTimeout ||
+          exc.type == DioExceptionType.connectionError) {
+        throw Exception("No hay conexion con backend para $path");
+      }
+
       throw Exception("Error API ${code ?? "desconocido"} en $path");
     }
   }

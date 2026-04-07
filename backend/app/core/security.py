@@ -52,23 +52,24 @@ def _normalize_role(raw_role: str | None) -> str | None:
 
 def _get_role_from_user_table(user_id: str, email: str | None) -> str | None:
     sql_by_id = """
-        select lower(r.nombre::text)
-        from dom_identidad_usuarios.usuario u
-        inner join dom_identidad_catalogos.rol r on r.id = u.id_rol
+        select upper(r.codigo::text)
+        from usuarios.usuario u
+        inner join usuarios.rol r on r.id = u.id_rol
         where u.id::text = %s
+           or u.auth_user_id::text = %s
         limit 1
     """
     sql_by_email = """
-        select lower(r.nombre::text)
-        from dom_identidad_usuarios.usuario u
-        inner join dom_identidad_catalogos.rol r on r.id = u.id_rol
+        select upper(r.codigo::text)
+        from usuarios.usuario u
+        inner join usuarios.rol r on r.id = u.id_rol
         where lower(u.email) = lower(%s)
         limit 1
     """
 
     try:
         with db_cursor() as cur:
-            cur.execute(sql_by_id, (user_id,))
+            cur.execute(sql_by_id, (user_id, user_id))
             row = cur.fetchone()
             if row and row[0]:
                 return _normalize_role(str(row[0]))
@@ -160,8 +161,10 @@ def build_user_context(claims: dict) -> UserContext:
     role = _normalize_role(
         app_meta.get("role")
         or app_meta.get("rol")
+        or app_meta.get("id_rol")
         or claims.get("role")
         or claims.get("rol")
+        or claims.get("id_rol")
         or user_meta.get("role")
         or user_meta.get("rol")
         or user_meta.get("id_rol")

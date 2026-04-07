@@ -17,10 +17,10 @@ def list_rules_for_conditions(condition_ids: list[int]) -> list[RuleRow]:
             r.id_grupo_alimentario,
             r.id_etiqueta,
             r.mensaje_error
-        from dom_reglas_motor.condicion_regla cr
-        inner join dom_reglas_motor.regla r on r.id = cr.id_regla
-        inner join dom_reglas_catalogos.catalogo_accion a on a.id = r.id_accion
-        inner join dom_reglas_catalogos.catalogo_objetivo_regla o on o.id = r.id_tipo_objetivo
+        from heuristico.condicion_regla cr
+        inner join heuristico.regla r on r.id = cr.id_regla
+        inner join heuristico.catalogo_accion a on a.id = r.id_accion
+        inner join heuristico.catalogo_objetivo_regla o on o.id = r.id_tipo_objetivo
         where cr.id_condicion = any(%s)
     """
 

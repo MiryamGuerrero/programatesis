@@ -1,0 +1,14 @@
+﻿id,codigo,nombre,formula_referencia,unidad_medida,activa
+1,DENSIDAD_PROTEICA_,Densidad_Proteica ,,,True
+2,DENSIDAD_FIBRA,Densidad_Fibra,Fibra vegetal (g) / Energía (kcal),g/kcal,True
+3,DENSIDAD_CALCIO,Densidad_Calcio,Calcio (mg) /Energía (kcal),mg/kcal,True
+4,DENSIDAD_HIERRO,Densidad_Hierro,Hierro (mg) / Energía (kcal),mg/kcal,True
+5,DENSIDAD_SODIO,Densidad_Sodio,Sodio (mg) / Energía (kcal),mg/kcal,True
+6,RELACION_AGP_AGS,Relacion_AGP_AGS,AGP /AGS,ratio,True
+7,RELACION_CA_P,Relacion_Ca_P,Calcio /Fósforo,ratio,True
+8,CARGA_GRASA_SATURADA,Carga_Grasa_Saturada,AGS /Energía,g/kcal,True
+9,RETENCION_DE_LIQUIDOS,Retención de Líquidos,Sodio /Potasio,ratio,True
+10,PROPORCION_DE_AZUCAR_EN_EL_CARBOHIDRATO,Proporción de Azúcar en el Carbohidrato,Azúcares sencillos / H. de Carbono,ratio,True
+11,RATIO_FIBRA,Ratio Fibra,Fibra vegetal / H. de Carbono,ratio,True
+12,PORCENTAJE_DE_CALORIAS_PROVENIENTES_DE_LAS_GRASAS,Porcentaje de Calorías provenientes de las Grasas,(Grasa total*9)/Energía,ratio,True
+13,DENSIDAD_DE_MAGNESIO,Densidad de Magnesio,Magnesio /Energía,mg/kcal,True

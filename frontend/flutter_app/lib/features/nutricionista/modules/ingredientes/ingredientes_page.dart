@@ -12,10 +12,10 @@ class IngredientesPage extends ConsumerStatefulWidget {
 
 class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   final _nombreController = TextEditingController();
-  final _grupoController = TextEditingController();
+  final _searchController = TextEditingController();
 
   bool _loading = false;
-  List<Map<String, dynamic>> _ingredientes = [];
+  List<Map<String, dynamic>> _ingredientes = const [];
   String? _error;
 
   @override
@@ -27,7 +27,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   @override
   void dispose() {
     _nombreController.dispose();
-    _grupoController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -57,6 +57,14 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   Future<void> _createIngrediente() async {
+    final nombre = _nombreController.text.trim();
+    if (nombre.isEmpty) {
+      setState(() {
+        _error = "Escribe el nombre del ingrediente.";
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -65,11 +73,11 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       await repo.createIngrediente(
-        nombre: _nombreController.text.trim(),
-        idGrupoAlimentario: int.tryParse(_grupoController.text),
+        nombre: nombre,
+        idGrupoAlimentario: null,
       );
+
       _nombreController.clear();
-      _grupoController.clear();
       await _loadData();
     } catch (error) {
       if (!mounted) {
@@ -85,32 +93,38 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final query = _searchController.text.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? _ingredientes
+        : _ingredientes
+            .where((row) =>
+                (row["nombre"]?.toString().toLowerCase() ?? "").contains(query))
+            .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Gestion de ingredientes",
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          "Gestion de ingredientes",
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          "Carga simple directa desde API CRUD. Sin captura manual de IDs.",
+          style: TextStyle(color: Color(0xFF5B6978), fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
             SizedBox(
-              width: 260,
+              width: 320,
               child: TextField(
                 controller: _nombreController,
                 decoration: const InputDecoration(
-                  labelText: "Nombre ingrediente",
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 150,
-              child: TextField(
-                controller: _grupoController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "ID Grupo",
+                  labelText: "Nuevo ingrediente",
+                  border: OutlineInputBorder(),
                 ),
               ),
             ),
@@ -126,6 +140,19 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: 360,
+          child: TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: "Buscar por nombre",
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+        ),
         if (_error != null) ...[
           const SizedBox(height: 10),
           Text(
@@ -136,19 +163,36 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             ),
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Chip(label: Text("Total: ${_ingredientes.length}")),
+            Chip(label: Text("Visibles: ${visible.length}")),
+          ],
+        ),
+        const SizedBox(height: 10),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
-                  itemCount: _ingredientes.length,
+                  itemCount: visible.length,
                   itemBuilder: (context, index) {
-                    final item = _ingredientes[index];
+                    final item = visible[index];
+                    final activo = item["activo"] == true;
                     return Card(
                       child: ListTile(
                         title: Text(item["nombre"]?.toString() ?? ""),
                         subtitle: Text(
-                            "id=${item["id"]}, grupo=${item["id_grupo_alimentario"]}"),
+                          activo ? "Activo" : "Inactivo",
+                          style: TextStyle(
+                            color: activo
+                                ? const Color(0xFF16683B)
+                                : const Color(0xFF9A5C11),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -158,4 +202,3 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     );
   }
 }
-

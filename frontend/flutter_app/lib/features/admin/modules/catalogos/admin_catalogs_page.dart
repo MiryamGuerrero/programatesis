@@ -12,14 +12,14 @@ class AdminCatalogsPage extends ConsumerStatefulWidget {
 
 class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
   static const _catalogs = [
-    ("dom_identidad_catalogos", "rol"),
-    ("dom_identidad_catalogos", "catalogo_sexo"),
-    ("dom_reglas_catalogos", "catalogo_accion"),
-    ("dom_reglas_catalogos", "catalogo_objetivo_regla"),
-    ("dom_planes_catalogos_estado", "catalogo_estado_plan"),
-    ("dom_planes_catalogos_tipo", "catalogo_tipo_plan"),
-    ("dom_planes_catalogos_tipo", "catalogo_origen_plan"),
-    ("dom_planes_catalogos_estado", "catalogo_estado_consumo"),
+    ("usuarios", "rol"),
+    ("usuarios", "catalogo_sexo"),
+    ("heuristico", "catalogo_accion"),
+    ("heuristico", "catalogo_objetivo_regla"),
+    ("interaccion", "catalogo_estado_plan"),
+    ("interaccion", "catalogo_tipo_plan"),
+    ("interaccion", "catalogo_origen_plan"),
+    ("interaccion", "catalogo_estado_consumo"),
   ];
 
   String _schema = _catalogs.first.$1;

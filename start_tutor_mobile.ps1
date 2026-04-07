@@ -63,9 +63,28 @@ Set-Location $frontendDir
 flutter pub get
 
 if ([string]::IsNullOrWhiteSpace($DeviceId)) {
-  Write-Host "Dispositivos disponibles:"
-  flutter devices
-  throw "Debes indicar -DeviceId para el tutor movil."
+  $devicesJson = flutter devices --machine | Out-String
+  $devices = @()
+  try {
+    $devices = $devicesJson | ConvertFrom-Json
+  }
+  catch {
+    $devices = @()
+  }
+
+  $mobileDevice = $devices |
+    Where-Object { $_.targetPlatform -in @("android-arm", "android-arm64", "android-x64", "ios") } |
+    Select-Object -First 1
+
+  if ($mobileDevice) {
+    $DeviceId = $mobileDevice.id
+    Write-Host "Usando dispositivo movil detectado: $($mobileDevice.name) [$DeviceId]"
+  }
+  else {
+    Write-Host "Dispositivos disponibles:"
+    flutter devices
+    throw "No hay dispositivo movil detectado (Android/iOS). Conecta tu celular o inicia un emulador."
+  }
 }
 
 flutter run -d $DeviceId -t lib/main_tutor_mobile.dart `

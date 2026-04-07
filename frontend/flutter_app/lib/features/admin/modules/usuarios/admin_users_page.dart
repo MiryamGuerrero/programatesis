@@ -13,10 +13,11 @@ class AdminUsersPage extends ConsumerStatefulWidget {
 class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
-  final _rolController = TextEditingController(text: "1");
 
   bool _loading = false;
   List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _roles = [];
+  int? _selectedRoleId;
   String? _error;
 
   @override
@@ -29,8 +30,36 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
-    _rolController.dispose();
     super.dispose();
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    return int.tryParse(value?.toString() ?? "");
+  }
+
+  String _roleNameById(dynamic roleValue) {
+    final roleId = _asInt(roleValue);
+    if (roleId == null) {
+      return "Sin rol";
+    }
+
+    for (final role in _roles) {
+      final id = _asInt(role["id"]);
+      if (id != roleId) {
+        continue;
+      }
+
+      final nombre = role["nombre"]?.toString().trim();
+      if (nombre != null && nombre.isNotEmpty) {
+        return nombre;
+      }
+    }
+
+    return "Rol $roleId";
   }
 
   Future<void> _loadUsers() async {
@@ -41,11 +70,31 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
 
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final users = await repo.fetchUsers();
+      final usersFuture = repo.fetchUsers();
+      final rolesFuture = repo.fetchCatalog("usuarios", "rol");
+
+      final users = await usersFuture;
+      final roles = await rolesFuture;
+
       if (!mounted) {
         return;
       }
-      setState(() => _users = users);
+
+      final availableRoleIds = roles
+          .map((role) => _asInt(role["id"]))
+          .whereType<int>()
+          .toSet();
+
+      var selectedRoleId = _selectedRoleId;
+      if (selectedRoleId == null || !availableRoleIds.contains(selectedRoleId)) {
+        selectedRoleId = availableRoleIds.isEmpty ? null : availableRoleIds.first;
+      }
+
+      setState(() {
+        _users = users;
+        _roles = roles;
+        _selectedRoleId = selectedRoleId;
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -59,9 +108,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   }
 
   Future<void> _createUser() async {
-    final idRol = int.tryParse(_rolController.text.trim());
+    final idRol = _selectedRoleId;
     if (idRol == null) {
-      setState(() => _error = "id_rol debe ser numerico");
+      setState(() => _error = "Debes seleccionar un rol");
       return;
     }
 
@@ -125,12 +174,27 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               ),
             ),
             SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _rolController,
+              width: 260,
+              child: DropdownButtonFormField<int>(
+                initialValue: _selectedRoleId,
                 decoration: const InputDecoration(
-                  labelText: "id_rol",
+                  labelText: "Rol",
                 ),
+                items: [
+                  for (final role in _roles)
+                    if (_asInt(role["id"]) != null)
+                      DropdownMenuItem<int>(
+                        value: _asInt(role["id"]),
+                        child: Text(
+                          "${role["nombre"] ?? "Rol"} (${role["id"] ?? "-"})",
+                        ),
+                      ),
+                ],
+                onChanged: _loading
+                    ? null
+                    : (value) {
+                        setState(() => _selectedRoleId = value);
+                      },
               ),
             ),
             FilledButton.icon(
@@ -168,7 +232,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                         title: Text(user["nombre_completo"]?.toString() ??
                             "Sin nombre"),
                         subtitle: Text(user["email"]?.toString() ?? ""),
-                        trailing: Text("rol: ${user["id_rol"] ?? "-"}"),
+                        trailing: Text(_roleNameById(user["id_rol"])),
                       ),
                     );
                   },

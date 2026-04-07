@@ -31,7 +31,11 @@ def ensure_sslmode(database_url: str) -> str:
 
 
 def apply_with_direct_url(database_url: str, sql_text: str) -> None:
-    with psycopg.connect(ensure_sslmode(database_url), connect_timeout=30) as conn:
+    with psycopg.connect(
+        ensure_sslmode(database_url),
+        connect_timeout=30,
+        prepare_threshold=None,
+    ) as conn:
         with conn.cursor() as cur:
             cur.execute(sql_text)
         conn.commit()
@@ -66,6 +70,7 @@ def apply_with_pooler(database_url: str, sql_text: str, pooler_host: str, pooler
                 dbname=dbname,
                 sslmode="require",
                 connect_timeout=30,
+                prepare_threshold=None,
             ) as conn:
                 with conn.cursor() as cur:
                     cur.execute(sql_text)

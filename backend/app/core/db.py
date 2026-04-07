@@ -16,7 +16,7 @@ def get_pool() -> ConnectionPool:
         conninfo=settings.database_url,
         min_size=1,
         max_size=8,
-        kwargs={"autocommit": True},
+        kwargs={"autocommit": True, "prepare_threshold": None},
     )
 
 
@@ -26,3 +26,11 @@ def db_cursor():
     with pool.connection() as conn:
         with conn.cursor() as cur:
             yield cur
+
+
+@contextmanager
+def get_connection():
+    """Backward-compatible connection helper for legacy repositories."""
+    pool = get_pool()
+    with pool.connection() as conn:
+        yield conn

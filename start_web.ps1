@@ -85,6 +85,7 @@ if ($webListening) {
 Set-Location $frontendDir
 flutter pub get
 flutter run -d chrome --web-port $webPort -t lib/main_web.dart `
+  --no-web-resources-cdn `
   --dart-define=SUPABASE_URL=$($cfg["SUPABASE_URL"]) `
   --dart-define=SUPABASE_ANON_KEY=$($cfg["SUPABASE_ANON_KEY"]) `
   --dart-define=FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1

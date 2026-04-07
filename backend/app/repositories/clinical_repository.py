@@ -3,12 +3,14 @@ from app.core.db import db_cursor
 
 def get_oms_reference(indicador_codigo: str, id_sexo: int, edad_meses: int) -> tuple[float | None, float | None, float | None] | None:
     sql = """
-        select r.l, r.m, r.s
-                from dom_referencia_oms.oms_referencia_zscore r
-                inner join dom_referencia_oms.indicador_antropometrico i on i.id = r.id_indicador
+                select p.l, p.m, p.s
+                from referencia.oms_curva pcurve
+                inner join referencia.indicador_antropometrico i on i.id = pcurve.id_indicador
+                inner join referencia.oms_curva_punto p on p.id_curva = pcurve.id
         where i.codigo = %s
-          and r.id_sexo = %s
-          and r.meses = %s
+                    and pcurve.id_sexo = %s
+                    and pcurve.tipo_curva = 'ZSCORE'
+                    and p.edad_valor = %s
         limit 1
     """
     with db_cursor() as cur:
@@ -23,7 +25,7 @@ def get_oms_reference(indicador_codigo: str, id_sexo: int, edad_meses: int) -> t
 def get_patient_active_condition_ids(id_paciente: str) -> list[int]:
     sql = """
         select id_condicion
-                from dom_clinica_diagnosticos.diagnostico_paciente
+    from clinico.diagnostico_paciente
         where id_paciente = %s
           and activa = true
     """

@@ -1,0 +1,11 @@
+﻿archivo_csv,filas,tabla_destino
+nutricion_grupo_alimentario.csv,13,nutricion.grupo_alimentario
+nutricion_subgrupo_alimentario.csv,53,nutricion.subgrupo_alimentario
+nutricion_ingrediente.csv,570,nutricion.ingrediente
+nutricion_ingrediente_sinonimo.csv,26,nutricion.ingrediente_sinonimo
+nutricion_ingrediente_composicion.csv,570,nutricion.ingrediente_composicion
+nutricion_clasificacion_nutriente.csv,7,nutricion.clasificacion_nutriente
+nutricion_nutriente.csv,44,nutricion.nutriente
+nutricion_ingrediente_nutriente.csv,25080,nutricion.ingrediente_nutriente
+nutricion_metrica_def.csv,13,nutricion.metrica_def
+nutricion_ingrediente_metrica.csv,7410,nutricion.ingrediente_metrica

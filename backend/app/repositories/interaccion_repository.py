@@ -6,9 +6,9 @@ def get_plan_item_statuses(id_plan: int) -> list[dict[str, str | int | None]]:
         select
             pi.id,
             cec.codigo
-        from dom_planes_base.plan_item pi
-        left join dom_planes_base.seguimiento_plan_item spi on spi.id_plan_item = pi.id
-        left join dom_planes_catalogos_estado.catalogo_estado_consumo cec on cec.id = spi.id_estado_consumo
+        from interaccion.plan_item pi
+        left join interaccion.seguimiento_plan_item spi on spi.id_plan_item = pi.id
+        left join interaccion.catalogo_estado_consumo cec on cec.id = spi.id_estado_consumo
         where pi.id_plan = %s
     """
     with db_cursor() as cur:
@@ -21,7 +21,7 @@ def get_plan_item_statuses(id_plan: int) -> list[dict[str, str | int | None]]:
 def get_patient_id_by_plan(id_plan: int) -> str | None:
     sql = """
         select id_paciente
-        from dom_planes_base.plan_nutricional
+        from interaccion.plan_nutricional
         where id = %s
         limit 1
     """
@@ -37,7 +37,7 @@ def get_patient_id_by_plan(id_plan: int) -> str | None:
 def get_average_pain_for_patient(id_paciente: str) -> float | None:
     sql = """
         select avg(nivel_dolor_eva)::float
-                from dom_clinica_controles.control_paciente
+    from clinico.control_paciente
         where id_paciente = %s
           and nivel_dolor_eva is not null
     """
@@ -53,7 +53,7 @@ def get_average_pain_for_patient(id_paciente: str) -> float | None:
 def get_recipe_evaluation_avg(id_paciente: str) -> list[tuple[int, float]]:
     sql = """
         select id_receta, avg(estrellas)::float
-        from dom_experiencia_usuario.evaluacion_receta
+        from interaccion.evaluacion_receta
         where id_paciente = %s
         group by id_receta
     """
@@ -68,16 +68,16 @@ def get_recipe_consumption_ratio(id_paciente: str) -> list[tuple[int, float]]:
     sql = """
         with planned as (
             select pi.id_receta, count(*) as total
-            from dom_planes_base.plan_item pi
-            inner join dom_planes_base.plan_nutricional pn on pn.id = pi.id_plan
+            from interaccion.plan_item pi
+            inner join interaccion.plan_nutricional pn on pn.id = pi.id_plan
             where pn.id_paciente = %s
             group by pi.id_receta
         ), consumed as (
             select pi.id_receta, count(*) as total
-            from dom_planes_base.plan_item pi
-            inner join dom_planes_base.plan_nutricional pn on pn.id = pi.id_plan
-            inner join dom_planes_base.seguimiento_plan_item spi on spi.id_plan_item = pi.id
-            inner join dom_planes_catalogos_estado.catalogo_estado_consumo cec on cec.id = spi.id_estado_consumo
+            from interaccion.plan_item pi
+            inner join interaccion.plan_nutricional pn on pn.id = pi.id_plan
+            inner join interaccion.seguimiento_plan_item spi on spi.id_plan_item = pi.id
+            inner join interaccion.catalogo_estado_consumo cec on cec.id = spi.id_estado_consumo
             where pn.id_paciente = %s
               and cec.codigo ilike 'CONSUMIDO%%'
             group by pi.id_receta
@@ -96,7 +96,7 @@ def get_recipe_consumption_ratio(id_paciente: str) -> list[tuple[int, float]]:
 
 def upsert_preferencia_receta(id_paciente: str, id_receta: int, puntaje: float) -> None:
     sql = """
-        insert into dom_experiencia_usuario.preferencia_receta (id_paciente, id_receta, puntaje_ajuste)
+        insert into interaccion.preferencia_receta (id_paciente, id_receta, puntaje_ajuste)
         values (%s, %s, %s)
         on conflict (id_paciente, id_receta)
         do update set
@@ -109,7 +109,7 @@ def upsert_preferencia_receta(id_paciente: str, id_receta: int, puntaje: float) 
 
 def upsert_preferencia_ingrediente(id_paciente: str, id_ingrediente: int, puntaje: float) -> None:
     sql = """
-        insert into dom_experiencia_usuario.preferencia_ingrediente (id_paciente, id_ingrediente, puntaje_ajuste)
+        insert into interaccion.preferencia_ingrediente (id_paciente, id_ingrediente, puntaje_ajuste)
         values (%s, %s, %s)
         on conflict (id_paciente, id_ingrediente)
         do update set
