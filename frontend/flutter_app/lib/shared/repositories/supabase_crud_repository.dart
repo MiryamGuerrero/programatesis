@@ -7,6 +7,16 @@ class SupabaseCrudRepository {
   final SupabaseClient _client;
   final Dio _dio;
 
+  List<Map<String, dynamic>> _toRows(dynamic payload) {
+    if (payload is! List) {
+      return const [];
+    }
+
+    return payload
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
   Options _authorizedOptions() {
     final token = _client.auth.currentSession?.accessToken;
     if (token == null || token.isEmpty) {
@@ -21,12 +31,41 @@ class SupabaseCrudRepository {
   }
 
   Exception _toException(DioException error, String fallbackMessage) {
-    final payload = error.response?.data;
-    if (payload is Map && payload["detail"] != null) {
-      return Exception(payload["detail"].toString());
+    final statusCode = error.response?.statusCode;
+
+    if (statusCode == 401) {
+      return Exception("Sesion expirada. Inicia sesion nuevamente.");
+    }
+    if (statusCode == 403) {
+      return Exception("No tienes permisos para realizar esta accion.");
     }
 
-    final statusCode = error.response?.statusCode;
+    final payload = error.response?.data;
+    if (payload is Map) {
+      final map = Map<String, dynamic>.from(payload);
+
+      final detail = map["detail"];
+      if (detail is String && detail.trim().isNotEmpty) {
+        return Exception(detail);
+      }
+      if (detail is List && detail.isNotEmpty) {
+        return Exception(detail.map((e) => e.toString()).join(" | "));
+      }
+      if (map["message"] is String && (map["message"] as String).trim().isNotEmpty) {
+        return Exception(map["message"].toString());
+      }
+      if (map["error"] is String && (map["error"] as String).trim().isNotEmpty) {
+        return Exception(map["error"].toString());
+      }
+    }
+
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return Exception("$fallbackMessage. Verifica la conexion con el backend.");
+    }
+
     return Exception("$fallbackMessage (HTTP ${statusCode ?? "desconocido"})");
   }
 
@@ -36,7 +75,7 @@ class SupabaseCrudRepository {
         "/crud/users",
         options: _authorizedOptions(),
       );
-      return List<Map<String, dynamic>>.from(response.data as List);
+      return _toRows(response.data);
     } on DioException catch (error) {
       throw _toException(error, "No fue posible cargar usuarios");
     }
@@ -203,7 +242,7 @@ class SupabaseCrudRepository {
         },
         options: _authorizedOptions(),
       );
-      return List<Map<String, dynamic>>.from(response.data as List);
+      return _toRows(response.data);
     } on DioException catch (error) {
       throw _toException(error, "No fue posible cargar el catalogo");
     }

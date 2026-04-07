@@ -1,0 +1,1 @@
+"""Admin CRUD module services."""

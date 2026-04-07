@@ -1,20 +1,10 @@
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../features/auth/login_page.dart";
-import "../../features/admin/modules/catalogos/admin_catalogs_page.dart";
-import "../../features/admin/modules/usuarios/admin_users_page.dart";
-import "../../features/medico/modules/diagnostico_oms/diagnostico_page.dart";
-import "../../features/medico/modules/registro_clinico/registro_clinico_page.dart";
-import "../../features/medico/modules/reglas_medicas/reglas_medicas_page.dart";
-import "../../features/nutricionista/modules/ingredientes/ingredientes_page.dart";
-import "../../features/nutricionista/modules/plan_nutricional/plan_manual_page.dart";
-import "../../features/nutricionista/modules/recetas/recetas_page.dart";
-import "../../features/nutricionista/modules/reglas_nutricionales/reglas_nutricionales_page.dart";
-import "../../features/tutor/modules/calificacion/calificacion_page.dart";
-import "../../features/tutor/modules/consumo/consumo_page.dart";
-import "../../features/tutor/modules/plan/plan_page.dart";
-import "../../features/tutor/modules/reemplazos/reemplazo_page.dart";
+import "../../features/roles/role_module.dart";
+import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 
 class RoleShell extends StatefulWidget {
@@ -29,10 +19,31 @@ class RoleShell extends StatefulWidget {
 class _RoleShellState extends State<RoleShell> {
   int _index = 0;
   bool _signingOut = false;
+  bool _initializedFromRoute = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = _defaultIndexForRole(widget.role);
+  }
+
+  @override
+  void didUpdateWidget(covariant RoleShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.role != widget.role) {
+      _index = _defaultIndexForRole(widget.role);
+      _initializedFromRoute = false;
+    }
+  }
+
+  int _defaultIndexForRole(AppRole role) {
+    return defaultModuleIndexForRole(role);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final modules = _modulesForRole(widget.role);
+    final modules = modulesForRole(widget.role);
+    _applyInitialModuleFromRoute(modules);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 960;
@@ -173,7 +184,38 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
 
-  Widget _buildWideNavigation(BuildContext context, List<_RoleModule> modules) {
+  void _applyInitialModuleFromRoute(List<RoleModule> modules) {
+    if (_initializedFromRoute || modules.isEmpty) {
+      return;
+    }
+
+    final moduleKey = Uri.base.queryParameters["module"];
+    if (moduleKey != null && moduleKey.trim().isNotEmpty) {
+      final routeIndex = modules.indexWhere((module) => module.key == moduleKey.trim());
+      if (routeIndex >= 0) {
+        _index = routeIndex;
+      }
+    }
+
+    _initializedFromRoute = true;
+    _syncRouteForModule(modules[_index].key);
+  }
+
+  void _selectModule(int value, List<RoleModule> modules) {
+    setState(() => _index = value);
+    _syncRouteForModule(modules[value].key);
+  }
+
+  void _syncRouteForModule(String moduleKey) {
+    final encodedRole = Uri.encodeComponent(widget.role.name);
+    final encodedModule = Uri.encodeComponent(moduleKey);
+    final location = "/?role=$encodedRole&module=$encodedModule";
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(location),
+    );
+  }
+
+  Widget _buildWideNavigation(BuildContext context, List<RoleModule> modules) {
     final colors = Theme.of(context).colorScheme;
 
     return Padding(
@@ -200,7 +242,7 @@ class _RoleShellState extends State<RoleShell> {
             useIndicator: true,
             groupAlignment: -0.75,
             selectedIndex: _index,
-            onDestinationSelected: (value) => setState(() => _index = value),
+            onDestinationSelected: (value) => _selectModule(value, modules),
             labelType: NavigationRailLabelType.none,
             backgroundColor: Colors.transparent,
             destinations: [
@@ -252,7 +294,7 @@ class _RoleShellState extends State<RoleShell> {
 
   Widget _buildModulePanel(
     BuildContext context,
-    List<_RoleModule> modules,
+    List<RoleModule> modules,
     bool isWide,
   ) {
     final colors = Theme.of(context).colorScheme;
@@ -286,7 +328,7 @@ class _RoleShellState extends State<RoleShell> {
   }
 
   Widget _buildMobileNavigation(
-      BuildContext context, List<_RoleModule> modules) {
+      BuildContext context, List<RoleModule> modules) {
     final colors = Theme.of(context).colorScheme;
 
     return SafeArea(
@@ -307,7 +349,7 @@ class _RoleShellState extends State<RoleShell> {
         child: NavigationBar(
           backgroundColor: Colors.transparent,
           selectedIndex: _index,
-          onDestinationSelected: (value) => setState(() => _index = value),
+          onDestinationSelected: (value) => _selectModule(value, modules),
           destinations: [
             for (final module in modules)
               NavigationDestination(
@@ -320,98 +362,5 @@ class _RoleShellState extends State<RoleShell> {
     );
   }
 
-  List<_RoleModule> _modulesForRole(AppRole role) {
-    switch (role) {
-      case AppRole.admin:
-        return [
-          _RoleModule(
-            title: "Usuarios",
-            icon: Icons.manage_accounts,
-            builder: () => const AdminUsersPage(),
-          ),
-          _RoleModule(
-            title: "Catalogos",
-            icon: Icons.view_list,
-            builder: () => const AdminCatalogsPage(),
-          ),
-        ];
-      case AppRole.medico:
-        return [
-          _RoleModule(
-            title: "Registro clinico",
-            icon: Icons.monitor_heart,
-            builder: () => const RegistroClinicoPage(),
-          ),
-          _RoleModule(
-            title: "Diagnostico OMS",
-            icon: Icons.biotech,
-            builder: () => const DiagnosticoPage(),
-          ),
-          _RoleModule(
-            title: "Reglas medicas",
-            icon: Icons.rule,
-            builder: () => const ReglasMedicasPage(),
-          ),
-        ];
-      case AppRole.nutricionista:
-        return [
-          _RoleModule(
-            title: "Ingredientes",
-            icon: Icons.eco,
-            builder: () => const IngredientesPage(),
-          ),
-          _RoleModule(
-            title: "Recetas",
-            icon: Icons.menu_book,
-            builder: () => const RecetasPage(),
-          ),
-          _RoleModule(
-            title: "Plan manual",
-            icon: Icons.calendar_view_week,
-            builder: () => const PlanManualPage(),
-          ),
-          _RoleModule(
-            title: "Reglas nutr.",
-            icon: Icons.policy,
-            builder: () => const ReglasNutricionalesPage(),
-          ),
-        ];
-      case AppRole.tutor:
-        return [
-          _RoleModule(
-            title: "Mi plan",
-            icon: Icons.calendar_month,
-            builder: () => const TutorPlanPage(),
-          ),
-          _RoleModule(
-            title: "Consumo",
-            icon: Icons.check_circle,
-            builder: () => const TutorConsumoPage(),
-          ),
-          _RoleModule(
-            title: "Reemplazos",
-            icon: Icons.swap_horiz,
-            builder: () => const TutorReemplazoPage(),
-          ),
-          _RoleModule(
-            title: "Calificar",
-            icon: Icons.star,
-            builder: () => const TutorCalificacionPage(),
-          ),
-        ];
-    }
-  }
-}
-
-class _RoleModule {
-  _RoleModule({
-    required this.title,
-    required this.icon,
-    required this.builder,
-  });
-
-  final String title;
-  final IconData icon;
-  final Widget Function() builder;
 }
 
