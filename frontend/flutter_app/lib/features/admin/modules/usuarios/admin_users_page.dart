@@ -141,6 +141,109 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     }
   }
 
+  Future<void> _updateUser(String userId, String email, String nombre, int? idRol, bool activo) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      // Nota: Asume que agregarás el método updateUser a tu repositorio Flutter haciendo el llamado PUT
+      await repo.updateUser(
+        userId: userId,
+        email: email,
+        nombreCompleto: nombre,
+        idRol: idRol,
+        activo: activo,
+      );
+      await _loadUsers();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showEditDialog(Map<String, dynamic> user) async {
+    final editEmailController = TextEditingController(text: user["email"]?.toString() ?? "");
+    final editNameController = TextEditingController(text: user["nombre_completo"]?.toString() ?? "");
+    int? editSelectedRoleId = _asInt(user["id_rol"]);
+    bool editActivo = user["activo"] == true;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Editar usuario"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: editEmailController,
+                      decoration: const InputDecoration(labelText: "Email"),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: editNameController,
+                      decoration: const InputDecoration(labelText: "Nombre completo"),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      value: editSelectedRoleId,
+                      decoration: const InputDecoration(labelText: "Rol"),
+                      items: [
+                        for (final role in _roles)
+                          if (_asInt(role["id"]) != null)
+                            DropdownMenuItem<int>(
+                              value: _asInt(role["id"]),
+                              child: Text(
+                                "${role["nombre"] ?? "Rol"} (${role["id"] ?? "-"})",
+                              ),
+                            ),
+                      ],
+                      onChanged: (value) {
+                        setStateDialog(() => editSelectedRoleId = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: const Text("Activo"),
+                      value: editActivo,
+                      onChanged: (value) => setStateDialog(() => editActivo = value),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _updateUser(
+                      user["id"].toString(),
+                      editEmailController.text.trim(),
+                      editNameController.text.trim(),
+                      editSelectedRoleId,
+                      editActivo,
+                    );
+                  },
+                  child: const Text("Guardar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -232,7 +335,17 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                         title: Text(user["nombre_completo"]?.toString() ??
                             "Sin nombre"),
                         subtitle: Text(user["email"]?.toString() ?? ""),
-                        trailing: Text(_roleNameById(user["id_rol"])),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_roleNameById(user["id_rol"])),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () => _showEditDialog(user),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -242,4 +355,3 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
   }
 }
-

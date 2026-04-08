@@ -21,6 +21,18 @@ def create_user(email: str, nombre_completo: str, id_rol: int) -> str | None:
     return str(created_id) if created_id is not None else None
 
 
+def update_user(
+    id_usuario: str,
+    email: str | None = None,
+    nombre_completo: str | None = None,
+    id_rol: int | None = None,
+    activo: bool | None = None,
+) -> bool:
+    return admin_crud_repository.update_user(
+        id_usuario, email, nombre_completo, id_rol, activo
+    )
+
+
 def fetch_catalog(schema_name: str, table_name: str) -> list[dict]:
     normalized = (schema_name.strip().lower(), table_name.strip().lower())
     if normalized not in ALLOWED_CATALOGS:

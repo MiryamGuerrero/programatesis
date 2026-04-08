@@ -101,6 +101,30 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<void> updateUser({
+    required String userId,
+    String? email,
+    String? nombreCompleto,
+    int? idRol,
+    bool? activo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (email != null) payload["email"] = email;
+      if (nombreCompleto != null) payload["nombre_completo"] = nombreCompleto;
+      if (idRol != null) payload["id_rol"] = idRol;
+      if (activo != null) payload["activo"] = activo;
+
+      await _dio.put(
+        "/crud/users/$userId",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el usuario");
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
     try {
       final response = await _dio.get(

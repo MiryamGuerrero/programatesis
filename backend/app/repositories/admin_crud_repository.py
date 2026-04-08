@@ -33,6 +33,43 @@ def create_user(email: str, nombre_completo: str, id_rol: int) -> Any:
     return row[0] if row else None
 
 
+def update_user(
+    id_usuario: str,
+    email: str | None,
+    nombre_completo: str | None,
+    id_rol: int | None,
+    activo: bool | None,
+) -> bool:
+    updates = []
+    params = []
+
+    if email is not None:
+        updates.append("email = %s")
+        params.append(email.strip())
+    if nombre_completo is not None:
+        updates.append("nombre_completo = %s")
+        params.append(nombre_completo.strip())
+    if id_rol is not None:
+        updates.append("id_rol = %s")
+        params.append(id_rol)
+    if activo is not None:
+        updates.append("activo = %s")
+        params.append(activo)
+
+    if not updates:
+        return False
+
+    params.append(id_usuario)
+    query = f"""
+        update usuarios.usuario
+        set {', '.join(updates)}
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(query, params)
+        return cur.rowcount > 0
+
+
 def fetch_catalog(schema_name: str, table_name: str) -> list[dict[str, Any]]:
     statement = sql.SQL("select * from {}.{} order by 1").format(
         sql.Identifier(schema_name),

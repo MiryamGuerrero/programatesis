@@ -15,6 +15,13 @@ class CreateUserRequest(BaseModel):
 	id_rol: int = Field(gt=0)
 
 
+class UpdateUserRequest(BaseModel):
+	email: str | None = None
+	nombre_completo: str | None = None
+	id_rol: int | None = Field(default=None, gt=0)
+	activo: bool | None = None
+
+
 class CreateIngredienteRequest(BaseModel):
 	nombre: str
 	id_grupo_alimentario: int | None = None
@@ -63,6 +70,25 @@ def crud_create_user(payload: CreateUserRequest, _=Depends(require_roles("admin"
 	except Exception as exc:
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 	return {"id": created_id}
+
+
+@router.put("/crud/users/{id_usuario}")
+def crud_update_user(
+	id_usuario: str,
+	payload: UpdateUserRequest,
+	_=Depends(require_roles("admin")),
+) -> dict[str, Any]:
+	try:
+		updated = admin_crud_service.update_user(
+			id_usuario=id_usuario,
+			email=payload.email,
+			nombre_completo=payload.nombre_completo,
+			id_rol=payload.id_rol,
+			activo=payload.activo,
+		)
+	except Exception as exc:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+	return {"id": id_usuario, "updated": updated}
 
 
 @router.get("/crud/catalog")
