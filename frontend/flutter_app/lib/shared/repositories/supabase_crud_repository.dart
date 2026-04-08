@@ -271,4 +271,56 @@ class SupabaseCrudRepository {
       throw _toException(error, "No fue posible cargar el catalogo");
     }
   }
+
+  Future<void> registerTutor({
+    required String email,
+    required String nombreCompleto,
+    required String idPaciente,
+    int? idParentesco,
+    bool esPrincipal = true,
+  }) async {
+    try {
+      await _dio.post(
+        "/tutores-registro",
+        data: {
+          "email": email,
+          "nombre_completo": nombreCompleto,
+          "id_paciente": idPaciente,
+          "id_parentesco": idParentesco,
+          "es_principal": esPrincipal,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar al tutor");
+    }
+  }
+
+  Future<void> registerPatientAndLinkTutor({
+    required String nombreCompleto,
+    required DateTime fechaNacimiento,
+    required int idSexo,
+    int? idProvincia,
+    required String idUsuarioTutor,
+    int? idParentesco,
+    bool esPrincipal = true,
+  }) async {
+    try {
+      await _dio.post(
+        "/pacientes-registro",
+        data: {
+          "nombre_completo": nombreCompleto,
+          "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
+          "id_sexo": idSexo,
+          "id_provincia": idProvincia,
+          "id_usuario_tutor": idUsuarioTutor,
+          "id_parentesco": idParentesco,
+          "es_principal": esPrincipal,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar al paciente");
+    }
+  }
 }

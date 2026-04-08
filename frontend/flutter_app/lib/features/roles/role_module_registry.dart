@@ -6,6 +6,7 @@ import "../admin/modules/usuarios/admin_users_page.dart";
 import "../medico/modules/diagnostico_oms/diagnostico_page.dart";
 import "../medico/modules/registro_clinico/registro_clinico_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
+import "../../shared/repositories/gestion_tutores_pacientes_page.dart";
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
@@ -52,6 +53,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Reglas medicas",
           icon: Icons.rule,
           builder: () => const ReglasMedicasPage(),
+        ),
+        RoleModule(
+          key: "registro-tutor",
+          title: "Tutores y Pacientes",
+          icon: Icons.group_add,
+          builder: () => const GestionTutoresPacientesPage(),
         ),
       ];
     case AppRole.nutricionista:

@@ -552,3 +552,21 @@ class ListaReglasResponse(BaseModel):
 
 
 RoleName = Literal["admin", "medico", "nutricionista", "tutor"]
+
+
+class RegistroTutorRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=255)
+    nombre_completo: str = Field(min_length=1, max_length=255)
+    id_paciente: str
+    id_parentesco: int | None = None
+    es_principal: bool = True
+
+
+class RegistroPacienteRequest(BaseModel):
+    nombre_completo: str = Field(min_length=1, max_length=255)
+    fecha_nacimiento: date
+    id_sexo: int
+    id_provincia: int | None = None
+    id_usuario_tutor: str
+    id_parentesco: int | None = None
+    es_principal: bool = True
