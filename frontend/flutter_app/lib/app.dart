@@ -156,9 +156,7 @@ class ReumaNutriApp extends ConsumerWidget {
 
           return roleAsync.when(
             data: (role) => RoleShell(role: role),
-            loading: () => const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            loading: () => const LoginPage(),
             error: (_, __) => const RoleShell(role: AppRole.tutor),
           );
         },

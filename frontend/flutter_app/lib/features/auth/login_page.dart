@@ -1,14 +1,17 @@
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
-class LoginPage extends StatefulWidget {
+import "../../core/state/app_providers.dart";
+
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   static const Color _mintStrong = Color(0xFF4CAF50);
   static const Color _mintSoft = Color(0xFF81C784);
   static const Color _coral = Color(0xFFFF7043);
@@ -38,6 +41,8 @@ class _LoginPageState extends State<LoginPage> {
       });
       return;
     }
+
+    ref.read(authErrorProvider.notifier).state = null;
 
     setState(() {
       _loading = true;
@@ -300,6 +305,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLoginForm(BuildContext context, {bool includeTitle = true}) {
+    final globalError = ref.watch(authErrorProvider);
+    final displayError = _error ?? globalError;
+    final session = ref.watch(authSessionProvider).valueOrNull;
+    final roleAsync = ref.watch(appRoleProvider);
+    final isProcessing = _loading || (session != null && roleAsync.isLoading);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
       child: Column(
@@ -348,7 +359,7 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             height: 54,
             child: FilledButton.icon(
-              onPressed: _loading ? null : _signIn,
+              onPressed: isProcessing ? null : _signIn,
               style: FilledButton.styleFrom(
                 backgroundColor: _mintStrong,
                 foregroundColor: Colors.white,
@@ -356,7 +367,7 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: _loading
+              icon: isProcessing
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -367,13 +378,13 @@ class _LoginPageState extends State<LoginPage> {
                     )
                   : const Icon(Icons.login_rounded),
               label: Text(
-                _loading ? "Ingresando..." : "Ingresar",
+                isProcessing ? "Ingresando..." : "Ingresar",
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
             ),
           ),
-          if (_error != null) ...[
+          if (displayError != null) ...[
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -383,7 +394,7 @@ class _LoginPageState extends State<LoginPage> {
                 border: Border.all(color: _coral.withValues(alpha: 0.4)),
               ),
               child: Text(
-                _error!,
+                displayError,
                 style: const TextStyle(
                   color: Color(0xFFB4452D),
                   fontWeight: FontWeight.w600,

@@ -7,6 +7,8 @@ import "../../shared/models/app_role.dart";
 import "../../shared/repositories/inteligencia_api_repository.dart";
 import "../../shared/repositories/supabase_crud_repository.dart";
 
+final authErrorProvider = StateProvider<String?>((ref) => null);
+
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
@@ -31,6 +33,16 @@ final dioProvider = Provider<Dio>((ref) {
         final statusCode = error.response?.statusCode;
         final request = error.requestOptions;
         final alreadyRetried = request.extra["auth_retry"] == true;
+
+        if (statusCode == 403) {
+          final data = error.response?.data;
+          if (data is Map && data["detail"] == "Account deactivated") {
+            try {
+              ref.read(authErrorProvider.notifier).state = "Tu cuenta ha sido desactivada. Contacta al administrador.";
+              await client.auth.signOut();
+            } catch (_) {}
+          }
+        }
 
         if (statusCode == 401 && !alreadyRetried) {
           try {
@@ -136,17 +148,27 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
     return AppRole.tutor;
   }
 
-  final sessionRole = _resolveRoleFromSessionMetadata(session);
-  if (sessionRole != null) {
-    return sessionRole;
-  }
-
+  // 1. Validar SIEMPRE contra el backend primero para ejecutar reglas de seguridad
+  // (esto garantiza que el usuario no este desactivado, sin importar su rol).
   final roleFromApi = await _resolveRoleFromBackend(
     dio: ref.watch(dioProvider),
     accessToken: session.accessToken,
   );
+
+  // Si el backend rechazo el token (cuenta inactiva), el interceptor ya guardo el error.
+  // Abortamos de inmediato para no dar acceso accidental.
+  if (ref.read(authErrorProvider) != null) {
+    return AppRole.tutor;
+  }
+
   if (roleFromApi != null) {
     return roleFromApi;
+  }
+
+  // 2. Fallbacks locales (metadatos de sesion y base de datos)
+  final sessionRole = _resolveRoleFromSessionMetadata(session);
+  if (sessionRole != null) {
+    return sessionRole;
   }
 
   final roleFromUsersTable = await _resolveRoleFromUsersTable(

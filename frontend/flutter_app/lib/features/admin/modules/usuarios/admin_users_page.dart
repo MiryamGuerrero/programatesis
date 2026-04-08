@@ -165,6 +165,26 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     }
   }
 
+  Future<void> _toggleUserStatus(String userId, bool nuevoEstado) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      await repo.updateUser(
+        userId: userId,
+        activo: nuevoEstado,
+      );
+      await _loadUsers();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _showEditDialog(Map<String, dynamic> user) async {
     final editEmailController = TextEditingController(text: user["email"]?.toString() ?? "");
     final editNameController = TextEditingController(text: user["nombre_completo"]?.toString() ?? "");
@@ -332,6 +352,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     final user = _users[index];
                     return Card(
                       child: ListTile(
+                        enabled: user["activo"] == true,
                         title: Text(user["nombre_completo"]?.toString() ??
                             "Sin nombre"),
                         subtitle: Text(user["email"]?.toString() ?? ""),
@@ -339,6 +360,14 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(_roleNameById(user["id_rol"])),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: user["activo"] == true ? "Desactivar cuenta" : "Activar cuenta",
+                              child: Switch(
+                                value: user["activo"] == true,
+                                onChanged: (value) => _toggleUserStatus(user["id"].toString(), value),
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.edit, size: 20),

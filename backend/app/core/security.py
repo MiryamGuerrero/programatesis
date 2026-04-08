@@ -85,6 +85,37 @@ def _get_role_from_user_table(user_id: str, email: str | None) -> str | None:
     return None
 
 
+def _is_user_active(user_id: str, email: str | None) -> bool:
+    sql_by_id = """
+        select activo
+        from usuarios.usuario
+        where id::text = %s
+           or auth_user_id::text = %s
+        limit 1
+    """
+    sql_by_email = """
+        select activo
+        from usuarios.usuario
+        where lower(email) = lower(%s)
+        limit 1
+    """
+    try:
+        with db_cursor() as cur:
+            cur.execute(sql_by_id, (user_id, user_id))
+            row = cur.fetchone()
+            if row is not None:
+                return bool(row[0])
+
+            if email:
+                cur.execute(sql_by_email, (email,))
+                row = cur.fetchone()
+                if row is not None:
+                    return bool(row[0])
+    except Exception:
+        pass
+    return True
+
+
 def _verify_token_with_supabase_auth(token: str) -> dict:
     settings = get_settings()
     if not settings.supabase_url:
@@ -157,6 +188,9 @@ def build_user_context(claims: dict) -> UserContext:
 
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing sub claim")
+
+    if not _is_user_active(user_id, email):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
 
     role = _normalize_role(
         app_meta.get("role")
