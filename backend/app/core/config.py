@@ -23,7 +23,17 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = Field(default="", alias="SUPABASE_JWT_SECRET")
 
     database_url: str = Field(default="", alias="DATABASE_URL")
-    cors_origins: List[str] | str = Field(default_factory=list, alias="CORS_ORIGINS")
+    cors_origins: List[str] | str = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+        ],
+        alias="CORS_ORIGINS",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

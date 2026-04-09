@@ -5,6 +5,62 @@ $backendDir = Join-Path $repoRoot "backend"
 $frontendDir = Join-Path $repoRoot "frontend/flutter_app"
 $envPath = Join-Path $backendDir ".env"
 $pythonExe = Join-Path $repoRoot ".venv/Scripts/python.exe"
+$backendFingerprintPath = Join-Path $backendDir ".backend_fingerprint_web.txt"
+
+function Get-StringSha256([string]$value) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($value)
+    $hash = $sha.ComputeHash($bytes)
+    return ([System.BitConverter]::ToString($hash)).Replace("-", "").ToLowerInvariant()
+  }
+  finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-BackendFingerprint([string]$rootBackendDir, [string]$dotenvPath) {
+  $trackedFiles = @()
+  $trackedFiles += Get-ChildItem (Join-Path $rootBackendDir "app") -Recurse -File -Filter "*.py"
+  $trackedFiles += Get-ChildItem (Join-Path $rootBackendDir "requirements.txt") -ErrorAction SilentlyContinue
+  $trackedFiles += Get-ChildItem $dotenvPath -ErrorAction SilentlyContinue
+
+  $signature = ($trackedFiles |
+      Sort-Object FullName -Unique |
+      ForEach-Object { "{0}|{1}|{2}" -f $_.FullName, $_.Length, $_.LastWriteTimeUtc.Ticks }) -join "`n"
+
+  if ([string]::IsNullOrWhiteSpace($signature)) {
+    return ""
+  }
+
+  return Get-StringSha256 $signature
+}
+
+function Get-ListeningPids([int]$port) {
+  return @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty OwningProcess -Unique)
+}
+
+function Start-Backend([string]$targetBackendDir, [string]$targetPythonExe) {
+  $backendCmd = "Set-Location '$targetBackendDir'; & '$targetPythonExe' -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+  Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd | Out-Null
+}
+
+function Wait-BackendHealthy([int]$maxAttempts = 20) {
+  for ($i = 0; $i -lt $maxAttempts; $i++) {
+    try {
+      $resp = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health -TimeoutSec 2
+      if ($resp.StatusCode -eq 200) {
+        return $true
+      }
+    }
+    catch {
+    }
+    Start-Sleep -Milliseconds 500
+  }
+
+  return $false
+}
 
 if (-not (Test-Path $envPath)) {
   throw "No se encontro backend/.env en: $envPath"
@@ -30,28 +86,53 @@ foreach ($required in @("SUPABASE_URL", "SUPABASE_ANON_KEY")) {
   }
 }
 
-$backendListening = Get-NetTCPConnection -State Listen -LocalPort 8000 -ErrorAction SilentlyContinue
-if (-not $backendListening) {
-  $backendCmd = "Set-Location '$backendDir'; & '$pythonExe' -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
-  Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd | Out-Null
+
+$currentBackendFingerprint = Get-BackendFingerprint -rootBackendDir $backendDir -dotenvPath $envPath
+$previousBackendFingerprint = ""
+if (Test-Path $backendFingerprintPath) {
+  $previousBackendFingerprint = (Get-Content $backendFingerprintPath -Raw).Trim()
 }
 
+$backendPids = Get-ListeningPids -port 8000
+$backendListening = $backendPids.Count -gt 0
 $healthy = $false
-for ($i = 0; $i -lt 20; $i++) {
-  try {
-    $resp = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health -TimeoutSec 2
-    if ($resp.StatusCode -eq 200) {
-      $healthy = $true
-      break
+
+if ($backendListening) {
+  $healthy = Wait-BackendHealthy
+}
+
+$backendFingerprintChanged =
+  -not [string]::IsNullOrWhiteSpace($currentBackendFingerprint) -and
+  $currentBackendFingerprint -ne $previousBackendFingerprint
+
+$mustRestartBackend = ($backendListening -and -not $healthy) -or ($backendListening -and $backendFingerprintChanged)
+
+if ($mustRestartBackend) {
+  foreach ($pid in $backendPids) {
+    try {
+      Stop-Process -Id $pid -Force -ErrorAction Stop
+      Write-Output "Se reinicio backend: proceso detenido PID=$pid"
+    }
+    catch {
+      Write-Output "No se pudo detener PID=$pid en puerto 8000: $($_.Exception.Message)"
     }
   }
-  catch {
-  }
-  Start-Sleep -Milliseconds 500
+
+  $backendListening = $false
+  $healthy = $false
+}
+
+if (-not $backendListening) {
+  Start-Backend -targetBackendDir $backendDir -targetPythonExe $pythonExe
+  $healthy = Wait-BackendHealthy
 }
 
 if (-not $healthy) {
   throw "Backend no responde en /health."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($currentBackendFingerprint)) {
+  Set-Content -Path $backendFingerprintPath -Value $currentBackendFingerprint -NoNewline
 }
 
 $webPort = 3000

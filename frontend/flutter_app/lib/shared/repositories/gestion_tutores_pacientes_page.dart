@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
 
@@ -125,10 +126,6 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
         const SizedBox(height: 12),
         _text(_nameController, "Nombre completo"),
         const SizedBox(height: 12),
-        _text(_pacienteController, "ID del Paciente a vincular (UUID)"),
-        const SizedBox(height: 12),
-        _text(_parentescoController, "ID de Parentesco (Opcional, Ej: 1)", number: true),
-        const SizedBox(height: 12),
         SwitchListTile(
           title: const Text("Es el tutor principal"),
           value: _esPrincipal,
@@ -171,10 +168,17 @@ class _FormRegistroPaciente extends ConsumerStatefulWidget {
 
 class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   final _nameController = TextEditingController();
-  final _sexoController = TextEditingController();
-  final _provinciaController = TextEditingController();
-  final _tutorController = TextEditingController();
-  final _parentescoController = TextEditingController();
+  final _fechaNacimientoController = TextEditingController();
+
+  Map<String, dynamic>? _selectedTutor;
+  int? _selectedSexo;
+  int? _selectedProvincia;
+  int? _selectedParentesco;
+
+  List<Map<String, dynamic>> _sexos = [];
+  List<Map<String, dynamic>> _provincias = [];
+  List<Map<String, dynamic>> _parentescos = [];
+
   bool _esPrincipal = true;
   DateTime? _fechaNacimiento;
 
@@ -183,12 +187,33 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadCatalogs);
+  }
+
+  Future<void> _loadCatalogs() async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final sexos = await repo.fetchCatalog("usuarios", "catalogo_sexo");
+      final provincias = await repo.fetchCatalog("usuarios", "provincia");
+      final parentescos = await repo.fetchCatalog("usuarios", "parentesco");
+      if (mounted) {
+        setState(() {
+          _sexos = sexos;
+          _provincias = provincias;
+          _parentescos = parentescos;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error al cargar catalogos: $e");
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
-    _sexoController.dispose();
-    _provinciaController.dispose();
-    _tutorController.dispose();
-    _parentescoController.dispose();
+    _fechaNacimientoController.dispose();
     super.dispose();
   }
 
@@ -200,18 +225,32 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       lastDate: DateTime.now(),
     );
     if (date != null) {
-      setState(() => _fechaNacimiento = date);
+      setState(() {
+        _fechaNacimiento = date;
+        _fechaNacimientoController.text = date.toIso8601String().split("T").first;
+      });
+    }
+  }
+
+  Future<Iterable<Map<String, dynamic>>> _searchTutors(String query) async {
+    try {
+      final response = await Supabase.instance.client
+          .schema("usuarios")
+          .from("usuario")
+          .select("id, nombre_completo, cedula")
+          .or("nombre_completo.ilike.%$query%,cedula.ilike.%$query%")
+          .limit(10);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (_) {
+      return const Iterable<Map<String, dynamic>>.empty();
     }
   }
 
   Future<void> _registrarPaciente() async {
     final name = _nameController.text.trim();
-    final idSexo = int.tryParse(_sexoController.text.trim());
-    final idProvincia = int.tryParse(_provinciaController.text.trim());
-    final idTutor = _tutorController.text.trim();
-    final idParentesco = int.tryParse(_parentescoController.text.trim());
+    final idTutor = _selectedTutor?["id"]?.toString();
 
-    if (name.isEmpty || _fechaNacimiento == null || idSexo == null || idTutor.isEmpty) {
+    if (name.isEmpty || _fechaNacimiento == null || _selectedSexo == null || idTutor == null || idTutor.isEmpty) {
       setState(() => _error = "Nombre, fecha de nacimiento, sexo e ID del tutor son obligatorios.");
       return;
     }
@@ -227,10 +266,10 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       await repo.registerPatientAndLinkTutor(
         nombreCompleto: name,
         fechaNacimiento: _fechaNacimiento!,
-        idSexo: idSexo,
-        idProvincia: idProvincia,
+        idSexo: _selectedSexo!,
+        idProvincia: _selectedProvincia,
         idUsuarioTutor: idTutor,
-        idParentesco: idParentesco,
+        idParentesco: _selectedParentesco,
         esPrincipal: _esPrincipal,
       );
 
@@ -239,11 +278,12 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       setState(() {
         _resultado = "El paciente fue registrado y vinculado correctamente al tutor.";
         _nameController.clear();
-        _sexoController.clear();
-        _provinciaController.clear();
-        _tutorController.clear();
-        _parentescoController.clear();
+        _fechaNacimientoController.clear();
         _fechaNacimiento = null;
+        _selectedSexo = null;
+        _selectedProvincia = null;
+        _selectedParentesco = null;
+        _selectedTutor = null;
         _esPrincipal = true;
       });
     } catch (error) {
@@ -261,33 +301,101 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       children: [
         _text(_nameController, "Nombre completo del paciente"),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _fechaNacimiento == null
-                    ? "Fecha de nacimiento no seleccionada"
-                    : "Nacimiento: ${_fechaNacimiento!.toIso8601String().split('T').first}",
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _pickDate,
-              icon: const Icon(Icons.calendar_month),
-              label: const Text("Seleccionar"),
-            ),
-          ],
+        TextField(
+          controller: _fechaNacimientoController,
+          readOnly: true,
+          onTap: _pickDate,
+          decoration: const InputDecoration(
+            labelText: "Fecha de nacimiento",
+            prefixIcon: Icon(Icons.calendar_month),
+          ),
         ),
         const SizedBox(height: 12),
-        _text(_sexoController, "ID de Sexo (Ej: 1=M, 2=F)", number: true),
+        DropdownButtonFormField<int>(
+          value: _selectedSexo,
+          decoration: const InputDecoration(labelText: "Sexo"),
+          items: _sexos.map((s) => DropdownMenuItem<int>(
+            value: s["id"] as int,
+            child: Text(s["descripcion"]?.toString() ?? s["codigo"]?.toString() ?? ""),
+          )).toList(),
+          onChanged: (val) => setState(() => _selectedSexo = val),
+        ),
         const SizedBox(height: 12),
-        _text(_provinciaController, "ID de Provincia (Opcional)", number: true),
+        DropdownButtonFormField<int>(
+          value: _selectedProvincia,
+          decoration: const InputDecoration(labelText: "Provincia (Opcional)"),
+          items: _provincias.map((p) => DropdownMenuItem<int>(
+            value: p["id"] as int,
+            child: Text(p["nombre"]?.toString() ?? ""),
+          )).toList(),
+          onChanged: (val) => setState(() => _selectedProvincia = val),
+        ),
         const SizedBox(height: 12),
         const Divider(),
         const SizedBox(height: 12),
-        _text(_tutorController, "ID del Usuario Tutor (UUID) a vincular"),
+        Autocomplete<Map<String, dynamic>>(
+          displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
+          optionsBuilder: (textEditingValue) async {
+            if (textEditingValue.text.isEmpty) {
+              return const Iterable<Map<String, dynamic>>.empty();
+            }
+            return await _searchTutors(textEditingValue.text);
+          },
+          onSelected: (selection) {
+            setState(() => _selectedTutor = selection);
+          },
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: (val) {
+                // Limpiar la seleccion si el usuario edita el texto
+                if (_selectedTutor != null && val != _selectedTutor?["nombre_completo"]) {
+                  setState(() => _selectedTutor = null);
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: "Buscar Tutor a vincular (Nombre o Cédula)",
+                prefixIcon: Icon(Icons.search),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 250, maxWidth: 350),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final option = options.elementAt(index);
+                      return ListTile(
+                        title: Text(option["nombre_completo"]?.toString() ?? ""),
+                        subtitle: Text("Cédula: ${option["cedula"]?.toString() ?? "N/A"}"),
+                        onTap: () => onSelected(option),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 12),
-        _text(_parentescoController, "ID de Parentesco (Opcional)", number: true),
+        DropdownButtonFormField<int>(
+          value: _selectedParentesco,
+          decoration: const InputDecoration(labelText: "Parentesco (Opcional)"),
+          items: _parentescos.map((p) => DropdownMenuItem<int>(
+            value: p["id"] as int,
+            child: Text(p["nombre"]?.toString() ?? ""),
+          )).toList(),
+          onChanged: (val) => setState(() => _selectedParentesco = val),
+        ),
         const SizedBox(height: 12),
         SwitchListTile(
           title: const Text("Tutor es principal para este paciente"),

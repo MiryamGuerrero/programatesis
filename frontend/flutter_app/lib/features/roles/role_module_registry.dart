@@ -15,6 +15,7 @@ import "../tutor/modules/calificacion/calificacion_page.dart";
 import "../tutor/modules/consumo/consumo_page.dart";
 import "../tutor/modules/plan/plan_page.dart";
 import "../tutor/modules/reemplazos/reemplazo_page.dart";
+import "../perfil/perfil_page.dart";
 import "role_module.dart";
 
 List<RoleModule> modulesForRole(AppRole role) {
@@ -32,6 +33,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Catalogos",
           icon: Icons.view_list,
           builder: () => const AdminCatalogsPage(),
+        ),
+        RoleModule(
+          key: "perfil",
+          title: "Perfil",
+          icon: Icons.person,
+          builder: () => const PerfilPage(),
         ),
       ];
     case AppRole.medico:
@@ -60,6 +67,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           icon: Icons.group_add,
           builder: () => const GestionTutoresPacientesPage(),
         ),
+        RoleModule(
+          key: "perfil",
+          title: "Perfil",
+          icon: Icons.person,
+          builder: () => const PerfilPage(),
+        ),
       ];
     case AppRole.nutricionista:
       return [
@@ -87,6 +100,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           icon: Icons.policy,
           builder: () => const ReglasNutricionalesPage(),
         ),
+        RoleModule(
+          key: "perfil",
+          title: "Perfil",
+          icon: Icons.person,
+          builder: () => const PerfilPage(),
+        ),
       ];
     case AppRole.tutor:
       return [
@@ -113,6 +132,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Calificar",
           icon: Icons.star,
           builder: () => const TutorCalificacionPage(),
+        ),
+        RoleModule(
+          key: "perfil",
+          title: "Perfil",
+          icon: Icons.person,
+          builder: () => const PerfilPage(),
         ),
       ];
   }

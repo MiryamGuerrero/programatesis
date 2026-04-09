@@ -3,6 +3,8 @@ from app.repositories import admin_crud_repository
 ALLOWED_CATALOGS: set[tuple[str, str]] = {
     ("usuarios", "rol"),
     ("usuarios", "catalogo_sexo"),
+    ("usuarios", "parentesco"),
+    ("usuarios", "provincia"),
     ("heuristico", "catalogo_accion"),
     ("heuristico", "catalogo_objetivo_regla"),
     ("interaccion", "catalogo_estado_plan"),

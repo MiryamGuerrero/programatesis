@@ -95,7 +95,7 @@ def crud_update_user(
 def crud_fetch_catalog(
 	schema: str = Query(...),
 	table: str = Query(...),
-	_=Depends(require_roles("admin")),
+	_=Depends(require_roles("admin", "medico", "nutricionista")),
 ) -> list[dict[str, Any]]:
 	try:
 		return admin_crud_service.fetch_catalog(schema_name=schema, table_name=table)

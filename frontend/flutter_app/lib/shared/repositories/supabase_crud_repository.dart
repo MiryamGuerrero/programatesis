@@ -272,6 +272,48 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<Map<String, dynamic>> fetchMyProfile() async {
+    try {
+      final response = await _dio.get(
+        "/profile/me",
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+
+      throw Exception("Formato de perfil no valido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar el perfil");
+    }
+  }
+
+  Future<void> updateMyProfile({
+    String? nombreCompleto,
+    String? cedula,
+    String? telefono,
+    String? direccion,
+    String? email,
+  }) async {
+    try {
+      await _dio.put(
+        "/profile/me",
+        data: {
+          "nombre_completo": nombreCompleto,
+          "cedula": cedula,
+          "telefono": telefono,
+          "direccion": direccion,
+          "email": email,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el perfil");
+    }
+  }
+
   Future<void> registerTutor({
     required String email,
     required String nombreCompleto,
