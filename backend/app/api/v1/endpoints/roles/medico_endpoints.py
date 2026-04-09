@@ -11,7 +11,10 @@ from app.schemas.domain import (
     ReglasEvaluacionRequest,
     ReglasEvaluacionResponse,
     RegistroPacienteRequest,
+    RegistroPacienteSoloRequest,
     RegistroTutorRequest,
+    RegistroTutorSoloRequest,
+    VincularTutorPacienteRequest,
 )
 from app.services.roles.medico.modules.adherencia.adherence_analysis_service import (
     calculate_adherence,
@@ -22,8 +25,11 @@ from app.services.shared.cerebro.clasificacion_estado_nutricional_oms.anthropome
     diagnostico_oms,
 )
 from app.repositories.medico_tutor_repository import (
+    registrar_paciente,
     registrar_paciente_y_vincular,
+    registrar_tutor,
     registrar_tutor_paciente,
+    vincular_tutor_paciente,
 )
 from app.services.shared.rule_engine_service import evaluate_rules
 
@@ -100,6 +106,21 @@ def registro_tutor_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
+@router.post("/tutores")
+def registro_tutor_solo_endpoint(
+    payload: RegistroTutorSoloRequest,
+    _=Depends(require_roles("admin", "medico")),
+):
+    try:
+        nuevo_id = registrar_tutor(
+            email=payload.email,
+            nombre_completo=payload.nombre_completo,
+        )
+        return {"id": nuevo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
 @router.post("/pacientes-registro")
 def registro_paciente_endpoint(
     payload: RegistroPacienteRequest,
@@ -112,6 +133,40 @@ def registro_paciente_endpoint(
             id_sexo=payload.id_sexo,
             id_provincia=payload.id_provincia,
             id_usuario_tutor=payload.id_usuario_tutor,
+            id_parentesco=payload.id_parentesco,
+            es_principal=payload.es_principal,
+        )
+        return {"id": nuevo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/pacientes")
+def registro_paciente_solo_endpoint(
+    payload: RegistroPacienteSoloRequest,
+    _=Depends(require_roles("admin", "medico")),
+):
+    try:
+        nuevo_id = registrar_paciente(
+            nombre_completo=payload.nombre_completo,
+            fecha_nacimiento=payload.fecha_nacimiento,
+            id_sexo=payload.id_sexo,
+            id_provincia=payload.id_provincia,
+        )
+        return {"id": nuevo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/tutor-paciente-vinculo")
+def vincular_tutor_paciente_endpoint(
+    payload: VincularTutorPacienteRequest,
+    _=Depends(require_roles("admin", "medico")),
+):
+    try:
+        nuevo_id = vincular_tutor_paciente(
+            id_usuario_tutor=payload.id_usuario_tutor,
+            id_paciente=payload.id_paciente,
             id_parentesco=payload.id_parentesco,
             es_principal=payload.es_principal,
         )

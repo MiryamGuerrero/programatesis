@@ -570,3 +570,22 @@ class RegistroPacienteRequest(BaseModel):
     id_usuario_tutor: str
     id_parentesco: int | None = None
     es_principal: bool = True
+
+
+class RegistroTutorSoloRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=255)
+    nombre_completo: str = Field(min_length=1, max_length=255)
+
+
+class RegistroPacienteSoloRequest(BaseModel):
+    nombre_completo: str = Field(min_length=1, max_length=255)
+    fecha_nacimiento: date
+    id_sexo: int
+    id_provincia: int | None = None
+
+
+class VincularTutorPacienteRequest(BaseModel):
+    id_usuario_tutor: str
+    id_paciente: str
+    id_parentesco: int | None = None
+    es_principal: bool = True

@@ -15,7 +15,7 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -26,8 +26,9 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
           const SizedBox(height: 12),
           const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.person_add_alt_1), text: "Registrar Tutor"),
-              Tab(icon: Icon(Icons.child_care), text: "Registrar Paciente"),
+              Tab(icon: Icon(Icons.person_add_alt_1), text: "Tutor"),
+              Tab(icon: Icon(Icons.child_care), text: "Paciente"),
+              Tab(icon: Icon(Icons.link), text: "Vincular"),
             ],
           ),
           const Expanded(
@@ -35,6 +36,7 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
               children: [
                 _FormRegistroTutor(),
                 _FormRegistroPaciente(),
+                _FormVincularTutorPaciente(),
               ],
             ),
           ),
@@ -54,9 +56,6 @@ class _FormRegistroTutor extends ConsumerStatefulWidget {
 class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
-  final _pacienteController = TextEditingController();
-  final _parentescoController = TextEditingController();
-  bool _esPrincipal = true;
 
   bool _loading = false;
   String? _resultado;
@@ -66,19 +65,15 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
-    _pacienteController.dispose();
-    _parentescoController.dispose();
     super.dispose();
   }
 
   Future<void> _registrarTutor() async {
     final email = _emailController.text.trim();
     final name = _nameController.text.trim();
-    final idPaciente = _pacienteController.text.trim();
-    final idParentesco = int.tryParse(_parentescoController.text.trim());
 
-    if (email.isEmpty || name.isEmpty || idPaciente.isEmpty) {
-      setState(() => _error = "El email, nombre e ID de paciente son obligatorios");
+    if (email.isEmpty || name.isEmpty) {
+      setState(() => _error = "El email y el nombre son obligatorios");
       return;
     }
 
@@ -91,23 +86,17 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
 
-      await repo.registerTutor(
+      await repo.registerTutorOnly(
         email: email,
         nombreCompleto: name,
-        idPaciente: idPaciente,
-        idParentesco: idParentesco,
-        esPrincipal: _esPrincipal,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _resultado = "El usuario tutor fue registrado y vinculado correctamente.";
+        _resultado = "Tutor registrado correctamente. Ahora puedes vincularlo con uno o varios pacientes.";
         _emailController.clear();
         _nameController.clear();
-        _pacienteController.clear();
-        _parentescoController.clear();
-        _esPrincipal = true;
       });
     } catch (error) {
       if (!mounted) return;
@@ -125,18 +114,11 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
         _text(_emailController, "Correo electrónico del tutor", email: true),
         const SizedBox(height: 12),
         _text(_nameController, "Nombre completo"),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: const Text("Es el tutor principal"),
-          value: _esPrincipal,
-          onChanged: (val) => setState(() => _esPrincipal = val),
-          contentPadding: EdgeInsets.zero,
-        ),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: _loading ? null : _registrarTutor,
           icon: const Icon(Icons.person_add_alt_1),
-          label: const Text("Registrar y Vincular Tutor"),
+          label: const Text("Registrar Tutor"),
         ),
         if (_resultado != null) ...[
           const SizedBox(height: 12),
@@ -170,16 +152,12 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   final _nameController = TextEditingController();
   final _fechaNacimientoController = TextEditingController();
 
-  Map<String, dynamic>? _selectedTutor;
   int? _selectedSexo;
   int? _selectedProvincia;
-  int? _selectedParentesco;
 
   List<Map<String, dynamic>> _sexos = [];
   List<Map<String, dynamic>> _provincias = [];
-  List<Map<String, dynamic>> _parentescos = [];
 
-  bool _esPrincipal = true;
   DateTime? _fechaNacimiento;
 
   bool _loading = false;
@@ -197,12 +175,10 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       final sexos = await repo.fetchCatalog("usuarios", "catalogo_sexo");
       final provincias = await repo.fetchCatalog("usuarios", "provincia");
-      final parentescos = await repo.fetchCatalog("usuarios", "parentesco");
       if (mounted) {
         setState(() {
           _sexos = sexos;
           _provincias = provincias;
-          _parentescos = parentescos;
         });
       }
     } catch (e) {
@@ -232,26 +208,11 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
     }
   }
 
-  Future<Iterable<Map<String, dynamic>>> _searchTutors(String query) async {
-    try {
-      final response = await Supabase.instance.client
-          .schema("usuarios")
-          .from("usuario")
-          .select("id, nombre_completo, cedula")
-          .or("nombre_completo.ilike.%$query%,cedula.ilike.%$query%")
-          .limit(10);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (_) {
-      return const Iterable<Map<String, dynamic>>.empty();
-    }
-  }
-
   Future<void> _registrarPaciente() async {
     final name = _nameController.text.trim();
-    final idTutor = _selectedTutor?["id"]?.toString();
 
-    if (name.isEmpty || _fechaNacimiento == null || _selectedSexo == null || idTutor == null || idTutor.isEmpty) {
-      setState(() => _error = "Nombre, fecha de nacimiento, sexo e ID del tutor son obligatorios.");
+    if (name.isEmpty || _fechaNacimiento == null || _selectedSexo == null) {
+      setState(() => _error = "Nombre, fecha de nacimiento y sexo son obligatorios.");
       return;
     }
 
@@ -263,28 +224,22 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
 
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.registerPatientAndLinkTutor(
+      await repo.registerPatientOnly(
         nombreCompleto: name,
         fechaNacimiento: _fechaNacimiento!,
         idSexo: _selectedSexo!,
         idProvincia: _selectedProvincia,
-        idUsuarioTutor: idTutor,
-        idParentesco: _selectedParentesco,
-        esPrincipal: _esPrincipal,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _resultado = "El paciente fue registrado y vinculado correctamente al tutor.";
+        _resultado = "Paciente registrado correctamente. Ahora debes vincularlo a un tutor en la pestaña Vincular.";
         _nameController.clear();
         _fechaNacimientoController.clear();
         _fechaNacimiento = null;
         _selectedSexo = null;
         _selectedProvincia = null;
-        _selectedParentesco = null;
-        _selectedTutor = null;
-        _esPrincipal = true;
       });
     } catch (error) {
       if (!mounted) return;
@@ -312,7 +267,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
-          value: _selectedSexo,
+          initialValue: _selectedSexo,
           decoration: const InputDecoration(labelText: "Sexo"),
           items: _sexos.map((s) => DropdownMenuItem<int>(
             value: s["id"] as int,
@@ -322,7 +277,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
-          value: _selectedProvincia,
+          initialValue: _selectedProvincia,
           decoration: const InputDecoration(labelText: "Provincia (Opcional)"),
           items: _provincias.map((p) => DropdownMenuItem<int>(
             value: p["id"] as int,
@@ -331,83 +286,11 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
           onChanged: (val) => setState(() => _selectedProvincia = val),
         ),
         const SizedBox(height: 12),
-        const Divider(),
-        const SizedBox(height: 12),
-        Autocomplete<Map<String, dynamic>>(
-          displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
-          optionsBuilder: (textEditingValue) async {
-            if (textEditingValue.text.isEmpty) {
-              return const Iterable<Map<String, dynamic>>.empty();
-            }
-            return await _searchTutors(textEditingValue.text);
-          },
-          onSelected: (selection) {
-            setState(() => _selectedTutor = selection);
-          },
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            return TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: (val) {
-                // Limpiar la seleccion si el usuario edita el texto
-                if (_selectedTutor != null && val != _selectedTutor?["nombre_completo"]) {
-                  setState(() => _selectedTutor = null);
-                }
-              },
-              decoration: const InputDecoration(
-                labelText: "Buscar Tutor a vincular (Nombre o Cédula)",
-                prefixIcon: Icon(Icons.search),
-              ),
-            );
-          },
-          optionsViewBuilder: (context, onSelected, options) {
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(12),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 250, maxWidth: 350),
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: options.length,
-                    itemBuilder: (context, index) {
-                      final option = options.elementAt(index);
-                      return ListTile(
-                        title: Text(option["nombre_completo"]?.toString() ?? ""),
-                        subtitle: Text("Cédula: ${option["cedula"]?.toString() ?? "N/A"}"),
-                        onTap: () => onSelected(option),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          value: _selectedParentesco,
-          decoration: const InputDecoration(labelText: "Parentesco (Opcional)"),
-          items: _parentescos.map((p) => DropdownMenuItem<int>(
-            value: p["id"] as int,
-            child: Text(p["nombre"]?.toString() ?? ""),
-          )).toList(),
-          onChanged: (val) => setState(() => _selectedParentesco = val),
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: const Text("Tutor es principal para este paciente"),
-          value: _esPrincipal,
-          onChanged: (val) => setState(() => _esPrincipal = val),
-          contentPadding: EdgeInsets.zero,
-        ),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: _loading ? null : _registrarPaciente,
           icon: const Icon(Icons.child_care),
-          label: const Text("Registrar y Vincular Paciente"),
+          label: const Text("Registrar Paciente"),
         ),
         if (_resultado != null) ...[
           const SizedBox(height: 12),
@@ -426,6 +309,291 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
       controller: controller,
       keyboardType: number ? TextInputType.number : TextInputType.text,
       decoration: InputDecoration(labelText: label),
+    );
+  }
+}
+
+class _FormVincularTutorPaciente extends ConsumerStatefulWidget {
+  const _FormVincularTutorPaciente();
+
+  @override
+  ConsumerState<_FormVincularTutorPaciente> createState() => _FormVincularTutorPacienteState();
+}
+
+class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPaciente> {
+  Map<String, dynamic>? _selectedTutor;
+  Map<String, dynamic>? _selectedPaciente;
+  int? _selectedParentesco;
+  bool _esPrincipal = true;
+
+  List<Map<String, dynamic>> _parentescos = [];
+  bool _loading = false;
+  String? _resultado;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadCatalogs);
+  }
+
+  Future<void> _loadCatalogs() async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final parentescos = await repo.fetchCatalog("usuarios", "parentesco");
+      if (!mounted) {
+        return;
+      }
+      setState(() => _parentescos = parentescos);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
+    }
+  }
+
+  Future<Iterable<Map<String, dynamic>>> _searchTutors(String query) async {
+    try {
+      final response = await Supabase.instance.client
+          .schema("usuarios")
+          .from("usuario")
+          .select("id, nombre_completo, cedula")
+          .or("nombre_completo.ilike.%$query%,cedula.ilike.%$query%")
+          .limit(10);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (_) {
+      return const Iterable<Map<String, dynamic>>.empty();
+    }
+  }
+
+  Future<Iterable<Map<String, dynamic>>> _searchPacientes(String query) async {
+    try {
+      final response = await Supabase.instance.client
+          .schema("usuarios")
+          .from("paciente")
+          .select("id, nombre_completo")
+          .ilike("nombre_completo", "%$query%")
+          .limit(10);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (_) {
+      return const Iterable<Map<String, dynamic>>.empty();
+    }
+  }
+
+  Future<void> _vincular() async {
+    final idTutor = _selectedTutor?["id"]?.toString();
+    final idPaciente = _selectedPaciente?["id"]?.toString();
+
+    if (idTutor == null || idTutor.isEmpty || idPaciente == null || idPaciente.isEmpty) {
+      setState(() => _error = "Debes seleccionar tutor y paciente.");
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _resultado = null;
+    });
+
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      await repo.linkTutorToPatient(
+        idUsuarioTutor: idTutor,
+        idPaciente: idPaciente,
+        idParentesco: _selectedParentesco,
+        esPrincipal: _esPrincipal,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _resultado = "Tutor y paciente vinculados correctamente.";
+        _selectedTutor = null;
+        _selectedPaciente = null;
+        _selectedParentesco = null;
+        _esPrincipal = true;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(top: 16),
+      children: [
+        _buildTutorAutocomplete(),
+        const SizedBox(height: 12),
+        _buildPacienteAutocomplete(),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: _selectedParentesco,
+          decoration: const InputDecoration(labelText: "Parentesco (Opcional)"),
+          items: _parentescos
+              .map(
+                (p) => DropdownMenuItem<int>(
+                  value: p["id"] as int,
+                  child: Text(p["nombre"]?.toString() ?? ""),
+                ),
+              )
+              .toList(),
+          onChanged: (val) => setState(() => _selectedParentesco = val),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          title: const Text("Tutor principal para este paciente"),
+          value: _esPrincipal,
+          onChanged: (val) => setState(() => _esPrincipal = val),
+          contentPadding: EdgeInsets.zero,
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: _loading ? null : _vincular,
+          icon: const Icon(Icons.link),
+          label: const Text("Vincular Tutor y Paciente"),
+        ),
+        if (_resultado != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _resultado!,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _error!,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTutorAutocomplete() {
+    return Autocomplete<Map<String, dynamic>>(
+      displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
+      optionsBuilder: (textEditingValue) async {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<Map<String, dynamic>>.empty();
+        }
+        return _searchTutors(textEditingValue.text);
+      },
+      onSelected: (selection) {
+        setState(() => _selectedTutor = selection);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: "Buscar Tutor (Nombre o Cédula)",
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (_) {
+            if (_selectedTutor != null) {
+              setState(() => _selectedTutor = null);
+            }
+          },
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 250, maxWidth: 380),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return ListTile(
+                    title: Text(option["nombre_completo"]?.toString() ?? ""),
+                    subtitle: Text("Cédula: ${option["cedula"]?.toString() ?? "N/A"}"),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPacienteAutocomplete() {
+    return Autocomplete<Map<String, dynamic>>(
+      displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
+      optionsBuilder: (textEditingValue) async {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<Map<String, dynamic>>.empty();
+        }
+        return _searchPacientes(textEditingValue.text);
+      },
+      onSelected: (selection) {
+        setState(() => _selectedPaciente = selection);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: "Buscar Paciente (Nombre)",
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (_) {
+            if (_selectedPaciente != null) {
+              setState(() => _selectedPaciente = null);
+            }
+          },
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 250, maxWidth: 380),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return ListTile(
+                    title: Text(option["nombre_completo"]?.toString() ?? ""),
+                    subtitle: Text("ID: ${option["id"]?.toString() ?? "N/A"}"),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

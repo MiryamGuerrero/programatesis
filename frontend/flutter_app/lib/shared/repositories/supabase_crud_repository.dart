@@ -338,6 +338,68 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<void> registerTutorOnly({
+    required String email,
+    required String nombreCompleto,
+  }) async {
+    try {
+      await _dio.post(
+        "/tutores",
+        data: {
+          "email": email,
+          "nombre_completo": nombreCompleto,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar al tutor");
+    }
+  }
+
+  Future<void> registerPatientOnly({
+    required String nombreCompleto,
+    required DateTime fechaNacimiento,
+    required int idSexo,
+    int? idProvincia,
+  }) async {
+    try {
+      await _dio.post(
+        "/pacientes",
+        data: {
+          "nombre_completo": nombreCompleto,
+          "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
+          "id_sexo": idSexo,
+          "id_provincia": idProvincia,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar al paciente");
+    }
+  }
+
+  Future<void> linkTutorToPatient({
+    required String idUsuarioTutor,
+    required String idPaciente,
+    int? idParentesco,
+    bool esPrincipal = true,
+  }) async {
+    try {
+      await _dio.post(
+        "/tutor-paciente-vinculo",
+        data: {
+          "id_usuario_tutor": idUsuarioTutor,
+          "id_paciente": idPaciente,
+          "id_parentesco": idParentesco,
+          "es_principal": esPrincipal,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible vincular tutor y paciente");
+    }
+  }
+
   Future<void> registerPatientAndLinkTutor({
     required String nombreCompleto,
     required DateTime fechaNacimiento,
