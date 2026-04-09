@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
-import "package:supabase_flutter/supabase_flutter.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
 
@@ -321,12 +320,19 @@ class _FormVincularTutorPaciente extends ConsumerStatefulWidget {
 }
 
 class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPaciente> {
-  Map<String, dynamic>? _selectedTutor;
-  Map<String, dynamic>? _selectedPaciente;
+  final _tutorSearchController = TextEditingController();
+  final _pacienteSearchController = TextEditingController();
+
+  List<Map<String, dynamic>> _tutoresEncontrados = [];
+  List<Map<String, dynamic>> _pacientesEncontrados = [];
+
+  String? _selectedTutorId;
+  String? _selectedPacienteId;
   int? _selectedParentesco;
   bool _esPrincipal = true;
 
   List<Map<String, dynamic>> _parentescos = [];
+  List<Map<String, dynamic>> _vinculos = [];
   bool _loading = false;
   String? _resultado;
   String? _error;
@@ -334,7 +340,19 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadCatalogs);
+    Future.microtask(_bootstrap);
+  }
+
+  @override
+  void dispose() {
+    _tutorSearchController.dispose();
+    _pacienteSearchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    await _loadCatalogs();
+    await _loadVinculos();
   }
 
   Future<void> _loadCatalogs() async {
@@ -353,37 +371,85 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
     }
   }
 
-  Future<Iterable<Map<String, dynamic>>> _searchTutors(String query) async {
+  Future<void> _loadVinculos() async {
     try {
-      final response = await Supabase.instance.client
-          .schema("usuarios")
-          .from("usuario")
-          .select("id, nombre_completo, cedula")
-          .or("nombre_completo.ilike.%$query%,cedula.ilike.%$query%")
-          .limit(10);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (_) {
-      return const Iterable<Map<String, dynamic>>.empty();
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final vinculos = await repo.fetchTutorPatientLinks();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _vinculos = vinculos);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
     }
   }
 
-  Future<Iterable<Map<String, dynamic>>> _searchPacientes(String query) async {
+  Future<List<Map<String, dynamic>>> _searchTutors(String query) async {
     try {
-      final response = await Supabase.instance.client
-          .schema("usuarios")
-          .from("paciente")
-          .select("id, nombre_completo")
-          .ilike("nombre_completo", "%$query%")
-          .limit(10);
-      return List<Map<String, dynamic>>.from(response);
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      return repo.searchTutors(query: query, limit: 10);
     } catch (_) {
-      return const Iterable<Map<String, dynamic>>.empty();
+      return const [];
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _searchPacientes(String query) async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      return repo.searchPatients(query: query, limit: 10);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _buscarTutores() async {
+    final query = _tutorSearchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _tutoresEncontrados = [];
+        _selectedTutorId = null;
+      });
+      return;
+    }
+
+    final rows = await _searchTutors(query);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _tutoresEncontrados = rows;
+      _selectedTutorId = rows.isEmpty ? null : rows.first["id"]?.toString();
+    });
+  }
+
+  Future<void> _buscarPacientes() async {
+    final query = _pacienteSearchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _pacientesEncontrados = [];
+        _selectedPacienteId = null;
+      });
+      return;
+    }
+
+    final rows = await _searchPacientes(query);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _pacientesEncontrados = rows;
+      _selectedPacienteId = rows.isEmpty ? null : rows.first["id"]?.toString();
+    });
   }
 
   Future<void> _vincular() async {
-    final idTutor = _selectedTutor?["id"]?.toString();
-    final idPaciente = _selectedPaciente?["id"]?.toString();
+    final idTutor = _selectedTutorId;
+    final idPaciente = _selectedPacienteId;
 
     if (idTutor == null || idTutor.isEmpty || idPaciente == null || idPaciente.isEmpty) {
       setState(() => _error = "Debes seleccionar tutor y paciente.");
@@ -411,11 +477,17 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
 
       setState(() {
         _resultado = "Tutor y paciente vinculados correctamente.";
-        _selectedTutor = null;
-        _selectedPaciente = null;
+        _tutorSearchController.clear();
+        _pacienteSearchController.clear();
+        _tutoresEncontrados = [];
+        _pacientesEncontrados = [];
+        _selectedTutorId = null;
+        _selectedPacienteId = null;
         _selectedParentesco = null;
         _esPrincipal = true;
       });
+
+      await _loadVinculos();
     } catch (error) {
       if (!mounted) {
         return;
@@ -428,14 +500,93 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
     }
   }
 
+  Future<void> _editarVinculo(Map<String, dynamic> vinculo) async {
+    int? parentesco = vinculo["id_parentesco"] as int?;
+    bool esPrincipal = vinculo["es_principal"] == true;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Editar vínculo"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: parentesco,
+                    decoration: const InputDecoration(labelText: "Parentesco"),
+                    items: _parentescos
+                        .map(
+                          (p) => DropdownMenuItem<int>(
+                            value: p["id"] as int,
+                            child: Text(p["nombre"]?.toString() ?? ""),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) => setDialogState(() => parentesco = val),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    value: esPrincipal,
+                    onChanged: (val) => setDialogState(() => esPrincipal = val),
+                    title: const Text("Tutor principal"),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final idVinculo = vinculo["id"] as int;
+                    final repo = ref.read(supabaseCrudRepositoryProvider);
+                    await repo.updateTutorPatientLink(
+                      idVinculo: idVinculo,
+                      idParentesco: parentesco,
+                      esPrincipal: esPrincipal,
+                    );
+                    if (!mounted) {
+                      return;
+                    }
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                    setState(() => _resultado = "Vínculo actualizado correctamente.");
+                    await _loadVinculos();
+                  },
+                  child: const Text("Guardar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _desvincular(Map<String, dynamic> vinculo) async {
+    final idVinculo = vinculo["id"] as int;
+    final repo = ref.read(supabaseCrudRepositoryProvider);
+    await repo.unlinkTutorPatient(idVinculo: idVinculo);
+    if (mounted) {
+      setState(() => _resultado = "Vínculo eliminado correctamente.");
+    }
+    await _loadVinculos();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(top: 16),
       children: [
-        _buildTutorAutocomplete(),
+        _buildTutorSelector(),
         const SizedBox(height: 12),
-        _buildPacienteAutocomplete(),
+        _buildPacienteSelector(),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
           initialValue: _selectedParentesco,
@@ -463,6 +614,25 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
           icon: const Icon(Icons.link),
           label: const Text("Vincular Tutor y Paciente"),
         ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Text(
+              "Vínculos registrados",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _loadVinculos,
+              icon: const Icon(Icons.refresh),
+              tooltip: "Recargar vínculos",
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._vinculos.map(_buildVinculoCard),
+        if (_vinculos.isEmpty)
+          const Text("No hay vínculos activos registrados."),
         if (_resultado != null) ...[
           const SizedBox(height: 12),
           Text(
@@ -487,113 +657,130 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
     );
   }
 
-  Widget _buildTutorAutocomplete() {
-    return Autocomplete<Map<String, dynamic>>(
-      displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
-      optionsBuilder: (textEditingValue) async {
-        if (textEditingValue.text.isEmpty) {
-          return const Iterable<Map<String, dynamic>>.empty();
-        }
-        return _searchTutors(textEditingValue.text);
-      },
-      onSelected: (selection) {
-        setState(() => _selectedTutor = selection);
-      },
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          decoration: const InputDecoration(
-            labelText: "Buscar Tutor (Nombre o Cédula)",
-            prefixIcon: Icon(Icons.search),
-          ),
-          onChanged: (_) {
-            if (_selectedTutor != null) {
-              setState(() => _selectedTutor = null);
-            }
-          },
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 250, maxWidth: 380),
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options.elementAt(index);
-                  return ListTile(
-                    title: Text(option["nombre_completo"]?.toString() ?? ""),
-                    subtitle: Text("Cédula: ${option["cedula"]?.toString() ?? "N/A"}"),
-                    onTap: () => onSelected(option),
-                  );
-                },
+  Widget _buildTutorSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tutorSearchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _buscarTutores(),
+                decoration: const InputDecoration(
+                  labelText: "Buscar tutor por nombre o cédula",
+                  prefixIcon: Icon(Icons.search),
+                ),
               ),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _buscarTutores,
+              child: const Text("Buscar"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedTutorId,
+          decoration: const InputDecoration(labelText: "Seleccionar tutor"),
+          items: _tutoresEncontrados
+              .map(
+                (t) => DropdownMenuItem<String>(
+                  value: t["id"]?.toString(),
+                  child: Text(
+                    "${t["nombre_completo"] ?? ""} - Cédula: ${t["cedula"] ?? "N/A"}",
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) => setState(() => _selectedTutorId = value),
+        ),
+      ],
     );
   }
 
-  Widget _buildPacienteAutocomplete() {
-    return Autocomplete<Map<String, dynamic>>(
-      displayStringForOption: (option) => option["nombre_completo"]?.toString() ?? "",
-      optionsBuilder: (textEditingValue) async {
-        if (textEditingValue.text.isEmpty) {
-          return const Iterable<Map<String, dynamic>>.empty();
-        }
-        return _searchPacientes(textEditingValue.text);
-      },
-      onSelected: (selection) {
-        setState(() => _selectedPaciente = selection);
-      },
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          decoration: const InputDecoration(
-            labelText: "Buscar Paciente (Nombre)",
-            prefixIcon: Icon(Icons.search),
-          ),
-          onChanged: (_) {
-            if (_selectedPaciente != null) {
-              setState(() => _selectedPaciente = null);
-            }
-          },
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 250, maxWidth: 380),
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options.elementAt(index);
-                  return ListTile(
-                    title: Text(option["nombre_completo"]?.toString() ?? ""),
-                    subtitle: Text("ID: ${option["id"]?.toString() ?? "N/A"}"),
-                    onTap: () => onSelected(option),
-                  );
-                },
+  Widget _buildPacienteSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _pacienteSearchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _buscarPacientes(),
+                decoration: const InputDecoration(
+                  labelText: "Buscar paciente por nombre",
+                  prefixIcon: Icon(Icons.search),
+                ),
               ),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _buscarPacientes,
+              child: const Text("Buscar"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedPacienteId,
+          decoration: const InputDecoration(labelText: "Seleccionar paciente"),
+          items: _pacientesEncontrados
+              .map(
+                (p) => DropdownMenuItem<String>(
+                  value: p["id"]?.toString(),
+                  child: Text("${p["nombre_completo"] ?? ""} - ID: ${p["id"] ?? "N/A"}"),
+                ),
+              )
+              .toList(),
+          onChanged: (value) => setState(() => _selectedPacienteId = value),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVinculoCard(Map<String, dynamic> vinculo) {
+    final parentescoNombre = vinculo["parentesco_nombre"]?.toString() ?? "Sin parentesco";
+    final tutorNombre = vinculo["tutor_nombre"]?.toString() ?? "Tutor";
+    final tutorCedula = vinculo["tutor_cedula"]?.toString() ?? "N/A";
+    final pacienteNombre = vinculo["paciente_nombre"]?.toString() ?? "Paciente";
+    final esPrincipal = vinculo["es_principal"] == true;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Tutor: $tutorNombre", style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text("Cédula tutor: $tutorCedula"),
+            Text("Paciente: $pacienteNombre"),
+            Text("Parentesco: $parentescoNombre"),
+            Text("Principal: ${esPrincipal ? "Sí" : "No"}"),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _editarVinculo(vinculo),
+                  icon: const Icon(Icons.edit),
+                  label: const Text("Editar"),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: () => _desvincular(vinculo),
+                  icon: const Icon(Icons.link_off),
+                  label: const Text("Desvincular"),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

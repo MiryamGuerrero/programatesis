@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import require_roles
 from app.schemas.domain import (
+    ActualizarVinculoTutorPacienteRequest,
     AdherenciaCalculoRequest,
     AdherenciaCalculoResponse,
     DiagnosticoOmsRequest,
@@ -25,6 +26,11 @@ from app.services.shared.cerebro.clasificacion_estado_nutricional_oms.anthropome
     diagnostico_oms,
 )
 from app.repositories.medico_tutor_repository import (
+    actualizar_vinculo_tutor_paciente,
+    buscar_pacientes,
+    buscar_tutores,
+    desvincular_tutor_paciente,
+    listar_vinculos_tutor_paciente,
     registrar_paciente,
     registrar_paciente_y_vincular,
     registrar_tutor,
@@ -34,6 +40,24 @@ from app.repositories.medico_tutor_repository import (
 from app.services.shared.rule_engine_service import evaluate_rules
 
 router = APIRouter(tags=["Medico"])
+
+
+@router.get("/tutores-buscar")
+def buscar_tutores_endpoint(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    _=Depends(require_roles("admin", "medico")),
+) -> list[dict]:
+    return buscar_tutores(q, limit)
+
+
+@router.get("/pacientes-buscar")
+def buscar_pacientes_endpoint(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    _=Depends(require_roles("admin", "medico")),
+) -> list[dict]:
+    return buscar_pacientes(q, limit)
 
 
 @router.post("/imc-calculo", response_model=ImcResponse)
@@ -171,5 +195,41 @@ def vincular_tutor_paciente_endpoint(
             es_principal=payload.es_principal,
         )
         return {"id": nuevo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/tutor-paciente-vinculo")
+def listar_vinculos_tutor_paciente_endpoint(
+    _=Depends(require_roles("admin", "medico")),
+) -> list[dict]:
+    return listar_vinculos_tutor_paciente()
+
+
+@router.put("/tutor-paciente-vinculo/{id_vinculo}")
+def actualizar_vinculo_tutor_paciente_endpoint(
+    id_vinculo: int,
+    payload: ActualizarVinculoTutorPacienteRequest,
+    _=Depends(require_roles("admin", "medico")),
+) -> dict[str, bool]:
+    try:
+        updated = actualizar_vinculo_tutor_paciente(
+            id_vinculo=id_vinculo,
+            id_parentesco=payload.id_parentesco,
+            es_principal=payload.es_principal,
+        )
+        return {"updated": updated}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.delete("/tutor-paciente-vinculo/{id_vinculo}")
+def desvincular_tutor_paciente_endpoint(
+    id_vinculo: int,
+    _=Depends(require_roles("admin", "medico")),
+) -> dict[str, bool]:
+    try:
+        deleted = desvincular_tutor_paciente(id_vinculo)
+        return {"deleted": deleted}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

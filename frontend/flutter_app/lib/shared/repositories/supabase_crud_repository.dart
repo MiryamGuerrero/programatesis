@@ -356,6 +356,44 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<List<Map<String, dynamic>>> searchTutors({
+    required String query,
+    int limit = 10,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/tutores-buscar",
+        queryParameters: {
+          "q": query,
+          "limit": limit,
+        },
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible buscar tutores");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchPatients({
+    required String query,
+    int limit = 10,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes-buscar",
+        queryParameters: {
+          "q": query,
+          "limit": limit,
+        },
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible buscar pacientes");
+    }
+  }
+
   Future<void> registerPatientOnly({
     required String nombreCompleto,
     required DateTime fechaNacimiento,
@@ -397,6 +435,50 @@ class SupabaseCrudRepository {
       );
     } on DioException catch (error) {
       throw _toException(error, "No fue posible vincular tutor y paciente");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTutorPatientLinks() async {
+    try {
+      final response = await _dio.get(
+        "/tutor-paciente-vinculo",
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar los vinculos");
+    }
+  }
+
+  Future<void> updateTutorPatientLink({
+    required int idVinculo,
+    int? idParentesco,
+    bool esPrincipal = true,
+  }) async {
+    try {
+      await _dio.put(
+        "/tutor-paciente-vinculo/$idVinculo",
+        data: {
+          "id_parentesco": idParentesco,
+          "es_principal": esPrincipal,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el vinculo");
+    }
+  }
+
+  Future<void> unlinkTutorPatient({
+    required int idVinculo,
+  }) async {
+    try {
+      await _dio.delete(
+        "/tutor-paciente-vinculo/$idVinculo",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible desvincular tutor y paciente");
     }
   }
 

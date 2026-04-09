@@ -589,3 +589,8 @@ class VincularTutorPacienteRequest(BaseModel):
     id_paciente: str
     id_parentesco: int | None = None
     es_principal: bool = True
+
+
+class ActualizarVinculoTutorPacienteRequest(BaseModel):
+    id_parentesco: int | None = None
+    es_principal: bool = True

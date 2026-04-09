@@ -1,7 +1,6 @@
 import "package:flutter/material.dart";
 
 import "../../shared/models/app_role.dart";
-import "../admin/modules/catalogos/admin_catalogs_page.dart";
 import "../admin/modules/usuarios/admin_users_page.dart";
 import "../medico/modules/diagnostico_oms/diagnostico_page.dart";
 import "../medico/modules/registro_clinico/registro_clinico_page.dart";
@@ -27,12 +26,6 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Usuarios",
           icon: Icons.manage_accounts,
           builder: () => const AdminUsersPage(),
-        ),
-        RoleModule(
-          key: "catalogos",
-          title: "Catalogos",
-          icon: Icons.view_list,
-          builder: () => const AdminCatalogsPage(),
         ),
         RoleModule(
           key: "perfil",
