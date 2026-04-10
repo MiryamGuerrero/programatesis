@@ -124,6 +124,22 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     }
   }
 
+  Widget _profileField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType? keyboardType,
+    int minLines = 1,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      minLines: minLines,
+      maxLines: maxLines,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -132,109 +148,206 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          "Mi perfil",
-          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          "Actualiza tus datos personales.",
-          style: theme.textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            Chip(
-              avatar: const Icon(Icons.verified_user, size: 18),
-              label: Text("Rol: ${_role.isEmpty ? "No definido" : _role}"),
-            ),
-            Chip(
-              avatar: Icon(
-                _activo ? Icons.check_circle : Icons.block,
-                size: 18,
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFE9F4FD),
+                    Color(0xFFF5FAFF),
+                    Color(0xFFEFFAF8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
               ),
-              label: Text("Estado: ${_activo ? "Activo" : "Inactivo"}"),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1D6AA7), Color(0xFF0D9488)],
+                      ),
+                    ),
+                    child: const Icon(Icons.badge_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Mi Perfil Profesional",
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Actualiza tus datos de contacto e identificacion.",
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.verified_user, size: 18),
+                  label: Text("Rol: ${_role.isEmpty ? "No definido" : _role}"),
+                ),
+                Chip(
+                  avatar: Icon(_activo ? Icons.check_circle : Icons.block, size: 18),
+                  label: Text("Estado: ${_activo ? "Activo" : "Inactivo"}"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    if (isWide)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _profileField(
+                              controller: _nombreController,
+                              label: "Nombre completo",
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _profileField(
+                              controller: _emailController,
+                              label: "Email",
+                              keyboardType: TextInputType.emailAddress,
+                            ),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      _profileField(
+                        controller: _nombreController,
+                        label: "Nombre completo",
+                      ),
+                      const SizedBox(height: 12),
+                      _profileField(
+                        controller: _emailController,
+                        label: "Email",
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (isWide)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _profileField(
+                              controller: _cedulaController,
+                              label: "Cedula",
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _profileField(
+                              controller: _telefonoController,
+                              label: "Telefono",
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      _profileField(
+                        controller: _cedulaController,
+                        label: "Cedula",
+                      ),
+                      const SizedBox(height: 12),
+                      _profileField(
+                        controller: _telefonoController,
+                        label: "Telefono",
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    _profileField(
+                      controller: _direccionController,
+                      label: "Direccion",
+                      minLines: 2,
+                      maxLines: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(
+                  onPressed: _saving ? null : _saveProfile,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(_saving ? "Guardando..." : "Guardar cambios"),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : _loadProfile,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Recargar"),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            if (_success != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _success!,
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ],
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _nombreController,
-          decoration: const InputDecoration(labelText: "Nombre completo"),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: "Email"),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _cedulaController,
-          decoration: const InputDecoration(labelText: "Cedula"),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _telefonoController,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(labelText: "Telefono"),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _direccionController,
-          minLines: 2,
-          maxLines: 4,
-          decoration: const InputDecoration(labelText: "Direccion"),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            FilledButton.icon(
-              onPressed: _saving ? null : _saveProfile,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save),
-              label: Text(_saving ? "Guardando..." : "Guardar cambios"),
-            ),
-            OutlinedButton.icon(
-              onPressed: _saving ? null : _loadProfile,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Recargar"),
-            ),
-          ],
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: theme.colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        if (_success != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _success!,
-            style: TextStyle(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 }

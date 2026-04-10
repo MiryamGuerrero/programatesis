@@ -1,3 +1,5 @@
+import "dart:math" as math;
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -11,21 +13,36 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
-  static const Color _mintStrong = Color(0xFF4CAF50);
-  static const Color _mintSoft = Color(0xFF81C784);
-  static const Color _coral = Color(0xFFFF7043);
-  static const Color _turquoise = Color(0xFF4DD0E1);
-  static const Color _backgroundCream = Color(0xFFFFFDF7);
-  static const Color _slateText = Color(0xFF37474F);
+class _LoginPageState extends ConsumerState<LoginPage>
+    with SingleTickerProviderStateMixin {
+  static const Color _mintStrong = Color(0xFF0D9488);
+  static const Color _mintDeep = Color(0xFF0F766E);
+  static const Color _mintSoft = Color(0xFFA7D8D1);
+  static const Color _coral = Color(0xFF991B1B);
+  static const Color _turquoise = Color(0xFFFB923C);
+  static const Color _backgroundCream = Color(0xFFF8FAFC);
+  static const Color _slateText = Color(0xFF334155);
+  static const Color _slateMuted = Color(0xFF64748B);
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  late final AnimationController _ambientController;
+
   bool _loading = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat(reverse: true);
+  }
+
+  @override
   void dispose() {
+    _ambientController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -98,7 +115,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       backgroundColor: _backgroundCream,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final bool isWide = constraints.maxWidth >= 920;
+          final bool isWide = constraints.maxWidth >= 980;
+          final bool denseVertical = constraints.maxHeight < 760;
+          final availableHeight = constraints.maxHeight - 32;
+          final panelHeight =
+              availableHeight.clamp(500.0, isWide ? 640.0 : 680.0);
 
           return Stack(
             children: [
@@ -109,87 +130,104 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFFF5FFF8),
-                        Color(0xFFE7F8FB),
-                        Color(0xFFFFFBF5),
+                        Color(0xFFF8FAFC),
+                        Color(0xFFF4FAF9),
+                        Color(0xFFFFFFFF),
                       ],
                     ),
                   ),
                 ),
               ),
-              const _DecorativeBlob(
-                top: -90,
-                right: -70,
-                size: 260,
-                colors: [
-                  Color(0xFF81C784),
-                  Color(0xFF4DD0E1),
-                ],
+              AnimatedBuilder(
+                animation: _ambientController,
+                builder: (context, _) {
+                  final wave = math.sin(_ambientController.value * 2 * math.pi);
+                  return _BackdropRibbon(
+                    top: -46 + (wave * 12),
+                    left: -120,
+                    width: 420,
+                    height: 120,
+                    angle: -0.08 + (wave * 0.015),
+                    color: const Color(0x200D9488),
+                  );
+                },
               ),
-              const _DecorativeBlob(
-                bottom: -100,
-                left: -60,
-                size: 290,
-                colors: [
-                  Color(0xFFFFA284),
-                  Color(0xFFFF7043),
-                ],
+              AnimatedBuilder(
+                animation: _ambientController,
+                builder: (context, _) {
+                  final wave = math.cos(_ambientController.value * 2 * math.pi);
+                  return _BackdropRibbon(
+                    bottom: -54 + (wave * 10),
+                    right: -160,
+                    width: 500,
+                    height: 140,
+                    angle: 0.1 + (wave * 0.012),
+                    color: const Color(0x1FFB923C),
+                  );
+                },
               ),
               SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 28 : 16,
-                      vertical: 24,
-                    ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isWide ? 28 : 16,
+                    vertical: 16,
+                  ),
+                  child: Center(
                     child: TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 650),
+                      duration: const Duration(milliseconds: 700),
                       curve: Curves.easeOutCubic,
                       builder: (context, value, child) {
                         return Opacity(
                           opacity: value,
                           child: Transform.translate(
-                            offset: Offset(0, (1 - value) * 16),
+                            offset: Offset(0, (1 - value) * 18),
                             child: child,
                           ),
                         );
                       },
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: isWide ? 980 : 470,
+                          maxWidth: isWide ? 1020 : 470,
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _backgroundCream.withValues(alpha: 0.96),
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x292A3D47),
-                                blurRadius: 36,
-                                offset: Offset(0, 16),
+                        child: SizedBox(
+                          height: panelHeight,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFDFEFF).withValues(alpha: 0.97),
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x1E0F2D46),
+                                  blurRadius: 44,
+                                  offset: Offset(0, 22),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
                               ),
-                            ],
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.45),
                             ),
+                            child: isWide
+                                ? Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildShowcasePanel(
+                                          context,
+                                          dense: denseVertical,
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        color: _slateText.withValues(alpha: 0.08),
+                                      ),
+                                      SizedBox(
+                                        width: 420,
+                                        child: _buildLoginForm(context),
+                                      ),
+                                    ],
+                                  )
+                                : _buildCompactLayout(context),
                           ),
-                          child: isWide
-                              ? Row(
-                                  children: [
-                                    Expanded(
-                                        child: _buildShowcasePanel(context)),
-                                    Container(
-                                      width: 1,
-                                      color: _slateText.withValues(alpha: 0.08),
-                                    ),
-                                    SizedBox(
-                                      width: 420,
-                                      child: _buildLoginForm(context),
-                                    ),
-                                  ],
-                                )
-                              : _buildCompactLayout(context),
                         ),
                       ),
                     ),
@@ -205,49 +243,123 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Widget _buildCompactLayout(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildBrandHeader(context),
-          const SizedBox(height: 22),
-          _buildLoginForm(context, includeTitle: false),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _mintSoft.withValues(alpha: 0.45)),
+            ),
+            child: Text(
+              "Nutricion clinica pediatrica con seguimiento continuo y coordinacion por roles.",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: _slateMuted,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildLoginForm(context, includeTitle: false, compact: true),
         ],
       ),
     );
   }
 
-  Widget _buildShowcasePanel(BuildContext context) {
+  Widget _buildShowcasePanel(BuildContext context, {required bool dense}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(34, 34, 30, 34),
+      padding: EdgeInsets.fromLTRB(
+        dense ? 28 : 34,
+        dense ? 26 : 34,
+        dense ? 24 : 30,
+        dense ? 24 : 34,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildBrandHeader(context),
-          const SizedBox(height: 28),
+          SizedBox(height: dense ? 16 : 22),
+          Container(
+            padding: EdgeInsets.all(dense ? 14 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _mintSoft.withValues(alpha: 0.38)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Entorno profesional sin friccion",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: _slateText,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "Evaluacion alimentaria, control antropometrico y planes de intervencion en un flujo unico.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: _slateMuted,
+                        height: 1.3,
+                      ),
+                ),
+                SizedBox(height: dense ? 10 : 14),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: _MetricChip(
+                        value: "RLS",
+                        label: "Seguridad activa",
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: _MetricChip(
+                        value: "24/7",
+                        label: "Acceso web",
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: dense ? 12 : 16),
           const _FeatureBullet(
-            icon: Icons.eco_rounded,
-            title: "Recetas antiinflamatorias",
+            icon: Icons.restaurant_rounded,
+            title: "Protocolos nutricionales",
             description:
-                "Combinaciones saludables pensadas para bienestar diario.",
+                "Planes alimentarios y registro dietetico con criterio profesional.",
             iconColor: _mintStrong,
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: dense ? 10 : 14),
           const _FeatureBullet(
-            icon: Icons.favorite_rounded,
-            title: "Seguimiento facil",
-            description: "Controla avances nutricionales en un solo lugar.",
-            iconColor: _coral,
-          ),
-          const SizedBox(height: 14),
-          const _FeatureBullet(
-            icon: Icons.water_drop_rounded,
-            title: "Experiencia clara",
-            description: "Visualizacion simple para familias y especialistas.",
+            icon: Icons.straighten_rounded,
+            title: "Control antropometrico",
+            description:
+                "Seguimiento de evolucion para decisiones nutricionales mas precisas.",
             iconColor: _turquoise,
           ),
+          if (!dense) ...[
+            const SizedBox(height: 14),
+            const _FeatureBullet(
+              icon: Icons.groups_2_rounded,
+              title: "Equipo multidisciplinario",
+              description:
+                  "Admin, medico, nutricionista y tutor coordinados por paciente.",
+              iconColor: _mintStrong,
+            ),
+          ],
         ],
       ),
     );
@@ -259,7 +371,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _mintSoft.withValues(alpha: 0.35)),
+        border: Border.all(color: _mintSoft.withValues(alpha: 0.3)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120E3554),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -269,13 +388,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF81C784),
-                  Color(0xFF4CAF50),
+                  Color(0xFF0F766E),
+                  Color(0xFF0D9488),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.spa_rounded, color: Colors.white, size: 28),
+            child: const Icon(Icons.shield_rounded, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -286,14 +405,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   "Reuma Nutri",
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: _slateText,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  "Nutricion inteligente para crecer mejor",
+                  "Gestion nutricional pediatrica",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: _slateText.withValues(alpha: 0.75),
+                        color: _slateMuted,
+                        fontWeight: FontWeight.w600,
                       ),
                 ),
               ],
@@ -304,7 +425,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildLoginForm(BuildContext context, {bool includeTitle = true}) {
+  Widget _buildLoginForm(
+    BuildContext context, {
+    bool includeTitle = true,
+    bool compact = false,
+  }) {
     final globalError = ref.watch(authErrorProvider);
     final displayError = _error ?? globalError;
     final session = ref.watch(authSessionProvider).valueOrNull;
@@ -312,7 +437,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final isProcessing = _loading || (session != null && roleAsync.isLoading);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(8, 6, 8, 0)
+          : const EdgeInsets.fromLTRB(28, 28, 28, 28),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -323,16 +450,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: _slateText,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
             ),
             const SizedBox(height: 6),
             Text(
-              "Accede para gestionar planes, recetas y seguimiento nutricional.",
+              "Accede al sistema de clinica nutricional.",
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _slateText.withValues(alpha: 0.74),
+                    color: _slateMuted,
+                    height: 1.35,
                   ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: compact ? 14 : 20),
           ],
           TextField(
             controller: _emailController,
@@ -344,7 +473,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               icon: Icons.alternate_email_rounded,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 14),
           TextField(
             controller: _passwordController,
             obscureText: true,
@@ -355,19 +484,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               icon: Icons.lock_outline_rounded,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 12 : 20),
           SizedBox(
-            height: 54,
+            height: compact ? 50 : 54,
             child: FilledButton.icon(
               onPressed: isProcessing ? null : _signIn,
               style: FilledButton.styleFrom(
-                backgroundColor: _mintStrong,
+                backgroundColor: _mintDeep,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: isProcessing
+                icon: isProcessing
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -396,7 +525,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Text(
                 displayError,
                 style: const TextStyle(
-                  color: Color(0xFFB4452D),
+                  color: Color(0xFF991B1B),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -411,10 +540,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       {required String label, required IconData icon}) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: _slateText.withValues(alpha: 0.75)),
-      prefixIcon: Icon(icon, color: _turquoise.withValues(alpha: 0.95)),
+      labelStyle: const TextStyle(color: _slateMuted),
+      prefixIcon: Icon(icon, color: _mintStrong.withValues(alpha: 0.95)),
       filled: true,
-      fillColor: const Color(0xFFF9F9F9),
+      fillColor: const Color(0xFFF8FAFC),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -423,28 +552,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide:
-            BorderSide(color: _mintSoft.withValues(alpha: 0.45), width: 1.2),
+            BorderSide(color: _mintSoft.withValues(alpha: 0.7), width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _mintStrong, width: 1.8),
+        borderSide: const BorderSide(color: _mintDeep, width: 1.8),
       ),
     );
   }
 }
 
-class _DecorativeBlob extends StatelessWidget {
-  const _DecorativeBlob({
-    required this.size,
-    required this.colors,
+class _BackdropRibbon extends StatelessWidget {
+  const _BackdropRibbon({
+    required this.width,
+    required this.height,
+    required this.angle,
+    required this.color,
     this.top,
     this.right,
     this.bottom,
     this.left,
   });
 
-  final double size;
-  final List<Color> colors;
+  final double width;
+  final double height;
+  final double angle;
+  final Color color;
   final double? top;
   final double? right;
   final double? bottom;
@@ -458,30 +591,62 @@ class _DecorativeBlob extends StatelessWidget {
       bottom: bottom,
       left: left,
       child: IgnorePointer(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
-            ),
-          ),
-          child: const DecoratedBox(
+        child: Transform.rotate(
+          angle: angle,
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
+              color: color,
+              borderRadius: BorderRadius.all(Radius.circular(28)),
+              boxShadow: const [
                 BoxShadow(
-                  color: Color(0x30000000),
-                  blurRadius: 40,
-                  offset: Offset(0, 16),
+                  color: Color(0x140C3652),
+                  blurRadius: 28,
+                  offset: Offset(0, 12),
                 ),
               ],
             ),
+            child: SizedBox(width: width, height: height),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9F4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF0D9488),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -511,6 +676,7 @@ class _FeatureBullet extends StatelessWidget {
           decoration: BoxDecoration(
             color: iconColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: iconColor.withValues(alpha: 0.28)),
           ),
           child: Icon(icon, size: 22, color: iconColor),
         ),
@@ -522,7 +688,7 @@ class _FeatureBullet extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: const Color(0xFF37474F),
+                      color: const Color(0xFF1E2F3D),
                       fontWeight: FontWeight.w800,
                     ),
               ),
@@ -530,7 +696,7 @@ class _FeatureBullet extends StatelessWidget {
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF37474F).withValues(alpha: 0.8),
+                      color: const Color(0xFF1E2F3D).withValues(alpha: 0.8),
                       height: 1.35,
                     ),
               ),

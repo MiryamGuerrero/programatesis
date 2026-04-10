@@ -10,12 +10,16 @@ router = APIRouter(tags=["CRUD Roles"])
 
 
 class CreateUserRequest(BaseModel):
+	cedula: str | None = None
+	username: str | None = None
 	email: str
 	nombre_completo: str
 	id_rol: int = Field(gt=0)
 
 
 class UpdateUserRequest(BaseModel):
+	cedula: str | None = None
+	username: str | None = None
 	email: str | None = None
 	nombre_completo: str | None = None
 	id_rol: int | None = Field(default=None, gt=0)
@@ -63,6 +67,8 @@ def crud_fetch_users(_=Depends(require_roles("admin"))) -> list[dict[str, Any]]:
 def crud_create_user(payload: CreateUserRequest, _=Depends(require_roles("admin"))) -> dict[str, Any]:
 	try:
 		created_id = admin_crud_service.create_user(
+			cedula=payload.cedula,
+			username=payload.username,
 			email=payload.email,
 			nombre_completo=payload.nombre_completo,
 			id_rol=payload.id_rol,
@@ -81,6 +87,8 @@ def crud_update_user(
 	try:
 		updated = admin_crud_service.update_user(
 			id_usuario=id_usuario,
+			cedula=payload.cedula,
+			username=payload.username,
 			email=payload.email,
 			nombre_completo=payload.nombre_completo,
 			id_rol=payload.id_rol,
@@ -89,6 +97,18 @@ def crud_update_user(
 	except Exception as exc:
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 	return {"id": id_usuario, "updated": updated}
+
+
+@router.delete("/crud/users/{id_usuario}")
+def crud_delete_user(
+	id_usuario: str,
+	_=Depends(require_roles("admin")),
+) -> dict[str, Any]:
+	try:
+		deleted = admin_crud_service.delete_user(id_usuario=id_usuario)
+	except Exception as exc:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+	return {"id": id_usuario, "deleted": deleted}
 
 
 @router.get("/crud/catalog")

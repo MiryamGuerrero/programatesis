@@ -18,21 +18,45 @@ def fetch_users() -> list[dict]:
     return admin_crud_repository.fetch_users()
 
 
-def create_user(email: str, nombre_completo: str, id_rol: int) -> str | None:
-    created_id = admin_crud_repository.create_user(email, nombre_completo, id_rol)
+def create_user(
+    email: str,
+    nombre_completo: str,
+    id_rol: int,
+    cedula: str | None = None,
+    username: str | None = None,
+) -> str | None:
+    created_id = admin_crud_repository.create_user(
+        email=email,
+        nombre_completo=nombre_completo,
+        id_rol=id_rol,
+        cedula=cedula,
+        username=username,
+    )
     return str(created_id) if created_id is not None else None
 
 
 def update_user(
     id_usuario: str,
+    cedula: str | None = None,
+    username: str | None = None,
     email: str | None = None,
     nombre_completo: str | None = None,
     id_rol: int | None = None,
     activo: bool | None = None,
 ) -> bool:
     return admin_crud_repository.update_user(
-        id_usuario, email, nombre_completo, id_rol, activo
+        id_usuario=id_usuario,
+        cedula=cedula,
+        username=username,
+        email=email,
+        nombre_completo=nombre_completo,
+        id_rol=id_rol,
+        activo=activo,
     )
+
+
+def delete_user(id_usuario: str) -> bool:
+    return admin_crud_repository.delete_user(id_usuario)
 
 
 def fetch_catalog(schema_name: str, table_name: str) -> list[dict]:

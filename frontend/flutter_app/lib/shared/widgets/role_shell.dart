@@ -54,18 +54,33 @@ class _RoleShellState extends State<RoleShell> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 78,
+        toolbarHeight: 82,
         flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                colors.primary.withValues(alpha: 0.18),
-                colors.secondary.withValues(alpha: 0.12),
-                const Color(0xFFFFF8F3),
+                colors.primary.withValues(alpha: 0.16),
+                colors.tertiary.withValues(alpha: 0.1),
+                const Color(0xFFF8FAFC),
               ],
             ),
+          ),
+        ),
+        titleSpacing: 8,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+              ),
+            ),
+            child: const Icon(Icons.shield_rounded, color: Colors.white),
           ),
         ),
         title: Column(
@@ -73,7 +88,7 @@ class _RoleShellState extends State<RoleShell> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.role.label,
+              "Clinica nutricional - ${widget.role.label}",
               style: theme.textTheme.labelLarge?.copyWith(
                 color: colors.onSurface.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w700,
@@ -105,22 +120,17 @@ class _RoleShellState extends State<RoleShell> {
         ],
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF7FFF8),
-              Color(0xFFEFFAFD),
-              Color(0xFFFFFDF7),
-            ],
-          ),
-        ),
-        child: Row(
+        decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
+        child: Stack(
           children: [
-            if (isWide) _buildWideNavigation(context, modules),
-            Expanded(
-              child: _buildModulePanel(context, modules, isWide),
+            const Positioned.fill(child: _ShellBackdrop()),
+            Row(
+              children: [
+                if (isWide) _buildWideNavigation(context, modules),
+                Expanded(
+                  child: _buildModulePanel(context, modules, isWide),
+                ),
+              ],
             ),
           ],
         ),
@@ -222,14 +232,14 @@ class _RoleShellState extends State<RoleShell> {
       padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.8),
+          color: Colors.white.withValues(alpha: 0.86),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: colors.outline.withValues(alpha: 0.24)),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.3)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A30414A),
-              blurRadius: 22,
-              offset: Offset(0, 10),
+              color: Color(0x1830414A),
+              blurRadius: 28,
+              offset: Offset(0, 12),
             ),
           ],
         ),
@@ -264,11 +274,11 @@ class _RoleShellState extends State<RoleShell> {
                       height: 38,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF81C784), Color(0xFF4CAF50)],
+                          colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.spa_rounded, color: Colors.white),
+                      child: const Icon(Icons.grid_view_rounded, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
@@ -303,24 +313,27 @@ class _RoleShellState extends State<RoleShell> {
       padding: EdgeInsets.fromLTRB(isWide ? 8 : 16, 16, 16, 16),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.93),
+          color: colors.surface.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.24)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A2A3D47),
-              blurRadius: 24,
-              offset: Offset(0, 12),
+              color: Color(0x142A3D47),
+              blurRadius: 30,
+              offset: Offset(0, 14),
             ),
           ],
         ),
-        child: Padding(
-          padding: EdgeInsets.all(isWide ? 20 : 14),
-          child: IndexedStack(
-            index: _index,
-            children: [
-              for (final module in modules) module.builder(),
-            ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: EdgeInsets.all(isWide ? 20 : 14),
+            child: IndexedStack(
+              index: _index,
+              children: [
+                for (final module in modules) module.builder(),
+              ],
+            ),
           ),
         ),
       ),
@@ -335,13 +348,13 @@ class _RoleShellState extends State<RoleShell> {
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
+          color: Colors.white.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: colors.outline.withValues(alpha: 0.24)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A30414A),
-              blurRadius: 20,
+              color: Color(0x1630414A),
+              blurRadius: 24,
               offset: Offset(0, 10),
             ),
           ],
@@ -362,5 +375,79 @@ class _RoleShellState extends State<RoleShell> {
     );
   }
 
+}
+
+class _ShellBackdrop extends StatelessWidget {
+  const _ShellBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF8FAFC),
+                    Color(0xFFF5F9F8),
+                    Color(0xFFFFFFFF),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -40,
+            left: -120,
+            child: Transform.rotate(
+              angle: -0.08,
+              child: Container(
+                width: 420,
+                height: 140,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -140,
+            bottom: -28,
+            child: Transform.rotate(
+              angle: 0.1,
+              child: Container(
+                width: 460,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x00FFFFFF),
+                    Color(0x00FFFFFF),
+                    Color(0x12FFFFFF),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 

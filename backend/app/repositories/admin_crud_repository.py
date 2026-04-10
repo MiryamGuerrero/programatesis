@@ -12,7 +12,7 @@ def _rows_to_dicts(cur: Any, rows: list[tuple[Any, ...]]) -> list[dict[str, Any]
 
 def fetch_users() -> list[dict[str, Any]]:
     query = """
-        select id, id_rol, email, nombre_completo, telefono, direccion, activo, created_at
+        select id, id_rol, cedula, username, email, nombre_completo, telefono, direccion, activo, created_at
         from usuarios.usuario
         order by created_at desc
     """
@@ -21,20 +21,40 @@ def fetch_users() -> list[dict[str, Any]]:
         return _rows_to_dicts(cur, cur.fetchall())
 
 
-def create_user(email: str, nombre_completo: str, id_rol: int) -> Any:
-    query = """
-        insert into usuarios.usuario (email, nombre_completo, id_rol)
-        values (%s, %s, %s)
+def create_user(
+    email: str,
+    nombre_completo: str,
+    id_rol: int,
+    cedula: str | None = None,
+    username: str | None = None,
+) -> Any:
+    columns = ["email", "nombre_completo", "id_rol"]
+    values = [email.strip(), nombre_completo.strip(), id_rol]
+
+    if cedula is not None and cedula.strip():
+        columns.append("cedula")
+        values.append(cedula.strip())
+
+    if username is not None and username.strip():
+        columns.append("username")
+        values.append(username.strip().lower())
+
+    placeholders = ", ".join(["%s"] * len(values))
+    query = f"""
+        insert into usuarios.usuario ({', '.join(columns)})
+        values ({placeholders})
         returning id
     """
     with db_cursor() as cur:
-        cur.execute(query, (email.strip(), nombre_completo.strip(), id_rol))
+        cur.execute(query, tuple(values))
         row = cur.fetchone()
     return row[0] if row else None
 
 
 def update_user(
     id_usuario: str,
+    cedula: str | None,
+    username: str | None,
     email: str | None,
     nombre_completo: str | None,
     id_rol: int | None,
@@ -43,6 +63,12 @@ def update_user(
     updates = []
     params = []
 
+    if cedula is not None:
+        updates.append("cedula = %s")
+        params.append(cedula.strip())
+    if username is not None:
+        updates.append("username = %s")
+        params.append(username.strip().lower())
     if email is not None:
         updates.append("email = %s")
         params.append(email.strip())
@@ -67,6 +93,16 @@ def update_user(
     """
     with db_cursor() as cur:
         cur.execute(query, params)
+        return cur.rowcount > 0
+
+
+def delete_user(id_usuario: str) -> bool:
+    query = """
+        delete from usuarios.usuario
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(query, (id_usuario,))
         return cur.rowcount > 0
 
 

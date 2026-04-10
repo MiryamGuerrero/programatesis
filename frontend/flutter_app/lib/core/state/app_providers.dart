@@ -3,6 +3,7 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../core/network/api_client.dart";
+import "../../features/admin/data/admin_accounts_supabase_repository.dart";
 import "../../shared/models/app_role.dart";
 import "../../shared/repositories/inteligencia_api_repository.dart";
 import "../../shared/repositories/supabase_crud_repository.dart";
@@ -184,6 +185,14 @@ final selectedPatientIdProvider = StateProvider<String?>((ref) => null);
 
 final supabaseCrudRepositoryProvider = Provider<SupabaseCrudRepository>((ref) {
   return SupabaseCrudRepository(
+    ref.watch(supabaseClientProvider),
+    ref.watch(dioProvider),
+  );
+});
+
+final adminAccountsRepositoryProvider =
+    Provider<AdminAccountsSupabaseRepository>((ref) {
+  return AdminAccountsSupabaseRepository(
     ref.watch(supabaseClientProvider),
     ref.watch(dioProvider),
   );

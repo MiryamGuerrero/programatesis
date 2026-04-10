@@ -108,13 +108,13 @@ $backendFingerprintChanged =
 $mustRestartBackend = ($backendListening -and -not $healthy) -or ($backendListening -and $backendFingerprintChanged)
 
 if ($mustRestartBackend) {
-  foreach ($pid in $backendPids) {
+  foreach ($backendPid in $backendPids) {
     try {
-      Stop-Process -Id $pid -Force -ErrorAction Stop
-      Write-Output "Se reinicio backend: proceso detenido PID=$pid"
+      Stop-Process -Id $backendPid -Force -ErrorAction Stop
+      Write-Output "Se reinicio backend: proceso detenido PID=$backendPid"
     }
     catch {
-      Write-Output "No se pudo detener PID=$pid en puerto 8000: $($_.Exception.Message)"
+      Write-Output "No se pudo detener PID=$backendPid en puerto 8000: $($_.Exception.Message)"
     }
   }
 
