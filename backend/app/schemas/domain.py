@@ -585,6 +585,100 @@ class ControlClinicoActualResponse(ControlClinicoInicialRequest):
     fecha_control: date
 
 
+class AlergiaIngredienteRequest(BaseModel):
+    id_ingrediente: int = Field(gt=0)
+    observacion: str | None = None
+
+
+class AlergiaGrupoRequest(BaseModel):
+    id_grupo_alimentario: int = Field(gt=0)
+    observacion: str | None = None
+
+
+class AlergiaIngredienteItem(BaseModel):
+    id_ingrediente: int
+    nombre_ingrediente: str
+    observacion: str | None = None
+    fecha_registro: date
+
+
+class AlergiaGrupoItem(BaseModel):
+    id_grupo_alimentario: int
+    nombre_grupo: str
+    observacion: str | None = None
+    fecha_registro: date
+
+
+class AlergiasPacienteResponse(BaseModel):
+    ingredientes: list[AlergiaIngredienteItem] = Field(default_factory=list)
+    grupos: list[AlergiaGrupoItem] = Field(default_factory=list)
+
+
+class CondicionTemporalItem(BaseModel):
+    id_condicion: int
+    nombre: str
+    descripcion: str | None = None
+
+
+class CondicionesTemporalesResponse(BaseModel):
+    id_paciente: str
+    id_condiciones_temporales: list[int] = Field(default_factory=list)
+    condiciones: list[CondicionTemporalItem] = Field(default_factory=list)
+
+
+class ActualizarCondicionesTemporalesRequest(BaseModel):
+    id_condiciones_temporales: list[int] = Field(default_factory=list)
+
+
+class TipoCondicionCreateRequest(BaseModel):
+    codigo: str = Field(min_length=1, max_length=30)
+    nombre: str = Field(min_length=1, max_length=60)
+
+
+class TipoCondicionUpdateRequest(BaseModel):
+    codigo: str | None = Field(default=None, min_length=1, max_length=30)
+    nombre: str | None = Field(default=None, min_length=1, max_length=60)
+
+
+class CondicionCreateRequest(BaseModel):
+    nombre: str = Field(min_length=1, max_length=150)
+    id_tipo_condicion: int = Field(gt=0)
+    descripcion: str | None = None
+    activa: bool = True
+
+
+class CondicionUpdateRequest(BaseModel):
+    nombre: str | None = Field(default=None, min_length=1, max_length=150)
+    id_tipo_condicion: int | None = Field(default=None, gt=0)
+    descripcion: str | None = None
+    activa: bool | None = None
+
+
+class EvolucionControlItem(BaseModel):
+    id_control: int
+    fecha_control: date
+    peso_kg: float | None = None
+    talla_cm: float | None = None
+    imc_calculado: float | None = None
+    nivel_dolor_eva: int | None = None
+    nivel_inflamacion: int | None = None
+
+
+class EvolucionPacienteResumenResponse(BaseModel):
+    id_paciente: str
+    paciente_nombre: str | None = None
+    total_controles: int
+    ultimo_control: ControlClinicoActualResponse | None = None
+    historial_controles: list[EvolucionControlItem] = Field(default_factory=list)
+    condiciones_temporales_activas: list[CondicionTemporalItem] = Field(default_factory=list)
+    total_alergias_ingrediente: int = 0
+    total_alergias_grupo: int = 0
+    id_plan_vigente: int | None = None
+    adherencia_pct: float | None = None
+    dolor_promedio: float | None = None
+    comparacion_adherencia_dolor: str | None = None
+
+
 class RegistroPacienteRequest(BaseModel):
     nombre_completo: str = Field(min_length=1, max_length=255)
     fecha_nacimiento: date

@@ -496,3 +496,427 @@ def actualizar_control_clinico_actual(id_paciente: str, control_clinico: dict) -
                 cur.execute(query_condiciones, (id_control, id_condicion))
 
         return id_control
+
+
+def listar_alergias_paciente(id_paciente: str) -> dict:
+    query_ingredientes = """
+        select
+            api.id_ingrediente,
+            i.nombre as nombre_ingrediente,
+            api.observacion,
+            api.fecha_registro
+        from clinico.alergia_paciente_ingrediente api
+        inner join nutricion.ingrediente i on i.id = api.id_ingrediente
+        where api.id_paciente = %s
+          and api.activa = true
+        order by i.nombre asc
+    """
+    query_grupos = """
+        select
+            apg.id_grupo_alimentario,
+            ga.nombre as nombre_grupo,
+            apg.observacion,
+            apg.fecha_registro
+        from clinico.alergia_paciente_grupo apg
+        inner join nutricion.grupo_alimentario ga on ga.id = apg.id_grupo_alimentario
+        where apg.id_paciente = %s
+          and apg.activa = true
+        order by ga.nombre asc
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query_ingredientes, (id_paciente,))
+        ingredientes = _rows_to_dicts(cur, cur.fetchall())
+        cur.execute(query_grupos, (id_paciente,))
+        grupos = _rows_to_dicts(cur, cur.fetchall())
+
+    return {
+        "ingredientes": ingredientes,
+        "grupos": grupos,
+    }
+
+
+def registrar_alergia_ingrediente(id_paciente: str, id_ingrediente: int, observacion: str | None) -> None:
+    query = """
+        insert into clinico.alergia_paciente_ingrediente (
+            id_paciente,
+            id_ingrediente,
+            observacion,
+            activa
+        )
+        select %s, %s, %s, true
+        where not exists (
+            select 1
+            from clinico.alergia_paciente_ingrediente
+            where id_paciente = %s
+              and id_ingrediente = %s
+              and activa = true
+        )
+    """
+
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                id_paciente,
+                id_ingrediente,
+                observacion,
+                id_paciente,
+                id_ingrediente,
+            ),
+        )
+
+
+def desactivar_alergia_ingrediente(id_paciente: str, id_ingrediente: int) -> bool:
+    query = """
+        update clinico.alergia_paciente_ingrediente
+        set activa = false
+        where id_paciente = %s
+          and id_ingrediente = %s
+          and activa = true
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente, id_ingrediente))
+        return cur.rowcount > 0
+
+
+def registrar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int, observacion: str | None) -> None:
+    query = """
+        insert into clinico.alergia_paciente_grupo (
+            id_paciente,
+            id_grupo_alimentario,
+            observacion,
+            activa
+        )
+        select %s, %s, %s, true
+        where not exists (
+            select 1
+            from clinico.alergia_paciente_grupo
+            where id_paciente = %s
+              and id_grupo_alimentario = %s
+              and activa = true
+        )
+    """
+
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                id_paciente,
+                id_grupo_alimentario,
+                observacion,
+                id_paciente,
+                id_grupo_alimentario,
+            ),
+        )
+
+
+def desactivar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int) -> bool:
+    query = """
+        update clinico.alergia_paciente_grupo
+        set activa = false
+        where id_paciente = %s
+          and id_grupo_alimentario = %s
+          and activa = true
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente, id_grupo_alimentario))
+        return cur.rowcount > 0
+
+
+def listar_condiciones_temporales_activas_control_actual(id_paciente: str) -> dict:
+    query = """
+        with latest_control as (
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, created_at desc, id desc
+            limit 1
+        )
+        select
+            c.id as id_condicion,
+            c.nombre,
+            c.descripcion
+        from latest_control lc
+        inner join clinico.control_condicion_activa cca on cca.id_control = lc.id
+        inner join heuristico.condicion c on c.id = cca.id_condicion
+        inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+        where lower(t.codigo) = 'temporal'
+          and c.activa = true
+        order by c.nombre asc
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente,))
+        condiciones = _rows_to_dicts(cur, cur.fetchall())
+
+    return {
+        "id_paciente": id_paciente,
+        "id_condiciones_temporales": [int(item["id_condicion"]) for item in condiciones],
+        "condiciones": condiciones,
+    }
+
+
+def actualizar_condiciones_temporales_control_actual(
+    id_paciente: str,
+    id_condiciones_temporales: list[int],
+) -> int:
+    condiciones_ids = sorted(
+        {
+            int(condicion_id)
+            for condicion_id in id_condiciones_temporales
+            if condicion_id is not None
+        },
+    )
+
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, created_at desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_control = cur.fetchone()
+        if not row_control:
+            raise ValueError("El paciente no tiene control clínico para asociar condiciones temporales.")
+
+        id_control = int(row_control[0])
+
+        cur.execute(
+            """
+            delete from clinico.control_condicion_activa cca
+            using heuristico.condicion c
+            inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+            where cca.id_control = %s
+              and cca.id_condicion = c.id
+              and lower(t.codigo) = 'temporal'
+            """,
+            (id_control,),
+        )
+
+        if condiciones_ids:
+            cur.execute(
+                """
+                insert into clinico.control_condicion_activa (id_control, id_condicion)
+                select %s, c.id
+                from heuristico.condicion c
+                inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+                where c.id = any(%s)
+                  and c.activa = true
+                  and lower(t.codigo) = 'temporal'
+                on conflict (id_control, id_condicion) do nothing
+                """,
+                (id_control, condiciones_ids),
+            )
+
+    return id_control
+
+
+def crear_tipo_condicion(codigo: str, nombre: str) -> int:
+    query = """
+        insert into heuristico.catalogo_tipo_condicion (codigo, nombre)
+        values (%s, %s)
+        returning id
+    """
+    with db_cursor() as cur:
+        cur.execute(query, (codigo.strip().upper(), nombre.strip()))
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("No fue posible crear el tipo de condición.")
+        return int(row[0])
+
+
+def actualizar_tipo_condicion(
+    id_tipo_condicion: int,
+    codigo: str | None,
+    nombre: str | None,
+) -> bool:
+    query = """
+        update heuristico.catalogo_tipo_condicion
+        set
+            codigo = coalesce(%s, codigo),
+            nombre = coalesce(%s, nombre)
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                codigo.strip().upper() if codigo is not None else None,
+                nombre.strip() if nombre is not None else None,
+                id_tipo_condicion,
+            ),
+        )
+        return cur.rowcount > 0
+
+
+def crear_condicion(
+    nombre: str,
+    id_tipo_condicion: int,
+    descripcion: str | None,
+    activa: bool,
+) -> int:
+    query = """
+        insert into heuristico.condicion (nombre, id_tipo_condicion, descripcion, activa)
+        values (%s, %s, %s, %s)
+        returning id
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                nombre.strip(),
+                id_tipo_condicion,
+                descripcion.strip() if descripcion is not None else None,
+                activa,
+            ),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("No fue posible crear la condición.")
+        return int(row[0])
+
+
+def actualizar_condicion(
+    id_condicion: int,
+    nombre: str | None,
+    id_tipo_condicion: int | None,
+    descripcion: str | None,
+    activa: bool | None,
+) -> bool:
+    query = """
+        update heuristico.condicion
+        set
+            nombre = coalesce(%s, nombre),
+            id_tipo_condicion = coalesce(%s, id_tipo_condicion),
+            descripcion = coalesce(%s, descripcion),
+            activa = coalesce(%s, activa)
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                nombre.strip() if nombre is not None else None,
+                id_tipo_condicion,
+                descripcion.strip() if descripcion is not None else None,
+                activa,
+                id_condicion,
+            ),
+        )
+        return cur.rowcount > 0
+
+
+def obtener_resumen_evolucion_paciente(id_paciente: str) -> dict:
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select nombre_completo
+            from usuarios.paciente
+            where id = %s
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_paciente = cur.fetchone()
+        paciente_nombre = row_paciente[0] if row_paciente else None
+
+        cur.execute(
+            """
+            select
+                cp.id as id_control,
+                cp.fecha_control,
+                cp.peso_kg,
+                cp.talla_cm,
+                cp.imc_calculado,
+                cp.nivel_dolor_eva,
+                cp.nivel_inflamacion
+            from clinico.control_paciente cp
+            where cp.id_paciente = %s
+            order by cp.fecha_control desc, cp.created_at desc, cp.id desc
+            limit 12
+            """,
+            (id_paciente,),
+        )
+        historial = _rows_to_dicts(cur, cur.fetchall())
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.control_paciente
+            where id_paciente = %s
+            """,
+            (id_paciente,),
+        )
+        total_controles = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.alergia_paciente_ingrediente
+            where id_paciente = %s
+              and activa = true
+            """,
+            (id_paciente,),
+        )
+        total_alergias_ingrediente = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.alergia_paciente_grupo
+            where id_paciente = %s
+              and activa = true
+            """,
+            (id_paciente,),
+        )
+        total_alergias_grupo = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select id
+            from interaccion.plan_nutricional
+            where id_paciente = %s
+              and activo = true
+            order by fecha_inicio desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_plan = cur.fetchone()
+        id_plan_vigente = int(row_plan[0]) if row_plan else None
+
+    ultimo_control = obtener_control_clinico_actual(id_paciente)
+    condiciones_temporales = listar_condiciones_temporales_activas_control_actual(id_paciente).get("condiciones", [])
+
+    adherencia_pct = None
+    dolor_promedio = None
+    comparacion = None
+    if id_plan_vigente is not None:
+        from app.services.roles.medico.modules.adherencia.adherence_analysis_service import calculate_adherence
+
+        adherencia = calculate_adherence(id_plan=id_plan_vigente, id_paciente=id_paciente)
+        adherencia_pct = adherencia.get("adherencia_pct")
+        dolor_promedio = adherencia.get("dolor_promedio")
+        comparacion = adherencia.get("comparacion")
+
+    return {
+        "id_paciente": id_paciente,
+        "paciente_nombre": paciente_nombre,
+        "total_controles": total_controles,
+        "ultimo_control": ultimo_control,
+        "historial_controles": historial,
+        "condiciones_temporales_activas": condiciones_temporales,
+        "total_alergias_ingrediente": total_alergias_ingrediente,
+        "total_alergias_grupo": total_alergias_grupo,
+        "id_plan_vigente": id_plan_vigente,
+        "adherencia_pct": adherencia_pct,
+        "dolor_promedio": dolor_promedio,
+        "comparacion_adherencia_dolor": comparacion,
+    }

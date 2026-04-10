@@ -7,11 +7,13 @@ ALLOWED_CATALOGS: set[tuple[str, str]] = {
     ("usuarios", "provincia"),
     ("heuristico", "catalogo_accion"),
     ("heuristico", "catalogo_objetivo_regla"),
+    ("heuristico", "catalogo_tipo_condicion"),
     ("heuristico", "condicion"),
     ("interaccion", "catalogo_estado_plan"),
     ("interaccion", "catalogo_tipo_plan"),
     ("interaccion", "catalogo_origen_plan"),
     ("interaccion", "catalogo_estado_consumo"),
+    ("nutricion", "grupo_alimentario"),
 }
 
 

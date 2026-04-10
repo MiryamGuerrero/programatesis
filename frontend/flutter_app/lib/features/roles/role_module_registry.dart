@@ -2,7 +2,9 @@ import "package:flutter/material.dart";
 
 import "../../shared/models/app_role.dart";
 import "../admin/modules/usuarios/admin_users_page.dart";
-import "../medico/modules/_shared/medico_section_placeholder_page.dart";
+import "../medico/modules/alergias_condiciones/alergias_condiciones_page.dart";
+import "../medico/modules/catalogo_condiciones/catalogo_condiciones_page.dart";
+import "../medico/modules/consulta_evolucion/consulta_evolucion_page.dart";
 import "../medico/modules/diagnostico_oms/diagnostico_page.dart";
 import "../medico/modules/registro_clinico/registro_clinico_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
@@ -59,33 +61,13 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "alergias-condiciones-temporales",
           title: "Alergias y Condiciones",
           icon: Icons.healing,
-          builder: () => const MedicoSectionPlaceholderPage(
-            title: "Alergias y Condiciones Temporales",
-            description:
-                "Concentra el registro y seguimiento clínico de alergias y condiciones temporales del control.",
-            subsections: [
-              "Alergias por ingrediente",
-              "Alergias por grupo alimentario",
-              "Condiciones temporales activas",
-              "Resumen de restricciones clínicas",
-            ],
-          ),
+          builder: () => const AlergiasCondicionesPage(),
         ),
         RoleModule(
           key: "catalogo-condiciones",
           title: "Catalogo de Condiciones",
           icon: Icons.library_books,
-          builder: () => const MedicoSectionPlaceholderPage(
-            title: "Catalogo General de Condiciones",
-            description:
-                "Gestiona el catálogo base para condiciones clínicas, temporales y nutricionales usadas por el motor de reglas.",
-            subsections: [
-              "Tipos de condición",
-              "Condiciones clínicas",
-              "Condiciones temporales",
-              "Condiciones nutricionales",
-            ],
-          ),
+          builder: () => const CatalogoCondicionesPage(),
         ),
         RoleModule(
           key: "reglas-medicas",
@@ -97,17 +79,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "consulta-evolucion",
           title: "Consulta y Evolucion",
           icon: Icons.insights,
-          builder: () => const MedicoSectionPlaceholderPage(
-            title: "Consulta y Evolución de Pacientes",
-            description:
-                "Centraliza la consulta global de pacientes y el análisis de evolución clínico-nutricional.",
-            subsections: [
-              "Consulta global de pacientes",
-              "Historial de evolución",
-              "Adherencia alimentaria",
-              "Comparativa adherencia vs dolor",
-            ],
-          ),
+          builder: () => const ConsultaEvolucionPage(),
         ),
         RoleModule(
           key: "perfil",
