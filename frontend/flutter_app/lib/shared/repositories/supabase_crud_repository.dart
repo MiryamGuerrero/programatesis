@@ -394,11 +394,45 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<Map<String, dynamic>> fetchCurrentClinicalControl({
+    required String idPaciente,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes/$idPaciente/control-clinico-actual",
+        options: _authorizedOptions(),
+      );
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de control clínico no válido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar el control clínico del paciente");
+    }
+  }
+
+  Future<void> updateCurrentClinicalControl({
+    required String idPaciente,
+    required Map<String, dynamic> controlClinico,
+  }) async {
+    try {
+      await _dio.put(
+        "/pacientes/$idPaciente/control-clinico-actual",
+        data: controlClinico,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el control clínico del paciente");
+    }
+  }
+
   Future<void> registerPatientOnly({
     required String nombreCompleto,
     required DateTime fechaNacimiento,
     required int idSexo,
     int? idProvincia,
+    Map<String, dynamic>? controlClinicoInicial,
   }) async {
     try {
       await _dio.post(
@@ -408,6 +442,7 @@ class SupabaseCrudRepository {
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
           "id_sexo": idSexo,
           "id_provincia": idProvincia,
+          "control_clinico_inicial": controlClinicoInicial,
         },
         options: _authorizedOptions(),
       );
@@ -487,6 +522,7 @@ class SupabaseCrudRepository {
     required DateTime fechaNacimiento,
     required int idSexo,
     int? idProvincia,
+    Map<String, dynamic>? controlClinicoInicial,
     required String idUsuarioTutor,
     int? idParentesco,
     bool esPrincipal = true,
@@ -499,6 +535,7 @@ class SupabaseCrudRepository {
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
           "id_sexo": idSexo,
           "id_provincia": idProvincia,
+          "control_clinico_inicial": controlClinicoInicial,
           "id_usuario_tutor": idUsuarioTutor,
           "id_parentesco": idParentesco,
           "es_principal": esPrincipal,

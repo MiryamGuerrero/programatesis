@@ -5,6 +5,8 @@ from app.schemas.domain import (
     ActualizarVinculoTutorPacienteRequest,
     AdherenciaCalculoRequest,
     AdherenciaCalculoResponse,
+    ControlClinicoActualResponse,
+    ControlClinicoInicialRequest,
     DiagnosticoOmsRequest,
     DiagnosticoOmsResponse,
     ImcRequest,
@@ -26,11 +28,13 @@ from app.services.shared.cerebro.clasificacion_estado_nutricional_oms.anthropome
     diagnostico_oms,
 )
 from app.repositories.medico_tutor_repository import (
+    actualizar_control_clinico_actual,
     actualizar_vinculo_tutor_paciente,
     buscar_pacientes,
     buscar_tutores,
     desvincular_tutor_paciente,
     listar_vinculos_tutor_paciente,
+    obtener_control_clinico_actual,
     registrar_paciente,
     registrar_paciente_y_vincular,
     registrar_tutor,
@@ -58,6 +62,36 @@ def buscar_pacientes_endpoint(
     _=Depends(require_roles("admin", "medico")),
 ) -> list[dict]:
     return buscar_pacientes(q, limit)
+
+
+@router.get("/pacientes/{id_paciente}/control-clinico-actual", response_model=ControlClinicoActualResponse)
+def obtener_control_clinico_actual_endpoint(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "medico", "nutricionista")),
+):
+    control = obtener_control_clinico_actual(id_paciente)
+    if not control:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El paciente no tiene control clínico registrado.",
+        )
+    return control
+
+
+@router.put("/pacientes/{id_paciente}/control-clinico-actual")
+def actualizar_control_clinico_actual_endpoint(
+    id_paciente: str,
+    payload: ControlClinicoInicialRequest,
+    _=Depends(require_roles("admin", "medico", "nutricionista")),
+) -> dict[str, int]:
+    try:
+        id_control = actualizar_control_clinico_actual(
+            id_paciente=id_paciente,
+            control_clinico=payload.model_dump(),
+        )
+        return {"id_control": id_control}
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/imc-calculo", response_model=ImcResponse)
@@ -156,6 +190,11 @@ def registro_paciente_endpoint(
             fecha_nacimiento=payload.fecha_nacimiento,
             id_sexo=payload.id_sexo,
             id_provincia=payload.id_provincia,
+            control_clinico_inicial=(
+                payload.control_clinico_inicial.model_dump()
+                if payload.control_clinico_inicial is not None
+                else None
+            ),
             id_usuario_tutor=payload.id_usuario_tutor,
             id_parentesco=payload.id_parentesco,
             es_principal=payload.es_principal,
@@ -176,6 +215,11 @@ def registro_paciente_solo_endpoint(
             fecha_nacimiento=payload.fecha_nacimiento,
             id_sexo=payload.id_sexo,
             id_provincia=payload.id_provincia,
+            control_clinico_inicial=(
+                payload.control_clinico_inicial.model_dump()
+                if payload.control_clinico_inicial is not None
+                else None
+            ),
         )
         return {"id": nuevo_id}
     except Exception as exc:

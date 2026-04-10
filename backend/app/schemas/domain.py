@@ -562,11 +562,35 @@ class RegistroTutorRequest(BaseModel):
     es_principal: bool = True
 
 
+class ControlClinicoInicialRequest(BaseModel):
+    peso_kg: float = Field(gt=0)
+    talla_cm: float = Field(gt=0)
+    imc_calculado: float | None = Field(default=None, gt=0)
+    edad_meses: int | None = Field(default=None, ge=0, le=228)
+    nivel_dolor_eva: int | None = Field(default=None, ge=0, le=10)
+    nivel_inflamacion: int | None = Field(default=None, ge=0, le=10)
+    nivel_fatiga: int | None = Field(default=None, ge=0, le=10)
+    minutos_rigidez_matutina: int | None = Field(default=None, ge=0)
+    inflamacion_pcr: float | None = Field(default=None, ge=0)
+    hay_brote_activo: bool | None = None
+    id_condicion_nutricional_resultado: int | None = Field(default=None, gt=0)
+    diagnostico_oms_texto: str | None = Field(default=None, max_length=150)
+    nota_evolucion: str | None = None
+    id_condiciones_activas: list[int] = Field(default_factory=list)
+
+
+class ControlClinicoActualResponse(ControlClinicoInicialRequest):
+    id_control: int
+    id_paciente: str
+    fecha_control: date
+
+
 class RegistroPacienteRequest(BaseModel):
     nombre_completo: str = Field(min_length=1, max_length=255)
     fecha_nacimiento: date
     id_sexo: int
     id_provincia: int | None = None
+    control_clinico_inicial: ControlClinicoInicialRequest | None = None
     id_usuario_tutor: str
     id_parentesco: int | None = None
     es_principal: bool = True
@@ -582,6 +606,7 @@ class RegistroPacienteSoloRequest(BaseModel):
     fecha_nacimiento: date
     id_sexo: int
     id_provincia: int | None = None
+    control_clinico_inicial: ControlClinicoInicialRequest | None = None
 
 
 class VincularTutorPacienteRequest(BaseModel):
