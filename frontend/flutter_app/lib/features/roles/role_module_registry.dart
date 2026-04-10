@@ -7,9 +7,9 @@ import "../medico/modules/registro_clinico/registro_clinico_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
 import "../../shared/repositories/gestion_tutores_pacientes_page.dart";
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
+import "../nutricionista/modules/etiquetas_automaticas/etiquetas_automaticas_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
-import "../nutricionista/modules/reglas_nutricionales/reglas_nutricionales_page.dart";
 import "../tutor/modules/calificacion/calificacion_page.dart";
 import "../tutor/modules/consumo/consumo_page.dart";
 import "../tutor/modules/plan/plan_page.dart";
@@ -89,9 +89,9 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "etiquetas",
-          title: "Etiquetas nutr.",
+          title: "Etiquetas auto",
           icon: Icons.policy,
-          builder: () => const ReglasNutricionalesPage(),
+          builder: () => const EtiquetasAutomaticasPage(),
         ),
         RoleModule(
           key: "perfil",

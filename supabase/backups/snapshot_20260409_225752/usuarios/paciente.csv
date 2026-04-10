@@ -1,0 +1,3 @@
+id,nombre_completo,fecha_nacimiento,id_sexo,id_provincia,fecha_ultimo_control,activo,created_at,updated_at
+ab18bc57-209a-4279-b6f5-00626f65b2b6,Jose Carlos,2013-04-09,2,5,,t,2026-04-09 07:03:43.915797,2026-04-09 07:03:43.915797
+985fef45-1dfd-4d5d-85bf-47ea3f76ed5d,María Lopez,2012-04-09,2,5,,t,2026-04-09 07:32:11.852343,2026-04-09 07:32:11.852343

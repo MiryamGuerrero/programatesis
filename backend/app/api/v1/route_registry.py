@@ -75,6 +75,11 @@ def default_route_registry() -> ApiRouteRegistry:
             "nutricionista",
             "app.api.v1.endpoints.roles.nutricionista_etiquetas_config_endpoints",
         ),
+        (
+            "nutricionista_etiquetado_auditoria",
+            "nutricionista",
+            "app.api.v1.endpoints.roles.nutricionista_etiquetado_auditoria_endpoints",
+        ),
     )
 
     for name, role, module_path in optional_modules:
