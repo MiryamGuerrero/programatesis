@@ -8,6 +8,104 @@ def _rows_to_dicts(cur, rows):
     return [dict(zip(columns, row, strict=False)) for row in rows]
 
 
+def _calculate_age_in_months(fecha_nacimiento: date, reference: date | None = None) -> int:
+    base = reference or date.today()
+    months = (base.year - fecha_nacimiento.year) * 12 + (base.month - fecha_nacimiento.month)
+    if base.day < fecha_nacimiento.day:
+        months -= 1
+    return max(0, months)
+
+
+def _fetch_patient_birthdate(cur, id_paciente: str) -> date:
+    query = """
+        select fecha_nacimiento
+        from usuarios.paciente
+        where id = %s
+          and activo = true
+        limit 1
+    """
+    cur.execute(query, (id_paciente,))
+    row = cur.fetchone()
+    if not row or row[0] is None:
+        raise ValueError("No fue posible obtener la fecha de nacimiento del paciente.")
+    return row[0]
+
+
+def _crear_control_clinico_inicial(
+    cur,
+    id_paciente: str,
+    fecha_nacimiento: date,
+    control_clinico_inicial: dict | None,
+) -> None:
+    if not control_clinico_inicial:
+        return
+
+    edad_meses = control_clinico_inicial.get("edad_meses")
+    if edad_meses is None:
+        edad_meses = _calculate_age_in_months(fecha_nacimiento)
+
+    id_condiciones_activas = [
+        int(condicion_id)
+        for condicion_id in (control_clinico_inicial.get("id_condiciones_activas") or [])
+        if condicion_id is not None
+    ]
+    id_condiciones_activas = sorted(set(id_condiciones_activas))
+
+    query_control = """
+        insert into clinico.control_paciente (
+            id_paciente,
+            peso_kg,
+            talla_cm,
+            edad_meses,
+            imc_calculado,
+            id_condicion_nutricional_resultado,
+            diagnostico_oms_texto,
+            nivel_dolor_eva,
+            nivel_inflamacion,
+            nivel_fatiga,
+            minutos_rigidez_matutina,
+            inflamacion_pcr,
+            hay_brote_activo,
+            nota_evolucion
+        )
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        returning id
+    """
+
+    cur.execute(
+        query_control,
+        (
+            id_paciente,
+            control_clinico_inicial["peso_kg"],
+            control_clinico_inicial["talla_cm"],
+            edad_meses,
+            control_clinico_inicial.get("imc_calculado"),
+            control_clinico_inicial.get("id_condicion_nutricional_resultado"),
+            control_clinico_inicial.get("diagnostico_oms_texto"),
+            control_clinico_inicial.get("nivel_dolor_eva"),
+            control_clinico_inicial.get("nivel_inflamacion"),
+            control_clinico_inicial.get("nivel_fatiga"),
+            control_clinico_inicial.get("minutos_rigidez_matutina"),
+            control_clinico_inicial.get("inflamacion_pcr"),
+            control_clinico_inicial.get("hay_brote_activo"),
+            control_clinico_inicial.get("nota_evolucion"),
+        ),
+    )
+    row_control = cur.fetchone()
+    if not row_control:
+        raise RuntimeError("No fue posible crear el control clinico inicial del paciente.")
+
+    id_control = int(row_control[0])
+    if id_condiciones_activas:
+        query_condiciones = """
+            insert into clinico.control_condicion_activa (id_control, id_condicion)
+            values (%s, %s)
+            on conflict (id_control, id_condicion) do nothing
+        """
+        for id_condicion in id_condiciones_activas:
+            cur.execute(query_condiciones, (id_control, id_condicion))
+
+
 def buscar_tutores(query: str, limit: int = 10) -> list[dict]:
     q = query.strip()
     if not q:
@@ -89,6 +187,7 @@ def registrar_paciente(
     fecha_nacimiento: date,
     id_sexo: int,
     id_provincia: int | None,
+    control_clinico_inicial: dict | None = None,
 ) -> str:
     with db_cursor() as cur:
         query_paciente = """
@@ -101,7 +200,16 @@ def registrar_paciente(
         if not row_paciente:
             raise RuntimeError("No fue posible crear el paciente.")
 
-        return str(row_paciente[0])
+        id_paciente = str(row_paciente[0])
+
+        _crear_control_clinico_inicial(
+            cur=cur,
+            id_paciente=id_paciente,
+            fecha_nacimiento=fecha_nacimiento,
+            control_clinico_inicial=control_clinico_inicial,
+        )
+
+    return id_paciente
 
 
 def vincular_tutor_paciente(
@@ -208,6 +316,7 @@ def registrar_paciente_y_vincular(
     fecha_nacimiento: date,
     id_sexo: int,
     id_provincia: int | None,
+    control_clinico_inicial: dict | None,
     id_usuario_tutor: str,
     id_parentesco: int | None,
     es_principal: bool,
@@ -217,6 +326,7 @@ def registrar_paciente_y_vincular(
         fecha_nacimiento=fecha_nacimiento,
         id_sexo=id_sexo,
         id_provincia=id_provincia,
+        control_clinico_inicial=control_clinico_inicial,
     )
     vincular_tutor_paciente(
         id_usuario_tutor=id_usuario_tutor,
@@ -225,3 +335,588 @@ def registrar_paciente_y_vincular(
         es_principal=es_principal,
     )
     return str(id_paciente)
+
+
+def obtener_control_clinico_actual(id_paciente: str) -> dict | None:
+    query = """
+        select
+            cp.id as id_control,
+            cp.id_paciente::text as id_paciente,
+            cp.fecha_control,
+            cp.peso_kg,
+            cp.talla_cm,
+            cp.edad_meses,
+            cp.imc_calculado,
+            cp.id_condicion_nutricional_resultado,
+            cp.diagnostico_oms_texto,
+            cp.nivel_dolor_eva,
+            cp.nivel_inflamacion,
+            cp.nivel_fatiga,
+            cp.minutos_rigidez_matutina,
+            cp.inflamacion_pcr,
+            cp.hay_brote_activo,
+            cp.nota_evolucion,
+            coalesce(
+                array_agg(cca.id_condicion) filter (where cca.id_condicion is not null),
+                array[]::integer[]
+            ) as id_condiciones_activas
+        from clinico.control_paciente cp
+        left join clinico.control_condicion_activa cca on cca.id_control = cp.id
+        where cp.id_paciente = %s
+        group by cp.id
+        order by cp.fecha_control desc, cp.created_at desc, cp.id desc
+        limit 1
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return _rows_to_dicts(cur, [row])[0]
+
+
+def actualizar_control_clinico_actual(id_paciente: str, control_clinico: dict) -> int:
+    id_condiciones_activas = [
+        int(condicion_id)
+        for condicion_id in (control_clinico.get("id_condiciones_activas") or [])
+        if condicion_id is not None
+    ]
+    id_condiciones_activas = sorted(set(id_condiciones_activas))
+
+    with db_cursor() as cur:
+        fecha_nacimiento = _fetch_patient_birthdate(cur, id_paciente)
+
+        edad_meses = control_clinico.get("edad_meses")
+        if edad_meses is None:
+            edad_meses = _calculate_age_in_months(fecha_nacimiento)
+
+        cur.execute(
+            """
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, created_at desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_control = cur.fetchone()
+
+        if row_control:
+            id_control = int(row_control[0])
+            cur.execute(
+                """
+                update clinico.control_paciente
+                set
+                    peso_kg = %s,
+                    talla_cm = %s,
+                    edad_meses = %s,
+                    imc_calculado = %s,
+                    id_condicion_nutricional_resultado = %s,
+                    diagnostico_oms_texto = %s,
+                    nivel_dolor_eva = %s,
+                    nivel_inflamacion = %s,
+                    nivel_fatiga = %s,
+                    minutos_rigidez_matutina = %s,
+                    inflamacion_pcr = %s,
+                    hay_brote_activo = %s,
+                    nota_evolucion = %s
+                where id = %s
+                """,
+                (
+                    control_clinico["peso_kg"],
+                    control_clinico["talla_cm"],
+                    edad_meses,
+                    control_clinico.get("imc_calculado"),
+                    control_clinico.get("id_condicion_nutricional_resultado"),
+                    control_clinico.get("diagnostico_oms_texto"),
+                    control_clinico.get("nivel_dolor_eva"),
+                    control_clinico.get("nivel_inflamacion"),
+                    control_clinico.get("nivel_fatiga"),
+                    control_clinico.get("minutos_rigidez_matutina"),
+                    control_clinico.get("inflamacion_pcr"),
+                    control_clinico.get("hay_brote_activo"),
+                    control_clinico.get("nota_evolucion"),
+                    id_control,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                insert into clinico.control_paciente (
+                    id_paciente,
+                    peso_kg,
+                    talla_cm,
+                    edad_meses,
+                    imc_calculado,
+                    id_condicion_nutricional_resultado,
+                    diagnostico_oms_texto,
+                    nivel_dolor_eva,
+                    nivel_inflamacion,
+                    nivel_fatiga,
+                    minutos_rigidez_matutina,
+                    inflamacion_pcr,
+                    hay_brote_activo,
+                    nota_evolucion
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                returning id
+                """,
+                (
+                    id_paciente,
+                    control_clinico["peso_kg"],
+                    control_clinico["talla_cm"],
+                    edad_meses,
+                    control_clinico.get("imc_calculado"),
+                    control_clinico.get("id_condicion_nutricional_resultado"),
+                    control_clinico.get("diagnostico_oms_texto"),
+                    control_clinico.get("nivel_dolor_eva"),
+                    control_clinico.get("nivel_inflamacion"),
+                    control_clinico.get("nivel_fatiga"),
+                    control_clinico.get("minutos_rigidez_matutina"),
+                    control_clinico.get("inflamacion_pcr"),
+                    control_clinico.get("hay_brote_activo"),
+                    control_clinico.get("nota_evolucion"),
+                ),
+            )
+            row_new = cur.fetchone()
+            if not row_new:
+                raise RuntimeError("No fue posible crear el control clínico del paciente.")
+            id_control = int(row_new[0])
+
+        cur.execute("delete from clinico.control_condicion_activa where id_control = %s", (id_control,))
+        if id_condiciones_activas:
+            query_condiciones = """
+                insert into clinico.control_condicion_activa (id_control, id_condicion)
+                values (%s, %s)
+                on conflict (id_control, id_condicion) do nothing
+            """
+            for id_condicion in id_condiciones_activas:
+                cur.execute(query_condiciones, (id_control, id_condicion))
+
+        return id_control
+
+
+def listar_alergias_paciente(id_paciente: str) -> dict:
+    query_ingredientes = """
+        select
+            api.id_ingrediente,
+            i.nombre as nombre_ingrediente,
+            api.observacion,
+            api.fecha_registro
+        from clinico.alergia_paciente_ingrediente api
+        inner join nutricion.ingrediente i on i.id = api.id_ingrediente
+        where api.id_paciente = %s
+          and api.activa = true
+        order by i.nombre asc
+    """
+    query_grupos = """
+        select
+            apg.id_grupo_alimentario,
+            ga.nombre as nombre_grupo,
+            apg.observacion,
+            apg.fecha_registro
+        from clinico.alergia_paciente_grupo apg
+        inner join nutricion.grupo_alimentario ga on ga.id = apg.id_grupo_alimentario
+        where apg.id_paciente = %s
+          and apg.activa = true
+        order by ga.nombre asc
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query_ingredientes, (id_paciente,))
+        ingredientes = _rows_to_dicts(cur, cur.fetchall())
+        cur.execute(query_grupos, (id_paciente,))
+        grupos = _rows_to_dicts(cur, cur.fetchall())
+
+    return {
+        "ingredientes": ingredientes,
+        "grupos": grupos,
+    }
+
+
+def registrar_alergia_ingrediente(id_paciente: str, id_ingrediente: int, observacion: str | None) -> None:
+    query = """
+        insert into clinico.alergia_paciente_ingrediente (
+            id_paciente,
+            id_ingrediente,
+            observacion,
+            activa
+        )
+        select %s, %s, %s, true
+        where not exists (
+            select 1
+            from clinico.alergia_paciente_ingrediente
+            where id_paciente = %s
+              and id_ingrediente = %s
+              and activa = true
+        )
+    """
+
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                id_paciente,
+                id_ingrediente,
+                observacion,
+                id_paciente,
+                id_ingrediente,
+            ),
+        )
+
+
+def desactivar_alergia_ingrediente(id_paciente: str, id_ingrediente: int) -> bool:
+    query = """
+        update clinico.alergia_paciente_ingrediente
+        set activa = false
+        where id_paciente = %s
+          and id_ingrediente = %s
+          and activa = true
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente, id_ingrediente))
+        return cur.rowcount > 0
+
+
+def registrar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int, observacion: str | None) -> None:
+    query = """
+        insert into clinico.alergia_paciente_grupo (
+            id_paciente,
+            id_grupo_alimentario,
+            observacion,
+            activa
+        )
+        select %s, %s, %s, true
+        where not exists (
+            select 1
+            from clinico.alergia_paciente_grupo
+            where id_paciente = %s
+              and id_grupo_alimentario = %s
+              and activa = true
+        )
+    """
+
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                id_paciente,
+                id_grupo_alimentario,
+                observacion,
+                id_paciente,
+                id_grupo_alimentario,
+            ),
+        )
+
+
+def desactivar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int) -> bool:
+    query = """
+        update clinico.alergia_paciente_grupo
+        set activa = false
+        where id_paciente = %s
+          and id_grupo_alimentario = %s
+          and activa = true
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente, id_grupo_alimentario))
+        return cur.rowcount > 0
+
+
+def listar_condiciones_temporales_activas_control_actual(id_paciente: str) -> dict:
+    query = """
+        with latest_control as (
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, created_at desc, id desc
+            limit 1
+        )
+        select
+            c.id as id_condicion,
+            c.nombre,
+            c.descripcion
+        from latest_control lc
+        inner join clinico.control_condicion_activa cca on cca.id_control = lc.id
+        inner join heuristico.condicion c on c.id = cca.id_condicion
+        inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+        where lower(t.codigo) = 'temporal'
+          and c.activa = true
+        order by c.nombre asc
+    """
+
+    with db_cursor() as cur:
+        cur.execute(query, (id_paciente,))
+        condiciones = _rows_to_dicts(cur, cur.fetchall())
+
+    return {
+        "id_paciente": id_paciente,
+        "id_condiciones_temporales": [int(item["id_condicion"]) for item in condiciones],
+        "condiciones": condiciones,
+    }
+
+
+def actualizar_condiciones_temporales_control_actual(
+    id_paciente: str,
+    id_condiciones_temporales: list[int],
+) -> int:
+    condiciones_ids = sorted(
+        {
+            int(condicion_id)
+            for condicion_id in id_condiciones_temporales
+            if condicion_id is not None
+        },
+    )
+
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, created_at desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_control = cur.fetchone()
+        if not row_control:
+            raise ValueError("El paciente no tiene control clínico para asociar condiciones temporales.")
+
+        id_control = int(row_control[0])
+
+        cur.execute(
+            """
+            delete from clinico.control_condicion_activa cca
+            using heuristico.condicion c
+            inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+            where cca.id_control = %s
+              and cca.id_condicion = c.id
+              and lower(t.codigo) = 'temporal'
+            """,
+            (id_control,),
+        )
+
+        if condiciones_ids:
+            cur.execute(
+                """
+                insert into clinico.control_condicion_activa (id_control, id_condicion)
+                select %s, c.id
+                from heuristico.condicion c
+                inner join heuristico.catalogo_tipo_condicion t on t.id = c.id_tipo_condicion
+                where c.id = any(%s)
+                  and c.activa = true
+                  and lower(t.codigo) = 'temporal'
+                on conflict (id_control, id_condicion) do nothing
+                """,
+                (id_control, condiciones_ids),
+            )
+
+    return id_control
+
+
+def crear_tipo_condicion(codigo: str, nombre: str) -> int:
+    query = """
+        insert into heuristico.catalogo_tipo_condicion (codigo, nombre)
+        values (%s, %s)
+        returning id
+    """
+    with db_cursor() as cur:
+        cur.execute(query, (codigo.strip().upper(), nombre.strip()))
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("No fue posible crear el tipo de condición.")
+        return int(row[0])
+
+
+def actualizar_tipo_condicion(
+    id_tipo_condicion: int,
+    codigo: str | None,
+    nombre: str | None,
+) -> bool:
+    query = """
+        update heuristico.catalogo_tipo_condicion
+        set
+            codigo = coalesce(%s, codigo),
+            nombre = coalesce(%s, nombre)
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                codigo.strip().upper() if codigo is not None else None,
+                nombre.strip() if nombre is not None else None,
+                id_tipo_condicion,
+            ),
+        )
+        return cur.rowcount > 0
+
+
+def crear_condicion(
+    nombre: str,
+    id_tipo_condicion: int,
+    descripcion: str | None,
+    activa: bool,
+) -> int:
+    query = """
+        insert into heuristico.condicion (nombre, id_tipo_condicion, descripcion, activa)
+        values (%s, %s, %s, %s)
+        returning id
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                nombre.strip(),
+                id_tipo_condicion,
+                descripcion.strip() if descripcion is not None else None,
+                activa,
+            ),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("No fue posible crear la condición.")
+        return int(row[0])
+
+
+def actualizar_condicion(
+    id_condicion: int,
+    nombre: str | None,
+    id_tipo_condicion: int | None,
+    descripcion: str | None,
+    activa: bool | None,
+) -> bool:
+    query = """
+        update heuristico.condicion
+        set
+            nombre = coalesce(%s, nombre),
+            id_tipo_condicion = coalesce(%s, id_tipo_condicion),
+            descripcion = coalesce(%s, descripcion),
+            activa = coalesce(%s, activa)
+        where id = %s
+    """
+    with db_cursor() as cur:
+        cur.execute(
+            query,
+            (
+                nombre.strip() if nombre is not None else None,
+                id_tipo_condicion,
+                descripcion.strip() if descripcion is not None else None,
+                activa,
+                id_condicion,
+            ),
+        )
+        return cur.rowcount > 0
+
+
+def obtener_resumen_evolucion_paciente(id_paciente: str) -> dict:
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select nombre_completo
+            from usuarios.paciente
+            where id = %s
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_paciente = cur.fetchone()
+        paciente_nombre = row_paciente[0] if row_paciente else None
+
+        cur.execute(
+            """
+            select
+                cp.id as id_control,
+                cp.fecha_control,
+                cp.peso_kg,
+                cp.talla_cm,
+                cp.imc_calculado,
+                cp.nivel_dolor_eva,
+                cp.nivel_inflamacion
+            from clinico.control_paciente cp
+            where cp.id_paciente = %s
+            order by cp.fecha_control desc, cp.created_at desc, cp.id desc
+            limit 12
+            """,
+            (id_paciente,),
+        )
+        historial = _rows_to_dicts(cur, cur.fetchall())
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.control_paciente
+            where id_paciente = %s
+            """,
+            (id_paciente,),
+        )
+        total_controles = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.alergia_paciente_ingrediente
+            where id_paciente = %s
+              and activa = true
+            """,
+            (id_paciente,),
+        )
+        total_alergias_ingrediente = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select count(*)
+            from clinico.alergia_paciente_grupo
+            where id_paciente = %s
+              and activa = true
+            """,
+            (id_paciente,),
+        )
+        total_alergias_grupo = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            select id
+            from interaccion.plan_nutricional
+            where id_paciente = %s
+              and activo = true
+            order by fecha_inicio desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_plan = cur.fetchone()
+        id_plan_vigente = int(row_plan[0]) if row_plan else None
+
+    ultimo_control = obtener_control_clinico_actual(id_paciente)
+    condiciones_temporales = listar_condiciones_temporales_activas_control_actual(id_paciente).get("condiciones", [])
+
+    adherencia_pct = None
+    dolor_promedio = None
+    comparacion = None
+    if id_plan_vigente is not None:
+        from app.services.roles.medico.modules.adherencia.adherence_analysis_service import calculate_adherence
+
+        adherencia = calculate_adherence(id_plan=id_plan_vigente, id_paciente=id_paciente)
+        adherencia_pct = adherencia.get("adherencia_pct")
+        dolor_promedio = adherencia.get("dolor_promedio")
+        comparacion = adherencia.get("comparacion")
+
+    return {
+        "id_paciente": id_paciente,
+        "paciente_nombre": paciente_nombre,
+        "total_controles": total_controles,
+        "ultimo_control": ultimo_control,
+        "historial_controles": historial,
+        "condiciones_temporales_activas": condiciones_temporales,
+        "total_alergias_ingrediente": total_alergias_ingrediente,
+        "total_alergias_grupo": total_alergias_grupo,
+        "id_plan_vigente": id_plan_vigente,
+        "adherencia_pct": adherencia_pct,
+        "dolor_promedio": dolor_promedio,
+        "comparacion_adherencia_dolor": comparacion,
+    }

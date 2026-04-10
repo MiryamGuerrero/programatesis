@@ -394,11 +394,266 @@ class SupabaseCrudRepository {
     }
   }
 
+  Future<Map<String, dynamic>> fetchPatientAllergies({
+    required String idPaciente,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes/$idPaciente/alergias",
+        options: _authorizedOptions(),
+      );
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de alergias no válido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar alergias del paciente");
+    }
+  }
+
+  Future<void> addPatientIngredientAllergy({
+    required String idPaciente,
+    required int idIngrediente,
+    String? observacion,
+  }) async {
+    try {
+      await _dio.post(
+        "/pacientes/$idPaciente/alergias/ingredientes",
+        data: {
+          "id_ingrediente": idIngrediente,
+          "observacion": observacion,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar alergia por ingrediente");
+    }
+  }
+
+  Future<void> removePatientIngredientAllergy({
+    required String idPaciente,
+    required int idIngrediente,
+  }) async {
+    try {
+      await _dio.delete(
+        "/pacientes/$idPaciente/alergias/ingredientes/$idIngrediente",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar alergia por ingrediente");
+    }
+  }
+
+  Future<void> addPatientGroupAllergy({
+    required String idPaciente,
+    required int idGrupoAlimentario,
+    String? observacion,
+  }) async {
+    try {
+      await _dio.post(
+        "/pacientes/$idPaciente/alergias/grupos",
+        data: {
+          "id_grupo_alimentario": idGrupoAlimentario,
+          "observacion": observacion,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible registrar alergia por grupo alimentario");
+    }
+  }
+
+  Future<void> removePatientGroupAllergy({
+    required String idPaciente,
+    required int idGrupoAlimentario,
+  }) async {
+    try {
+      await _dio.delete(
+        "/pacientes/$idPaciente/alergias/grupos/$idGrupoAlimentario",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar alergia por grupo alimentario");
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchPatientTemporaryConditions({
+    required String idPaciente,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes/$idPaciente/condiciones-temporales",
+        options: _authorizedOptions(),
+      );
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de condiciones temporales no válido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar condiciones temporales");
+    }
+  }
+
+  Future<void> updatePatientTemporaryConditions({
+    required String idPaciente,
+    required List<int> idCondicionesTemporales,
+  }) async {
+    try {
+      await _dio.put(
+        "/pacientes/$idPaciente/condiciones-temporales",
+        data: {
+          "id_condiciones_temporales": idCondicionesTemporales,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar condiciones temporales");
+    }
+  }
+
+  Future<Map<String, dynamic>> createConditionType({
+    required String codigo,
+    required String nombre,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/catalogo-condiciones/tipos",
+        data: {
+          "codigo": codigo,
+          "nombre": nombre,
+        },
+        options: _authorizedOptions(),
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear el tipo de condición");
+    }
+  }
+
+  Future<void> updateConditionType({
+    required int idTipoCondicion,
+    String? codigo,
+    String? nombre,
+  }) async {
+    try {
+      await _dio.put(
+        "/catalogo-condiciones/tipos/$idTipoCondicion",
+        data: {
+          "codigo": codigo,
+          "nombre": nombre,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el tipo de condición");
+    }
+  }
+
+  Future<Map<String, dynamic>> createCondition({
+    required String nombre,
+    required int idTipoCondicion,
+    String? descripcion,
+    bool activa = true,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/catalogo-condiciones/condiciones",
+        data: {
+          "nombre": nombre,
+          "id_tipo_condicion": idTipoCondicion,
+          "descripcion": descripcion,
+          "activa": activa,
+        },
+        options: _authorizedOptions(),
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear la condición");
+    }
+  }
+
+  Future<void> updateCondition({
+    required int idCondicion,
+    String? nombre,
+    int? idTipoCondicion,
+    String? descripcion,
+    bool? activa,
+  }) async {
+    try {
+      await _dio.put(
+        "/catalogo-condiciones/condiciones/$idCondicion",
+        data: {
+          "nombre": nombre,
+          "id_tipo_condicion": idTipoCondicion,
+          "descripcion": descripcion,
+          "activa": activa,
+        },
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar la condición");
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchPatientEvolutionSummary({
+    required String idPaciente,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes/$idPaciente/evolucion-resumen",
+        options: _authorizedOptions(),
+      );
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de evolución no válido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar el resumen de evolución");
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCurrentClinicalControl({
+    required String idPaciente,
+  }) async {
+    try {
+      final response = await _dio.get(
+        "/pacientes/$idPaciente/control-clinico-actual",
+        options: _authorizedOptions(),
+      );
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de control clínico no válido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar el control clínico del paciente");
+    }
+  }
+
+  Future<void> updateCurrentClinicalControl({
+    required String idPaciente,
+    required Map<String, dynamic> controlClinico,
+  }) async {
+    try {
+      await _dio.put(
+        "/pacientes/$idPaciente/control-clinico-actual",
+        data: controlClinico,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el control clínico del paciente");
+    }
+  }
+
   Future<void> registerPatientOnly({
     required String nombreCompleto,
     required DateTime fechaNacimiento,
     required int idSexo,
     int? idProvincia,
+    Map<String, dynamic>? controlClinicoInicial,
   }) async {
     try {
       await _dio.post(
@@ -408,6 +663,7 @@ class SupabaseCrudRepository {
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
           "id_sexo": idSexo,
           "id_provincia": idProvincia,
+          "control_clinico_inicial": controlClinicoInicial,
         },
         options: _authorizedOptions(),
       );
@@ -487,6 +743,7 @@ class SupabaseCrudRepository {
     required DateTime fechaNacimiento,
     required int idSexo,
     int? idProvincia,
+    Map<String, dynamic>? controlClinicoInicial,
     required String idUsuarioTutor,
     int? idParentesco,
     bool esPrincipal = true,
@@ -499,6 +756,7 @@ class SupabaseCrudRepository {
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
           "id_sexo": idSexo,
           "id_provincia": idProvincia,
+          "control_clinico_inicial": controlClinicoInicial,
           "id_usuario_tutor": idUsuarioTutor,
           "id_parentesco": idParentesco,
           "es_principal": esPrincipal,
