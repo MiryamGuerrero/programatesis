@@ -14,7 +14,7 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -28,7 +28,6 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
               Tab(icon: Icon(Icons.person_add_alt_1), text: "Tutor"),
               Tab(icon: Icon(Icons.child_care), text: "Paciente"),
               Tab(icon: Icon(Icons.link), text: "Vincular"),
-              Tab(icon: Icon(Icons.medical_information), text: "Ficha clínica"),
             ],
           ),
           const Expanded(
@@ -37,7 +36,6 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
                 _FormRegistroTutor(),
                 _FormRegistroPaciente(),
                 _FormVincularTutorPaciente(),
-                _FormEditarControlClinicoPaciente(),
               ],
             ),
           ),
@@ -649,14 +647,14 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   }
 }
 
-class _FormEditarControlClinicoPaciente extends ConsumerStatefulWidget {
-  const _FormEditarControlClinicoPaciente();
+class FormEditarControlClinicoPaciente extends ConsumerStatefulWidget {
+  const FormEditarControlClinicoPaciente({super.key});
 
   @override
-  ConsumerState<_FormEditarControlClinicoPaciente> createState() => _FormEditarControlClinicoPacienteState();
+  ConsumerState<FormEditarControlClinicoPaciente> createState() => _FormEditarControlClinicoPacienteState();
 }
 
-class _FormEditarControlClinicoPacienteState extends ConsumerState<_FormEditarControlClinicoPaciente> {
+class _FormEditarControlClinicoPacienteState extends ConsumerState<FormEditarControlClinicoPaciente> {
   final _pacienteSearchController = TextEditingController();
   final _pesoController = TextEditingController();
   final _tallaController = TextEditingController();
