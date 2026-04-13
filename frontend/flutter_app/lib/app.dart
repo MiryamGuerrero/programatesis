@@ -4,6 +4,7 @@ import "package:google_fonts/google_fonts.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
+import "features/auth/set_password_page.dart";
 import "shared/models/app_role.dart";
 import "shared/widgets/role_shell.dart";
 
@@ -22,6 +23,7 @@ class ReumaNutriApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authSession = ref.watch(authSessionProvider);
+    final authFlowIntent = ref.watch(authFlowIntentProvider);
     final roleAsync = ref.watch(appRoleProvider);
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _tealPrimary,
@@ -117,9 +119,9 @@ class ReumaNutriApp extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xFFD8E3EC), width: 1.2),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(16)),
-            borderSide: const BorderSide(color: _tealPrimary, width: 1.9),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: _tealPrimary, width: 1.9),
           ),
           errorBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -170,23 +172,23 @@ class ReumaNutriApp extends ConsumerWidget {
             side: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
         ),
-        dataTableTheme: DataTableThemeData(
-          headingRowColor: const WidgetStatePropertyAll(Color(0xFFF8FAFC)),
-          headingTextStyle: const TextStyle(fontWeight: FontWeight.w800),
-          dataTextStyle: const TextStyle(fontWeight: FontWeight.w600),
+        dataTableTheme: const DataTableThemeData(
+          headingRowColor: WidgetStatePropertyAll(Color(0xFFF8FAFC)),
+          headingTextStyle: TextStyle(fontWeight: FontWeight.w800),
+          dataTextStyle: TextStyle(fontWeight: FontWeight.w600),
           dividerThickness: 0.7,
         ),
-        dividerTheme: DividerThemeData(
-          color: const Color(0xFFE2E8F0),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE2E8F0),
           thickness: 1,
         ),
-        listTileTheme: ListTileThemeData(
+        listTileTheme: const ListTileThemeData(
           iconColor: _tealPrimary,
-          titleTextStyle: const TextStyle(
+          titleTextStyle: TextStyle(
             color: _slateTitle,
             fontWeight: FontWeight.w700,
           ),
-          subtitleTextStyle: const TextStyle(
+          subtitleTextStyle: TextStyle(
             color: _slateBody,
             fontWeight: FontWeight.w600,
           ),
@@ -228,6 +230,10 @@ class ReumaNutriApp extends ConsumerWidget {
       ),
       home: authSession.when(
         data: (session) {
+          if (authFlowIntent == AuthFlowIntent.setPassword) {
+            return const SetPasswordPage();
+          }
+
           if (session == null) {
             return const LoginPage();
           }

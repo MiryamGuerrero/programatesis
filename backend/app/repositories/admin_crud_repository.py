@@ -25,11 +25,16 @@ def create_user(
     email: str,
     nombre_completo: str,
     id_rol: int,
+    auth_user_id: str | None = None,
     cedula: str | None = None,
     username: str | None = None,
 ) -> Any:
     columns = ["email", "nombre_completo", "id_rol"]
     values = [email.strip(), nombre_completo.strip(), id_rol]
+
+    if auth_user_id is not None and auth_user_id.strip():
+        columns.append("auth_user_id")
+        values.append(auth_user_id.strip())
 
     if cedula is not None and cedula.strip():
         columns.append("cedula")
@@ -49,6 +54,21 @@ def create_user(
         cur.execute(query, tuple(values))
         row = cur.fetchone()
     return row[0] if row else None
+
+
+def fetch_role_code(id_rol: int) -> str | None:
+    query = """
+        select lower(codigo::text)
+        from usuarios.rol
+        where id = %s
+        limit 1
+    """
+    with db_cursor() as cur:
+        cur.execute(query, (id_rol,))
+        row = cur.fetchone()
+    if not row or not row[0]:
+        return None
+    return str(row[0])
 
 
 def update_user(

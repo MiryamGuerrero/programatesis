@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart";
 import "package:dio/dio.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -9,6 +10,12 @@ import "../../shared/repositories/inteligencia_api_repository.dart";
 import "../../shared/repositories/supabase_crud_repository.dart";
 
 final authErrorProvider = StateProvider<String?>((ref) => null);
+
+enum AuthFlowIntent { none, setPassword }
+
+final authFlowIntentProvider = StateProvider<AuthFlowIntent>(
+  (ref) => AuthFlowIntent.none,
+);
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -136,12 +143,106 @@ Future<Session?> _ensureValidSession(
 
 final authSessionProvider = StreamProvider<Session?>((ref) async* {
   final client = ref.watch(supabaseClientProvider);
+
+  if (_isPasswordRecoveryUrl()) {
+    ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
+    await _restoreRecoverySessionFromUrl(client);
+  }
+
   yield await _ensureValidSession(client, client.auth.currentSession);
 
   await for (final event in client.auth.onAuthStateChange) {
+    if (event.event == AuthChangeEvent.passwordRecovery) {
+      ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
+    } else if (event.event == AuthChangeEvent.signedOut) {
+      ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.none;
+    }
     yield await _ensureValidSession(client, event.session);
   }
 });
+
+bool _isPasswordRecoveryUrl() {
+  if (!kIsWeb) {
+    return false;
+  }
+
+  final uri = Uri.base;
+  final queryType = (uri.queryParameters["type"] ?? "").trim().toLowerCase();
+  if (queryType == "recovery") {
+    return true;
+  }
+
+  final fragment = uri.fragment;
+  if (fragment.isEmpty) {
+    return false;
+  }
+
+  try {
+    final params = Uri.splitQueryString(fragment);
+    final fragmentType = (params["type"] ?? "").trim().toLowerCase();
+    return fragmentType == "recovery";
+  } catch (_) {
+    return fragment.toLowerCase().contains("type=recovery");
+  }
+}
+
+Map<String, String> _recoveryUrlParams() {
+  final params = <String, String>{
+    ...Uri.base.queryParameters,
+  };
+
+  final fragment = Uri.base.fragment;
+  if (fragment.isNotEmpty) {
+    try {
+      params.addAll(Uri.splitQueryString(fragment));
+    } catch (_) {
+      // Ignore malformed fragments.
+    }
+  }
+
+  return params;
+}
+
+Future<void> _restoreRecoverySessionFromUrl(SupabaseClient client) async {
+  if (!kIsWeb) {
+    return;
+  }
+
+  final params = _recoveryUrlParams();
+  final code = (params["code"] ?? "").trim();
+  final tokenHash = (params["token_hash"] ?? "").trim();
+  final refreshToken = (params["refresh_token"] ?? "").trim();
+
+  if (code.isNotEmpty) {
+    try {
+      await client.auth.exchangeCodeForSession(code);
+      return;
+    } catch (_) {
+      // Fall through to alternate recovery strategies.
+    }
+  }
+
+  if (tokenHash.isNotEmpty) {
+    try {
+      await client.auth.verifyOTP(
+        type: OtpType.recovery,
+        tokenHash: tokenHash,
+      );
+      return;
+    } catch (_) {
+      // Fall through to alternate recovery strategies.
+    }
+  }
+
+  if (refreshToken.isNotEmpty) {
+    try {
+      await client.auth.setSession(refreshToken);
+      return;
+    } catch (_) {
+      // Keep graceful behavior if URL payload is not enough.
+    }
+  }
+}
 
 final appRoleProvider = FutureProvider<AppRole>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;

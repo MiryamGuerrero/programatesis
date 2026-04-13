@@ -1,3 +1,4 @@
+from app.core.auth_onboarding import delete_auth_user, provision_auth_user_with_password_setup
 from app.repositories import admin_crud_repository
 
 ALLOWED_CATALOGS: set[tuple[str, str]] = {
@@ -28,13 +29,33 @@ def create_user(
     cedula: str | None = None,
     username: str | None = None,
 ) -> str | None:
-    created_id = admin_crud_repository.create_user(
+    role_code = admin_crud_repository.fetch_role_code(id_rol)
+    if not role_code:
+        raise ValueError(f"No existe rol configurado para id_rol={id_rol}")
+
+    auth_user_id = provision_auth_user_with_password_setup(
         email=email,
         nombre_completo=nombre_completo,
-        id_rol=id_rol,
-        cedula=cedula,
-        username=username,
+        role_code=role_code,
     )
+
+    created_id = None
+    try:
+        created_id = admin_crud_repository.create_user(
+            email=email,
+            nombre_completo=nombre_completo,
+            id_rol=id_rol,
+            auth_user_id=auth_user_id,
+            cedula=cedula,
+            username=username,
+        )
+    except Exception as exc:
+        try:
+            delete_auth_user(auth_user_id)
+        except Exception:
+            pass
+        raise exc
+
     return str(created_id) if created_id is not None else None
 
 

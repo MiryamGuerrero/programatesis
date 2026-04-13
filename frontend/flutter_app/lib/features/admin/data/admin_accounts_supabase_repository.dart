@@ -247,39 +247,8 @@ class AdminAccountsSupabaseRepository {
         options: _authorizedOptions(),
       );
       return;
-    } on DioException catch (_) {
-      // Fall back to direct Supabase when backend is unavailable.
-    }
-
-    try {
-      await _client.schema("usuarios").from("usuario").insert({
-        "cedula": cedula.trim(),
-        "username": username.trim().toLowerCase(),
-        "email": email.trim().toLowerCase(),
-        "nombre_completo": nombreCompleto.trim(),
-        "id_rol": idRol,
-        "activo": true,
-      });
-    } on PostgrestException catch (error) {
-      if (_isSchemaCacheUnavailable(error)) {
-        try {
-          await _dio.post(
-            "/crud/users",
-            data: {
-              "cedula": cedula.trim(),
-              "username": username.trim().toLowerCase(),
-              "email": email.trim().toLowerCase(),
-              "nombre_completo": nombreCompleto.trim(),
-              "id_rol": idRol,
-            },
-            options: _authorizedOptions(),
-          );
-          return;
-        } on DioException catch (dioError) {
-          throw _mapDioException(dioError, "No fue posible crear la cuenta");
-        }
-      }
-      throw _mapPostgrestException(error, "No fue posible crear la cuenta");
+    } on DioException catch (error) {
+      throw _mapDioException(error, "No fue posible crear la cuenta");
     }
   }
 

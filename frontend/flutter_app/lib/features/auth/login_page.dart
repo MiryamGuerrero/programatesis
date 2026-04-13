@@ -596,7 +596,7 @@ class _BackdropRibbon extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.all(Radius.circular(28)),
+              borderRadius: const BorderRadius.all(Radius.circular(28)),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x140C3652),
