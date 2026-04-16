@@ -1,6 +1,6 @@
 param(
   [string]$DeviceId,
-  [string]$ApiBaseUrl = "http://10.0.2.2:8000/api/v1"
+  [string]$ApiBaseUrl = "http://192.168.100.12:8000/api/v1"
 )
 
 $ErrorActionPreference = "Stop"
