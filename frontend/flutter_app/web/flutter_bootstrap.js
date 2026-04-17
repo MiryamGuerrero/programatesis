@@ -2,18 +2,22 @@
 {{flutter_build_config}}
 
 (function () {
-  const flutterViewSelector = "flt-glass-pane, flutter-view, flt-scene-host";
-
-  if (location.hostname === "localhost" && "serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function (registrations) {
-      registrations.forEach(function (registration) {
-        registration.unregister();
-      });
-    });
+  if (window.__REUMA_FLUTTER_BOOTSTRAP_STARTED__) {
+    return;
   }
+  window.__REUMA_FLUTTER_BOOTSTRAP_STARTED__ = true;
 
-  function hasFlutterView() {
-    return !!document.querySelector(flutterViewSelector);
+  async function prepareBrowserForLocalDebug() {
+    if (location.hostname !== "localhost" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(function (registration) {
+        return registration.unregister();
+      })
+    );
   }
 
   async function startEntrypoint(engineInitializer) {
@@ -21,50 +25,19 @@
     await appRunner.runApp();
   }
 
-  _flutter.loader.load({
-    onEntrypointLoaded: async function (engineInitializer) {
-      try {
-        await startEntrypoint(engineInitializer);
-      } catch (error) {
-        console.error("Error iniciando Flutter:", error);
-      }
-    },
-  });
-
-  function startLegacyFallbackLoop() {
-    let attempts = 0;
-    const maxAttempts = 60;
-    const timer = window.setInterval(function () {
-      attempts += 1;
-
-      if (hasFlutterView()) {
-        window.clearInterval(timer);
-        return;
-      }
-
-      if (typeof window.$dartRunMain !== "function") {
-        if (attempts >= maxAttempts) {
-          window.clearInterval(timer);
-        }
-        return;
-      }
-
-      try {
-        window.$dartRunMain();
-      } catch (_) {
-      }
-
-      if (hasFlutterView() || attempts >= maxAttempts) {
-        window.clearInterval(timer);
-      }
-    }, 1500);
-  }
-
-  if (document.readyState === "complete") {
-    window.setTimeout(startLegacyFallbackLoop, 600);
-  } else {
-    window.addEventListener("load", function () {
-      window.setTimeout(startLegacyFallbackLoop, 600);
+  prepareBrowserForLocalDebug()
+    .catch(function (error) {
+      console.warn("No fue posible limpiar service workers locales:", error);
+    })
+    .finally(function () {
+      _flutter.loader.load({
+        onEntrypointLoaded: async function (engineInitializer) {
+          try {
+            await startEntrypoint(engineInitializer);
+          } catch (error) {
+            console.error("Error iniciando Flutter:", error);
+          }
+        },
+      });
     });
-  }
 })();

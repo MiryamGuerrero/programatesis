@@ -1,0 +1,6 @@
+id,nombre,id_tipo_condicion,descripcion,activa
+1,Delgadez severa,3,Menor a -3 desviaciones estándar (DE) de la mediana del IMC para la edad según la OMS.,t
+2,Delgadez,3,Entre -3 y menor a -2 desviaciones estándar (DE) de la mediana del IMC para la edad según la OMS.,t
+3,Peso normal,3,Entre -2 y +1 desviaciones estándar (DE) de la mediana del IMC para la edad según la OMS.,t
+4,Sobrepeso,3,Mayor a +1 y hasta +2 desviaciones estándar (DE) de la mediana del IMC para la edad según la OMS.,t
+5,Obesidad,3,Mayor a +2 desviaciones estándar (DE) de la mediana del IMC para la edad según la OMS.,t

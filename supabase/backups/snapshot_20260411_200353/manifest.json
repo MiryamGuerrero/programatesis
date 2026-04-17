@@ -1,0 +1,517 @@
+[
+  {
+    "schema": "auth",
+    "table": "audit_log_entries",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "custom_oauth_providers",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "flow_state",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "identities",
+    "rows": 4
+  },
+  {
+    "schema": "auth",
+    "table": "instances",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "mfa_amr_claims",
+    "rows": 7
+  },
+  {
+    "schema": "auth",
+    "table": "mfa_challenges",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "mfa_factors",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "oauth_authorizations",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "oauth_client_states",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "oauth_clients",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "oauth_consents",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "one_time_tokens",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "refresh_tokens",
+    "rows": 10
+  },
+  {
+    "schema": "auth",
+    "table": "saml_providers",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "saml_relay_states",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "schema_migrations",
+    "rows": 76
+  },
+  {
+    "schema": "auth",
+    "table": "sessions",
+    "rows": 7
+  },
+  {
+    "schema": "auth",
+    "table": "sso_domains",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "sso_providers",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "users",
+    "rows": 4
+  },
+  {
+    "schema": "auth",
+    "table": "webauthn_challenges",
+    "rows": 0
+  },
+  {
+    "schema": "auth",
+    "table": "webauthn_credentials",
+    "rows": 0
+  },
+  {
+    "schema": "clinico",
+    "table": "alergia_paciente_grupo",
+    "rows": 0
+  },
+  {
+    "schema": "clinico",
+    "table": "alergia_paciente_ingrediente",
+    "rows": 0
+  },
+  {
+    "schema": "clinico",
+    "table": "control_condicion_activa",
+    "rows": 0
+  },
+  {
+    "schema": "clinico",
+    "table": "control_paciente",
+    "rows": 0
+  },
+  {
+    "schema": "clinico",
+    "table": "diagnostico_paciente",
+    "rows": 0
+  },
+  {
+    "schema": "etiquetado",
+    "table": "campo_catalogo",
+    "rows": 21
+  },
+  {
+    "schema": "etiquetado",
+    "table": "condicion",
+    "rows": 45
+  },
+  {
+    "schema": "etiquetado",
+    "table": "condicion_valor_texto",
+    "rows": 4
+  },
+  {
+    "schema": "etiquetado",
+    "table": "etiqueta",
+    "rows": 16
+  },
+  {
+    "schema": "etiquetado",
+    "table": "grupo_condicion",
+    "rows": 38
+  },
+  {
+    "schema": "etiquetado",
+    "table": "ingrediente_resultado_etiqueta",
+    "rows": 9088
+  },
+  {
+    "schema": "etiquetado",
+    "table": "regla_version",
+    "rows": 16
+  },
+  {
+    "schema": "etiquetado",
+    "table": "subetiqueta",
+    "rows": 53
+  },
+  {
+    "schema": "etiquetado",
+    "table": "subetiqueta_regla",
+    "rows": 53
+  },
+  {
+    "schema": "etiquetado",
+    "table": "tipo_regla",
+    "rows": 4
+  },
+  {
+    "schema": "heuristico",
+    "table": "catalogo_accion",
+    "rows": 3
+  },
+  {
+    "schema": "heuristico",
+    "table": "catalogo_objetivo_regla",
+    "rows": 3
+  },
+  {
+    "schema": "heuristico",
+    "table": "catalogo_tipo_condicion",
+    "rows": 3
+  },
+  {
+    "schema": "heuristico",
+    "table": "condicion",
+    "rows": 5
+  },
+  {
+    "schema": "heuristico",
+    "table": "condicion_regla",
+    "rows": 0
+  },
+  {
+    "schema": "heuristico",
+    "table": "regla",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "catalogo_estado_consumo",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "catalogo_estado_plan",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "catalogo_motivo_rechazo",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "catalogo_origen_plan",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "catalogo_tipo_plan",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "config_analisis_rechazo",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "evaluacion_receta",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "plan_item",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "plan_nutricional",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "preferencia_ingrediente",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "preferencia_receta",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "recomendacion_puntual",
+    "rows": 0
+  },
+  {
+    "schema": "interaccion",
+    "table": "seguimiento_plan_item",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "clasificacion_nutriente",
+    "rows": 7
+  },
+  {
+    "schema": "nutricion",
+    "table": "etiqueta_nutricional",
+    "rows": 16
+  },
+  {
+    "schema": "nutricion",
+    "table": "grupo_alimentario",
+    "rows": 13
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente",
+    "rows": 569
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente_composicion",
+    "rows": 569
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente_etiqueta",
+    "rows": 9088
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente_metrica",
+    "rows": 7384
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente_nutriente",
+    "rows": 24992
+  },
+  {
+    "schema": "nutricion",
+    "table": "ingrediente_sinonimo",
+    "rows": 26
+  },
+  {
+    "schema": "nutricion",
+    "table": "metrica_def",
+    "rows": 13
+  },
+  {
+    "schema": "nutricion",
+    "table": "momento_comida",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "nutriente",
+    "rows": 44
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta_imagen",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta_ingrediente",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta_momento",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta_nutriente_calculado",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "receta_tipo_plato",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "subgrupo_alimentario",
+    "rows": 53
+  },
+  {
+    "schema": "nutricion",
+    "table": "sustituto_ingrediente",
+    "rows": 0
+  },
+  {
+    "schema": "nutricion",
+    "table": "tipo_plato",
+    "rows": 0
+  },
+  {
+    "schema": "realtime",
+    "table": "messages",
+    "rows": 0
+  },
+  {
+    "schema": "realtime",
+    "table": "schema_migrations",
+    "rows": 68
+  },
+  {
+    "schema": "realtime",
+    "table": "subscription",
+    "rows": 0
+  },
+  {
+    "schema": "referencia",
+    "table": "indicador_antropometrico",
+    "rows": 0
+  },
+  {
+    "schema": "referencia",
+    "table": "oms_curva",
+    "rows": 0
+  },
+  {
+    "schema": "referencia",
+    "table": "oms_curva_percentil",
+    "rows": 0
+  },
+  {
+    "schema": "referencia",
+    "table": "oms_curva_punto",
+    "rows": 0
+  },
+  {
+    "schema": "seguridad",
+    "table": "log_auditoria",
+    "rows": 15
+  },
+  {
+    "schema": "seguridad",
+    "table": "log_error",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "buckets",
+    "rows": 1
+  },
+  {
+    "schema": "storage",
+    "table": "buckets_analytics",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "buckets_vectors",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "migrations",
+    "rows": 59
+  },
+  {
+    "schema": "storage",
+    "table": "objects",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "s3_multipart_uploads",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "s3_multipart_uploads_parts",
+    "rows": 0
+  },
+  {
+    "schema": "storage",
+    "table": "vector_indexes",
+    "rows": 0
+  },
+  {
+    "schema": "usuarios",
+    "table": "catalogo_sexo",
+    "rows": 2
+  },
+  {
+    "schema": "usuarios",
+    "table": "paciente",
+    "rows": 2
+  },
+  {
+    "schema": "usuarios",
+    "table": "parentesco",
+    "rows": 13
+  },
+  {
+    "schema": "usuarios",
+    "table": "provincia",
+    "rows": 24
+  },
+  {
+    "schema": "usuarios",
+    "table": "rol",
+    "rows": 4
+  },
+  {
+    "schema": "usuarios",
+    "table": "tutor_paciente",
+    "rows": 2
+  },
+  {
+    "schema": "usuarios",
+    "table": "usuario",
+    "rows": 4
+  },
+  {
+    "schema": "vault",
+    "table": "secrets",
+    "rows": 1
+  }
+]

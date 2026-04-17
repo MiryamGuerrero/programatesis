@@ -1,14 +1,29 @@
+import "dart:convert";
+
 import "package:dio/dio.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
 
+import "../../core/config/app_config.dart";
 import "../../core/network/api_client.dart";
 import "../../features/admin/data/admin_accounts_supabase_repository.dart";
 import "../../shared/models/app_role.dart";
 import "../../shared/repositories/inteligencia_api_repository.dart";
 import "../../shared/repositories/supabase_crud_repository.dart";
 
+const Duration _signOutTimeout = Duration(seconds: 3);
+
 final authErrorProvider = StateProvider<String?>((ref) => null);
+
+Future<void> _safeSignOut(SupabaseClient client) async {
+  try {
+    await client.auth.signOut().timeout(_signOutTimeout);
+  } catch (_) {
+    // Ignore sign-out failures during auth recovery flows.
+  }
+}
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -40,7 +55,7 @@ final dioProvider = Provider<Dio>((ref) {
           if (data is Map && data["detail"] == "Account deactivated") {
             try {
               ref.read(authErrorProvider.notifier).state = "Tu cuenta ha sido desactivada. Contacta al administrador.";
-              await client.auth.signOut();
+              await _safeSignOut(client);
             } catch (_) {}
           }
         }
@@ -62,11 +77,7 @@ final dioProvider = Provider<Dio>((ref) {
             // Fall through to force sign-out below.
           }
 
-          try {
-            await client.auth.signOut();
-          } catch (_) {
-            // Ignore sign-out errors; original 401 is still returned.
-          }
+          await _safeSignOut(client);
         }
 
         return handler.next(error);
@@ -125,21 +136,25 @@ Future<Session?> _ensureValidSession(
     final refreshed = await client.auth.refreshSession();
     return refreshed.session ?? client.auth.currentSession;
   } catch (_) {
-    try {
-      await client.auth.signOut();
-    } catch (_) {
-      // Ignore sign-out errors.
-    }
+    await _safeSignOut(client);
     return null;
   }
 }
 
 final authSessionProvider = StreamProvider<Session?>((ref) async* {
   final client = ref.watch(supabaseClientProvider);
-  yield await _ensureValidSession(client, client.auth.currentSession);
+
+  // Start from the persisted session so UI can route without waiting for an auth event.
+  yield await _ensureValidSession(
+    client,
+    client.auth.currentSession,
+  );
 
   await for (final event in client.auth.onAuthStateChange) {
-    yield await _ensureValidSession(client, event.session);
+    yield await _ensureValidSession(
+      client,
+      event.session ?? client.auth.currentSession,
+    );
   }
 });
 
@@ -152,8 +167,11 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
   // 1. Validar SIEMPRE contra el backend primero para ejecutar reglas de seguridad
   // (esto garantiza que el usuario no este desactivado, sin importar su rol).
   final roleFromApi = await _resolveRoleFromBackend(
-    dio: ref.watch(dioProvider),
     accessToken: session.accessToken,
+    onAccountDeactivated: () {
+      ref.read(authErrorProvider.notifier).state =
+          "Tu cuenta ha sido desactivada. Contacta al administrador.";
+    },
   );
 
   // Si el backend rechazo el token (cuenta inactiva), el interceptor ya guardo el error.
@@ -227,28 +245,43 @@ AppRole? _resolveRoleFromSessionMetadata(Session session) {
 }
 
 Future<AppRole?> _resolveRoleFromBackend({
-  required Dio dio,
   required String accessToken,
+  required VoidCallback onAccountDeactivated,
 }) async {
-  try {
-    final response = await dio.get(
-      "/auth-context",
-      options: Options(
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      final response = await http.get(
+        Uri.parse("${AppConfig.fastApiBaseUrl}/auth-context"),
         headers: {
           "Authorization": "Bearer $accessToken",
+          "Accept": "application/json",
         },
-      ),
-    );
+      );
 
-    final data = response.data;
-    if (data is! Map) {
-      return null;
+      if (response.statusCode == 403) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded["detail"] == "Account deactivated") {
+          onAccountDeactivated();
+        }
+        return null;
+      }
+
+      if (response.statusCode != 200) {
+        continue;
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! Map) {
+        return null;
+      }
+
+      return tryParseRole(data["role"]);
+    } catch (_) {
+      // Retry once to smooth transient startup races between frontend and backend.
     }
-
-    return tryParseRole(data["role"]);
-  } catch (_) {
-    return null;
   }
+
+  return null;
 }
 
 Future<AppRole?> _resolveRoleFromUsersTable({
@@ -257,46 +290,65 @@ Future<AppRole?> _resolveRoleFromUsersTable({
   required String? email,
 }) async {
   const candidateSchemas = ["usuarios"];
+  final trimmedEmail = email?.trim();
 
   for (final schema in candidateSchemas) {
-    try {
-      final rowById = await client
-          .schema(schema)
-          .from("usuario")
-          .select("id_rol")
-          .eq("id", userId)
-          .maybeSingle();
+    final roleByAuthUserId = await _resolveRoleByColumn(
+      client: client,
+      schema: schema,
+      column: "auth_user_id",
+      value: userId,
+    );
+    if (roleByAuthUserId != null) {
+      return roleByAuthUserId;
+    }
 
-      final roleById = tryParseRole(rowById?["id_rol"]);
-      if (roleById != null) {
-        return roleById;
-      }
-    } catch (_) {
-      // Ignore and try next schema.
+    final roleById = await _resolveRoleByColumn(
+      client: client,
+      schema: schema,
+      column: "id",
+      value: userId,
+    );
+    if (roleById != null) {
+      return roleById;
     }
   }
 
-  if (email == null || email.trim().isEmpty) {
+  if (trimmedEmail == null || trimmedEmail.isEmpty) {
     return null;
   }
 
   for (final schema in candidateSchemas) {
-    try {
-      final rowByEmail = await client
-          .schema(schema)
-          .from("usuario")
-          .select("id_rol")
-          .eq("email", email.trim())
-          .maybeSingle();
-
-      final roleByEmail = tryParseRole(rowByEmail?["id_rol"]);
-      if (roleByEmail != null) {
-        return roleByEmail;
-      }
-    } catch (_) {
-      // Ignore and try next schema.
+    final roleByEmail = await _resolveRoleByColumn(
+      client: client,
+      schema: schema,
+      column: "email",
+      value: trimmedEmail,
+    );
+    if (roleByEmail != null) {
+      return roleByEmail;
     }
   }
 
   return null;
+}
+
+Future<AppRole?> _resolveRoleByColumn({
+  required SupabaseClient client,
+  required String schema,
+  required String column,
+  required String value,
+}) async {
+  try {
+    final row = await client
+        .schema(schema)
+        .from("usuario")
+        .select("id_rol")
+        .eq(column, value)
+        .maybeSingle();
+
+    return tryParseRole(row?["id_rol"]);
+  } catch (_) {
+    return null;
+  }
 }

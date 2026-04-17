@@ -1,0 +1,5 @@
+id,codigo,nombre
+1,UMBRAL,Regla por umbral
+2,TEXTO,Regla por texto
+3,COMPUESTA,Regla compuesta
+4,FORMULA,Regla por fórmula

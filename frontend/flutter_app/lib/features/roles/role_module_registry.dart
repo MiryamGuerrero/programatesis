@@ -10,7 +10,6 @@ import "../medico/modules/registro_clinico/registro_clinico_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
 import "../../shared/repositories/gestion_tutores_pacientes_page.dart";
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
-import "../nutricionista/modules/etiquetas_automaticas/etiquetas_automaticas_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
 import "../tutor/modules/calificacion/calificacion_page.dart";
@@ -109,12 +108,6 @@ List<RoleModule> modulesForRole(AppRole role) {
           builder: () => const PlanManualPage(),
         ),
         RoleModule(
-          key: "etiquetas",
-          title: "Etiquetas auto",
-          icon: Icons.policy,
-          builder: () => const EtiquetasAutomaticasPage(),
-        ),
-        RoleModule(
           key: "perfil",
           title: "Perfil",
           icon: Icons.person,
@@ -159,7 +152,7 @@ List<RoleModule> modulesForRole(AppRole role) {
 
 int defaultModuleIndexForRole(AppRole role) {
   if (role == AppRole.nutricionista) {
-    return 3;
+    return 0;
   }
 
   return 0;

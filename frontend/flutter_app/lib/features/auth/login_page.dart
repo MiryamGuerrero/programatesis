@@ -1,10 +1,15 @@
 import "dart:math" as math;
+import "dart:convert";
 
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
 
+import "../../core/config/app_config.dart";
 import "../../core/state/app_providers.dart";
+import "../../shared/models/app_role.dart";
+import "../../shared/widgets/role_shell.dart";
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -71,6 +76,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
         email: email,
         password: password,
       );
+
+      final signedSession = Supabase.instance.client.auth.currentSession;
+      if (signedSession == null) {
+        setState(() {
+          _error = "Sesion iniciada, pero no se pudo obtener contexto de acceso.";
+        });
+        return;
+      }
+
+      await _openRoleShellAfterSignIn(signedSession);
     } on AuthException catch (error) {
       setState(() {
         _error = _friendlyAuthMessage(error.message);
@@ -85,6 +100,63 @@ class _LoginPageState extends ConsumerState<LoginPage>
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _openRoleShellAfterSignIn(Session session) async {
+    final role = await _resolveRoleForSession(session);
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => RoleShell(role: role),
+      ),
+      (_) => false,
+    );
+  }
+
+  Future<AppRole> _resolveRoleForSession(Session session) async {
+    final metadataCandidates = <dynamic>[
+      session.user.appMetadata["role"],
+      session.user.appMetadata["rol"],
+      session.user.appMetadata["id_rol"],
+      session.user.userMetadata?["role"],
+      session.user.userMetadata?["rol"],
+      session.user.userMetadata?["id_rol"],
+    ];
+
+    for (final candidate in metadataCandidates) {
+      final parsed = tryParseRole(candidate);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse("${AppConfig.fastApiBaseUrl}/auth-context"),
+        headers: {
+          "Authorization": "Bearer ${session.accessToken}",
+          "Accept": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map) {
+          final parsed = tryParseRole(data["role"]);
+          if (parsed != null) {
+            return parsed;
+          }
+        }
+      }
+    } catch (_) {
+      // Fall back to default role if backend context is temporarily unavailable.
+    }
+
+    return AppRole.tutor;
   }
 
   String _friendlyAuthMessage(String rawMessage) {
@@ -244,32 +316,34 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget _buildCompactLayout(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildBrandHeader(context),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _mintSoft.withValues(alpha: 0.45)),
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildBrandHeader(context),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _mintSoft.withValues(alpha: 0.45)),
+              ),
+              child: Text(
+                "Nutricion clinica pediatrica con seguimiento continuo y coordinacion por roles.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: _slateMuted,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             ),
-            child: Text(
-              "Nutricion clinica pediatrica con seguimiento continuo y coordinacion por roles.",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _slateMuted,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildLoginForm(context, includeTitle: false, compact: true),
-        ],
+            const SizedBox(height: 10),
+            _buildLoginForm(context, includeTitle: false, compact: true),
+          ],
+        ),
       ),
     );
   }
@@ -432,11 +506,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
   }) {
     final globalError = ref.watch(authErrorProvider);
     final displayError = _error ?? globalError;
-    final session = ref.watch(authSessionProvider).valueOrNull;
-    final roleAsync = ref.watch(appRoleProvider);
-    final isProcessing = _loading || (session != null && roleAsync.isLoading);
+    final isProcessing = _loading;
 
-    return Padding(
+    final formContent = Padding(
       padding: compact
           ? const EdgeInsets.fromLTRB(8, 6, 8, 0)
           : const EdgeInsets.fromLTRB(28, 28, 28, 28),
@@ -533,6 +605,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ],
         ],
       ),
+    );
+
+    if (compact) {
+      return formContent;
+    }
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: formContent,
     );
   }
 

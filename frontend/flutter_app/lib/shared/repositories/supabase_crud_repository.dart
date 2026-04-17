@@ -137,21 +137,326 @@ class SupabaseCrudRepository {
     }
   }
 
-  Future<void> createIngrediente({
-    required String nombre,
+  Future<Map<String, dynamic>> fetchIngredientesPaged({
+    String? query,
     int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    bool includeInactive = false,
+    int limit = 20,
+    int offset = 0,
   }) async {
     try {
-      await _dio.post(
+      final params = <String, dynamic>{
+        "include_inactive": includeInactive,
+        "limit": limit,
+        "offset": offset,
+      };
+      final normalizedQuery = query?.trim();
+      if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
+        params["q"] = normalizedQuery;
+      }
+      if (idGrupoAlimentario != null) {
+        params["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        params["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+
+      final response = await _dio.get(
+        "/crud/ingredientes/paged",
+        queryParameters: params,
+        options: _authorizedOptions(),
+      );
+
+      final payload = response.data;
+      if (payload is! Map) {
+        throw Exception("Formato de respuesta no valido");
+      }
+
+      final map = Map<String, dynamic>.from(payload);
+      final items = _toRows(map["items"]);
+      final total = (map["total"] as num?)?.toInt() ?? items.length;
+      return {
+        "items": items,
+        "total": total,
+      };
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar ingredientes");
+    }
+  }
+
+  Future<int?> createIngrediente({
+    required String nombre,
+    int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    double? precioLibra,
+    double? factorParteComestible,
+    String? imagenReferencia,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        "nombre": nombre,
+      };
+      if (idGrupoAlimentario != null) {
+        payload["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        payload["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+      if (precioLibra != null) {
+        payload["precio_libra"] = precioLibra;
+      }
+      if (factorParteComestible != null) {
+        payload["factor_parte_comestible"] = factorParteComestible;
+      }
+      if (imagenReferencia != null) {
+        payload["imagen_referencia"] = imagenReferencia;
+      }
+
+      final response = await _dio.post(
         "/crud/ingredientes",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return (data["id"] as num?)?.toInt();
+      }
+
+      return null;
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear el ingrediente");
+    }
+  }
+
+  Future<void> updateIngrediente({
+    required int idIngrediente,
+    String? nombre,
+    int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    double? precioLibra,
+    double? factorParteComestible,
+    String? imagenReferencia,
+    bool? activo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (nombre != null) payload["nombre"] = nombre;
+      if (idGrupoAlimentario != null) {
+        payload["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        payload["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+      if (precioLibra != null) payload["precio_libra"] = precioLibra;
+      if (factorParteComestible != null) {
+        payload["factor_parte_comestible"] = factorParteComestible;
+      }
+      if (imagenReferencia != null) {
+        payload["imagen_referencia"] = imagenReferencia;
+      }
+      if (activo != null) payload["activo"] = activo;
+
+      await _dio.put(
+        "/crud/ingredientes/$idIngrediente",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el ingrediente");
+    }
+  }
+
+  Future<void> deleteIngrediente(int idIngrediente) async {
+    try {
+      await _dio.delete(
+        "/crud/ingredientes/$idIngrediente",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar el ingrediente");
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchIngredienteComposicion(
+      int idIngrediente) async {
+    try {
+      final response = await _dio.get(
+        "/crud/ingredientes/$idIngrediente/composicion",
+        options: _authorizedOptions(),
+      );
+      final payload = response.data;
+      if (payload is Map) {
+        return Map<String, dynamic>.from(payload);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        try {
+          final fallbackResponse = await _dio.get(
+            "/nutricionista/ingredientes/$idIngrediente/composicion",
+            options: _authorizedOptions(),
+          );
+          final payload = fallbackResponse.data;
+          if (payload is Map) {
+            return Map<String, dynamic>.from(payload);
+          }
+        } on DioException {
+          // If fallback also fails, preserve the original /crud error below.
+        }
+      }
+      throw _toException(error, "No fue posible cargar la composicion nutricional");
+    }
+  }
+
+  Future<void> upsertIngredienteComposicion({
+    required int idIngrediente,
+    required Map<String, dynamic> valores,
+  }) async {
+    try {
+      await _dio.put(
+        "/crud/ingredientes/$idIngrediente/composicion",
         data: {
-          "nombre": nombre,
-          "id_grupo_alimentario": idGrupoAlimentario,
+          "valores": valores,
         },
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
-      throw _toException(error, "No fue posible crear el ingrediente");
+      if (error.response?.statusCode == 404) {
+        try {
+          await _dio.put(
+            "/nutricionista/ingredientes/$idIngrediente/composicion",
+            data: {
+              "valores": valores,
+            },
+            options: _authorizedOptions(),
+          );
+          return;
+        } on DioException {
+          // Keep original error message from /crud endpoint.
+        }
+      }
+      throw _toException(error, "No fue posible actualizar la composicion nutricional");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEtiquetas() async {
+    try {
+      final response = await _dio.get(
+        "/crud/etiquetas",
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar etiquetas");
+    }
+  }
+
+  Future<Map<String, dynamic>> createEtiqueta({
+    required String nombreVisible,
+    String? codigo,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/crud/etiquetas",
+        data: {
+          "nombre_visible": nombreVisible,
+          "codigo": codigo,
+        },
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear la etiqueta");
+    }
+  }
+
+  Future<void> updateEtiqueta({
+    required int idEtiqueta,
+    String? nombreVisible,
+    String? codigo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (nombreVisible != null) payload["nombre_visible"] = nombreVisible;
+      if (codigo != null) payload["codigo"] = codigo;
+
+      await _dio.put(
+        "/crud/etiquetas/$idEtiqueta",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar la etiqueta");
+    }
+  }
+
+  Future<void> deleteEtiqueta(int idEtiqueta) async {
+    try {
+      await _dio.delete(
+        "/crud/etiquetas/$idEtiqueta",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar la etiqueta");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEtiquetasByIngrediente(
+      int idIngrediente) async {
+    try {
+      final response = await _dio.get(
+        "/crud/ingredientes/$idIngrediente/etiquetas",
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar etiquetas del ingrediente");
+    }
+  }
+
+  Future<Map<String, dynamic>> asignarEtiquetaIngrediente({
+    required int idIngrediente,
+    int? idEtiqueta,
+    String? nombreEtiqueta,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/crud/ingredientes/$idIngrediente/etiquetas",
+        data: {
+          "id_etiqueta": idEtiqueta,
+          "nombre_etiqueta": nombreEtiqueta,
+        },
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible asignar la etiqueta");
+    }
+  }
+
+  Future<void> removerEtiquetaIngrediente({
+    required int idIngrediente,
+    required int idEtiqueta,
+  }) async {
+    try {
+      await _dio.delete(
+        "/crud/ingredientes/$idIngrediente/etiquetas/$idEtiqueta",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible remover la etiqueta");
     }
   }
 

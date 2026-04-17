@@ -17,9 +17,12 @@ class RoleShell extends StatefulWidget {
 }
 
 class _RoleShellState extends State<RoleShell> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   int _index = 0;
   bool _signingOut = false;
   bool _initializedFromRoute = false;
+  bool _menuExpanded = true;
 
   @override
   void initState() {
@@ -46,13 +49,15 @@ class _RoleShellState extends State<RoleShell> {
     _applyInitialModuleFromRoute(modules);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isWide = MediaQuery.of(context).size.width >= 960;
+    final isWide = MediaQuery.of(context).size.width >= 980;
 
     if (_index >= modules.length) {
       _index = 0;
     }
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: isWide ? null : _buildDrawerNavigation(context, modules),
       appBar: AppBar(
         toolbarHeight: 82,
         flexibleSpace: DecoratedBox(
@@ -68,36 +73,52 @@ class _RoleShellState extends State<RoleShell> {
             ),
           ),
         ),
-        titleSpacing: 8,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
-              ),
-            ),
-            child: const Icon(Icons.shield_rounded, color: Colors.white),
-          ),
+        titleSpacing: 0,
+        leadingWidth: 60,
+        leading: IconButton(
+          tooltip: isWide
+              ? (_menuExpanded ? "Contraer menu" : "Expandir menu")
+              : "Abrir menu",
+          icon: const Icon(Icons.menu_rounded),
+          onPressed: () => _toggleNavigation(isWide),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        title: Row(
           children: [
-            Text(
-              "Clinica nutricional - ${widget.role.label}",
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colors.onSurface.withValues(alpha: 0.78),
-                fontWeight: FontWeight.w700,
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                ),
               ),
+              child: const Icon(Icons.shield_rounded, color: Colors.white),
             ),
-            Text(
-              modules[_index].title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Clinica nutricional - ${widget.role.label}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colors.onSurface.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    modules[_index].title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -126,7 +147,12 @@ class _RoleShellState extends State<RoleShell> {
             const Positioned.fill(child: _ShellBackdrop()),
             Row(
               children: [
-                if (isWide) _buildWideNavigation(context, modules),
+                if (isWide)
+                  _buildWideNavigation(
+                    context,
+                    modules,
+                    isExpanded: _menuExpanded,
+                  ),
                 Expanded(
                   child: _buildModulePanel(context, modules, isWide),
                 ),
@@ -135,9 +161,15 @@ class _RoleShellState extends State<RoleShell> {
           ],
         ),
       ),
-      bottomNavigationBar:
-          isWide ? null : _buildMobileNavigation(context, modules),
     );
+  }
+
+  void _toggleNavigation(bool isWide) {
+    if (isWide) {
+      setState(() => _menuExpanded = !_menuExpanded);
+      return;
+    }
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   Future<void> _handleSignOut() async {
@@ -181,6 +213,18 @@ class _RoleShellState extends State<RoleShell> {
     }
 
     if (mounted && (!remoteFailed || !localFailed)) {
+      final signedOutUri = Uri(
+        path: "/",
+        queryParameters: {
+          "signed_out": "1",
+        },
+      );
+
+      SystemNavigator.routeInformationUpdated(
+        uri: signedOutUri,
+        replace: true,
+      );
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
           builder: (_) => const LoginPage(),
@@ -225,7 +269,11 @@ class _RoleShellState extends State<RoleShell> {
     );
   }
 
-  Widget _buildWideNavigation(BuildContext context, List<RoleModule> modules) {
+  Widget _buildWideNavigation(
+    BuildContext context,
+    List<RoleModule> modules, {
+    required bool isExpanded,
+  }) {
     final colors = Theme.of(context).colorScheme;
 
     return Padding(
@@ -246,14 +294,25 @@ class _RoleShellState extends State<RoleShell> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: NavigationRail(
-            minWidth: 84,
-            minExtendedWidth: 240,
-            extended: true,
+            minWidth: 78,
+            minExtendedWidth: 252,
+            extended: isExpanded,
             useIndicator: true,
             groupAlignment: -0.75,
             selectedIndex: _index,
             onDestinationSelected: (value) => _selectModule(value, modules),
             labelType: NavigationRailLabelType.none,
+            selectedLabelTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+            unselectedLabelTextStyle:
+                Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                    ),
+            selectedIconTheme: const IconThemeData(size: 22),
+            unselectedIconTheme: const IconThemeData(size: 21),
             backgroundColor: Colors.transparent,
             destinations: [
               for (final module in modules)
@@ -266,37 +325,148 @@ class _RoleShellState extends State<RoleShell> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.grid_view_rounded, color: Colors.white),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        "Reuma Nutri",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w900,
+                child: isExpanded
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child:
+                                const Icon(Icons.grid_view_rounded, color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 140,
+                            child: Text(
+                              "Reuma Nutri",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.grid_view_rounded, color: Colors.white),
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerNavigation(BuildContext context, List<RoleModule> modules) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Drawer(
+      width: 312,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.grid_view_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Sistema Nutricional",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        Text(
+                          "Modulo ${widget.role.label}",
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: colors.onSurface.withValues(alpha: 0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(10),
+                itemCount: modules.length,
+                itemBuilder: (context, index) {
+                  final module = modules[index];
+                  final selected = index == _index;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: ListTile(
+                      leading: Icon(module.icon),
+                      title: Text(
+                        module.title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                            ),
+                      ),
+                      selected: selected,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _selectModule(index, modules);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: FilledButton.tonalIcon(
+                onPressed: _signingOut ? null : _handleSignOut,
+                icon: _signingOut
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout),
+                label: Text(_signingOut ? "Saliendo..." : "Cerrar sesion"),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -335,41 +505,6 @@ class _RoleShellState extends State<RoleShell> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileNavigation(
-      BuildContext context, List<RoleModule> modules) {
-    final colors = Theme.of(context).colorScheme;
-
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: colors.outline.withValues(alpha: 0.24)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1630414A),
-              blurRadius: 24,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: NavigationBar(
-          backgroundColor: Colors.transparent,
-          selectedIndex: _index,
-          onDestinationSelected: (value) => _selectModule(value, modules),
-          destinations: [
-            for (final module in modules)
-              NavigationDestination(
-                icon: Icon(module.icon),
-                label: module.title,
-              ),
-          ],
         ),
       ),
     );
