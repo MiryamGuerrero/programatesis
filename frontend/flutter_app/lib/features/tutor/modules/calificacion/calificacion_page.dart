@@ -13,26 +13,79 @@ class TutorCalificacionPage extends ConsumerStatefulWidget {
 
 class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
   final _pacienteController = TextEditingController();
-  final _recetaController = TextEditingController();
   final _comentarioController = TextEditingController();
 
+  List<Map<String, dynamic>> _recetas = [];
+  int? _selectedReceta;
   int _stars = 5;
   bool _loading = false;
   String? _result;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    final selectedPaciente = ref.read(selectedPatientIdProvider);
+    if (selectedPaciente != null && selectedPaciente.trim().isNotEmpty) {
+      _pacienteController.text = selectedPaciente.trim();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _cargarRecetas();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _pacienteController.dispose();
-    _recetaController.dispose();
     _comentarioController.dispose();
     super.dispose();
   }
 
+  Future<void> _cargarRecetas() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final recetas = await repo.fetchRecetas();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _recetas = recetas;
+        if (_selectedReceta != null &&
+            !_recetas.any((r) => (r["id"]?.toString() ?? "") == _selectedReceta.toString())) {
+          _selectedReceta = null;
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
   Future<void> _guardar() async {
-    final recetaId = int.tryParse(_recetaController.text);
+    final idPaciente = _pacienteController.text.trim();
+    if (idPaciente.isEmpty) {
+      setState(() => _error = "Ingresa el ID del paciente.");
+      return;
+    }
+
+    final recetaId = _selectedReceta;
     if (recetaId == null) {
-      setState(() => _error = "ID receta invalido");
+      setState(() => _error = "Selecciona una receta para calificar.");
       return;
     }
 
@@ -45,7 +98,7 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       await repo.rateRecipe(
-        idPaciente: _pacienteController.text.trim(),
+        idPaciente: idPaciente,
         idReceta: recetaId,
         estrellas: _stars,
         comentario: _comentarioController.text.trim().isEmpty
@@ -57,7 +110,8 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
         return;
       }
 
-      setState(() => _result = "Calificacion guardada");
+      setState(() => _result = "Calificacion guardada correctamente.");
+      ref.read(selectedPatientIdProvider.notifier).state = idPaciente;
     } catch (error) {
       if (!mounted) {
         return;
@@ -72,61 +126,119 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    final recetaOptions = _recetas
+        .map((receta) {
+          final id = int.tryParse((receta["id"] ?? "").toString());
+          if (id == null) {
+            return null;
+          }
+          return DropdownMenuItem<int>(
+            value: id,
+            child: Text(
+              (receta["nombre"] ?? "Receta $id").toString(),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        })
+        .whereType<DropdownMenuItem<int>>()
+        .toList();
+
     return ListView(
       children: [
-        Text("Calificacion de recetas",
-            style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _pacienteController,
-          decoration: const InputDecoration(
-            labelText: "ID Paciente",
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _recetaController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: "ID Receta",
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Valorar recetas", style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(
+                  "Tu opinion ayuda a mejorar las recomendaciones futuras del paciente.",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _pacienteController,
+                  decoration: const InputDecoration(
+                    labelText: "ID del paciente",
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
-          initialValue: _stars,
+          key: ValueKey<int?>(_selectedReceta),
+          initialValue: _selectedReceta,
           decoration: const InputDecoration(
-            labelText: "Estrellas",
+            labelText: "Receta",
           ),
-          items: [
+          items: recetaOptions,
+          onChanged: (value) => setState(() => _selectedReceta = value),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Puntuacion",
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
             for (int i = 1; i <= 5; i++)
-              DropdownMenuItem(value: i, child: Text("$i")),
+              ChoiceChip(
+                selected: _stars == i,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star, size: 16),
+                    const SizedBox(width: 4),
+                    Text("$i"),
+                  ],
+                ),
+                onSelected: (_) => setState(() => _stars = i),
+              ),
           ],
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _stars = value);
-            }
-          },
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _comentarioController,
           maxLines: 3,
           decoration: const InputDecoration(
-            labelText: "Comentario",
+            labelText: "Comentario (opcional)",
+            hintText: "Que te gusto o que no funciono bien",
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _loading ? null : _guardar,
-          icon: const Icon(Icons.star),
-          label: const Text("Guardar calificacion"),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _guardar,
+                icon: const Icon(Icons.star),
+                label: const Text("Guardar calificacion"),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : _cargarRecetas,
+              icon: const Icon(Icons.refresh),
+              label: const Text("Actualizar recetas"),
+            ),
+          ],
         ),
         if (_result != null) ...[
           const SizedBox(height: 12),
           Text(
             _result!,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
+              color: colors.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -136,7 +248,7 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
           Text(
             _error!,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
+              color: colors.error,
               fontWeight: FontWeight.w700,
             ),
           ),

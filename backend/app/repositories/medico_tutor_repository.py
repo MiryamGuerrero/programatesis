@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.core.auth_onboarding import delete_auth_user, provision_auth_user_with_password_setup
 from app.core.db import db_cursor
 
 
@@ -162,24 +163,43 @@ def registrar_tutor(
     email: str,
     nombre_completo: str,
 ) -> str:
+    auth_user_id = provision_auth_user_with_password_setup(
+        email=email,
+        nombre_completo=nombre_completo,
+        role_code="tutor",
+    )
+
+    created_id: str | None = None
     with db_cursor() as cur:
-        cur.execute("select id from usuarios.rol where lower(codigo) = 'tutor' limit 1")
-        row_rol = cur.fetchone()
-        if not row_rol:
-            raise ValueError("El rol 'tutor' no se encuentra configurado en la base de datos.")
-        id_rol_tutor = row_rol[0]
+        try:
+            cur.execute("select id from usuarios.rol where lower(codigo) = 'tutor' limit 1")
+            row_rol = cur.fetchone()
+            if not row_rol:
+                raise ValueError("El rol 'tutor' no se encuentra configurado en la base de datos.")
+            id_rol_tutor = row_rol[0]
 
-        query_user = """
-            insert into usuarios.usuario (email, nombre_completo, id_rol)
-            values (%s, %s, %s)
-            returning id
-        """
-        cur.execute(query_user, (email.strip(), nombre_completo.strip(), id_rol_tutor))
-        row_user = cur.fetchone()
-        if not row_user:
-            raise RuntimeError("No fue posible crear el usuario tutor.")
+            query_user = """
+                insert into usuarios.usuario (email, nombre_completo, id_rol, auth_user_id)
+                values (%s, %s, %s, %s)
+                returning id
+            """
+            cur.execute(
+                query_user,
+                (email.strip(), nombre_completo.strip(), id_rol_tutor, auth_user_id),
+            )
+            row_user = cur.fetchone()
+            if not row_user:
+                raise RuntimeError("No fue posible crear el usuario tutor.")
 
-        return str(row_user[0])
+            created_id = str(row_user[0])
+        except Exception as exc:
+            try:
+                delete_auth_user(auth_user_id)
+            except Exception:
+                pass
+            raise exc
+
+    return created_id
 
 
 def registrar_paciente(

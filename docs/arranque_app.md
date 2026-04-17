@@ -24,8 +24,15 @@ Variables clave:
 - SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
 - SUPABASE_JWT_SECRET
+- ONBOARDING_WEB_REDIRECT_URL
+- ONBOARDING_TUTOR_REDIRECT_URL
 - DATABASE_URL
 - CORS_ORIGINS
+
+Valores sugeridos en desarrollo:
+
+- ONBOARDING_WEB_REDIRECT_URL=http://localhost:3000
+- ONBOARDING_TUTOR_REDIRECT_URL=reumanutri://auth/set-password
 
 ## 3. Levantar backend FastAPI
 
@@ -97,6 +104,59 @@ Revisar:
 - URL/key de Supabase correctas
 - usuario habilitado en Supabase Auth
 - politicas RLS y role metadata
+
+## 9. Configuracion Supabase para onboarding por email
+
+Esta app crea usuarios en Supabase Auth desde backend y envia un correo para configurar contrasena inicial.
+
+### 9.1 SMTP y remitente
+
+En Supabase Dashboard:
+
+1. Authentication > Providers > Email.
+2. Activar Custom SMTP.
+3. Configurar SMTP de Gmail (ya lo tienes hecho) y guardar.
+4. Verificar remitente y nombre del remitente.
+
+### 9.2 URLs de redireccion
+
+En Authentication > URL Configuration:
+
+1. Configurar Site URL (por ejemplo tu web de produccion).
+2. Agregar Additional Redirect URLs:
+	- http://localhost:3000
+	- https://tu-web-produccion
+	- reumanutri://auth/set-password
+
+Notas:
+
+- Para tutor, la app movil abre deep link con esquema reumanutri.
+- Para admin/medico/nutricionista, el enlace abre la web.
+
+### 9.3 Plantilla de correo de recuperacion
+
+En Authentication > Email Templates > Reset Password:
+
+1. Mantener habilitada la plantilla.
+2. Usar el boton/link con {{ .ConfirmationURL }} en el HTML.
+3. Ajustar el texto para indicar que es configuracion inicial de contrasena.
+
+### 9.4 Politica de password
+
+En Authentication > Policies:
+
+1. Definir largo minimo recomendado (>= 8).
+2. Si activas reglas mas estrictas, reflejarlas en el frontend.
+
+### 9.5 Prueba end-to-end
+
+1. Iniciar backend y frontend.
+2. Crear usuario desde Admin (admin/medico/nutricionista) o registrar tutor desde Medico.
+3. Verificar recepcion de correo.
+4. Abrir enlace:
+	- tutor -> app movil (deep link)
+	- otros roles -> web
+5. Configurar contrasena y validar login.
 
 ## 8. Endpoints de negocio principales
 

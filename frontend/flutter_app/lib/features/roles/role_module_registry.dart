@@ -118,25 +118,25 @@ List<RoleModule> modulesForRole(AppRole role) {
       return [
         RoleModule(
           key: "plan",
-          title: "Mi plan",
+          title: "Plan del paciente",
           icon: Icons.calendar_month,
           builder: () => const TutorPlanPage(),
         ),
         RoleModule(
           key: "consumo",
-          title: "Consumo",
+          title: "Registrar consumo",
           icon: Icons.check_circle,
           builder: () => const TutorConsumoPage(),
         ),
         RoleModule(
           key: "reemplazos",
-          title: "Reemplazos",
+          title: "Buscar reemplazos",
           icon: Icons.swap_horiz,
           builder: () => const TutorReemplazoPage(),
         ),
         RoleModule(
           key: "calificar",
-          title: "Calificar",
+          title: "Valorar recetas",
           icon: Icons.star,
           builder: () => const TutorCalificacionPage(),
         ),

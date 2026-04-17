@@ -4,6 +4,7 @@ import "package:google_fonts/google_fonts.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
+import "features/auth/set_password_page.dart";
 import "shared/models/app_role.dart";
 import "shared/widgets/role_shell.dart";
 
@@ -13,6 +14,7 @@ class TutorMobileApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authSession = ref.watch(authSessionProvider);
+    final authFlowIntent = ref.watch(authFlowIntentProvider);
 
     return MaterialApp(
       title: "Reuma Nutri Tutor",
@@ -24,6 +26,10 @@ class TutorMobileApp extends ConsumerWidget {
       ),
       home: authSession.when(
         data: (session) {
+          if (authFlowIntent == AuthFlowIntent.setPassword) {
+            return const SetPasswordPage();
+          }
+
           if (session == null) {
             return const LoginPage();
           }

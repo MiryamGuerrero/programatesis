@@ -11,27 +11,97 @@ class TutorConsumoPage extends ConsumerStatefulWidget {
 }
 
 class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
+  final _pacienteController = TextEditingController();
   final _planItemController = TextEditingController();
-  final _recetaReemplazoController = TextEditingController();
   final _observacionController = TextEditingController();
 
   String _estadoCodigo = "CONSUMIDO_COMPLETO";
+  List<Map<String, dynamic>> _planItems = [];
+  List<Map<String, dynamic>> _recetas = [];
+  int? _selectedPlanItem;
+  int? _selectedRecetaReemplazo;
   bool _loading = false;
   String? _result;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    final selectedPaciente = ref.read(selectedPatientIdProvider);
+    if (selectedPaciente != null && selectedPaciente.trim().isNotEmpty) {
+      _pacienteController.text = selectedPaciente.trim();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _cargarDatosPaciente();
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _pacienteController.dispose();
     _planItemController.dispose();
-    _recetaReemplazoController.dispose();
     _observacionController.dispose();
     super.dispose();
   }
 
+  Future<void> _cargarDatosPaciente() async {
+    final idPaciente = _pacienteController.text.trim();
+    if (idPaciente.isEmpty) {
+      setState(() => _error = "Ingresa el ID del paciente para continuar.");
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final responses = await Future.wait([
+        repo.fetchPlanItemsByPaciente(idPaciente),
+        repo.fetchRecetas(),
+      ]);
+
+      final planItems = responses[0];
+      final recetas = responses[1];
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _planItems = planItems;
+        _recetas = recetas;
+        if (_selectedPlanItem != null &&
+            !_planItems.any((e) => (e["id"]?.toString() ?? "") == _selectedPlanItem.toString())) {
+          _selectedPlanItem = null;
+        }
+        if (_selectedRecetaReemplazo != null &&
+            !_recetas.any((e) => (e["id"]?.toString() ?? "") == _selectedRecetaReemplazo.toString())) {
+          _selectedRecetaReemplazo = null;
+        }
+      });
+
+      ref.read(selectedPatientIdProvider.notifier).state = idPaciente;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
   Future<void> _guardarConsumo() async {
-    final idPlanItem = int.tryParse(_planItemController.text);
+    final idPlanItem = _selectedPlanItem ?? int.tryParse(_planItemController.text);
     if (idPlanItem == null) {
-      setState(() => _error = "ID de plan item invalido");
+      setState(() => _error = "Selecciona un item del plan para registrar consumo.");
       return;
     }
 
@@ -46,7 +116,7 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
       await repo.registerConsumption(
         idPlanItem: idPlanItem,
         estadoCodigo: _estadoCodigo,
-        idRecetaReemplazo: int.tryParse(_recetaReemplazoController.text),
+        idRecetaReemplazo: _selectedRecetaReemplazo,
         observacion: _observacionController.text.trim().isEmpty
             ? null
             : _observacionController.text.trim(),
@@ -56,7 +126,9 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
         return;
       }
 
-      setState(() => _result = "Consumo guardado correctamente");
+      setState(() {
+        _result = "Consumo guardado correctamente.";
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -71,20 +143,106 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    final planOptions = _planItems
+        .map(
+          (item) => DropdownMenuItem<int>(
+            value: int.tryParse((item["id"] ?? "").toString()),
+            child: Text(
+              "Item ${item["id"]} - Receta ${item["id_receta"]} (${item["fecha_programada"] ?? "sin fecha"})",
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        )
+        .where((element) => element.value != null)
+        .cast<DropdownMenuItem<int>>()
+        .toList();
+
+    final recetaOptions = _recetas
+        .map(
+          (receta) {
+            final id = int.tryParse((receta["id"] ?? "").toString());
+            if (id == null) {
+              return null;
+            }
+            return DropdownMenuItem<int>(
+              value: id,
+              child: Text(
+                (receta["nombre"] ?? "Receta $id").toString(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          },
+        )
+        .whereType<DropdownMenuItem<int>>()
+        .toList();
+
     return ListView(
       children: [
-        Text("Registro de consumo",
-            style: Theme.of(context).textTheme.titleLarge),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Registrar consumo", style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(
+                  "Selecciona un paciente y registra si la comida se consumio completa, parcial o no se consumio.",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _pacienteController,
+                        decoration: const InputDecoration(
+                          labelText: "ID del paciente",
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: _loading ? null : _cargarDatosPaciente,
+                      icon: const Icon(Icons.sync),
+                      label: const Text("Cargar"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         TextField(
           controller: _planItemController,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-            labelText: "ID Plan Item",
+            labelText: "ID plan item (manual opcional)",
           ),
         ),
         const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          key: ValueKey<int?>(_selectedPlanItem),
+          initialValue: _selectedPlanItem,
+          decoration: const InputDecoration(
+            labelText: "Item del plan",
+          ),
+          items: planOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedPlanItem = value;
+              if (value != null) {
+                _planItemController.text = value.toString();
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
+          key: ValueKey<String>(_estadoCodigo),
           initialValue: _estadoCodigo,
           decoration: const InputDecoration(
             labelText: "Estado de consumo",
@@ -111,32 +269,41 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
           },
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _recetaReemplazoController,
-          keyboardType: TextInputType.number,
+        DropdownButtonFormField<int>(
+          key: ValueKey<int?>(_selectedRecetaReemplazo),
+          initialValue: _selectedRecetaReemplazo,
           decoration: const InputDecoration(
-            labelText: "ID receta reemplazo (opcional)",
+            labelText: "Receta de reemplazo (opcional)",
           ),
+          items: [
+            const DropdownMenuItem<int>(
+              value: null,
+              child: Text("Sin reemplazo"),
+            ),
+            ...recetaOptions,
+          ],
+          onChanged: (value) => setState(() => _selectedRecetaReemplazo = value),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _observacionController,
           decoration: const InputDecoration(
             labelText: "Observacion",
+            hintText: "Ejemplo: rechazo por sabor o malestar",
           ),
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: _loading ? null : _guardarConsumo,
           icon: const Icon(Icons.save),
-          label: const Text("Guardar"),
+          label: const Text("Guardar consumo"),
         ),
         if (_result != null) ...[
           const SizedBox(height: 12),
           Text(
             _result!,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
+              color: colors.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -146,7 +313,7 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
           Text(
             _error!,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
+              color: colors.error,
               fontWeight: FontWeight.w700,
             ),
           ),

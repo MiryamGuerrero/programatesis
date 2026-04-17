@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     supabase_anon_key: str = Field(default="", alias="SUPABASE_ANON_KEY")
     supabase_service_role_key: str = Field(default="", alias="SUPABASE_SERVICE_ROLE_KEY")
     supabase_jwt_secret: str = Field(default="", alias="SUPABASE_JWT_SECRET")
+    onboarding_web_redirect_url: str = Field(
+        default="http://localhost:3000",
+        alias="ONBOARDING_WEB_REDIRECT_URL",
+    )
+    onboarding_tutor_redirect_url: str = Field(
+        default="reumanutri://auth/set-password",
+        alias="ONBOARDING_TUTOR_REDIRECT_URL",
+    )
 
     database_url: str = Field(default="", alias="DATABASE_URL")
     cors_origins: List[str] | str = Field(
