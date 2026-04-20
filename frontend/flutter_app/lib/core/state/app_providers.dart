@@ -345,7 +345,7 @@ Future<AppRole?> _resolveRoleFromBackend({
   for (var attempt = 0; attempt < 2; attempt++) {
     try {
       final response = await http.get(
-        Uri.parse("${AppConfig.fastApiBaseUrl}/auth-context"),
+        Uri.parse("${AppConfig.fastApiBaseUrl}auth-context"),
         headers: {
           "Authorization": "Bearer $accessToken",
           "Accept": "application/json",

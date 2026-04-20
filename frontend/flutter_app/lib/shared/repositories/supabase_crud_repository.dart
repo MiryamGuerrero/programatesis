@@ -72,7 +72,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchUsers() async {
     try {
       final response = await _dio.get(
-        "/crud/users",
+        "crud/users",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -88,7 +88,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/users",
+        "crud/users",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -116,7 +116,7 @@ class SupabaseCrudRepository {
       if (activo != null) payload["activo"] = activo;
 
       await _dio.put(
-        "/crud/users/$userId",
+        "crud/users/$userId",
         data: payload,
         options: _authorizedOptions(),
       );
@@ -128,7 +128,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
     try {
       final response = await _dio.get(
-        "/crud/ingredientes",
+        "crud/ingredientes",
         options: _authorizedOptions(),
       );
       return List<Map<String, dynamic>>.from(response.data as List);
@@ -163,7 +163,7 @@ class SupabaseCrudRepository {
       }
 
       final response = await _dio.get(
-        "/crud/ingredientes/paged",
+        "crud/ingredientes/paged",
         queryParameters: params,
         options: _authorizedOptions(),
       );
@@ -214,7 +214,7 @@ class SupabaseCrudRepository {
       }
 
       final response = await _dio.post(
-        "/crud/ingredientes",
+        "crud/ingredientes",
         data: payload,
         options: _authorizedOptions(),
       );
@@ -259,7 +259,7 @@ class SupabaseCrudRepository {
       if (activo != null) payload["activo"] = activo;
 
       await _dio.put(
-        "/crud/ingredientes/$idIngrediente",
+        "crud/ingredientes/$idIngrediente",
         data: payload,
         options: _authorizedOptions(),
       );
@@ -271,7 +271,7 @@ class SupabaseCrudRepository {
   Future<void> deleteIngrediente(int idIngrediente) async {
     try {
       await _dio.delete(
-        "/crud/ingredientes/$idIngrediente",
+        "crud/ingredientes/$idIngrediente",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -283,7 +283,7 @@ class SupabaseCrudRepository {
       int idIngrediente) async {
     try {
       final response = await _dio.get(
-        "/crud/ingredientes/$idIngrediente/composicion",
+        "crud/ingredientes/$idIngrediente/composicion",
         options: _authorizedOptions(),
       );
       final payload = response.data;
@@ -295,7 +295,7 @@ class SupabaseCrudRepository {
       if (error.response?.statusCode == 404) {
         try {
           final fallbackResponse = await _dio.get(
-            "/nutricionista/ingredientes/$idIngrediente/composicion",
+            "nutricionista/ingredientes/$idIngrediente/composicion",
             options: _authorizedOptions(),
           );
           final payload = fallbackResponse.data;
@@ -316,7 +316,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/crud/ingredientes/$idIngrediente/composicion",
+        "crud/ingredientes/$idIngrediente/composicion",
         data: {
           "valores": valores,
         },
@@ -326,7 +326,7 @@ class SupabaseCrudRepository {
       if (error.response?.statusCode == 404) {
         try {
           await _dio.put(
-            "/nutricionista/ingredientes/$idIngrediente/composicion",
+            "nutricionista/ingredientes/$idIngrediente/composicion",
             data: {
               "valores": valores,
             },
@@ -344,7 +344,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchEtiquetas() async {
     try {
       final response = await _dio.get(
-        "/crud/etiquetas",
+        "crud/etiquetas",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -359,7 +359,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/crud/etiquetas",
+        "crud/etiquetas",
         data: {
           "nombre_visible": nombreVisible,
           "codigo": codigo,
@@ -388,7 +388,7 @@ class SupabaseCrudRepository {
       if (codigo != null) payload["codigo"] = codigo;
 
       await _dio.put(
-        "/crud/etiquetas/$idEtiqueta",
+        "crud/etiquetas/$idEtiqueta",
         data: payload,
         options: _authorizedOptions(),
       );
@@ -400,7 +400,7 @@ class SupabaseCrudRepository {
   Future<void> deleteEtiqueta(int idEtiqueta) async {
     try {
       await _dio.delete(
-        "/crud/etiquetas/$idEtiqueta",
+        "crud/etiquetas/$idEtiqueta",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -412,7 +412,7 @@ class SupabaseCrudRepository {
       int idIngrediente) async {
     try {
       final response = await _dio.get(
-        "/crud/ingredientes/$idIngrediente/etiquetas",
+        "crud/ingredientes/$idIngrediente/etiquetas",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -428,7 +428,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/crud/ingredientes/$idIngrediente/etiquetas",
+        "crud/ingredientes/$idIngrediente/etiquetas",
         data: {
           "id_etiqueta": idEtiqueta,
           "nombre_etiqueta": nombreEtiqueta,
@@ -452,7 +452,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/crud/ingredientes/$idIngrediente/etiquetas/$idEtiqueta",
+        "crud/ingredientes/$idIngrediente/etiquetas/$idEtiqueta",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -463,7 +463,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchRecetas() async {
     try {
       final response = await _dio.get(
-        "/crud/recetas",
+        "crud/recetas",
         options: _authorizedOptions(),
       );
       return List<Map<String, dynamic>>.from(response.data as List);
@@ -483,7 +483,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/controles",
+        "crud/controles",
         data: {
           "id_paciente": idPaciente,
           "peso_kg": pesoKg,
@@ -504,7 +504,7 @@ class SupabaseCrudRepository {
       String idPaciente) async {
     try {
       final response = await _dio.get(
-        "/crud/plan-items",
+        "crud/plan-items",
         queryParameters: {
           "id_paciente": idPaciente,
         },
@@ -524,7 +524,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/consumos",
+        "crud/consumos",
         data: {
           "id_plan_item": idPlanItem,
           "estado_codigo": estadoCodigo,
@@ -546,7 +546,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/evaluaciones",
+        "crud/evaluaciones",
         data: {
           "id_paciente": idPaciente,
           "id_receta": idReceta,
@@ -564,7 +564,7 @@ class SupabaseCrudRepository {
       String schema, String table) async {
     try {
       final response = await _dio.get(
-        "/crud/catalog",
+        "crud/catalog",
         queryParameters: {
           "schema": schema,
           "table": table,
@@ -580,7 +580,7 @@ class SupabaseCrudRepository {
   Future<Map<String, dynamic>> fetchMyProfile() async {
     try {
       final response = await _dio.get(
-        "/profile/me",
+        "profile/me",
         options: _authorizedOptions(),
       );
 
@@ -604,7 +604,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/profile/me",
+        "profile/me",
         data: {
           "nombre_completo": nombreCompleto,
           "cedula": cedula,
@@ -628,7 +628,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutores-registro",
+        "tutores-registro",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -649,7 +649,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutores",
+        "tutores",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -667,7 +667,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/tutores-buscar",
+        "tutores-buscar",
         queryParameters: {
           "q": query,
           "limit": limit,
@@ -686,7 +686,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes-buscar",
+        "pacientes-buscar",
         queryParameters: {
           "q": query,
           "limit": limit,
@@ -704,7 +704,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/alergias",
+        "pacientes/$idPaciente/alergias",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -724,7 +724,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes/$idPaciente/alergias/ingredientes",
+        "pacientes/$idPaciente/alergias/ingredientes",
         data: {
           "id_ingrediente": idIngrediente,
           "observacion": observacion,
@@ -742,7 +742,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/pacientes/$idPaciente/alergias/ingredientes/$idIngrediente",
+        "pacientes/$idPaciente/alergias/ingredientes/$idIngrediente",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -757,7 +757,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes/$idPaciente/alergias/grupos",
+        "pacientes/$idPaciente/alergias/grupos",
         data: {
           "id_grupo_alimentario": idGrupoAlimentario,
           "observacion": observacion,
@@ -775,7 +775,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/pacientes/$idPaciente/alergias/grupos/$idGrupoAlimentario",
+        "pacientes/$idPaciente/alergias/grupos/$idGrupoAlimentario",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -788,7 +788,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/condiciones-temporales",
+        "pacientes/$idPaciente/condiciones-temporales",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -807,7 +807,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/pacientes/$idPaciente/condiciones-temporales",
+        "pacientes/$idPaciente/condiciones-temporales",
         data: {
           "id_condiciones_temporales": idCondicionesTemporales,
         },
@@ -824,7 +824,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/catalogo-condiciones/tipos",
+        "catalogo-condiciones/tipos",
         data: {
           "codigo": codigo,
           "nombre": nombre,
@@ -844,7 +844,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/catalogo-condiciones/tipos/$idTipoCondicion",
+        "catalogo-condiciones/tipos/$idTipoCondicion",
         data: {
           "codigo": codigo,
           "nombre": nombre,
@@ -864,7 +864,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/catalogo-condiciones/condiciones",
+        "catalogo-condiciones/condiciones",
         data: {
           "nombre": nombre,
           "id_tipo_condicion": idTipoCondicion,
@@ -888,7 +888,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/catalogo-condiciones/condiciones/$idCondicion",
+        "catalogo-condiciones/condiciones/$idCondicion",
         data: {
           "nombre": nombre,
           "id_tipo_condicion": idTipoCondicion,
@@ -907,7 +907,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/evolucion-resumen",
+        "pacientes/$idPaciente/evolucion-resumen",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -925,7 +925,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/control-clinico-actual",
+        "pacientes/$idPaciente/control-clinico-actual",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -944,7 +944,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/pacientes/$idPaciente/control-clinico-actual",
+        "pacientes/$idPaciente/control-clinico-actual",
         data: controlClinico,
         options: _authorizedOptions(),
       );
@@ -962,7 +962,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes",
+        "pacientes",
         data: {
           "nombre_completo": nombreCompleto,
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
@@ -985,7 +985,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutor-paciente-vinculo",
+        "tutor-paciente-vinculo",
         data: {
           "id_usuario_tutor": idUsuarioTutor,
           "id_paciente": idPaciente,
@@ -1002,7 +1002,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchTutorPatientLinks() async {
     try {
       final response = await _dio.get(
-        "/tutor-paciente-vinculo",
+        "tutor-paciente-vinculo",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -1018,7 +1018,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/tutor-paciente-vinculo/$idVinculo",
+        "tutor-paciente-vinculo/$idVinculo",
         data: {
           "id_parentesco": idParentesco,
           "es_principal": esPrincipal,
@@ -1035,7 +1035,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/tutor-paciente-vinculo/$idVinculo",
+        "tutor-paciente-vinculo/$idVinculo",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -1055,7 +1055,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes-registro",
+        "pacientes-registro",
         data: {
           "nombre_completo": nombreCompleto,
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,

@@ -79,9 +79,9 @@ def buscar_tutores_endpoint(
 
 @router.get("/pacientes-buscar")
 def buscar_pacientes_endpoint(
-    q: str = Query(..., min_length=1),
+    q: str = Query(default="", min_length=0),
     limit: int = Query(10, ge=1, le=50),
-    _=Depends(require_roles("admin", "medico")),
+    _=Depends(require_roles("admin", "medico", "nutricionista")),
 ) -> list[dict]:
     return buscar_pacientes(q, limit)
 

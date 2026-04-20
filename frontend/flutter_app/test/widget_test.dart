@@ -3,7 +3,7 @@ import 'package:reuma_nutri_app/core/config/app_config.dart';
 
 void main() {
   test('default FASTAPI base URL is local backend', () {
-    expect(AppConfig.fastApiBaseUrl, 'http://localhost:8000/api/v1');
+    expect(AppConfig.fastApiBaseUrl, 'http://localhost:8000/api/v1/');
   });
 
   test('Supabase values are provided through dart-define at runtime', () {

@@ -1,0 +1,148 @@
+:root {
+  --primary: #2c3e50;
+  --secondary: #27ae60;
+  --warning: #f1c40f;
+  --danger: #e74c3c;
+  --light: #ecf0f1;
+  --white: #ffffff;
+  --shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  background-color: #f5f7fa;
+  color: var(--primary);
+}
+
+.dashboard-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* Panel Izquierdo: Buscador y Recetas */
+.recipe-sidebar {
+  width: 350px;
+  background: var(--white);
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.search-box {
+  margin-bottom: 20px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.recipe-list {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.recipe-card {
+  padding: 15px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border-left: 5px solid #ccc;
+  background: #fff;
+  cursor: grab;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s;
+}
+
+.recipe-card:active { cursor: grabbing; }
+.recipe-card:hover { transform: scale(1.02); }
+
+.recipe-card.priorizar { border-left-color: var(--secondary); background: #f0fff4; }
+.recipe-card.disminuir { border-left-color: var(--warning); background: #fffdf0; }
+
+.recipe-card h4 { margin: 0 0 5px 0; font-size: 14px; }
+.recipe-card small { color: #666; font-size: 11px; }
+
+/* Panel Central: Calendario Semanal */
+.calendar-main {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 15px;
+}
+
+.day-column {
+  background: #ebedf0;
+  border-radius: 10px;
+  min-height: 500px;
+  padding: 10px;
+}
+
+.day-column h3 {
+  text-align: center;
+  font-size: 16px;
+  margin-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #ddd;
+}
+
+.drop-zone {
+  min-height: 100px;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+.drop-zone.active {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.planned-recipe {
+  background: var(--white);
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: relative;
+}
+
+.btn-primary {
+  background: var(--secondary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-replicate {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 10px;
+}

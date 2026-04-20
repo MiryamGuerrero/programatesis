@@ -136,13 +136,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
     try {
       final response = await http.get(
-        Uri.parse("${AppConfig.fastApiBaseUrl}/auth-context"),
+        Uri.parse("${AppConfig.fastApiBaseUrl}auth-context"),
         headers: {
           "Authorization": "Bearer ${session.accessToken}",
           "Accept": "application/json",
         },
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map) {

@@ -83,6 +83,8 @@ class RecetaPermitida(BaseModel):
     nombre: str
     calorias_estimadas: float | None = None
     nutrientes: list[NutrienteTotal] = Field(default_factory=list)
+    recomendacion: str | None = "PERMITIDO"
+    frecuencia_sugerida: str | None = None
 
 
 class RecetasPermitidasResponse(BaseModel):
@@ -549,6 +551,17 @@ class ListaReglasResponse(BaseModel):
     """Lista de reglas de etiquetas"""
     total: int
     items: list[EtiquetaNutricionalReglaResponse]
+
+
+class PlanManualRequest(BaseModel):
+    id_paciente: str
+    plan: dict
+    replicate: bool = True
+
+
+class PlanManualResponse(BaseModel):
+    id_plan: int
+    status: str
 
 
 RoleName = Literal["admin", "medico", "nutricionista", "tutor"]

@@ -46,7 +46,17 @@ class _RoleShellState extends State<RoleShell> {
   @override
   Widget build(BuildContext context) {
     final modules = modulesForRole(widget.role);
-    _applyInitialModuleFromRoute(modules);
+    
+    // Solo aplicar la ruta inicial una vez en el primer build, 
+    // pero usando addPostFrameCallback para evitar colisiones con el ciclo de vida de Flutter
+    if (!_initializedFromRoute) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _applyInitialModuleFromRoute(modules);
+        }
+      });
+    }
+
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 980;

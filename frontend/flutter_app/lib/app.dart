@@ -90,26 +90,25 @@ class ReumaNutriApp extends ConsumerWidget {
         if (authFlowIntent == AuthFlowIntent.setPassword) {
           return const SetPasswordPage();
         }
-
         if (session == null) {
           return const LoginPage();
         }
-
         final roleAsync = ref.watch(appRoleProvider);
         final optimisticRole = _resolveRoleFromSession(session) ?? AppRole.tutor;
-
-        return roleAsync.when(
+        return roleAsync.maybeWhen(
           data: (role) => RoleShell(role: role),
-          loading: () => RoleShell(role: optimisticRole),
-          error: (_, __) => RoleShell(role: optimisticRole),
+          orElse: () => RoleShell(role: optimisticRole),
         );
       },
-      error: (error, stackTrace) {
-        return Scaffold(
-          body: Center(child: Text("Error de autenticacion: $error")),
-        );
+      error: (error, stackTrace) => const LoginPage(),
+      loading: () {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          final role = _resolveRoleFromSession(session) ?? AppRole.tutor;
+          return RoleShell(role: role);
+        }
+        return const LoginPage();
       },
-      loading: () => const LoginPage(),
     );
 
     return MaterialApp(
