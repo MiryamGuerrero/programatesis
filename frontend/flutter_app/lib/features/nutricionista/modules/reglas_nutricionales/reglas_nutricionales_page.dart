@@ -14,1269 +14,355 @@ class ReglasNutricionalesPage extends ConsumerStatefulWidget {
 
 class _ReglasNutricionalesPageState
     extends ConsumerState<ReglasNutricionalesPage> {
-  final _filterQController = TextEditingController();
-  final _createNombreController = TextEditingController();
-  final _createValorController = TextEditingController();
-  final _validateSubcategoriaController = TextEditingController();
-
-  static const Map<String, String> _allowedConditions = {
-    "contiene": "Contiene palabra",
-    "mayor_que": "Mayor que",
-    "menor_que": "Menor que",
-    "igual_a": "Igual a",
-    "diferente": "Diferente",
-    "mayor_igual": "Mayor o igual",
-    "menor_igual": "Menor o igual",
-    "nulo": "Es nulo",
-    "no_nulo": "No es nulo",
+  bool _loading = true;
+  List<dynamic> _rules = [];
+  Map<String, List<dynamic>> _formData = {
+    "acciones": [],
+    "etiquetas": [],
+    "condiciones": [],
+    "objetivos": []
   };
-
-  bool _bootstrapping = false;
-  bool _loadingRules = false;
-  bool _creatingRule = false;
-  bool _validating = false;
-
-  String? _statusGeneral;
-  String? _statusRules;
-  String? _statusCreate;
-  String? _statusValidate;
-
-  String _selectedEstado = "";
-  bool _soloActivas = true;
-  int? _filterLabelId;
-
-  int? _createLabelId;
-  String? _createFieldCode;
-  String _selectedCondition = "mayor_que";
-  bool _createRecalcImmediate = true;
-
-  int? _validateRuleId;
-  int _validateLimit = 1;
-
-  List<Map<String, dynamic>> _labels = const [];
-  List<Map<String, dynamic>> _fields = const [];
-  List<Map<String, dynamic>> _rules = const [];
-  Map<String, dynamic>? _validationData;
 
   Dio get _dio => ref.read(dioProvider);
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bootstrap();
-    });
+    _loadData();
   }
 
-  @override
-  void dispose() {
-    _filterQController.dispose();
-    _createNombreController.dispose();
-    _createValorController.dispose();
-    _validateSubcategoriaController.dispose();
-    super.dispose();
-  }
-
-  int? _asInt(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is num) {
-      return value.toInt();
-    }
-    if (value is String) {
-      return int.tryParse(value.trim());
-    }
-    return null;
-  }
-
-  Map<String, dynamic> _toMap(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      return value;
-    }
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-    return {"raw": value};
-  }
-
-  String _toFriendlyApiError(DioException error) {
-    final code = error.response?.statusCode;
-    final payload = error.response?.data;
-
-    if (code == 401) {
-      return "Sesion expirada. Inicia sesion nuevamente.";
-    }
-    if (code == 403) {
-      return "Tu rol no tiene permiso para esta accion.";
-    }
-
-    final detail = _extractDetail(payload);
-    if (detail != null && detail.trim().isNotEmpty) {
-      return detail;
-    }
-
-    return "Error API ${code ?? "desconocido"}";
-  }
-
-  String? _extractDetail(dynamic payload) {
-    if (payload == null) {
-      return null;
-    }
-
-    if (payload is String) {
-      return payload;
-    }
-
-    if (payload is Map) {
-      final map = Map<String, dynamic>.from(payload);
-      final detail = map["detail"];
-      if (detail is String) {
-        return detail;
-      }
-      if (detail is List) {
-        return detail.map((e) => e.toString()).join(" | ");
-      }
-      if (detail != null) {
-        return detail.toString();
-      }
-
-      if (map["message"] != null) {
-        return map["message"].toString();
-      }
-      return null;
-    }
-
-    if (payload is List) {
-      return payload.map((e) => e.toString()).join(" | ");
-    }
-
-    return payload.toString();
-  }
-
-  Future<void> _bootstrap() async {
-    setState(() {
-      _bootstrapping = true;
-      _statusGeneral = "Cargando etiquetas y campos...";
-    });
-
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
     try {
-      await Future.wait([
-        _loadLabels(),
-        _loadFields(),
+      final results = await Future.wait([
+        _dio.get("reglas-nutricionales"),
+        _dio.get("reglas-nutricionales/form-data"),
       ]);
-      await _loadRules();
-
-      if (!mounted) {
-        return;
-      }
-
       setState(() {
-        _statusGeneral = "Modulo listo.";
+        _rules = results[0].data as List;
+        _formData = Map<String, List<dynamic>>.from(results[1].data as Map);
+        _loading = false;
       });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _statusGeneral = error.toString();
-      });
-    } finally {
+    } catch (e) {
+      debugPrint("Error loading rules: $e");
       if (mounted) {
-        setState(() {
-          _bootstrapping = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadLabels() async {
-    try {
-      final response = await _dio.get(
-        "nutricionista/etiquetas-config/etiquetas",
-        queryParameters: {
-          "solo_activas": false,
-          "limit": 2000,
-        },
-      );
-
-      final payload = _toMap(response.data);
-      final rawItems = payload["items"] is List ? payload["items"] as List : const [];
-      final items = rawItems
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _labels = items;
-        if (_createLabelId == null && items.isNotEmpty) {
-          _createLabelId = _asInt(items.first["id"]);
-        }
-      });
-    } on DioException catch (error) {
-      throw Exception(_toFriendlyApiError(error));
-    }
-  }
-
-  Future<void> _loadFields() async {
-    try {
-      final response = await _dio.get(
-        "nutricionista/etiquetas-config/campos",
-      );
-
-      final payload = _toMap(response.data);
-      final rawVariables = payload["variables_fijas"] is List
-          ? payload["variables_fijas"] as List
-          : const [];
-      final rawCalculated = payload["campos_calculados"] is List
-          ? payload["campos_calculados"] as List
-          : const [];
-
-      final byCode = <String, Map<String, dynamic>>{};
-
-      for (final row in rawVariables) {
-        final item = Map<String, dynamic>.from(row as Map);
-        final code = item["codigo"]?.toString().trim();
-        if (code == null || code.isEmpty) {
-          continue;
-        }
-        byCode[code] = {
-          "codigo": code,
-          "nombre_visible": item["nombre_visible"]?.toString() ?? code,
-          "origen": "variable",
-        };
-      }
-
-      for (final row in rawCalculated) {
-        final item = Map<String, dynamic>.from(row as Map);
-        final code = item["codigo"]?.toString().trim();
-        if (code == null || code.isEmpty) {
-          continue;
-        }
-        byCode[code] = {
-          "codigo": code,
-          "nombre_visible": item["nombre_visible"]?.toString() ?? code,
-          "origen": "calculado",
-        };
-      }
-
-      final items = byCode.values.toList()
-        ..sort((a, b) {
-          final an = a["nombre_visible"]?.toString() ?? "";
-          final bn = b["nombre_visible"]?.toString() ?? "";
-          return an.toLowerCase().compareTo(bn.toLowerCase());
-        });
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _fields = items;
-        if (_createFieldCode == null && items.isNotEmpty) {
-          _createFieldCode = items.first["codigo"]?.toString();
-        }
-      });
-    } on DioException catch (error) {
-      throw Exception(_toFriendlyApiError(error));
-    }
-  }
-
-  Future<void> _loadRules() async {
-    setState(() {
-      _loadingRules = true;
-      _statusRules = "Cargando reglas...";
-    });
-
-    try {
-      final query = <String, dynamic>{
-        "solo_activas": _soloActivas,
-        "limit": 400,
-      };
-
-      final q = _filterQController.text.trim();
-      if (q.isNotEmpty) {
-        query["q"] = q;
-      }
-      if (_selectedEstado.isNotEmpty) {
-        query["estado"] = _selectedEstado;
-      }
-      if (_filterLabelId != null) {
-        query["id_etiqueta"] = _filterLabelId;
-      }
-
-      final response = await _dio.get(
-        "nutricionista/etiquetas-config/reglas",
-        queryParameters: query,
-      );
-
-      final payload = _toMap(response.data);
-      final rawItems = payload["items"] is List ? payload["items"] as List : const [];
-      final items = rawItems
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _rules = items;
-
-        final selectedRuleStillExists =
-            _validateRuleId != null &&
-                items.any((r) => _asInt(r["id"]) == _validateRuleId);
-        if (!selectedRuleStillExists) {
-          _validateRuleId = null;
-        }
-
-        final total = _asInt(payload["total"]) ?? items.length;
-        _statusRules = "Reglas cargadas: $total";
-      });
-    } on DioException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _statusRules = _toFriendlyApiError(error);
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _statusRules = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingRules = false;
-        });
-      }
-    }
-  }
-
-  dynamic _parseCreateValue() {
-    final raw = _createValorController.text.trim();
-    if (raw.isEmpty) {
-      return null;
-    }
-
-    const numericConditions = {
-      "mayor_que",
-      "menor_que",
-      "mayor_igual",
-      "menor_igual",
-    };
-
-    if (numericConditions.contains(_selectedCondition)) {
-      final number = double.tryParse(raw);
-      if (number == null) {
-        throw Exception("Para esta condicion, el valor debe ser numerico.");
-      }
-      return number;
-    }
-
-    final maybeNumber = double.tryParse(raw);
-    return maybeNumber ?? raw;
-  }
-
-  String _labelNameById(int? id) {
-    if (id == null) {
-      return "";
-    }
-    for (final label in _labels) {
-      if (_asInt(label["id"]) == id) {
-        return label["nombre_visible"]?.toString() ?? "Etiqueta";
-      }
-    }
-    return "Etiqueta";
-  }
-
-  String _fieldNameByCode(String? code) {
-    if (code == null || code.isEmpty) {
-      return "";
-    }
-    for (final field in _fields) {
-      if (field["codigo"]?.toString() == code) {
-        return field["nombre_visible"]?.toString() ?? code;
-      }
-    }
-    return code;
-  }
-
-  String _autoRuleName() {
-    final label = _labelNameById(_createLabelId);
-    final field = _fieldNameByCode(_createFieldCode);
-    final conditionText = _allowedConditions[_selectedCondition] ?? _selectedCondition;
-
-    final pieces = <String>[];
-    if (label.isNotEmpty) {
-      pieces.add(label);
-    }
-    if (field.isNotEmpty) {
-      pieces.add(field);
-    }
-    pieces.add(conditionText);
-
-    return "Regla ${pieces.join(" - ")}";
-  }
-
-  Future<void> _createQuickRule() async {
-    final etiquetaId = _createLabelId;
-    final campo = _createFieldCode;
-
-    if (etiquetaId == null) {
-      setState(() {
-        _statusCreate = "Selecciona una etiqueta.";
-      });
-      return;
-    }
-    if (campo == null || campo.isEmpty) {
-      setState(() {
-        _statusCreate = "Selecciona un campo para evaluar.";
-      });
-      return;
-    }
-
-    final customName = _createNombreController.text.trim();
-    final nombreRegla = customName.isEmpty ? _autoRuleName() : customName;
-
-    setState(() {
-      _creatingRule = true;
-      _statusCreate = "Creando regla...";
-    });
-
-    try {
-      final payload = {
-        "id_etiqueta": etiquetaId,
-        "nombre_regla": nombreRegla,
-        "prioridad": 100,
-        "formula_excel_original": null,
-        "condiciones": [
-          {
-            "campo": campo,
-            "condicion": _selectedCondition,
-            "valor": _parseCreateValue(),
-            "valor_min": null,
-            "valor_max": null,
-            "conector": "AND",
-            "negado": false,
-          }
-        ],
-        "procesar_recalculo_inmediato": _createRecalcImmediate,
-      };
-
-      final response = await _dio.post(
-        "nutricionista/etiquetas-config/reglas/guiada",
-        data: payload,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      final created = _toMap(response.data);
-      setState(() {
-        _statusCreate =
-            "Regla creada correctamente (ID ${created["id_regla_version"] ?? "-"}).";
-      });
-
-      _createNombreController.clear();
-      _createValorController.clear();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Regla creada y recalculo solicitado.")),
-      );
-
-      await _loadRules();
-    } on DioException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _statusCreate = _toFriendlyApiError(error);
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _statusCreate = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _creatingRule = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _archiveRule(int idRegla) async {
-    try {
-      await _dio.delete(
-        "nutricionista/etiquetas-config/reglas/$idRegla",
-        queryParameters: {
-          "hard_delete": false,
-          "procesar_recalculo_inmediato": true,
-        },
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Regla $idRegla archivada.")),
-      );
-
-      await _loadRules();
-    } on DioException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_toFriendlyApiError(error))),
-      );
-    }
-  }
-
-  Future<void> _validateResults() async {
-    final subcategoria = _validateSubcategoriaController.text.trim();
-    if (_validateRuleId == null && subcategoria.isEmpty) {
-      setState(() {
-        _statusValidate = "Selecciona una regla o escribe una subcategoria.";
-      });
-      return;
-    }
-
-    setState(() {
-      _validating = true;
-      _statusValidate = "Validando resultados...";
-      _validationData = null;
-    });
-
-    try {
-      final response = await _dio.post(
-        "nutricionista/etiquetas-config/validacion/resultados",
-        data: {
-          "id_regla_version": _validateRuleId,
-          "subcategoria": subcategoria.isEmpty ? null : subcategoria,
-          "limite_por_resultado": _validateLimit,
-        },
-      );
-
-      final payload = _toMap(response.data);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _validationData = payload;
-        _statusValidate =
-            "Resultados: ${payload["total_resultados"] ?? 0} | Con ejemplo: ${payload["resultados_con_ejemplo"] ?? 0}";
-      });
-    } on DioException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _statusValidate = _toFriendlyApiError(error);
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _statusValidate = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _validating = false;
-        });
-      }
-    }
-  }
-
-  Widget _sectionCard({
-    required String title,
-    required String subtitle,
-    required Widget child,
-  }) {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFFFFDF8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE5DCCF)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 17,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: Color(0xFF5A6777),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusLine(String? text) {
-    if (text == null || text.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Color(0xFF4D5E70),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final total = _rules.length;
-    final activas = _rules
-        .where((r) => (r["estado"]?.toString().toLowerCase() ?? "") == "activa")
-        .length;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3D8C7)),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFF6EA),
-            Color(0xFFF4FBF8),
-            Color(0xFFEFF8FD),
-          ],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Etiquetas Nutricionales Configurables",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "Gestiona reglas por nombre de etiqueta y campo. Sin IDs manuales.",
-            style: TextStyle(color: Color(0xFF4E6072)),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text("Reglas: $total")),
-              Chip(label: Text("Activas: $activas")),
-              Chip(label: Text("Etiquetas: ${_labels.length}")),
-              Chip(label: Text("Campos: ${_fields.length}")),
-            ],
-          ),
-          _statusLine(_statusGeneral),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRulesList() {
-    if (_loadingRules) {
-      return const Padding(
-        padding: EdgeInsets.all(18),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_rules.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text("No hay reglas para los filtros actuales."),
-      );
-    }
-
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _rules.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final row = _rules[index];
-        final id = _asInt(row["id"]);
-        final estado = row["estado"]?.toString() ?? "desconocido";
-        final condiciones = row["condiciones"] is List
-            ? (row["condiciones"] as List)
-            : const [];
-
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE3D8C7)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      row["nombre_regla"]?.toString() ?? "Regla sin nombre",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: estado.toLowerCase() == "activa"
-                          ? const Color(0xFFE8F8EF)
-                          : const Color(0xFFFFF3E5),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      estado,
-                      style: TextStyle(
-                        color: estado.toLowerCase() == "activa"
-                            ? const Color(0xFF16683B)
-                            : const Color(0xFF9A5C11),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "Etiqueta: ${row["etiqueta_nombre"] ?? "-"} | Tipo: ${row["tipo_regla"] ?? "-"} | Prioridad: ${row["prioridad"] ?? "-"}",
-                style: const TextStyle(
-                  color: Color(0xFF506173),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (condiciones.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  "Condiciones",
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                for (final cond in condiciones)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 3),
-                    child: Text(
-                      "- ${(cond as Map)["campo_objetivo"] ?? cond["variable_codigo"] ?? "campo"} ${cond["operador"] ?? ""} ${cond["valor_numero"] ?? cond["valor_texto"] ?? ""}",
-                      style: const TextStyle(color: Color(0xFF4F6073)),
-                    ),
-                  ),
-              ],
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: id == null
-                      ? null
-                      : () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("Archivar regla"),
-                              content: const Text(
-                                "Se desactivara la regla y se solicitara recalc de etiquetas.",
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text("Cancelar"),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text("Archivar"),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirm == true) {
-                            await _archiveRule(id);
-                          }
-                        },
-                  icon: const Icon(Icons.archive_outlined),
-                  label: const Text("Archivar"),
-                ),
-              ),
-            ],
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error al cargar datos")),
         );
-      },
-    );
+        setState(() => _loading = false);
+      }
+    }
   }
 
-  Widget _buildValidationResults() {
-    final data = _validationData;
-    if (data == null) {
-      return const SizedBox.shrink();
-    }
-
-    final items = data["items"] is List ? data["items"] as List : const [];
-    if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 10),
-        child: Text("No hay resultados para los criterios enviados."),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Resultados de validacion",
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          for (final row in items)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4D9C8)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${(row as Map)["resultado"] ?? "Resultado"}",
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Subcategoria: ${row["subcategoria"] ?? "-"} | Regla: ${row["id_regla_version"] ?? "-"}",
-                    style: const TextStyle(color: Color(0xFF536476)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Ejemplos: ${(row["ejemplos"] is List) ? (row["ejemplos"] as List).length : 0}",
-                    style: const TextStyle(color: Color(0xFF536476)),
-                  ),
-                ],
-              ),
-            ),
+  Future<void> _deleteRule(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Eliminar Regla"),
+        content: const Text("¿Estás seguro de eliminar esta regla nutricional?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Eliminar")),
         ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _dio.delete("reglas-nutricionales/$id");
+      _loadData();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al eliminar")));
+    }
+  }
+
+  void _showForm([Map<String, dynamic>? rule]) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _RuleFormDialog(
+        formData: _formData,
+        initialRule: rule,
+        onSaved: () {
+          Navigator.pop(ctx);
+          _loadData();
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF8FFF9),
-            Color(0xFFF1FAFD),
-            Color(0xFFFFFCF6),
-          ],
-        ),
-      ),
-      child: _bootstrapping
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildHeader(),
-                  const SizedBox(height: 12),
-                  _sectionCard(
-                    title: "Listado de reglas",
-                    subtitle:
-                        "Filtra por texto, estado o etiqueta. Todo por nombre, sin IDs manuales.",
-                    child: Column(
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            SizedBox(
-                              width: 250,
-                              child: TextField(
-                                controller: _filterQController,
-                                decoration: const InputDecoration(
-                                  labelText: "Buscar regla",
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 190,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _selectedEstado,
-                                decoration: const InputDecoration(
-                                  labelText: "Estado",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: "", child: Text("Todos")),
-                                  DropdownMenuItem(value: "activa", child: Text("Activa")),
-                                  DropdownMenuItem(value: "borrador", child: Text("Borrador")),
-                                  DropdownMenuItem(value: "inactiva", child: Text("Inactiva")),
-                                  DropdownMenuItem(value: "archivada", child: Text("Archivada")),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedEstado = value ?? "";
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 300,
-                              child: DropdownButtonFormField<int?>(
-                                initialValue: _filterLabelId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: "Etiqueta",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: [
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text("Todas las etiquetas"),
-                                  ),
-                                  ..._labels.map(
-                                    (label) => DropdownMenuItem<int?>(
-                                      value: _asInt(label["id"]),
-                                      child: Text(
-                                        label["nombre_visible"]?.toString() ?? "Etiqueta",
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _filterLabelId = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            FilterChip(
-                              label: const Text("Solo activas"),
-                              selected: _soloActivas,
-                              onSelected: (value) {
-                                setState(() {
-                                  _soloActivas = value;
-                                });
-                              },
-                            ),
-                            FilledButton.icon(
-                              onPressed: _loadRules,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text("Actualizar"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _bootstrap,
-                              icon: const Icon(Icons.sync),
-                              label: const Text("Recargar catalogos"),
-                            ),
-                          ],
-                        ),
-                        _statusLine(_statusRules),
-                        const SizedBox(height: 10),
-                        _buildRulesList(),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.restaurant_menu, color: Colors.blue.shade800, size: 28),
+                      const SizedBox(width: 12),
+                      const Text("Reglas de Condición Nutricional", 
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    ],
                   ),
-                  _sectionCard(
-                    title: "Crear regla guiada",
-                    subtitle:
-                        "Selecciona etiqueta y campo desde listas automaticas. Sin escribir IDs.",
-                    child: Column(
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            SizedBox(
-                              width: 300,
-                              child: DropdownButtonFormField<int>(
-                                initialValue: _createLabelId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: "Etiqueta destino",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _labels
-                                    .map(
-                                      (label) => DropdownMenuItem<int>(
-                                        value: _asInt(label["id"]),
-                                        child: Text(
-                                          label["nombre_visible"]?.toString() ?? "Etiqueta",
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .where((item) => item.value != null)
-                                    .cast<DropdownMenuItem<int>>()
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _createLabelId = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 320,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _createFieldCode,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: "Campo a evaluar",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _fields
-                                    .map(
-                                      (field) => DropdownMenuItem<String>(
-                                        value: field["codigo"]?.toString(),
-                                        child: Text(
-                                          "${field["nombre_visible"]} (${field["codigo"]})",
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _createFieldCode = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 210,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _selectedCondition,
-                                decoration: const InputDecoration(
-                                  labelText: "Condicion",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _allowedConditions.entries
-                                    .map(
-                                      (entry) => DropdownMenuItem<String>(
-                                        value: entry.key,
-                                        child: Text(entry.value),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value == null) {
-                                    return;
-                                  }
-                                  setState(() {
-                                    _selectedCondition = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 180,
-                              child: TextField(
-                                controller: _createValorController,
-                                decoration: const InputDecoration(
-                                  labelText: "Valor",
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 340,
-                              child: TextField(
-                                controller: _createNombreController,
-                                decoration: InputDecoration(
-                                  labelText: "Nombre regla (opcional)",
-                                  hintText: _autoRuleName(),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Switch(
-                              value: _createRecalcImmediate,
-                              onChanged: (value) {
-                                setState(() {
-                                  _createRecalcImmediate = value;
-                                });
-                              },
-                            ),
-                            const Text("Recalculo inmediato"),
-                            const SizedBox(width: 16),
-                            FilledButton.icon(
-                              onPressed: _creatingRule ? null : _createQuickRule,
-                              icon: _creatingRule
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.add_task),
-                              label: Text(_creatingRule ? "Creando..." : "Crear regla"),
-                            ),
-                          ],
-                        ),
-                        _statusLine(_statusCreate),
-                      ],
-                    ),
-                  ),
-                  _sectionCard(
-                    title: "Validacion por resultados",
-                    subtitle:
-                        "Selecciona una regla del listado o usa subcategoria para revisar ejemplos.",
-                    child: Column(
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            SizedBox(
-                              width: 380,
-                              child: DropdownButtonFormField<int?>(
-                                initialValue: _validateRuleId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: "Regla (opcional)",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: [
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text("Sin regla seleccionada"),
-                                  ),
-                                  ..._rules.map(
-                                    (rule) => DropdownMenuItem<int?>(
-                                      value: _asInt(rule["id"]),
-                                      child: Text(
-                                        rule["nombre_regla"]?.toString() ?? "Regla",
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _validateRuleId = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 300,
-                              child: TextField(
-                                controller: _validateSubcategoriaController,
-                                decoration: const InputDecoration(
-                                  labelText: "Subcategoria (opcional)",
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 160,
-                              child: DropdownButtonFormField<int>(
-                                initialValue: _validateLimit,
-                                decoration: const InputDecoration(
-                                  labelText: "Ejemplos",
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 1, child: Text("1")),
-                                  DropdownMenuItem(value: 2, child: Text("2")),
-                                  DropdownMenuItem(value: 3, child: Text("3")),
-                                  DropdownMenuItem(value: 4, child: Text("4")),
-                                  DropdownMenuItem(value: 5, child: Text("5")),
-                                ],
-                                onChanged: (value) {
-                                  if (value == null) {
-                                    return;
-                                  }
-                                  setState(() {
-                                    _validateLimit = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            FilledButton.icon(
-                              onPressed: _validating ? null : _validateResults,
-                              icon: _validating
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.rule_folder),
-                              label: Text(_validating ? "Validando..." : "Validar"),
-                            ),
-                          ],
-                        ),
-                        _statusLine(_statusValidate),
-                        _buildValidationResults(),
-                      ],
-                    ),
+                  FilledButton.icon(
+                    onPressed: () => _showForm(),
+                    icon: const Icon(Icons.add),
+                    label: const Text("Nueva Regla Nutricional"),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Text("Configure cómo las etiquetas de los alimentos afectan las recomendaciones basándose exclusivamente en condiciones de tipo nutricional.",
+                style: TextStyle(color: Colors.black54)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _rules.isEmpty 
+          ? const Center(child: Text("No hay reglas nutricionales configuradas."))
+          : ListView.builder(
+            padding: const EdgeInsets.only(top: 8),
+            itemCount: _rules.length,
+            itemBuilder: (ctx, i) {
+              final r = _rules[i] as Map<String, dynamic>;
+              final condicionesIds = r["id_condiciones"] as List;
+              final nombresCondiciones = condicionesIds.map((id) {
+                final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
+                return c != null ? c["nombre"] : "Condición $id";
+              }).join(", ");
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                elevation: 1,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _getActionColor(r['accion_codigo']).withOpacity(0.1),
+                    child: Icon(_getActionIcon(r['accion_codigo']), color: _getActionColor(r['accion_codigo'])),
+                  ),
+                  title: Text("${r['etiqueta_nombre']} ➔ ${r['accion_codigo']}", 
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      if (r["es_estricta"] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                          child: const Text("⚠️ REGLA ESTRICTA", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
+                        ),
+                      const SizedBox(height: 4),
+                      RichText(text: TextSpan(
+                        style: const TextStyle(color: Colors.black87, fontSize: 13),
+                        children: [
+                          const TextSpan(text: "Se aplica en: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                          TextSpan(text: nombresCondiciones),
+                        ]
+                      )),
+                      Text("Mensaje: ${r['mensaje_error'] ?? 'Sin mensaje'}", style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black54)),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(icon: const Icon(Icons.edit_note, color: Colors.blue), onPressed: () => _showForm(r), tooltip: "Editar"),
+                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteRule(r["id"]), tooltip: "Eliminar"),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getActionColor(String? action) {
+    switch (action) {
+      case 'ELIMINAR': return Colors.red;
+      case 'DISMINUIR': return Colors.orange;
+      case 'PRIORIZAR': return Colors.green;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getActionIcon(String? action) {
+    switch (action) {
+      case 'ELIMINAR': return Icons.block;
+      case 'DISMINUIR': return Icons.trending_down;
+      case 'PRIORIZAR': return Icons.star;
+      default: return Icons.rule;
+    }
+  }
+}
+
+class _RuleFormDialog extends StatefulWidget {
+  final Map<String, List<dynamic>> formData;
+  final Map<String, dynamic>? initialRule;
+  final VoidCallback onSaved;
+
+  const _RuleFormDialog({required this.formData, this.initialRule, required this.onSaved});
+
+  @override
+  State<_RuleFormDialog> createState() => _RuleFormDialogState();
+}
+
+class _RuleFormDialogState extends State<_RuleFormDialog> {
+  late int? _idEtiqueta;
+  late int? _idAccion;
+  late TextEditingController _mensajeController;
+  late List<int> _selectedCondiciones;
+  late bool _esEstricta;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.initialRule;
+    _idEtiqueta = r?["id_etiqueta"];
+    _idAccion = r?["id_accion"];
+    _mensajeController = TextEditingController(text: r?["mensaje_error"]);
+    _selectedCondiciones = List<int>.from(r?["id_condiciones"] ?? []);
+    _esEstricta = r?["es_estricta"] ?? false;
+  }
+
+  Future<void> _save(WidgetRef ref) async {
+    if (_idEtiqueta == null || _idAccion == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Complete etiqueta y acción")));
+      return;
+    }
+    if (_selectedCondiciones.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Seleccione al menos una condición")));
+      return;
+    }
+    
+    setState(() => _saving = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final payload = {
+        "id_etiqueta": _idEtiqueta,
+        "id_accion": _idAccion,
+        "id_tipo_objetivo": 3,
+        "mensaje_error": _mensajeController.text,
+        "id_condiciones": _selectedCondiciones,
+        "es_estricta": _esEstricta,
+      };
+
+      if (widget.initialRule != null) {
+        await dio.put("reglas-nutricionales/${widget.initialRule!['id']}", data: payload);
+      } else {
+        await dio.post("reglas-nutricionales", data: payload);
+      }
+      widget.onSaved();
+    } catch (e) {
+      setState(() => _saving = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al guardar regla")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, child) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(widget.initialRule != null ? Icons.edit_calendar : Icons.add_moderator, color: Colors.blue),
+            const SizedBox(width: 10),
+            Text(widget.initialRule != null ? "Editar Regla Nutricional" : "Nueva Regla Nutricional"),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<int>(
+                  value: _idEtiqueta,
+                  decoration: const InputDecoration(labelText: "Etiqueta Alimentaria", prefixIcon: Icon(Icons.label)),
+                  items: widget.formData["etiquetas"]?.map((e) => DropdownMenuItem<int>(
+                    value: e["id"], child: Text(e["nombre"]))).toList(),
+                  onChanged: (v) => setState(() => _idEtiqueta = v),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: _idAccion,
+                  decoration: const InputDecoration(labelText: "Acción Recomendada", prefixIcon: Icon(Icons.settings_suggest)),
+                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(
+                    value: a["id"], child: Text(a["nombre"]))).toList(),
+                  onChanged: (v) => setState(() => _idAccion = v),
+                ),
+                const SizedBox(height: 20),
+                const Text("Condiciones Nutricionales activadoras:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade50
+                  ),
+                  height: 200,
+                  child: ListView(
+                    children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(
+                      title: Text(c["nombre"], style: const TextStyle(fontSize: 14)),
+                      value: _selectedCondiciones.contains(c["id"]),
+                      activeColor: Colors.blue,
+                      onChanged: (v) {
+                        setState(() {
+                          if (v == true) _selectedCondiciones.add(c["id"]);
+                          else _selectedCondiciones.remove(c["id"]);
+                        });
+                      },
+                      dense: true,
+                    )).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _mensajeController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: "Mensaje de Guía", 
+                    hintText: "Ej: Disminuir por exceso de sodio...",
+                    prefixIcon: Icon(Icons.comment)
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text("¿Regla Estricta?", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  subtitle: const Text("Si se marca, el sistema prohibirá el alimento."),
+                  value: _esEstricta,
+                  activeColor: Colors.red,
+                  onChanged: (v) => setState(() => _esEstricta = v),
+                ),
+              ],
             ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          FilledButton(
+            onPressed: _saving ? null : () => _save(ref),
+            child: _saving ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("Guardar Regla"),
+          ),
+        ],
+      ),
     );
   }
 }

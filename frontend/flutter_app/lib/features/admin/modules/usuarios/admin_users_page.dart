@@ -582,30 +582,37 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                               ),
                             ),
                           )
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.all(10),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                headingRowHeight: 54,
-                                dataRowMinHeight: 62,
-                                dataRowMaxHeight: 72,
-                                columnSpacing: 20,
-                                columns: const [
-                                  DataColumn(label: Text("Nombres")),
-                                  DataColumn(label: Text("Apellidos")),
-                                  DataColumn(label: Text("Cédula")),
-                                  DataColumn(label: Text("Correo")),
-                                  DataColumn(label: Text("Rol")),
-                                  DataColumn(label: Text("Estado")),
-                                  DataColumn(label: Text("Acciones")),
-                                ],
-                                rows: [
-                                  for (final user in visibleUsers)
-                                    _buildDataRow(user),
-                                ],
-                              ),
-                            ),
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                padding: const EdgeInsets.all(10),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minWidth: constraints.maxWidth - 20),
+                                    child: DataTable(
+                                      headingRowHeight: 54,
+                                      dataRowMinHeight: 62,
+                                      dataRowMaxHeight: 72,
+                                      columnSpacing: 20,
+                                      columns: const [
+                                        DataColumn(label: Text("Nombres")),
+                                        DataColumn(label: Text("Apellidos")),
+                                        DataColumn(label: Text("Cédula")),
+                                        DataColumn(label: Text("Correo")),
+                                        DataColumn(label: Text("Rol")),
+                                        DataColumn(label: Text("Estado")),
+                                        DataColumn(label: Text("Acciones")),
+                                      ],
+                                      rows: [
+                                        for (final user in visibleUsers)
+                                          _buildDataRow(user),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
               ),
             ),

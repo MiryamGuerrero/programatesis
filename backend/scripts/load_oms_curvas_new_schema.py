@@ -281,94 +281,75 @@ def load_rows(conn: psycopg.Connection, rows_by_file: dict[Path, list[OmsCurveRo
             sexo_code = rows[0].sexo
             curve_type = rows[0].curva_tipo
 
+            print(f"  Cargando {indicador_code} {sexo_code} ({curve_type})...")
+
             indicador_id = indicator_ids[indicador_code]
             sexo_id = sex_ids[sexo_code]
             curva_id = upsert_curve(cur, indicador_id, sexo_id, curve_type, file_path.name)
 
-            for item in rows:
-                if curve_type == "ZSCORE":
-                    cur.execute(
-                        """
-                        INSERT INTO referencia.oms_curva_punto (
-                            id_curva,
-                            edad_valor,
-                            l,
-                            m,
-                            s,
-                            sd5neg,
-                            sd4neg,
-                            sd3neg,
-                            sd2neg,
-                            sd1neg,
-                            sd0,
-                            sd1,
-                            sd2,
-                            sd3,
-                            sd4,
-                            sd5
-                        )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (id_curva, edad_valor)
-                        DO UPDATE SET
-                            l = EXCLUDED.l,
-                            m = EXCLUDED.m,
-                            s = EXCLUDED.s,
-                            sd5neg = EXCLUDED.sd5neg,
-                            sd4neg = EXCLUDED.sd4neg,
-                            sd3neg = EXCLUDED.sd3neg,
-                            sd2neg = EXCLUDED.sd2neg,
-                            sd1neg = EXCLUDED.sd1neg,
-                            sd0 = EXCLUDED.sd0,
-                            sd1 = EXCLUDED.sd1,
-                            sd2 = EXCLUDED.sd2,
-                            sd3 = EXCLUDED.sd3,
-                            sd4 = EXCLUDED.sd4,
-                            sd5 = EXCLUDED.sd5
-                        """,
-                        (
-                            curva_id,
-                            item.edad_meses,
-                            item.l,
-                            item.m,
-                            item.s,
-                            item.sd5neg,
-                            item.sd4neg,
-                            item.sd3neg,
-                            item.sd2neg,
-                            item.sd1neg,
-                            item.sd0,
-                            item.sd1,
-                            item.sd2,
-                            item.sd3,
-                            item.sd4,
-                            item.sd5,
-                        ),
+            if curve_type == "ZSCORE":
+                payload = [
+                    (
+                        curva_id,
+                        item.edad_meses,
+                        item.l,
+                        item.m,
+                        item.s,
+                        item.sd5neg,
+                        item.sd4neg,
+                        item.sd3neg,
+                        item.sd2neg,
+                        item.sd1neg,
+                        item.sd0,
+                        item.sd1,
+                        item.sd2,
+                        item.sd3,
+                        item.sd4,
+                        item.sd5,
                     )
-                    inserted_points += 1
-                else:
-                    if item.percentiles is None:
-                        continue
-                    for perc_code, value in item.percentiles.items():
-                        cur.execute(
-                            """
-                            INSERT INTO referencia.oms_curva_percentil (
-                                id_curva,
-                                edad_valor,
-                                percentil_codigo,
-                                valor
-                            )
-                            VALUES (%s, %s, %s, %s)
-                            ON CONFLICT (id_curva, edad_valor, percentil_codigo)
-                            DO UPDATE SET valor = EXCLUDED.valor
-                            """,
-                            (
-                                curva_id,
-                                item.edad_meses,
-                                perc_code,
-                                value,
-                            ),
+                    for item in rows
+                ]
+                cur.executemany(
+                    """
+                    INSERT INTO referencia.oms_curva_punto (
+                        id_curva, edad_valor, l, m, s,
+                        sd5neg, sd4neg, sd3neg, sd2neg, sd1neg,
+                        sd0, sd1, sd2, sd3, sd4, sd5
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id_curva, edad_valor)
+                    DO UPDATE SET
+                        l = EXCLUDED.l, m = EXCLUDED.m, s = EXCLUDED.s,
+                        sd5neg = EXCLUDED.sd5neg, sd4neg = EXCLUDED.sd4neg,
+                        sd3neg = EXCLUDED.sd3neg, sd2neg = EXCLUDED.sd2neg,
+                        sd1neg = EXCLUDED.sd1neg, sd0 = EXCLUDED.sd0,
+                        sd1 = EXCLUDED.sd1, sd2 = EXCLUDED.sd2,
+                        sd3 = EXCLUDED.sd3, sd4 = EXCLUDED.sd4,
+                        sd5 = EXCLUDED.sd5
+                    """,
+                    payload,
+                )
+                inserted_points += len(rows)
+            else:
+                perc_payload = []
+                for item in rows:
+                    if item.percentiles:
+                        for perc_code, value in item.percentiles.items():
+                            perc_payload.append((curva_id, item.edad_meses, perc_code, value))
+                
+                if perc_payload:
+                    cur.executemany(
+                        """
+                        INSERT INTO referencia.oms_curva_percentil (
+                            id_curva, edad_valor, percentil_codigo, valor
                         )
-                        inserted_percentiles += 1
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (id_curva, edad_valor, percentil_codigo)
+                        DO UPDATE SET valor = EXCLUDED.valor
+                        """,
+                        perc_payload,
+                    )
+                    inserted_percentiles += len(perc_payload)
 
     conn.commit()
     return inserted_points, inserted_percentiles
@@ -395,8 +376,11 @@ def main() -> int:
 
     rows_by_file: dict[Path, list[OmsCurveRow]] = {}
     for file_path in files:
+        print(f"Procesando archivo: {file_path.name}...")
         rows_by_file[file_path] = parse_file(file_path)
+        print(f"  - {len(rows_by_file[file_path])} filas encontradas.")
 
+    print(f"Conectando a la base de datos para cargar {len(files)} archivos...")
     with psycopg.connect(db_url, prepare_threshold=None) as conn:
         points, percentiles = load_rows(conn, rows_by_file)
 

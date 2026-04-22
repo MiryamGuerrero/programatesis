@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,6 +12,21 @@ class ImcRequest(BaseModel):
 class ImcResponse(BaseModel):
     imc: float
     clasificacion: str
+
+
+class PreDiagnosticoRequest(BaseModel):
+    fecha_nacimiento: date
+    id_sexo: int
+    peso_kg: float
+    talla_cm: float
+
+
+class PreDiagnosticoResponse(BaseModel):
+    imc: float
+    anios: int
+    meses: int
+    id_condicion_nutricional: int
+    diagnostico_nutri_texto: str
 
 
 class DiagnosticoOmsRequest(BaseModel):
@@ -553,6 +568,157 @@ class ListaReglasResponse(BaseModel):
     items: list[EtiquetaNutricionalReglaResponse]
 
 
+class NutritionalRuleResponse(BaseModel):
+    id: int
+    id_etiqueta: int | None = None
+    etiqueta_nombre: str | None = None
+    id_accion: int
+    accion_codigo: str
+    id_tipo_objetivo: int
+    objetivo_codigo: str
+    mensaje_error: str | None = None
+    id_condiciones: list[int] = Field(default_factory=list)
+    es_estricta: bool = False
+
+class NutritionalRuleCreate(BaseModel):
+    id_etiqueta: int
+    id_accion: int
+    id_tipo_objetivo: int = 3 # Default to ETIQUETA
+    mensaje_error: str | None = None
+    id_condiciones: list[int]
+    es_estricta: bool = False
+
+class NutritionalRuleUpdate(BaseModel):
+    id_etiqueta: int | None = None
+    id_accion: int | None = None
+    mensaje_error: str | None = None
+    id_condiciones: list[int] | None = None
+    es_estricta: bool | None = None
+
+class NutritionalRuleFormData(BaseModel):
+    acciones: list[dict[str, Any]]
+    objetivos: list[dict[str, Any]]
+    condiciones: list[dict[str, Any]]
+    etiquetas: list[dict[str, Any]]
+
+class NutritionalConditionResponse(BaseModel):
+    id: int
+    nombre: str
+    descripcion: str | None = None
+    activa: bool = True
+
+class NutritionalConditionCreate(BaseModel):
+    nombre: str = Field(min_length=1, max_length=150)
+    descripcion: str | None = None
+
+class NutritionalConditionUpdate(BaseModel):
+    nombre: str | None = None
+    descripcion: str | None = None
+    activa: bool | None = None
+
+class MedicalConditionResponse(BaseModel):
+    id: int
+    nombre: str
+    id_tipo_condicion: int
+    tipo_nombre: str
+    descripcion: str | None = None
+    activa: bool = True
+
+class MedicalConditionCreate(BaseModel):
+    nombre: str = Field(min_length=1, max_length=150)
+    id_tipo_condicion: int # 1: CLINICA, 2: TEMPORAL
+    descripcion: str | None = None
+
+class MedicalConditionUpdate(BaseModel):
+    nombre: str | None = None
+    descripcion: str | None = None
+    activa: bool | None = None
+    id_tipo_condicion: int | None = None
+
+class MedicalRuleResponse(BaseModel):
+    id: int
+    id_accion: int
+    accion_codigo: str
+    id_tipo_objetivo: int
+    objetivo_codigo: str
+    id_ingrediente: int | None = None
+    ingrediente_nombre: str | None = None
+    id_grupo_alimentario: int | None = None
+    grupo_nombre: str | None = None
+    id_subgrupo_alimentario: int | None = None
+    subgrupo_nombre: str | None = None
+    id_etiqueta: int | None = None
+    etiqueta_nombre: str | None = None
+    mensaje_error: str | None = None
+    es_estricta: bool = False
+    id_condiciones: list[int] = Field(default_factory=list)
+
+class MedicalRuleCreate(BaseModel):
+    id_accion: int
+    id_tipo_objetivo: int
+    id_ingrediente: int | None = None
+    id_grupo_alimentario: int | None = None
+    id_subgrupo_alimentario: int | None = None
+    id_etiqueta: int | None = None
+    mensaje_error: str | None = None
+    es_estricta: bool = False
+    id_condiciones: list[int]
+    origen_regla: str | None = "MEDICA"
+
+class MedicalRuleUpdate(BaseModel):
+    id_accion: int | None = None
+    id_tipo_objetivo: int | None = None
+    id_ingrediente: int | None = None
+    id_grupo_alimentario: int | None = None
+    id_subgrupo_alimentario: int | None = None
+    id_etiqueta: int | None = None
+    mensaje_error: str | None = None
+    es_estricta: bool | None = None
+    id_condiciones: list[int] | None = None
+    origen_regla: str | None = None
+
+class MedicalRuleFormData(BaseModel):
+    acciones: list[dict[str, Any]]
+    objetivos: list[dict[str, Any]]
+    condiciones: list[dict[str, Any]]
+    ingredientes: list[dict[str, Any]]
+    grupos: list[dict[str, Any]]
+    subgrupos: list[dict[str, Any]]
+    etiquetas: list[dict[str, Any]]
+
+class PatientFullCreate(BaseModel):
+    nombre: str
+    fecha_nacimiento: date
+    id_sexo: int
+    id_provincia: int | None = None
+    id_tutor: str | None = None # Si ya existe
+    id_parentesco: int | None = None
+    enfermedad_principal: str | None = None
+    tutor_cedula: str | None = None # Nuevo
+    tutor_nombre: str | None = None # Nuevo
+    tutor_email: str | None = None # Nuevo
+    tutor_telefono: str | None = None 
+    tutor_direccion: str | None = None
+    alergias_ingredientes: list[int] = Field(default_factory=list)
+    alergias_subgrupos: list[int] = Field(default_factory=list)
+
+class ClinicalControlCreate(BaseModel):
+    id_paciente: str
+    peso_kg: float | None = None
+    talla_cm: float | None = None
+    nivel_dolor_eva: int | None = None
+    nivel_inflamacion: int | None = None
+    nivel_fatiga: int | None = None
+    minutos_rigidez_matutina: int | None = None
+    inflamacion_pcr: float | None = None
+    hay_brote_activo: bool = False
+    nota_evolucion: str | None = None
+    id_medico: str | None = None
+    id_nutricionista: str | None = None
+    id_condiciones_activas: list[int] = Field(default_factory=list)
+    alergias_ingredientes: list[int] = Field(default_factory=list)
+    alergias_subgrupos: list[int] = Field(default_factory=list)
+
 class PlanManualRequest(BaseModel):
     id_paciente: str
     plan: dict
@@ -590,6 +756,8 @@ class ControlClinicoInicialRequest(BaseModel):
     diagnostico_oms_texto: str | None = Field(default=None, max_length=150)
     nota_evolucion: str | None = None
     id_condiciones_activas: list[int] = Field(default_factory=list)
+    alergia_ingrediente_ids: list[int] = Field(default_factory=list)
+    alergia_subgrupo_ids: list[int] = Field(default_factory=list)
 
 
 class ControlClinicoActualResponse(ControlClinicoInicialRequest):
@@ -616,15 +784,15 @@ class AlergiaIngredienteItem(BaseModel):
 
 
 class AlergiaGrupoItem(BaseModel):
-    id_grupo_alimentario: int
-    nombre_grupo: str
+    id_subgrupo_alimentario: int
+    nombre_subgrupo: str
     observacion: str | None = None
     fecha_registro: date
 
 
 class AlergiasPacienteResponse(BaseModel):
     ingredientes: list[AlergiaIngredienteItem] = Field(default_factory=list)
-    grupos: list[AlergiaGrupoItem] = Field(default_factory=list)
+    subgrupos: list[AlergiaGrupoItem] = Field(default_factory=list)
 
 
 class CondicionTemporalItem(BaseModel):
@@ -675,6 +843,7 @@ class EvolucionControlItem(BaseModel):
     imc_calculado: float | None = None
     nivel_dolor_eva: int | None = None
     nivel_inflamacion: int | None = None
+    nivel_fatiga: int | None = None
 
 
 class EvolucionPacienteResumenResponse(BaseModel):
