@@ -3,15 +3,19 @@ import "package:flutter/material.dart";
 import "../../shared/models/app_role.dart";
 import "../admin/modules/usuarios/admin_users_page.dart";
 import "../medico/modules/alergias_condiciones/alergias_condiciones_page.dart";
-import "../medico/modules/catalogo_condiciones/catalogo_condiciones_page.dart";
+import "../medico/modules/catalogo_condiciones/condiciones_medicas_page.dart";
 import "../medico/modules/consulta_evolucion/consulta_evolucion_page.dart";
+import "../shared/widgets/gestion_pacientes_page.dart";
 import "../medico/modules/diagnostico_oms/diagnostico_page.dart";
 import "../medico/modules/registro_clinico/registro_clinico_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
 import "../../shared/repositories/gestion_tutores_pacientes_page.dart";
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
+import "../nutricionista/modules/etiquetas/etiquetas_gestion_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
+import "../nutricionista/modules/reglas_nutricionales/reglas_nutricionales_page.dart";
+import "../nutricionista/modules/condiciones/condiciones_nutricionales_page.dart";
 import "../tutor/modules/calificacion/calificacion_page.dart";
 import "../tutor/modules/consumo/consumo_page.dart";
 import "../tutor/modules/plan/plan_page.dart";
@@ -40,45 +44,21 @@ List<RoleModule> modulesForRole(AppRole role) {
       return [
         RoleModule(
           key: "gestion-pacientes",
-          title: "Pacientes y Tutores",
+          title: "Gestión de Pacientes",
           icon: Icons.groups,
-          builder: () => const GestionTutoresPacientesPage(),
-        ),
-        RoleModule(
-          key: "registro-clinico",
-          title: "Historia Clinica y Controles",
-          icon: Icons.monitor_heart,
-          builder: () => const RegistroClinicoPage(),
-        ),
-        RoleModule(
-          key: "diagnostico-oms",
-          title: "Diagnostico e IMC",
-          icon: Icons.biotech,
-          builder: () => const DiagnosticoPage(),
-        ),
-        RoleModule(
-          key: "alergias-condiciones-temporales",
-          title: "Alergias y Condiciones",
-          icon: Icons.healing,
-          builder: () => const AlergiasCondicionesPage(),
+          builder: () => const GestionPacientesPage(),
         ),
         RoleModule(
           key: "catalogo-condiciones",
           title: "Catalogo de Condiciones",
           icon: Icons.library_books,
-          builder: () => const CatalogoCondicionesPage(),
+          builder: () => const CondicionesMedicasPage(),
         ),
         RoleModule(
           key: "reglas-medicas",
           title: "Reglas Medicas",
           icon: Icons.rule,
           builder: () => const ReglasMedicasPage(),
-        ),
-        RoleModule(
-          key: "consulta-evolucion",
-          title: "Consulta y Evolucion",
-          icon: Icons.insights,
-          builder: () => const ConsultaEvolucionPage(),
         ),
         RoleModule(
           key: "perfil",
@@ -90,10 +70,22 @@ List<RoleModule> modulesForRole(AppRole role) {
     case AppRole.nutricionista:
       return [
         RoleModule(
+          key: "gestion-pacientes",
+          title: "Gestión de Pacientes",
+          icon: Icons.groups,
+          builder: () => const GestionPacientesPage(),
+        ),
+        RoleModule(
           key: "ingredientes",
           title: "Ingredientes",
           icon: Icons.eco,
           builder: () => const IngredientesPage(),
+        ),
+        RoleModule(
+          key: "etiquetas",
+          title: "Gestión de Etiquetas",
+          icon: Icons.label_important_outline_rounded,
+          builder: () => const EtiquetasGestionPage(),
         ),
         RoleModule(
           key: "recetas",
@@ -106,6 +98,18 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Plan manual",
           icon: Icons.calendar_view_week,
           builder: () => const PlanManualPage(),
+        ),
+        RoleModule(
+          key: "reglas-inteligentes",
+          title: "Reglas Inteligentes",
+          icon: Icons.psychology_outlined,
+          builder: () => const ReglasNutricionalesPage(),
+        ),
+        RoleModule(
+          key: "catalogo-condiciones",
+          title: "Catálogo de Condiciones",
+          icon: Icons.assignment_turned_in_outlined,
+          builder: () => const CondicionesNutricionalesPage(),
         ),
         RoleModule(
           key: "perfil",

@@ -1,7 +1,7 @@
 from app.core.db import db_cursor
 
 def list_ingredients_paged(query: str = "", category_id: int = None, active: bool = None, limit: int = 10, offset: int = 0):
-    """Lista ingredientes con filtros y paginación."""
+    """Lista ingredientes con filtros y paginación (Revertido a original)."""
     params = []
     where_clauses = ["1=1"]
     if query:
@@ -28,9 +28,11 @@ def list_ingredients_paged(query: str = "", category_id: int = None, active: boo
                 from nutricion.ingrediente_etiqueta ie
                 join nutricion.etiqueta_nutricional et on et.id = ie.id_etiqueta
                 where ie.id_ingrediente = i.id
-            ) as etiquetas
+            ) as etiquetas,
+            sg.nombre as subgrupo
         from nutricion.ingrediente i
         left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+        left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
         left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = i.id
         where {where_str}
         order by i.nombre asc
@@ -50,7 +52,7 @@ def list_ingredients_paged(query: str = "", category_id: int = None, active: boo
                 "id": r[0], "nombre": r[1], "categoria": r[2],
                 "energia_kcal": float(r[3] or 0), "proteinas_g": float(r[4] or 0),
                 "grasas_g": float(r[5] or 0), "carbohidratos_g": float(r[6] or 0),
-                "activo": r[7], "etiquetas": r[8]
+                "activo": r[7], "etiquetas": r[8], "subgrupo": r[9]
             })
     return {"total": total, "items": results}
 
@@ -66,9 +68,11 @@ def get_ingredient_detail(id_ingrediente: int):
                 from nutricion.ingrediente_etiqueta ie
                 join nutricion.etiqueta_nutricional et on et.id = ie.id_etiqueta
                 where ie.id_ingrediente = i.id
-            ) as etiquetas
+            ) as etiquetas,
+            sg.nombre as subgrupo_nombre
         from nutricion.ingrediente i
         left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+        left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
         left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = i.id
         where i.id = %s
     """
@@ -76,11 +80,25 @@ def get_ingredient_detail(id_ingrediente: int):
         cur.execute(sql, (id_ingrediente,))
         row = cur.fetchone()
         if not row: return None
+        
+        tags_list = [{"nombre": name, "tipo": "CALIDAD"} for name in (row[13] or [])]
+        
         return {
-            "id": row[0], "nombre": row[1], "id_grupo_alimentario": row[2], "categoria": row[3],
-            "energia_kcal": float(row[4] or 0), "proteinas_g": float(row[5] or 0),
-            "grasas_g": float(row[6] or 0), "carbohidratos_g": float(row[7] or 0),
-            "fibra_g": float(row[8] or 0), "sodio_mg": float(row[9] or 0),
-            "calcio_mg": float(row[10] or 0), "hierro_mg": float(row[11] or 0),
-            "activo": row[12], "etiquetas": row[13]
+            "id": row[0], 
+            "nombre": row[1], 
+            "id_grupo_alimentario": row[2], 
+            "categoria_nombre": row[3],
+            "composicion": {
+                "energia_kcal": float(row[4] or 0),
+                "proteinas_g": float(row[5] or 0),
+                "grasa_total_g": float(row[6] or 0),
+                "hidratos_carbono_g": float(row[7] or 0),
+                "fibra_g": float(row[8] or 0),
+                "sodio_mg": float(row[9] or 0),
+                "calcio_mg": float(row[10] or 0),
+                "hierro_mg": float(row[11] or 0),
+            },
+            "activo": row[12],
+            "tags": tags_list,
+            "subgrupo_nombre": row[14]
         }

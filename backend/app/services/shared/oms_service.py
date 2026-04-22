@@ -1,5 +1,6 @@
 from datetime import date
 from app.core.db import db_cursor
+from app.services.shared.cerebro.clasificacion_estado_nutricional_oms.oms_engine import obtener_clasificacion_oms
 
 def calcular_edad_detallada(fecha_nacimiento: date):
     """Calcula años y meses exactos."""
@@ -13,34 +14,26 @@ def calcular_edad_detallada(fecha_nacimiento: date):
 def clasificar_oms_imc(id_sexo: int, edad_meses: int, imc: float):
     """
     Busca en las tablas de referencia el diagnóstico nutricional.
-    Basado en el patrón de crecimiento de la OMS (IMC para la edad).
+    Utiliza el engine unificado.
     """
+    # Mapping from text to ID in heuristico.condicion
+    mapping = {
+        "Desnutrición Severa": 11,
+        "Desnutrición": 12,
+        "Riesgo de Desnutrición": 13,
+        "Eutrófico (Normal)": 14,
+        "Sobrepeso": 4,
+        "Obesidad": 5
+    }
+    
     try:
-        with db_cursor() as cur:
-            # Buscamos los puntos de corte (SD -3, -2, 0, 2, 3) para esa edad y sexo
-            # Asumimos que id_sexo 1=Masculino, 2=Femenino coincide con la DB
-            cur.execute("""
-                select sd3neg, sd2neg, sd0, sd2, sd3
-                from referencia.oms_curva_punto p
-                join referencia.oms_curva c on c.id = p.id_curva
-                where c.indicador_codigo = 'IMCE' 
-                  and c.id_sexo = %s 
-                  and p.meses = %s
-            """, (id_sexo, edad_meses))
+        res = obtener_clasificacion_oms(id_sexo, edad_meses, imc)
+        if res["clasificacion"] == "Fuera de rango OMS (>19 años)":
+            return 14, res["clasificacion"] # Default to Eutrophic ID or a special one if exists
             
-            puntos = cur.fetchone()
-            if not puntos:
-                return 1, "Sin referencia OMS para esta edad" # ID 1 = Normal por defecto o indeterminado
-
-            sd3neg, sd2neg, sd0, sd2, sd3 = [float(p) for p in puntos]
-
-            # Clasificación estándar de la OMS
-            if imc < sd3neg: return 5, "Delgadez Severa"
-            if imc < sd2neg: return 4, "Delgadez"
-            if imc > sd3: return 3, "Obesidad"
-            if imc > sd2: return 2, "Sobrepeso"
-            return 1, "Eutrófico (Normal)"
+        cond_id = mapping.get(res["clasificacion"], 14)
+        return cond_id, f"Z-Score: {res['z_score']} ({res['clasificacion']})"
 
     except Exception as e:
         print(f"Error en clasificacion OMS: {e}")
-        return 1, "Error al clasificar"
+        return 14, "Error al clasificar"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './styles.css';
+import IngredientsListView from './components/IngredientsListView';
 
 interface Patient {
   id: string;
@@ -16,6 +17,37 @@ interface Recipe {
 const WeekDays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const Moments = ["Desayuno", "Almuerzo", "Cena"];
 
+const App: React.FC = () => {
+  const [view, setView] = useState<'plan' | 'ingredients'>('ingredients');
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex gap-8 items-center shadow-sm z-50">
+        <div className="flex items-center gap-2 mr-4">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">R</div>
+          <span className="font-bold text-slate-800 tracking-tight">ReumaNutri</span>
+        </div>
+        <button 
+          onClick={() => setView('ingredients')}
+          className={`font-bold transition-all px-4 py-2 rounded-lg ${view === 'ingredients' ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          🍎 Catálogo de Ingredientes
+        </button>
+        <button 
+          onClick={() => setView('plan')}
+          className={`font-bold transition-all px-4 py-2 rounded-lg ${view === 'plan' ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          📅 Plan Nutricional
+        </button>
+      </nav>
+
+      <div className="flex-1 overflow-auto">
+        {view === 'ingredients' ? <IngredientsListView /> : <NutritionPlanManual />}
+      </div>
+    </div>
+  );
+};
+
 const NutritionPlanManual: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -28,7 +60,7 @@ const NutritionPlanManual: React.FC = () => {
   // Buscar pacientes al escribir
   useEffect(() => {
     if (searchTerm.length > 2) {
-      fetch(`/api/v1/medico/buscar-pacientes?q=${searchTerm}`)
+      fetch(`/api/v1/buscar-pacientes?q=${searchTerm}`)
         .then(res => res.json())
         .then(data => setPatients(data));
     }
@@ -37,7 +69,7 @@ const NutritionPlanManual: React.FC = () => {
   // Cargar recetas seguras al seleccionar paciente
   const selectPatient = (p: Patient) => {
     setSelectedPatient(p);
-    fetch(`/api/v1/nutricionista/recetas-permitidas`, {
+    fetch(`/api/v1/recetas-permitidas`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_paciente: p.id })
@@ -64,7 +96,6 @@ const NutritionPlanManual: React.FC = () => {
   // Función para replicar semana (tedio-free)
   const handleReplicate = () => {
     alert("¡Semana replicada exitosamente para el resto del mes!");
-    // Aquí se enviaría al backend el mismo patrón para los próximos 21 días
   };
 
   const savePlan = () => {
@@ -73,7 +104,7 @@ const NutritionPlanManual: React.FC = () => {
       return;
     }
     
-    fetch(`/api/v1/nutricionista/plan-manual`, {
+    fetch(`/api/v1/plan-manual`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 

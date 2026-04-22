@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/state/app_providers.dart';
+import '../../../../shared/models/app_role.dart';
 
 // --- MODELOS ---
 class MealSlot {
@@ -43,10 +44,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Future<void> _fetchPatients(String q) async {
     setState(() => _isLoading = true);
     try {
-      final repo = ref.read(inteligenciaRepositoryProvider);
-      final results = await repo.buscarPacientes(q);
-      setState(() => _patients = results.map((e) => Map<String, dynamic>.from(e)).toList());
-    } finally {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q});
+      setState(() {
+        _patients = List<Map<String, dynamic>>.from(res.data);
+        _isLoading = false;
+      });
+    } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -54,21 +58,21 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Future<void> _onPatientSelected(Map<String, dynamic> patient) async {
     setState(() {
       _selectedPatient = patient;
-      _isLoading = true; // Empieza carga de tazón
+      _isLoading = true;
     });
     
     try {
-      final repo = ref.read(inteligenciaRepositoryProvider);
-      final profile = await repo.obtenerPacientePerfil(patient["id"]);
-      setState(() => _patientProfile = profile);
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("paciente-perfil/${patient["id"]}");
+      setState(() => _patientProfile = res.data);
       _showConfigModal();
     } catch (e) {
-      debugPrint("Error al cargar perfil: $e");
-      // Fallback para evitar bloqueo
       setState(() => _patientProfile = {
         "nombre": patient["nombre_completo"], 
         "sexo": "N/A", 
-        "diagnostico": "Sin diagnóstico", 
+        "nutricional": "Sin evaluación",
+        "clinico": "N/A",
+        "temporal": "Ninguna",
         "alergias": "Ninguna", 
         "reglas_clinicas": [], 
         "reglas_nutricionales": []
@@ -96,18 +100,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               Text("Configurar plan alimentario", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildModalSectionTitle("Tiempos obligatorios"),
-              _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
-              _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
-              _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
-              const Divider(height: 32),
-              _buildModalSectionTitle("Snacks opcionales"),
-              _buildConfigTile("Snack media mañana", "Entre desayuno y almuerzo", Icons.coffee, morningSnack, (v) => setModalState(() => morningSnack = v!)),
-              _buildConfigTile("Snack media tarde", "Entre almuerzo y cena", Icons.apple, afternoonSnack, (v) => setModalState(() => afternoonSnack = v!)),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildModalSectionTitle("Tiempos obligatorios"),
+                _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
+                _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
+                _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
+                const Divider(height: 32),
+                _buildModalSectionTitle("Snacks opcionales"),
+                _buildConfigTile("Snack media mañana", "Entre desayuno y almuerzo", Icons.coffee, morningSnack, (v) => setModalState(() => morningSnack = v!)),
+                _buildConfigTile("Snack media tarde", "Entre almuerzo y cena", Icons.apple, afternoonSnack, (v) => setModalState(() => afternoonSnack = v!)),
+              ],
+            ),
           ),
           actions: [
             FilledButton(
@@ -235,11 +241,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         _buildEditorTopBar(),
         Expanded(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_patientProfile != null) 
-                SizedBox(width: 320, child: _PatientProfileSidebar(profile: _patientProfile!))
+                SizedBox(width: 300, child: _PatientProfileSidebar(profile: _patientProfile!))
               else
-                const SizedBox(width: 320, child: Center(child: CircularProgressIndicator())),
+                const SizedBox(width: 300, child: Center(child: CircularProgressIndicator())),
               Expanded(child: _buildWeeklyBoard()),
             ],
           ),
@@ -250,27 +257,27 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildEditorTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_ios), onPressed: () => setState(() => _selectedPatient = null)),
-          const SizedBox(width: 12),
-          Text("Diseñando Plan: ${_selectedPatient!["nombre_completo"]}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Spacer(),
-          OutlinedButton.icon(onPressed: _showConfigModal, icon: const Icon(Icons.tune, size: 16), label: const Text("Reconfigurar")),
-          const SizedBox(width: 12),
+          IconButton(icon: const Icon(Icons.arrow_back_ios, size: 18), onPressed: () => setState(() => _selectedPatient = null)),
+          const SizedBox(width: 8),
+          Expanded(child: Text("Diseñando Plan: ${_selectedPatient!["nombre_completo"]}", overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(onPressed: _showConfigModal, icon: const Icon(Icons.tune, size: 14), label: const Text("Ajustar")),
+          const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: () => _savePlan(replicate: true), 
-            icon: const Icon(Icons.auto_mode), 
-            label: const Text("Guardar y Replicar Mes"),
+            icon: const Icon(Icons.auto_mode, size: 16), 
+            label: const Text("Guardar Mes"),
             style: FilledButton.styleFrom(backgroundColor: Colors.indigo.shade700),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: () => _savePlan(replicate: false), 
-            icon: const Icon(Icons.check_circle_outline), 
-            label: const Text("Solo esta semana"),
+            icon: const Icon(Icons.check, size: 16), 
+            label: const Text("Semana"),
             style: FilledButton.styleFrom(backgroundColor: Colors.teal.shade700),
           ),
         ],
@@ -303,7 +310,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         momentId: slot.momentId,
         mealType: slot.mealType,
         dayName: _weeklyPlan[dIdx].day,
-        onSelected: (r) => setState(() => slot.recipes = [...slot.recipes, r]),
+        onSelected: (r) => setState(() => slot.recipes = [r]), // Solo una por slot para simplificar
       ),
     );
   }
@@ -319,6 +326,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   void _savePlan({bool replicate = true}) async {
+    // Validar que al menos haya una receta por slot
     for (var d in _weeklyPlan) {
       for (var s in d.slots) {
         if (s.recipes.isEmpty) {
@@ -334,14 +342,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     };
 
     try {
-      await ref.read(inteligenciaRepositoryProvider).guardarPlanManual(
-        idPaciente: _selectedPatient!["id"], 
-        plan: data,
-        replicate: replicate,
-      );
+      final dio = ref.read(dioProvider);
+      await dio.post("plan-manual", data: {
+        "id_paciente": _selectedPatient!["id"],
+        "plan": data,
+        "replicate": replicate
+      });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.green, content: Text("✅ Plan guardado y activado")));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
     }
   }
 
@@ -356,8 +365,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 }
-
-// --- SUB-WIDGETS ---
 
 class _DayCard extends StatelessWidget {
   final PlanDay day;
@@ -382,7 +389,7 @@ class _DayCard extends StatelessWidget {
               const SizedBox(width: 12), 
               Text(day.day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               const Spacer(),
-              TextButton.icon(onPressed: onDuplicate, icon: const Icon(Icons.copy, size: 14, color: Colors.white70), label: const Text("Duplicar", style: TextStyle(color: Colors.white70))),
+              TextButton.icon(onPressed: onDuplicate, icon: const Icon(Icons.copy, size: 14, color: Colors.white70), label: const Text("Duplicar al siguiente", style: TextStyle(color: Colors.white70, fontSize: 12))),
             ]),
           ),
           Padding(
@@ -400,7 +407,7 @@ class _DayCard extends StatelessWidget {
   Widget _buildSlot(int idx, MealSlot s) {
     final has = s.recipes.isNotEmpty;
     return Container(
-      width: 200,
+      width: 180,
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: has ? Colors.blue.shade100 : Colors.orange.shade100)),
       child: Column(
         children: [
@@ -422,10 +429,10 @@ class _DayCard extends StatelessWidget {
           else
             ...s.recipes.asMap().entries.map((re) => ListTile(
               dense: true, visualDensity: VisualDensity.compact,
-              title: Text(re.value["nombre"], style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-              trailing: IconButton(icon: const Icon(Icons.close, size: 12, color: Colors.red), onPressed: () => onRemove(idx, re.key)),
+              title: Text(re.value["nombre"], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              trailing: IconButton(icon: const Icon(Icons.close, size: 14, color: Colors.red), onPressed: () => onRemove(idx, re.key)),
             )),
-          if (has) IconButton(onPressed: () => onAdd(idx), icon: const Icon(Icons.add, size: 16, color: Colors.blueGrey)),
+          if (has) IconButton(onPressed: () => onAdd(idx), icon: const Icon(Icons.refresh, size: 16, color: Colors.blueGrey), tooltip: "Cambiar receta"),
         ],
       ),
     );
@@ -448,19 +455,26 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
   List<dynamic> _recipes = [];
   List<dynamic> _filtered = [];
   bool _loading = true;
-  String _search = "";
 
   @override
   void initState() { super.initState(); _fetch(); }
 
   Future<void> _fetch() async {
-    final data = await ref.read(inteligenciaRepositoryProvider).recetasPermitidas(idPaciente: widget.idPaciente, idMomento: widget.momentId);
-    if (mounted) {
-      setState(() { 
-        _recipes = data["recetas"]; 
-        _filtered = _recipes;
-        _loading = false; 
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.post("recetas-permitidas", data: {
+        "id_paciente": widget.idPaciente,
+        "id_momento": widget.momentId
       });
+      if (mounted) {
+        setState(() { 
+          _recipes = res.data["recetas"] ?? []; 
+          _filtered = _recipes;
+          _loading = false; 
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -476,7 +490,7 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
             child: Row(
               children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text("Seleccionar Receta", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+                  const Text("Seleccionar Receta Segura", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
                   Text("${widget.dayName} • ${widget.mealType}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ]),
                 const Spacer(),
@@ -489,15 +503,10 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
             child: TextField(
               autofocus: true,
               onChanged: (v) => setState(() {
-                _search = v;
                 _filtered = _recipes.where((r) => r["nombre"].toString().toLowerCase().contains(v.toLowerCase())).toList();
               }),
-              decoration: InputDecoration(hintText: "Buscar por nombre o ingrediente...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
+              decoration: InputDecoration(hintText: "Filtrar por nombre...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text("${_filtered.length} recetas disponibles para ${widget.mealType}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueGrey)),
           ),
           const SizedBox(height: 12),
           if (_loading) 
@@ -509,17 +518,10 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                 itemCount: _filtered.length,
                 itemBuilder: (context, i) => Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade100)),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.all(12),
-                    leading: Container(width: 60, height: 60, decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.restaurant, color: Colors.blue)),
+                    leading: const Icon(Icons.restaurant, color: Colors.orange),
                     title: Text(_filtered[i]["nombre"], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_filtered[i]["recomendacion"] ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                    subtitle: Text(_filtered[i]["recomendacion"] ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
                     trailing: const Icon(Icons.add_circle, color: Colors.blue),
                     onTap: () { widget.onSelected(_filtered[i]); Navigator.pop(context); },
                   ),
@@ -548,16 +550,16 @@ class _PatientProfileSidebar extends StatelessWidget {
             Center(child: CircleAvatar(radius: 30, backgroundColor: Colors.blue.shade50, child: const Icon(Icons.person, color: Colors.blue))),
             const SizedBox(height: 12),
             Center(child: Text(profile["nombre"] ?? "N/A", textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-            Center(child: Text("${profile["sexo"]}", style: const TextStyle(color: Colors.grey, fontSize: 12))),
+            Center(child: Text("${profile["sexo"] ?? 'N/A'}", style: const TextStyle(color: Colors.grey, fontSize: 12))),
             const Divider(height: 32),
-            _info("Condición Clínica", profile["clinico"], Colors.red),
-            _info("Condición Temporal", profile["temporal"], Colors.orange),
-            _info("Condición Nutricional", profile["nutricional"], Colors.blue),
-            _info("Alergias", profile["alergias"], Colors.orangeAccent),
+            _info("Estado Nutricional", profile["nutricional"] ?? "Sin evaluación", Colors.blue),
+            _info("Condición Clínica", profile["clinico"] ?? "N/A", Colors.red),
+            _info("Temporales", profile["temporal"] ?? "Ninguna", Colors.orange),
+            _info("Alergias", profile["alergias"] ?? "Ninguna", Colors.orangeAccent),
             const SizedBox(height: 12),
-            const Text("Reglas de Seguridad", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const Text("Restricciones Activas", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 8),
-            _rule("Clínicas (Prioridad Alta)", List<String>.from(profile["reglas_clinicas"] ?? []), Colors.purple),
+            _rule("Médicas", List<String>.from(profile["reglas_clinicas"] ?? []), Colors.purple),
             _rule("Nutricionales", List<String>.from(profile["reglas_nutricionales"] ?? []), Colors.blue),
           ],
         ),
@@ -565,7 +567,19 @@ class _PatientProfileSidebar extends StatelessWidget {
     );
   }
 
-  Widget _info(String l, String v, Color c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.bold)), Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)))]));
+  Widget _info(String l, String v, Color c) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l.toUpperCase(), style: TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+          const SizedBox(height: 4),
+          Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+        ],
+      ),
+    );
+  }
   
   Widget _rule(String t, List<String> rs, Color c) => Container(
     width: double.infinity,

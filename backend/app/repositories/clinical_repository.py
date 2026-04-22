@@ -1,3 +1,4 @@
+from datetime import date
 from app.core.db import db_cursor
 
 
@@ -22,15 +23,26 @@ def get_oms_reference(indicador_codigo: str, id_sexo: int, edad_meses: int) -> t
     return row[0], row[1], row[2]
 
 
-def get_patient_active_condition_ids(id_paciente: str) -> list[int]:
+def get_patient_active_condition_ids(id_paciente: str, target_date: date | None = None) -> list[int]:
+    if target_date is None:
+        target_date = date.today()
+        
     sql = """
-        select id_condicion
-    from clinico.diagnostico_paciente
-        where id_paciente = %s
-          and activa = true
+        -- 1. Condiciones permanentes o diagnósticos
+        SELECT id_condicion
+        FROM clinico.diagnostico_paciente
+        WHERE id_paciente = %s AND activa = true
+        
+        UNION
+        
+        -- 2. Condiciones temporales vigentes
+        SELECT id_condicion
+        FROM clinico.restriccion_temporal_paciente
+        WHERE id_paciente = %s AND activa = true 
+          AND %s BETWEEN fecha_inicio AND fecha_fin
     """
     with db_cursor() as cur:
-        cur.execute(sql, (id_paciente,))
+        cur.execute(sql, (id_paciente, id_paciente, target_date))
         rows = cur.fetchall()
 
     return [row[0] for row in rows]

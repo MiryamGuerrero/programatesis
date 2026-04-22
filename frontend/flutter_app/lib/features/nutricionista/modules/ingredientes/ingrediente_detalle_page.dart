@@ -32,9 +32,9 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
 
   Future<void> _fetch() async {
     try {
-      final repo = ref.read(inteligenciaRepositoryProvider);
-      final res = await repo.obtenerIngredienteDetalle(widget.idIngrediente);
-      if (mounted) setState(() { _data = res; _loading = false; });
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("ingredientes/${widget.idIngrediente}");
+      if (mounted) setState(() { _data = res.data; _loading = false; });
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -54,12 +54,18 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Text(_data!['nombre'] ?? '-', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold)),
-              Text(_data!['categoria_nombre'] ?? '-', style: GoogleFonts.inter(color: Colors.blue, fontWeight: FontWeight.w600)),
+              Text(_data!['nombre'] ?? '-', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
+              Text(_data!['categoria_nombre'] ?? '-', style: GoogleFonts.inter(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 32),
-              _buildChart(comp),
+              
+              // Contenedor de la gráfica con la energía en el centro
+              _buildChartSection(comp),
+              
               const SizedBox(height: 32),
+              Text("Desglose Nutricional (por 100g)", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              const SizedBox(height: 16),
               _buildMacroGrid(comp),
+              
               const SizedBox(height: 32),
               _buildTags(),
             ],
@@ -75,12 +81,21 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(onPressed: widget.onBack, icon: const Icon(Icons.close_rounded)),
+          IconButton(onPressed: widget.onBack, icon: const Icon(Icons.close_rounded, color: Colors.blueGrey)),
           Row(
             children: [
-              OutlinedButton.icon(onPressed: widget.onEdit, icon: const Icon(Icons.edit, size: 14), label: const Text("Editar")),
+              OutlinedButton.icon(
+                onPressed: widget.onEdit, 
+                icon: const Icon(Icons.edit_outlined, size: 14), 
+                label: const Text("Editar Ficha"),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.blue.shade200), foregroundColor: Colors.blue.shade700),
+              ),
               const SizedBox(width: 8),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.delete_outline, color: Colors.red)),
+              IconButton(
+                onPressed: () {}, 
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                tooltip: "Eliminar ingrediente",
+              ),
             ],
           ),
         ],
@@ -88,62 +103,133 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     );
   }
 
-  Widget _buildChart(Map comp) {
-    return SizedBox(
-      height: 180,
-      child: PieChart(
-        PieChartData(
-          sectionsSpace: 0,
-          centerSpaceRadius: 50,
-          sections: [
-            PieChartSectionData(value: (comp['proteinas_g'] ?? 0).toDouble(), color: Colors.blue, radius: 15, showTitle: false),
-            PieChartSectionData(value: (comp['grasa_total_g'] ?? 0).toDouble(), color: Colors.orange, radius: 15, showTitle: false),
-            PieChartSectionData(value: (comp['hidratos_carbono_g'] ?? 0).toDouble(), color: Colors.green, radius: 15, showTitle: false),
+  Widget _buildChartSection(Map comp) {
+    double prot = (comp['proteinas_g'] ?? 0).toDouble();
+    double fat = (comp['grasa_total_g'] ?? 0).toDouble();
+    double carb = (comp['hidratos_carbono_g'] ?? 0).toDouble();
+    double energy = (comp['energia_kcal'] ?? 0).toDouble();
+    double total = prot + fat + carb;
+
+    // Si todo es cero, mostramos un círculo gris
+    bool hasData = total > 0;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          height: 220,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 4,
+              centerSpaceRadius: 65,
+              startDegreeOffset: -90,
+              sections: hasData ? [
+                PieChartSectionData(
+                  value: prot, 
+                  color: const Color(0xFF3B82F6), 
+                  radius: 20, 
+                  title: '${((prot/total)*100).toStringAsFixed(0)}%',
+                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  showTitle: total > 5
+                ),
+                PieChartSectionData(
+                  value: fat, 
+                  color: const Color(0xFFF59E0B), 
+                  radius: 20, 
+                  title: '${((fat/total)*100).toStringAsFixed(0)}%',
+                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  showTitle: total > 5
+                ),
+                PieChartSectionData(
+                  value: carb, 
+                  color: const Color(0xFF10B981), 
+                  radius: 20, 
+                  title: '${((carb/total)*100).toStringAsFixed(0)}%',
+                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  showTitle: total > 5
+                ),
+              ] : [
+                PieChartSectionData(value: 1, color: Colors.grey.shade200, radius: 20, showTitle: false),
+              ],
+            ),
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${energy.toStringAsFixed(0)}',
+              style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+            ),
+            Text(
+              'KCAL',
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade400, letterSpacing: 1.5),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMacroGrid(Map comp) {
-    return Column(
-      children: [
-        _macroTile('Proteínas', '${comp['proteinas_g'] ?? 0}g', Colors.blue),
-        _macroTile('Grasas', '${comp['grasa_total_g'] ?? 0}g', Colors.orange),
-        _macroTile('Carbohidratos', '${comp['hidratos_carbono_g'] ?? 0}g', Colors.green),
-        _macroTile('Energía', '${comp['energia_kcal'] ?? 0} kcal', Colors.red),
       ],
     );
   }
 
-  Widget _macroTile(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+  Widget _buildMacroGrid(Map comp) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9))
+      ),
+      child: Column(
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          _macroRow('Proteínas', '${comp['proteinas_g'] ?? 0} g', const Color(0xFF3B82F6)),
+          const Divider(height: 24),
+          _macroRow('Grasas Totales', '${comp['grasa_total_g'] ?? 0} g', const Color(0xFFF59E0B)),
+          const Divider(height: 24),
+          _macroRow('Carbohidratos', '${comp['hidratos_carbono_g'] ?? 0} g', const Color(0xFF10B981)),
+          const Divider(height: 24),
+          _macroRow('Fibra Vegetal', '${comp['fibra_g'] ?? 0} g', Colors.brown.shade300),
+          const Divider(height: 24),
+          _macroRow('Sodio', '${comp['sodio_mg'] ?? 0} mg', Colors.blueGrey),
         ],
       ),
     );
   }
 
+  Widget _macroRow(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 12),
+        Text(label, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
+        const Spacer(),
+        Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF1E293B))),
+      ],
+    );
+  }
+
   Widget _buildTags() {
     final tags = _data!['tags'] as List? ?? [];
+    if (tags.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Etiquetas de Seguridad", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text("Etiquetas de Seguridad Alimentaria", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
-          children: tags.map((t) => Chip(
-            label: Text(t['nombre'], style: const TextStyle(fontSize: 10)),
-            backgroundColor: t['tipo'] == 'RESTRICCION' ? Colors.red.withOpacity(0.05) : Colors.blue.withOpacity(0.05),
-            side: BorderSide.none,
+          runSpacing: 8,
+          children: tags.map((t) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.blue.shade100)
+            ),
+            child: Text(
+              t['nombre'], 
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800)
+            ),
           )).toList(),
         ),
       ],

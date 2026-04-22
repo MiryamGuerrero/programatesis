@@ -22,7 +22,7 @@ def run_heuristic_engine(id_paciente: str, target_date: date | None = None) -> H
         
     # 1. Obtener restricciones base (Alergias y Clínicas de ELIMINAR)
     safety = get_safety_restrictions(id_paciente)
-    base_rules = resolve_clinical_nutrition_conflicts(id_paciente)
+    base_rules = resolve_clinical_nutrition_conflicts(id_paciente, target_date)
     temporal_rules = get_temporary_adjustments(id_paciente, target_date)
     
     merged_rules = base_rules + temporal_rules
