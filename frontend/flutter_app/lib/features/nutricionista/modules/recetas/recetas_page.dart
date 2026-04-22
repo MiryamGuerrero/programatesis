@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "package:reuma_nutri_app/shared/widgets/module_ux.dart";
 
 class RecetasPage extends ConsumerStatefulWidget {
   const RecetasPage({super.key});
@@ -64,83 +65,80 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             return nombre.contains(query);
           }).toList();
 
-    return ListView(
-      children: [
-        Text("Recetas", style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        const Text(
-          "Extraccion directa desde CRUD. Sin flujo de IDs manuales para consulta basica.",
-          style: TextStyle(color: Color(0xFF5B6978), fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            SizedBox(
-              width: 360,
-              child: TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: "Buscar receta",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
+    return ModuleViewport(
+      child: ListView(
+        children: [
+          const ModuleHeaderCard(
+            title: "Recetas",
+            subtitle: "Consulta recetas disponibles para planes alimentarios.",
+            icon: Icons.menu_book_rounded,
+          ),
+          const SizedBox(height: 12),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              SizedBox(
+                width: 360,
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: "Buscar receta",
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
                 ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _loadRecetas,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Recargar"),
-            ),
-          ],
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : _loadRecetas,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Recargar"),
+              ),
+            ],
           ),
-        ],
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(label: Text("Total: ${_recetas.length}")),
-            Chip(label: Text("Visibles: ${visible.length}")),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.error(_error!),
           ],
-        ),
-        const SizedBox(height: 10),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (visible.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text("No hay recetas para el filtro actual."),
-          )
-        else
-          ...visible.map(
-            (receta) {
-              final kcalRaw = receta["calorias_totales"];
-              final kcalText = kcalRaw == null ? "Sin dato" : kcalRaw.toString();
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(label: Text("Total: ${_recetas.length}")),
+              Chip(label: Text("Visibles: ${visible.length}")),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (visible.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text("No hay recetas para el filtro actual."),
+            )
+          else
+            ...visible.map(
+              (receta) {
+                final kcalRaw = receta["calorias_totales"];
+                final kcalText =
+                    kcalRaw == null ? "Sin dato" : kcalRaw.toString();
 
-              return Card(
-                child: ListTile(
-                  title: Text(receta["nombre"]?.toString() ?? "Receta"),
-                  subtitle: Text("Calorias totales: $kcalText"),
-                ),
-              );
-            },
-          ),
-      ],
+                return Card(
+                  child: ListTile(
+                    title: Text(receta["nombre"]?.toString() ?? "Receta"),
+                    subtitle: Text("Calorias totales: $kcalText"),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

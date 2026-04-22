@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "package:reuma_nutri_app/shared/widgets/module_ux.dart";
 
 class IngredientesPage extends ConsumerStatefulWidget {
   const IngredientesPage({super.key});
@@ -101,104 +102,96 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                 (row["nombre"]?.toString().toLowerCase() ?? "").contains(query))
             .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Gestion de ingredientes",
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          "Carga simple directa desde API CRUD. Sin captura manual de IDs.",
-          style: TextStyle(color: Color(0xFF5B6978), fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: 320,
-              child: TextField(
-                controller: _nombreController,
-                decoration: const InputDecoration(
-                  labelText: "Nuevo ingrediente",
-                  border: OutlineInputBorder(),
+    return ModuleViewport(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ModuleHeaderCard(
+            title: "Gestion de ingredientes",
+            subtitle: "Gestiona ingredientes activos para recetas y planes.",
+            icon: Icons.eco_rounded,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 320,
+                child: TextField(
+                  controller: _nombreController,
+                  decoration: const InputDecoration(
+                    labelText: "Nuevo ingrediente",
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ),
-            ),
-            FilledButton.icon(
-              onPressed: _loading ? null : _createIngrediente,
-              icon: const Icon(Icons.add),
-              label: const Text("Agregar"),
-            ),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Recargar"),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: 360,
-          child: TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: "Buscar por nombre",
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.search),
-            ),
+              FilledButton.icon(
+                onPressed: _loading ? null : _createIngrediente,
+                icon: const Icon(Icons.add),
+                label: const Text("Agregar"),
+              ),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : _loadData,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Recargar"),
+              ),
+            ],
           ),
-        ),
-        if (_error != null) ...[
           const SizedBox(height: 10),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
+          SizedBox(
+            width: 360,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: "Buscar por nombre",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
           ),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(label: Text("Total: ${_ingredientes.length}")),
-            Chip(label: Text("Visibles: ${visible.length}")),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            ModuleNotice.error(_error!),
           ],
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) {
-                    final item = visible[index];
-                    final activo = item["activo"] == true;
-                    return Card(
-                      child: ListTile(
-                        title: Text(item["nombre"]?.toString() ?? ""),
-                        subtitle: Text(
-                          activo ? "Activo" : "Inactivo",
-                          style: TextStyle(
-                            color: activo
-                                ? const Color(0xFF16683B)
-                                : const Color(0xFF9A5C11),
-                            fontWeight: FontWeight.w700,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(label: Text("Total: ${_ingredientes.length}")),
+              Chip(label: Text("Visibles: ${visible.length}")),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final item = visible[index];
+                      final activo = item["activo"] == true;
+                      return Card(
+                        child: ListTile(
+                          title: Text(item["nombre"]?.toString() ?? ""),
+                          subtitle: Text(
+                            activo ? "Activo" : "Inactivo",
+                            style: TextStyle(
+                              color: activo
+                                  ? const Color(0xFF16683B)
+                                  : const Color(0xFF9A5C11),
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

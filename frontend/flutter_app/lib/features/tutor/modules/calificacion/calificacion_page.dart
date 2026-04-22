@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "package:reuma_nutri_app/shared/widgets/module_ux.dart";
 
 class TutorCalificacionPage extends ConsumerStatefulWidget {
   const TutorCalificacionPage({super.key});
@@ -60,7 +61,8 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
       setState(() {
         _recetas = recetas;
         if (_selectedReceta != null &&
-            !_recetas.any((r) => (r["id"]?.toString() ?? "") == _selectedReceta.toString())) {
+            !_recetas.any((r) =>
+                (r["id"]?.toString() ?? "") == _selectedReceta.toString())) {
           _selectedReceta = null;
         }
       });
@@ -126,8 +128,6 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     final recetaOptions = _recetas
         .map((receta) {
           final id = int.tryParse((receta["id"] ?? "").toString());
@@ -145,116 +145,105 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
         .whereType<DropdownMenuItem<int>>()
         .toList();
 
-    return ListView(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Valorar recetas", style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(
-                  "Tu opinion ayuda a mejorar las recomendaciones futuras del paciente.",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _pacienteController,
-                  decoration: const InputDecoration(
-                    labelText: "ID del paciente",
+    return ModuleViewport(
+      child: ListView(
+        children: [
+          const ModuleHeaderCard(
+            title: "Valorar recetas",
+            subtitle:
+                "Tu retroalimentacion mejora recomendaciones futuras para el paciente.",
+            icon: Icons.star_rounded,
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _pacienteController,
+                    decoration: const InputDecoration(
+                      labelText: "ID del paciente",
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          key: ValueKey<int?>(_selectedReceta),
-          initialValue: _selectedReceta,
-          decoration: const InputDecoration(
-            labelText: "Receta",
-          ),
-          items: recetaOptions,
-          onChanged: (value) => setState(() => _selectedReceta = value),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "Puntuacion",
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (int i = 1; i <= 5; i++)
-              ChoiceChip(
-                selected: _stars == i,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, size: 16),
-                    const SizedBox(width: 4),
-                    Text("$i"),
-                  ],
-                ),
-                onSelected: (_) => setState(() => _stars = i),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _comentarioController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: "Comentario (opcional)",
-            hintText: "Que te gusto o que no funciono bien",
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _loading ? null : _guardar,
-                icon: const Icon(Icons.star),
-                label: const Text("Guardar calificacion"),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _cargarRecetas,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Actualizar recetas"),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            key: ValueKey<int?>(_selectedReceta),
+            initialValue: _selectedReceta,
+            decoration: const InputDecoration(
+              labelText: "Receta",
             ),
-          ],
-        ),
-        if (_result != null) ...[
+            items: recetaOptions,
+            onChanged: (value) => setState(() => _selectedReceta = value),
+          ),
           const SizedBox(height: 12),
           Text(
-            _result!,
-            style: TextStyle(
-              color: colors.primary,
-              fontWeight: FontWeight.w700,
-            ),
+            "Puntuacion",
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
           ),
-        ],
-        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (int i = 1; i <= 5; i++)
+                ChoiceChip(
+                  selected: _stars == i,
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, size: 16),
+                      const SizedBox(width: 4),
+                      Text("$i"),
+                    ],
+                  ),
+                  onSelected: (_) => setState(() => _stars = i),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: colors.error,
-              fontWeight: FontWeight.w700,
+          TextField(
+            controller: _comentarioController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: "Comentario (opcional)",
+              hintText: "Que te gusto o que no funciono bien",
             ),
           ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _guardar,
+                  icon: const Icon(Icons.star),
+                  label: const Text("Guardar calificacion"),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : _cargarRecetas,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Actualizar recetas"),
+              ),
+            ],
+          ),
+          if (_result != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.success(_result!),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.error(_error!),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
-
