@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import require_roles
 from app.core.db import db_cursor
 from app.core.security import UserContext
+from app.services.roles.admin.modules.crud import admin_crud_service
 from app.services.shared.cerebro.motor_etiquetas_nutricionales import (
     build_human_rule,
     preview_ad_hoc_rule,
@@ -155,6 +156,10 @@ class RecalculateGenericRequest(BaseModel):
 class RecalculateMassiveRequest(BaseModel):
     parametros: dict[str, Any] = Field(default_factory=dict)
     procesar_inmediato: bool = False
+
+
+class UpsertIngredienteComposicionRequest(BaseModel):
+    valores: dict[str, object] = Field(default_factory=dict)
 
 
 
@@ -587,6 +592,46 @@ def deactivate_ingredient_admin(
         )
 
     return {"id": id_ingrediente, "active": False}
+
+
+@router.get("/ingredientes/{id_ingrediente}/composicion")
+def fetch_ingredient_composition_admin(
+    id_ingrediente: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    try:
+        return admin_crud_service.fetch_ingrediente_composicion(id_ingrediente=id_ingrediente)
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "no encontrado" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@router.put("/ingredientes/{id_ingrediente}/composicion")
+def upsert_ingredient_composition_admin(
+    id_ingrediente: int,
+    payload: UpsertIngredienteComposicionRequest,
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    try:
+        updated = admin_crud_service.upsert_ingrediente_composicion(
+            id_ingrediente=id_ingrediente,
+            valores=payload.valores,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "no encontrado" in detail.lower()
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+    return {"id_ingrediente": id_ingrediente, "updated": updated}
 
 
 @router.get("/variables")

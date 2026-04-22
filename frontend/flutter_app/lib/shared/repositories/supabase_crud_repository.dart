@@ -72,7 +72,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchUsers() async {
     try {
       final response = await _dio.get(
-        "/crud/users",
+        "crud/users",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -88,7 +88,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/users",
+        "crud/users",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -116,7 +116,7 @@ class SupabaseCrudRepository {
       if (activo != null) payload["activo"] = activo;
 
       await _dio.put(
-        "/crud/users/$userId",
+        "crud/users/$userId",
         data: payload,
         options: _authorizedOptions(),
       );
@@ -128,7 +128,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
     try {
       final response = await _dio.get(
-        "/crud/ingredientes",
+        "crud/ingredientes",
         options: _authorizedOptions(),
       );
       return List<Map<String, dynamic>>.from(response.data as List);
@@ -137,28 +137,333 @@ class SupabaseCrudRepository {
     }
   }
 
-  Future<void> createIngrediente({
-    required String nombre,
+  Future<Map<String, dynamic>> fetchIngredientesPaged({
+    String? query,
     int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    bool includeInactive = false,
+    int limit = 20,
+    int offset = 0,
   }) async {
     try {
-      await _dio.post(
-        "/crud/ingredientes",
+      final params = <String, dynamic>{
+        "include_inactive": includeInactive,
+        "limit": limit,
+        "offset": offset,
+      };
+      final normalizedQuery = query?.trim();
+      if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
+        params["q"] = normalizedQuery;
+      }
+      if (idGrupoAlimentario != null) {
+        params["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        params["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+
+      final response = await _dio.get(
+        "crud/ingredientes/paged",
+        queryParameters: params,
+        options: _authorizedOptions(),
+      );
+
+      final payload = response.data;
+      if (payload is! Map) {
+        throw Exception("Formato de respuesta no valido");
+      }
+
+      final map = Map<String, dynamic>.from(payload);
+      final items = _toRows(map["items"]);
+      final total = (map["total"] as num?)?.toInt() ?? items.length;
+      return {
+        "items": items,
+        "total": total,
+      };
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar ingredientes");
+    }
+  }
+
+  Future<int?> createIngrediente({
+    required String nombre,
+    int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    double? precioLibra,
+    double? factorParteComestible,
+    String? imagenReferencia,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        "nombre": nombre,
+      };
+      if (idGrupoAlimentario != null) {
+        payload["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        payload["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+      if (precioLibra != null) {
+        payload["precio_libra"] = precioLibra;
+      }
+      if (factorParteComestible != null) {
+        payload["factor_parte_comestible"] = factorParteComestible;
+      }
+      if (imagenReferencia != null) {
+        payload["imagen_referencia"] = imagenReferencia;
+      }
+
+      final response = await _dio.post(
+        "crud/ingredientes",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return (data["id"] as num?)?.toInt();
+      }
+
+      return null;
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear el ingrediente");
+    }
+  }
+
+  Future<void> updateIngrediente({
+    required int idIngrediente,
+    String? nombre,
+    int? idGrupoAlimentario,
+    int? idSubgrupoAlimentario,
+    double? precioLibra,
+    double? factorParteComestible,
+    String? imagenReferencia,
+    bool? activo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (nombre != null) payload["nombre"] = nombre;
+      if (idGrupoAlimentario != null) {
+        payload["id_grupo_alimentario"] = idGrupoAlimentario;
+      }
+      if (idSubgrupoAlimentario != null) {
+        payload["id_subgrupo_alimentario"] = idSubgrupoAlimentario;
+      }
+      if (precioLibra != null) payload["precio_libra"] = precioLibra;
+      if (factorParteComestible != null) {
+        payload["factor_parte_comestible"] = factorParteComestible;
+      }
+      if (imagenReferencia != null) {
+        payload["imagen_referencia"] = imagenReferencia;
+      }
+      if (activo != null) payload["activo"] = activo;
+
+      await _dio.put(
+        "crud/ingredientes/$idIngrediente",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar el ingrediente");
+    }
+  }
+
+  Future<void> deleteIngrediente(int idIngrediente) async {
+    try {
+      await _dio.delete(
+        "crud/ingredientes/$idIngrediente",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar el ingrediente");
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchIngredienteComposicion(
+      int idIngrediente) async {
+    try {
+      final response = await _dio.get(
+        "crud/ingredientes/$idIngrediente/composicion",
+        options: _authorizedOptions(),
+      );
+      final payload = response.data;
+      if (payload is Map) {
+        return Map<String, dynamic>.from(payload);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        try {
+          final fallbackResponse = await _dio.get(
+            "nutricionista/ingredientes/$idIngrediente/composicion",
+            options: _authorizedOptions(),
+          );
+          final payload = fallbackResponse.data;
+          if (payload is Map) {
+            return Map<String, dynamic>.from(payload);
+          }
+        } on DioException {
+          // If fallback also fails, preserve the original /crud error below.
+        }
+      }
+      throw _toException(error, "No fue posible cargar la composicion nutricional");
+    }
+  }
+
+  Future<void> upsertIngredienteComposicion({
+    required int idIngrediente,
+    required Map<String, dynamic> valores,
+  }) async {
+    try {
+      await _dio.put(
+        "crud/ingredientes/$idIngrediente/composicion",
         data: {
-          "nombre": nombre,
-          "id_grupo_alimentario": idGrupoAlimentario,
+          "valores": valores,
         },
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
-      throw _toException(error, "No fue posible crear el ingrediente");
+      if (error.response?.statusCode == 404) {
+        try {
+          await _dio.put(
+            "nutricionista/ingredientes/$idIngrediente/composicion",
+            data: {
+              "valores": valores,
+            },
+            options: _authorizedOptions(),
+          );
+          return;
+        } on DioException {
+          // Keep original error message from /crud endpoint.
+        }
+      }
+      throw _toException(error, "No fue posible actualizar la composicion nutricional");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEtiquetas() async {
+    try {
+      final response = await _dio.get(
+        "crud/etiquetas",
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar etiquetas");
+    }
+  }
+
+  Future<Map<String, dynamic>> createEtiqueta({
+    required String nombreVisible,
+    String? codigo,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "crud/etiquetas",
+        data: {
+          "nombre_visible": nombreVisible,
+          "codigo": codigo,
+        },
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible crear la etiqueta");
+    }
+  }
+
+  Future<void> updateEtiqueta({
+    required int idEtiqueta,
+    String? nombreVisible,
+    String? codigo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (nombreVisible != null) payload["nombre_visible"] = nombreVisible;
+      if (codigo != null) payload["codigo"] = codigo;
+
+      await _dio.put(
+        "crud/etiquetas/$idEtiqueta",
+        data: payload,
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible actualizar la etiqueta");
+    }
+  }
+
+  Future<void> deleteEtiqueta(int idEtiqueta) async {
+    try {
+      await _dio.delete(
+        "crud/etiquetas/$idEtiqueta",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible eliminar la etiqueta");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEtiquetasByIngrediente(
+      int idIngrediente) async {
+    try {
+      final response = await _dio.get(
+        "crud/ingredientes/$idIngrediente/etiquetas",
+        options: _authorizedOptions(),
+      );
+      return _toRows(response.data);
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible cargar etiquetas del ingrediente");
+    }
+  }
+
+  Future<Map<String, dynamic>> asignarEtiquetaIngrediente({
+    required int idIngrediente,
+    int? idEtiqueta,
+    String? nombreEtiqueta,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "crud/ingredientes/$idIngrediente/etiquetas",
+        data: {
+          "id_etiqueta": idEtiqueta,
+          "nombre_etiqueta": nombreEtiqueta,
+        },
+        options: _authorizedOptions(),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      throw Exception("Formato de respuesta no valido");
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible asignar la etiqueta");
+    }
+  }
+
+  Future<void> removerEtiquetaIngrediente({
+    required int idIngrediente,
+    required int idEtiqueta,
+  }) async {
+    try {
+      await _dio.delete(
+        "crud/ingredientes/$idIngrediente/etiquetas/$idEtiqueta",
+        options: _authorizedOptions(),
+      );
+    } on DioException catch (error) {
+      throw _toException(error, "No fue posible remover la etiqueta");
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchRecetas() async {
     try {
       final response = await _dio.get(
-        "/crud/recetas",
+        "crud/recetas",
         options: _authorizedOptions(),
       );
       return List<Map<String, dynamic>>.from(response.data as List);
@@ -178,7 +483,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/controles",
+        "crud/controles",
         data: {
           "id_paciente": idPaciente,
           "peso_kg": pesoKg,
@@ -199,7 +504,7 @@ class SupabaseCrudRepository {
       String idPaciente) async {
     try {
       final response = await _dio.get(
-        "/crud/plan-items",
+        "crud/plan-items",
         queryParameters: {
           "id_paciente": idPaciente,
         },
@@ -219,7 +524,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/consumos",
+        "crud/consumos",
         data: {
           "id_plan_item": idPlanItem,
           "estado_codigo": estadoCodigo,
@@ -241,7 +546,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/evaluaciones",
+        "crud/evaluaciones",
         data: {
           "id_paciente": idPaciente,
           "id_receta": idReceta,
@@ -259,7 +564,7 @@ class SupabaseCrudRepository {
       String schema, String table) async {
     try {
       final response = await _dio.get(
-        "/crud/catalog",
+        "crud/catalog",
         queryParameters: {
           "schema": schema,
           "table": table,
@@ -275,7 +580,7 @@ class SupabaseCrudRepository {
   Future<Map<String, dynamic>> fetchMyProfile() async {
     try {
       final response = await _dio.get(
-        "/profile/me",
+        "profile/me",
         options: _authorizedOptions(),
       );
 
@@ -299,7 +604,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/profile/me",
+        "profile/me",
         data: {
           "nombre_completo": nombreCompleto,
           "cedula": cedula,
@@ -323,7 +628,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutores-registro",
+        "tutores-registro",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -344,7 +649,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutores",
+        "tutores",
         data: {
           "email": email,
           "nombre_completo": nombreCompleto,
@@ -362,7 +667,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/tutores-buscar",
+        "tutores-buscar",
         queryParameters: {
           "q": query,
           "limit": limit,
@@ -381,7 +686,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes-buscar",
+        "pacientes-buscar",
         queryParameters: {
           "q": query,
           "limit": limit,
@@ -399,7 +704,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/alergias",
+        "pacientes/$idPaciente/alergias",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -419,7 +724,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes/$idPaciente/alergias/ingredientes",
+        "pacientes/$idPaciente/alergias/ingredientes",
         data: {
           "id_ingrediente": idIngrediente,
           "observacion": observacion,
@@ -437,7 +742,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/pacientes/$idPaciente/alergias/ingredientes/$idIngrediente",
+        "pacientes/$idPaciente/alergias/ingredientes/$idIngrediente",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -452,7 +757,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes/$idPaciente/alergias/grupos",
+        "pacientes/$idPaciente/alergias/grupos",
         data: {
           "id_grupo_alimentario": idGrupoAlimentario,
           "observacion": observacion,
@@ -470,7 +775,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/pacientes/$idPaciente/alergias/grupos/$idGrupoAlimentario",
+        "pacientes/$idPaciente/alergias/grupos/$idGrupoAlimentario",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -483,7 +788,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/condiciones-temporales",
+        "pacientes/$idPaciente/condiciones-temporales",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -502,7 +807,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/pacientes/$idPaciente/condiciones-temporales",
+        "pacientes/$idPaciente/condiciones-temporales",
         data: {
           "id_condiciones_temporales": idCondicionesTemporales,
         },
@@ -519,7 +824,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/catalogo-condiciones/tipos",
+        "catalogo-condiciones/tipos",
         data: {
           "codigo": codigo,
           "nombre": nombre,
@@ -539,7 +844,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/catalogo-condiciones/tipos/$idTipoCondicion",
+        "catalogo-condiciones/tipos/$idTipoCondicion",
         data: {
           "codigo": codigo,
           "nombre": nombre,
@@ -559,7 +864,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.post(
-        "/catalogo-condiciones/condiciones",
+        "catalogo-condiciones/condiciones",
         data: {
           "nombre": nombre,
           "id_tipo_condicion": idTipoCondicion,
@@ -583,7 +888,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/catalogo-condiciones/condiciones/$idCondicion",
+        "catalogo-condiciones/condiciones/$idCondicion",
         data: {
           "nombre": nombre,
           "id_tipo_condicion": idTipoCondicion,
@@ -602,7 +907,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/evolucion-resumen",
+        "pacientes/$idPaciente/evolucion-resumen",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -620,7 +925,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/pacientes/$idPaciente/control-clinico-actual",
+        "pacientes/$idPaciente/control-clinico-actual",
         options: _authorizedOptions(),
       );
       final data = response.data;
@@ -639,7 +944,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/pacientes/$idPaciente/control-clinico-actual",
+        "pacientes/$idPaciente/control-clinico-actual",
         data: controlClinico,
         options: _authorizedOptions(),
       );
@@ -657,7 +962,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes",
+        "pacientes",
         data: {
           "nombre_completo": nombreCompleto,
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
@@ -680,7 +985,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/tutor-paciente-vinculo",
+        "tutor-paciente-vinculo",
         data: {
           "id_usuario_tutor": idUsuarioTutor,
           "id_paciente": idPaciente,
@@ -697,7 +1002,7 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchTutorPatientLinks() async {
     try {
       final response = await _dio.get(
-        "/tutor-paciente-vinculo",
+        "tutor-paciente-vinculo",
         options: _authorizedOptions(),
       );
       return _toRows(response.data);
@@ -713,7 +1018,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.put(
-        "/tutor-paciente-vinculo/$idVinculo",
+        "tutor-paciente-vinculo/$idVinculo",
         data: {
           "id_parentesco": idParentesco,
           "es_principal": esPrincipal,
@@ -730,7 +1035,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.delete(
-        "/tutor-paciente-vinculo/$idVinculo",
+        "tutor-paciente-vinculo/$idVinculo",
         options: _authorizedOptions(),
       );
     } on DioException catch (error) {
@@ -750,7 +1055,7 @@ class SupabaseCrudRepository {
   }) async {
     try {
       await _dio.post(
-        "/pacientes-registro",
+        "pacientes-registro",
         data: {
           "nombre_completo": nombreCompleto,
           "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,

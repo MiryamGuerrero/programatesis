@@ -1,0 +1,5 @@
+id,id_condicion,texto_busqueda,tipo_match
+1,37,miel,CONTIENE
+2,39,cacao,CONTIENE
+3,40,chocolate puro,CONTIENE
+4,43,chocolate,CONTIENE

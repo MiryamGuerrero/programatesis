@@ -32,44 +32,41 @@ def _fetch_patient_birthdate(cur, id_paciente: str) -> date:
     return row[0]
 
 
+from app.services.shared.oms_service import calcular_edad_detallada, clasificar_oms_imc
+
 def _crear_control_clinico_inicial(
     cur,
     id_paciente: str,
+    id_sexo: int,
     fecha_nacimiento: date,
-    control_clinico_inicial: dict | None,
+    datos: dict | None,
 ) -> None:
-    if not control_clinico_inicial:
+    if not datos:
         return
 
-    edad_meses = control_clinico_inicial.get("edad_meses")
-    if edad_meses is None:
-        edad_meses = _calculate_age_in_months(fecha_nacimiento)
+    # 1. Cálculos de edad y nutrición
+    anios, meses = calcular_edad_detallada(fecha_nacimiento)
+    peso = datos.get("peso_kg")
+    talla = datos.get("talla_cm")
+    
+    imc = None
+    id_diagnostico_nutri = None
+    diag_texto = "Pendiente de evaluación"
 
-    id_condiciones_activas = [
-        int(condicion_id)
-        for condicion_id in (control_clinico_inicial.get("id_condiciones_activas") or [])
-        if condicion_id is not None
-    ]
-    id_condiciones_activas = sorted(set(id_condiciones_activas))
+    if peso and talla:
+        peso = float(peso)
+        talla = float(talla)
+        imc = round(peso / ((talla / 100) ** 2), 2)
+        id_diagnostico_nutri, diag_texto = clasificar_oms_imc(id_sexo, meses, imc)
 
     query_control = """
         insert into clinico.control_paciente (
-            id_paciente,
-            peso_kg,
-            talla_cm,
-            edad_meses,
-            imc_calculado,
-            id_condicion_nutricional_resultado,
-            diagnostico_oms_texto,
-            nivel_dolor_eva,
-            nivel_inflamacion,
-            nivel_fatiga,
-            minutos_rigidez_matutina,
-            inflamacion_pcr,
-            hay_brote_activo,
-            nota_evolucion
+            id_paciente, peso_kg, talla_cm, edad_meses,
+            imc_calculado, id_condicion_nutricional_resultado, diagnostico_oms_texto,
+            nivel_dolor_eva, nivel_inflamacion, nivel_fatiga, minutos_rigidez_matutina,
+            inflamacion_pcr, hay_brote_activo, nota_evolucion, fecha_control
         )
-        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, current_date)
         returning id
     """
 
@@ -77,19 +74,19 @@ def _crear_control_clinico_inicial(
         query_control,
         (
             id_paciente,
-            control_clinico_inicial["peso_kg"],
-            control_clinico_inicial["talla_cm"],
-            edad_meses,
-            control_clinico_inicial.get("imc_calculado"),
-            control_clinico_inicial.get("id_condicion_nutricional_resultado"),
-            control_clinico_inicial.get("diagnostico_oms_texto"),
-            control_clinico_inicial.get("nivel_dolor_eva"),
-            control_clinico_inicial.get("nivel_inflamacion"),
-            control_clinico_inicial.get("nivel_fatiga"),
-            control_clinico_inicial.get("minutos_rigidez_matutina"),
-            control_clinico_inicial.get("inflamacion_pcr"),
-            control_clinico_inicial.get("hay_brote_activo"),
-            control_clinico_inicial.get("nota_evolucion"),
+            peso,
+            talla,
+            meses,
+            imc,
+            id_diagnostico_nutri,
+            diag_texto,
+            datos.get("nivel_dolor_eva", 0),
+            datos.get("nivel_inflamacion", 0),
+            datos.get("nivel_fatiga", 0),
+            datos.get("minutos_rigidez_matutina", 0),
+            datos.get("inflamacion_pcr", 0),
+            datos.get("hay_brote_activo", False),
+            datos.get("nota_evolucion", "Registro inicial"),
         ),
     )
     row_control = cur.fetchone()
@@ -97,14 +94,17 @@ def _crear_control_clinico_inicial(
         raise RuntimeError("No fue posible crear el control clinico inicial del paciente.")
 
     id_control = int(row_control[0])
-    if id_condiciones_activas:
+    
+    # 2. Registrar Condiciones Clínicas
+    id_condiciones = [int(cid) for cid in (datos.get("id_condiciones_activas") or []) if cid is not None]
+    if id_condiciones:
         query_condiciones = """
             insert into clinico.control_condicion_activa (id_control, id_condicion)
             values (%s, %s)
             on conflict (id_control, id_condicion) do nothing
         """
-        for id_condicion in id_condiciones_activas:
-            cur.execute(query_condiciones, (id_control, id_condicion))
+        for c_id in sorted(set(id_condiciones)):
+            cur.execute(query_condiciones, (id_control, c_id))
 
 
 def buscar_tutores(query: str, limit: int = 10) -> list[dict]:
@@ -138,10 +138,22 @@ def buscar_tutores(query: str, limit: int = 10) -> list[dict]:
 
 def buscar_pacientes(query: str, limit: int = 10) -> list[dict]:
     q = query.strip()
-    if not q:
-        return []
-
     safe_limit = max(1, min(limit, 50))
+    
+    if not q:
+        sql = """
+            select
+                p.id::text as id,
+                p.nombre_completo
+            from usuarios.paciente p
+            where p.activo = true
+            order by p.nombre_completo asc
+            limit %s
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (safe_limit,))
+            return _rows_to_dicts(cur, cur.fetchall())
+
     sql = """
         select
             p.id::text as id,
@@ -533,12 +545,12 @@ def listar_alergias_paciente(id_paciente: str) -> dict:
     """
     query_grupos = """
         select
-            apg.id_grupo_alimentario,
+            apg.id_subgrupo_alimentario as id_grupo_alimentario,
             ga.nombre as nombre_grupo,
             apg.observacion,
             apg.fecha_registro
-        from clinico.alergia_paciente_grupo apg
-        inner join nutricion.grupo_alimentario ga on ga.id = apg.id_grupo_alimentario
+        from clinico.alergia_paciente_subgrupo apg
+        inner join nutricion.subgrupo_alimentario ga on ga.id = apg.id_subgrupo_alimentario
         where apg.id_paciente = %s
           and apg.activa = true
         order by ga.nombre asc
@@ -603,18 +615,18 @@ def desactivar_alergia_ingrediente(id_paciente: str, id_ingrediente: int) -> boo
 
 def registrar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int, observacion: str | None) -> None:
     query = """
-        insert into clinico.alergia_paciente_grupo (
+        insert into clinico.alergia_paciente_subgrupo (
             id_paciente,
-            id_grupo_alimentario,
+            id_subgrupo_alimentario,
             observacion,
             activa
         )
         select %s, %s, %s, true
         where not exists (
             select 1
-            from clinico.alergia_paciente_grupo
+            from clinico.alergia_paciente_subgrupo
             where id_paciente = %s
-              and id_grupo_alimentario = %s
+              and id_subgrupo_alimentario = %s
               and activa = true
         )
     """
@@ -634,10 +646,10 @@ def registrar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int, observa
 
 def desactivar_alergia_grupo(id_paciente: str, id_grupo_alimentario: int) -> bool:
     query = """
-        update clinico.alergia_paciente_grupo
+        update clinico.alergia_paciente_subgrupo
         set activa = false
         where id_paciente = %s
-          and id_grupo_alimentario = %s
+          and id_subgrupo_alimentario = %s
           and activa = true
     """
 

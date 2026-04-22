@@ -9,8 +9,11 @@ class AppConfig {
     defaultValue: "",
   );
 
-  static const String fastApiBaseUrl = String.fromEnvironment(
-    "FASTAPI_BASE_URL",
-    defaultValue: "http://localhost:8000/api/v1",
-  );
+  static String get fastApiBaseUrl {
+    const url = String.fromEnvironment(
+      "FASTAPI_BASE_URL",
+      defaultValue: "http://localhost:8000/api/v1",
+    );
+    return url.endsWith("/") ? url : "$url/";
+  }
 }

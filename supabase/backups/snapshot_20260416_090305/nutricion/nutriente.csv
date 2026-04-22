@@ -1,0 +1,45 @@
+id,codigo,nombre,unidad_medida,id_clasificacion,activo
+1,ENERGIA_KCAL,Energía (kcal),"",7,t
+2,AGUA_G,Agua (g),g,7,t
+3,ALCOHOL_G,Alcohol (g),g,7,t
+4,PROTEINAS_G,Proteínas (g),g,1,t
+5,HC_G,H. de Carbono (g),g,1,t
+6,ALMIDON_G,Almidón (g),g,1,t
+7,AZUCARES_SENCILLOS_G,Azúcares sencillos (g),g,1,t
+8,AZUCARES_LIBRES_G,Azúcares libres (g),g,1,t
+9,FIBRA_VEGETAL_G,Fibra vegetal (g),g,1,t
+10,GRASA_TOTAL_G,Grasa total (g),g,1,t
+11,AGS_G,AGS (g),g,4,t
+12,AGM_G,AGM (g),g,4,t
+13,AGP_G,AGP (g),g,4,t
+14,COLESTEROL_MG,Colesterol (mg),mg,7,t
+15,VITAMINA_A_EQ_RETINOL_UG,Vitamina A Eq. Retinol (µg),µg,2,t
+16,RETINOL_UG,Retinol (µg),µg,2,t
+17,CAROTENOIDES_EQ_BETA_CAROTENO_UG,Carotenoides Eq. ß-caroteno (µg),µg,2,t
+18,VIT_D_UG,Vit. D (µg),µg,2,t
+19,VIT_E_EQ_ALPHA_TOCOFEROL_MG,Vit. E Eq. a-tocoferol (mg),mg,2,t
+20,VIT_K_UG,Vit. K (µg),µg,2,t
+21,VITAMINA_B1_MG,Vitamina B1 (mg),mg,2,t
+22,VITAMINA_B2_MG,Vitamina B2 (mg),mg,2,t
+23,EQ_NIACINA_MG,Eq. de Niacina (mg),mg,2,t
+24,VIT_B6_MG,Vit. B6 (mg),mg,2,t
+25,EQ_FOLATO_DIETETICO_UG,Eq. Folato dietético (µg),µg,2,t
+26,VIT_B12_UG,Vit. B12 (µg),µg,2,t
+27,PANTOTENICO_MG,Pantoténico (mg),mg,2,t
+28,BIOTINA_UG,Biotina (µg),µg,2,t
+29,VIT_C_MG,Vit. C (mg),mg,2,t
+30,CALCIO_MG,Calcio (mg),mg,3,t
+31,FOSFORO_MG,Fósforo (mg),mg,3,t
+32,HIERRO_MG,Hierro (mg),mg,3,t
+33,IODO_UG,Iodo (µg),µg,3,t
+34,CINC_MG,Cinc (mg),mg,3,t
+35,MAGNESIO_MG,Magnesio (mg),mg,3,t
+36,SODIO_MG,Sodio (mg),mg,3,t
+37,POTASIO_MG,Potasio (mg),mg,3,t
+38,MANGANESO_MG,Manganeso (mg),mg,3,t
+39,COBRE_MG,Cobre (mg),mg,3,t
+40,SELENIO_UG,Selenio (µg),µg,3,t
+41,OMEGA3_G,Omega-3 (g),g,4,t
+42,GRASAS_TRANS_G,Grasas Trans (g),g,4,t
+43,POLIFENOLES_MG,Polifenoles (mg),mg,5,t
+44,PROBIOTICOS_BILLONES_UFC,Probióticos (Billones UFC),Billones UFC,6,t

@@ -1,257 +1,86 @@
 from app.core.db import db_cursor
-from app.schemas.domain import (
-    IngredienteCreate, IngredienteUpdate, IngredienteResponse
-)
 
+def list_ingredients_paged(query: str = "", category_id: int = None, active: bool = None, limit: int = 10, offset: int = 0):
+    """Lista ingredientes con filtros y paginación."""
+    params = []
+    where_clauses = ["1=1"]
+    if query:
+        where_clauses.append("i.nombre ilike %s")
+        params.append(f"%{query}%")
+    if category_id:
+        where_clauses.append("i.id_grupo_alimentario = %s")
+        params.append(category_id)
+    if active is not None:
+        where_clauses.append("i.activo = %s")
+        params.append(active)
 
-def create_ingrediente(ingrediente: IngredienteCreate) -> IngredienteResponse:
-    sql = """
-        INSERT INTO dom_nutricion_ingredientes.ingrediente (
-            nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-            carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-            potasio_mg, descripcion, activo
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id, nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-                  carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-                  potasio_mg, descripcion, activo
-    """
-    with db_cursor() as cur:
-        cur.execute(sql, (
-            ingrediente.nombre,
-            ingrediente.id_grupo_alimentario,
-            ingrediente.energia_kcal,
-            ingrediente.proteinas_g,
-            ingrediente.carbohidratos_g,
-            ingrediente.lipidos_g,
-            ingrediente.fibra_g,
-            ingrediente.calcio_mg,
-            ingrediente.hierro_mg,
-            ingrediente.potasio_mg,
-            ingrediente.descripcion,
-            ingrediente.activo,
-        ))
-        row = cur.fetchone()
-
-    return IngredienteResponse(
-        id=row[0],
-        nombre=row[1],
-        id_grupo_alimentario=row[2],
-        energia_kcal=row[3],
-        proteinas_g=row[4],
-        carbohidratos_g=row[5],
-        lipidos_g=row[6],
-        fibra_g=row[7],
-        calcio_mg=row[8],
-        hierro_mg=row[9],
-        potasio_mg=row[10],
-        descripcion=row[11],
-        activo=row[12],
-    )
-
-
-def get_ingrediente(ingrediente_id: int) -> IngredienteResponse | None:
-    sql = """
-        SELECT id, nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-               carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-               potasio_mg, descripcion, activo
-        FROM dom_nutricion_ingredientes.ingrediente
-        WHERE id = %s
-    """
-    with db_cursor() as cur:
-        cur.execute(sql, (ingrediente_id,))
-        row = cur.fetchone()
-
-    if not row:
-        return None
-
-    return IngredienteResponse(
-        id=row[0],
-        nombre=row[1],
-        id_grupo_alimentario=row[2],
-        energia_kcal=row[3],
-        proteinas_g=row[4],
-        carbohidratos_g=row[5],
-        lipidos_g=row[6],
-        fibra_g=row[7],
-        calcio_mg=row[8],
-        hierro_mg=row[9],
-        potasio_mg=row[10],
-        descripcion=row[11],
-        activo=row[12],
-    )
-
-
-def list_ingredientes(skip: int = 0, limit: int = 100, activos_solo: bool = True) -> tuple[list[IngredienteResponse], int]:
-    where_clause = "WHERE activo = true" if activos_solo else ""
-    sql_count = f"""
-        SELECT COUNT(*) FROM dom_nutricion_ingredientes.ingrediente {where_clause}
-    """
+    where_str = " AND ".join(where_clauses)
     sql = f"""
-        SELECT id, nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-               carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-               potasio_mg, descripcion, activo
-        FROM dom_nutricion_ingredientes.ingrediente
-        {where_clause}
-        ORDER BY nombre
-        OFFSET %s LIMIT %s
+        select 
+            i.id, i.nombre, g.nombre as categoria, 
+            coalesce(ic.energia_kcal, 0) as energia,
+            coalesce(ic.proteinas_g, 0) as proteina,
+            coalesce(ic.grasa_total_g, 0) as grasa,
+            coalesce(ic.hidratos_carbono_g, 0) as carbohidratos,
+            i.activo,
+            array(
+                select et.nombre_visible 
+                from nutricion.ingrediente_etiqueta ie
+                join nutricion.etiqueta_nutricional et on et.id = ie.id_etiqueta
+                where ie.id_ingrediente = i.id
+            ) as etiquetas
+        from nutricion.ingrediente i
+        left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+        left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = i.id
+        where {where_str}
+        order by i.nombre asc
+        limit %s offset %s
     """
+    params.extend([limit, offset])
+    sql_count = f"select count(*) from nutricion.ingrediente i where {where_str}"
     
     with db_cursor() as cur:
-        cur.execute(sql_count)
+        cur.execute(sql_count, params[:-2])
         total = cur.fetchone()[0]
-        
-        cur.execute(sql, (skip, limit))
+        cur.execute(sql, params)
         rows = cur.fetchall()
+        results = []
+        for r in rows:
+            results.append({
+                "id": r[0], "nombre": r[1], "categoria": r[2],
+                "energia_kcal": float(r[3] or 0), "proteinas_g": float(r[4] or 0),
+                "grasas_g": float(r[5] or 0), "carbohidratos_g": float(r[6] or 0),
+                "activo": r[7], "etiquetas": r[8]
+            })
+    return {"total": total, "items": results}
 
-    items = [
-        IngredienteResponse(
-            id=row[0],
-            nombre=row[1],
-            id_grupo_alimentario=row[2],
-            energia_kcal=row[3],
-            proteinas_g=row[4],
-            carbohidratos_g=row[5],
-            lipidos_g=row[6],
-            fibra_g=row[7],
-            calcio_mg=row[8],
-            hierro_mg=row[9],
-            potasio_mg=row[10],
-            descripcion=row[11],
-            activo=row[12],
-        )
-        for row in rows
-    ]
-    
-    return items, total
-
-
-def update_ingrediente(ingrediente_id: int, update_data: IngredienteUpdate) -> IngredienteResponse | None:
-    # Obtener ingrediente actual
-    ingrediente_actual = get_ingrediente(ingrediente_id)
-    if not ingrediente_actual:
-        return None
-
-    # Preparar datos a actualizar
-    campos = []
-    valores = []
-    
-    if update_data.nombre is not None:
-        campos.append("nombre = %s")
-        valores.append(update_data.nombre)
-    if update_data.id_grupo_alimentario is not None:
-        campos.append("id_grupo_alimentario = %s")
-        valores.append(update_data.id_grupo_alimentario)
-    if update_data.energia_kcal is not None:
-        campos.append("energia_kcal = %s")
-        valores.append(update_data.energia_kcal)
-    if update_data.proteinas_g is not None:
-        campos.append("proteinas_g = %s")
-        valores.append(update_data.proteinas_g)
-    if update_data.carbohidratos_g is not None:
-        campos.append("carbohidratos_g = %s")
-        valores.append(update_data.carbohidratos_g)
-    if update_data.lipidos_g is not None:
-        campos.append("lipidos_g = %s")
-        valores.append(update_data.lipidos_g)
-    if update_data.fibra_g is not None:
-        campos.append("fibra_g = %s")
-        valores.append(update_data.fibra_g)
-    if update_data.calcio_mg is not None:
-        campos.append("calcio_mg = %s")
-        valores.append(update_data.calcio_mg)
-    if update_data.hierro_mg is not None:
-        campos.append("hierro_mg = %s")
-        valores.append(update_data.hierro_mg)
-    if update_data.potasio_mg is not None:
-        campos.append("potasio_mg = %s")
-        valores.append(update_data.potasio_mg)
-    if update_data.descripcion is not None:
-        campos.append("descripcion = %s")
-        valores.append(update_data.descripcion)
-    if update_data.activo is not None:
-        campos.append("activo = %s")
-        valores.append(update_data.activo)
-
-    if not campos:
-        return ingrediente_actual
-
-    valores.append(ingrediente_id)
-    
-    sql = f"""
-        UPDATE dom_nutricion_ingredientes.ingrediente
-        SET {', '.join(campos)}
-        WHERE id = %s
-        RETURNING id, nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-                  carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-                  potasio_mg, descripcion, activo
+def get_ingredient_detail(id_ingrediente: int):
+    sql = """
+        select 
+            i.id, i.nombre, i.id_grupo_alimentario, g.nombre as categoria_nombre,
+            ic.energia_kcal, ic.proteinas_g, ic.grasa_total_g, ic.hidratos_carbono_g,
+            ic.fibra_vegetal_g, ic.sodio_mg, ic.calcio_mg, ic.hierro_mg,
+            i.activo,
+            array(
+                select et.nombre_visible 
+                from nutricion.ingrediente_etiqueta ie
+                join nutricion.etiqueta_nutricional et on et.id = ie.id_etiqueta
+                where ie.id_ingrediente = i.id
+            ) as etiquetas
+        from nutricion.ingrediente i
+        left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+        left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = i.id
+        where i.id = %s
     """
-
     with db_cursor() as cur:
-        cur.execute(sql, valores)
+        cur.execute(sql, (id_ingrediente,))
         row = cur.fetchone()
-
-    if not row:
-        return None
-
-    return IngredienteResponse(
-        id=row[0],
-        nombre=row[1],
-        id_grupo_alimentario=row[2],
-        energia_kcal=row[3],
-        proteinas_g=row[4],
-        carbohidratos_g=row[5],
-        lipidos_g=row[6],
-        fibra_g=row[7],
-        calcio_mg=row[8],
-        hierro_mg=row[9],
-        potasio_mg=row[10],
-        descripcion=row[11],
-        activo=row[12],
-    )
-
-
-def delete_ingrediente(ingrediente_id: int) -> bool:
-    # Usar soft delete (inactivar)
-    sql = """
-        UPDATE dom_nutricion_ingredientes.ingrediente
-        SET activo = false
-        WHERE id = %s
-    """
-    with db_cursor() as cur:
-        cur.execute(sql, (ingrediente_id,))
-        return cur.rowcount > 0
-
-
-def buscar_ingredientes(termino: str, limit: int = 50) -> list[IngredienteResponse]:
-    sql = """
-        SELECT id, nombre, id_grupo_alimentario, energia_kcal, proteinas_g,
-               carbohidratos_g, lipidos_g, fibra_g, calcio_mg, hierro_mg,
-               potasio_mg, descripcion, activo
-        FROM dom_nutricion_ingredientes.ingrediente
-        WHERE activo = true AND nombre ILIKE %s
-        ORDER BY nombre
-        LIMIT %s
-    """
-    with db_cursor() as cur:
-        cur.execute(sql, (f"%{termino}%", limit))
-        rows = cur.fetchall()
-
-    return [
-        IngredienteResponse(
-            id=row[0],
-            nombre=row[1],
-            id_grupo_alimentario=row[2],
-            energia_kcal=row[3],
-            proteinas_g=row[4],
-            carbohidratos_g=row[5],
-            lipidos_g=row[6],
-            fibra_g=row[7],
-            calcio_mg=row[8],
-            hierro_mg=row[9],
-            potasio_mg=row[10],
-            descripcion=row[11],
-            activo=row[12],
-        )
-        for row in rows
-    ]
+        if not row: return None
+        return {
+            "id": row[0], "nombre": row[1], "id_grupo_alimentario": row[2], "categoria": row[3],
+            "energia_kcal": float(row[4] or 0), "proteinas_g": float(row[5] or 0),
+            "grasas_g": float(row[6] or 0), "carbohidratos_g": float(row[7] or 0),
+            "fibra_g": float(row[8] or 0), "sodio_mg": float(row[9] or 0),
+            "calcio_mg": float(row[10] or 0), "hierro_mg": float(row[11] or 0),
+            "activo": row[12], "etiquetas": row[13]
+        }

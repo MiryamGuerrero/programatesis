@@ -47,8 +47,8 @@ def get_patient_allergies(id_paciente: str) -> tuple[set[int], set[int]]:
           and activa = true
     """
     group_sql = """
-        select id_grupo_alimentario
-    from clinico.alergia_paciente_grupo
+        select id_subgrupo_alimentario
+    from clinico.alergia_paciente_subgrupo
         where id_paciente = %s
           and activa = true
     """

@@ -626,13 +626,9 @@ def main() -> int:
     ingredient_by_row: dict[int, int] = {}
     nutrient_cache: dict[str, int] = {}
     metric_cache: dict[str, int] = {}
-    label_cache: dict[str, tuple[int, int, int]] = {}
-    sublabel_cache: dict[tuple[int, str], int] = {}
-
     inserted_ingredients = 0
     inserted_nutrients = 0
     inserted_metrics = 0
-    inserted_label_results = 0
 
     with psycopg.connect(db_url, prepare_threshold=None) as conn:
         with conn.cursor() as cur:
@@ -692,34 +688,6 @@ def main() -> int:
                     upsert_ingredient_metric(cur, ingredient_id, metric_id, value)
                     inserted_metrics += 1
 
-                for label_header in label_columns:
-                    label_value = strip_text(ws_comp.cell(row, header_index[label_header]).value)
-                    if not label_value:
-                        continue
-
-                    if label_header not in label_cache:
-                        nutrition_label_id, etiqueta_id = ensure_label_catalog(cur, label_header)
-                        regla_version_id = ensure_rule_version(cur, etiqueta_id)
-                        label_cache[label_header] = (nutrition_label_id, etiqueta_id, regla_version_id)
-
-                    nutrition_label_id, etiqueta_id, regla_version_id = label_cache[label_header]
-
-                    sub_key = (etiqueta_id, label_value)
-                    if sub_key not in sublabel_cache:
-                        sublabel_cache[sub_key] = ensure_sub_label(cur, etiqueta_id, regla_version_id, label_value)
-
-                    sub_id = sublabel_cache[sub_key]
-                    insert_result_label(
-                        cur,
-                        ingredient_id,
-                        nutrition_label_id,
-                        etiqueta_id,
-                        sub_id,
-                        regla_version_id,
-                        label_value,
-                    )
-                    inserted_label_results += 1
-
         conn.commit()
 
     print(
@@ -727,7 +695,7 @@ def main() -> int:
         f"ingredientes={inserted_ingredients} "
         f"nutrientes={len(nutrient_cache)} valores_nutrientes={inserted_nutrients} "
         f"metricas={len(metric_cache)} valores_metricas={inserted_metrics} "
-        f"resultados_etiqueta={inserted_label_results}"
+        "resultados_etiqueta=0(manual)"
     )
     return 0
 

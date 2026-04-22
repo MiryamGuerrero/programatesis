@@ -194,7 +194,7 @@ class _ReglasNutricionalesPageState
   Future<void> _loadLabels() async {
     try {
       final response = await _dio.get(
-        "/nutricionista/etiquetas-config/etiquetas",
+        "nutricionista/etiquetas-config/etiquetas",
         queryParameters: {
           "solo_activas": false,
           "limit": 2000,
@@ -225,7 +225,7 @@ class _ReglasNutricionalesPageState
   Future<void> _loadFields() async {
     try {
       final response = await _dio.get(
-        "/nutricionista/etiquetas-config/campos",
+        "nutricionista/etiquetas-config/campos",
       );
 
       final payload = _toMap(response.data);
@@ -310,7 +310,7 @@ class _ReglasNutricionalesPageState
       }
 
       final response = await _dio.get(
-        "/nutricionista/etiquetas-config/reglas",
+        "nutricionista/etiquetas-config/reglas",
         queryParameters: query,
       );
 
@@ -474,7 +474,7 @@ class _ReglasNutricionalesPageState
       };
 
       final response = await _dio.post(
-        "/nutricionista/etiquetas-config/reglas/guiada",
+        "nutricionista/etiquetas-config/reglas/guiada",
         data: payload,
       );
 
@@ -522,7 +522,7 @@ class _ReglasNutricionalesPageState
   Future<void> _archiveRule(int idRegla) async {
     try {
       await _dio.delete(
-        "/nutricionista/etiquetas-config/reglas/$idRegla",
+        "nutricionista/etiquetas-config/reglas/$idRegla",
         queryParameters: {
           "hard_delete": false,
           "procesar_recalculo_inmediato": true,
@@ -565,7 +565,7 @@ class _ReglasNutricionalesPageState
 
     try {
       final response = await _dio.post(
-        "/nutricionista/etiquetas-config/validacion/resultados",
+        "nutricionista/etiquetas-config/validacion/resultados",
         data: {
           "id_regla_version": _validateRuleId,
           "subcategoria": subcategoria.isEmpty ? null : subcategoria,

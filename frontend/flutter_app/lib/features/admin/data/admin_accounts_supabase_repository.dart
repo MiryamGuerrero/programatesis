@@ -79,7 +79,7 @@ class AdminAccountsSupabaseRepository {
   Future<List<Map<String, dynamic>>> _fetchRolesViaBackend() async {
     try {
       final response = await _dio.get(
-        "/crud/catalog",
+        "crud/catalog",
         queryParameters: {
           "schema": "usuarios",
           "table": "rol",
@@ -101,7 +101,7 @@ class AdminAccountsSupabaseRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "/crud/users",
+        "crud/users",
         options: _authorizedOptions(),
       );
 
@@ -236,7 +236,7 @@ class AdminAccountsSupabaseRepository {
   }) async {
     try {
       await _dio.post(
-        "/crud/users",
+        "crud/users",
         data: {
           "cedula": cedula.trim(),
           "username": username.trim().toLowerCase(),
@@ -290,7 +290,7 @@ class AdminAccountsSupabaseRepository {
 
     try {
       await _dio.put(
-        "/crud/users/$userId",
+        "crud/users/$userId",
         data: {
           if (cedula != null) "cedula": cedula.trim(),
           if (username != null) "username": username.trim().toLowerCase(),
@@ -312,7 +312,7 @@ class AdminAccountsSupabaseRepository {
       if (_isSchemaCacheUnavailable(error)) {
         try {
           await _dio.put(
-            "/crud/users/$userId",
+            "crud/users/$userId",
             data: {
               if (cedula != null) "cedula": cedula.trim(),
               if (username != null) "username": username.trim().toLowerCase(),
@@ -347,7 +347,7 @@ class AdminAccountsSupabaseRepository {
   Future<void> deleteUser({required String userId}) async {
     try {
       await _dio.delete(
-        "/crud/users/$userId",
+        "crud/users/$userId",
         options: _authorizedOptions(),
       );
       return;

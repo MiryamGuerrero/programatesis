@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
@@ -24,7 +25,6 @@ class ReumaNutriApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authSession = ref.watch(authSessionProvider);
     final authFlowIntent = ref.watch(authFlowIntentProvider);
-    final roleAsync = ref.watch(appRoleProvider);
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _tealPrimary,
       brightness: Brightness.light,
@@ -83,6 +83,32 @@ class ReumaNutriApp extends ConsumerWidget {
         height: 1.35,
         color: _slateBody,
       ),
+    );
+
+    final rootPage = authSession.when(
+      data: (session) {
+        if (authFlowIntent == AuthFlowIntent.setPassword) {
+          return const SetPasswordPage();
+        }
+        if (session == null) {
+          return const LoginPage();
+        }
+        final roleAsync = ref.watch(appRoleProvider);
+        final optimisticRole = _resolveRoleFromSession(session) ?? AppRole.tutor;
+        return roleAsync.maybeWhen(
+          data: (role) => RoleShell(role: role),
+          orElse: () => RoleShell(role: optimisticRole),
+        );
+      },
+      error: (error, stackTrace) => const LoginPage(),
+      loading: () {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          final role = _resolveRoleFromSession(session) ?? AppRole.tutor;
+          return RoleShell(role: role);
+        }
+        return const LoginPage();
+      },
     );
 
     return MaterialApp(
@@ -228,29 +254,34 @@ class ReumaNutriApp extends ConsumerWidget {
           indicatorColor: _tealPrimary.withValues(alpha: 0.18),
         ),
       ),
-      home: authSession.when(
-        data: (session) {
-          if (authFlowIntent == AuthFlowIntent.setPassword) {
-            return const SetPasswordPage();
-          }
-
-          if (session == null) {
-            return const LoginPage();
-          }
-
-          return roleAsync.when(
-            data: (role) => RoleShell(role: role),
-            loading: () => const LoginPage(),
-            error: (_, __) => const RoleShell(role: AppRole.tutor),
-          );
-        },
-        error: (error, stackTrace) => Scaffold(
-          body: Center(child: Text("Error de autenticacion: $error")),
-        ),
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+      onGenerateRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => rootPage,
+      ),
+      onUnknownRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => rootPage,
       ),
     );
   }
+}
+
+AppRole? _resolveRoleFromSession(Session session) {
+  final candidates = <dynamic>[
+    session.user.appMetadata["role"],
+    session.user.appMetadata["rol"],
+    session.user.appMetadata["id_rol"],
+    session.user.userMetadata?["role"],
+    session.user.userMetadata?["rol"],
+    session.user.userMetadata?["id_rol"],
+  ];
+
+  for (final candidate in candidates) {
+    final role = tryParseRole(candidate);
+    if (role != null) {
+      return role;
+    }
+  }
+
+  return null;
 }
