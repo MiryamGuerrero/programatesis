@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/state/app_providers.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/layout_components.dart';
 
 class EtiquetasGestionPage extends ConsumerStatefulWidget {
   const EtiquetasGestionPage({super.key});
@@ -23,8 +25,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
   Future<void> _fetch() async {
     setState(() => _loading = true);
     try {
-      final repo = ref.read(inteligenciaRepositoryProvider);
-      final dio = ref.read(dioProvider); // Usamos dio para los endpoints específicos si no están en repo
+      final dio = ref.read(dioProvider);
       final response = await dio.get('etiquetas-lista');
       if (mounted) {
         setState(() {
@@ -35,9 +36,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar etiquetas: Asegúrate de tener sesión activa.'))
-        );
+        NutriSnack.show(context, "Error al cargar etiquetas", isError: true, ref: ref);
       }
     }
   }
@@ -47,15 +46,20 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
     final nuevo = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renombrar Etiqueta'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Renombrar Etiqueta', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Nuevo nombre'),
+          decoration: const InputDecoration(labelText: 'Nuevo nombre descriptivo', filled: true),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text), 
+            style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white),
+            child: const Text('GUARDAR'),
+          ),
         ],
       ),
     );
@@ -65,8 +69,9 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         final dio = ref.read(dioProvider);
         await dio.put('etiquetas/$id', data: {'nombre_visible': nuevo.trim()});
         _fetch();
+        if (mounted) NutriSnack.show(context, "Etiqueta renombrada con éxito", ref: ref);
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al renombrar: $e')));
+        if (mounted) NutriSnack.show(context, "Error al renombrar", isError: true, ref: ref);
       }
     }
   }
@@ -78,11 +83,11 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         title: const Text('¿Eliminar Etiqueta?'),
         content: Text('Esto eliminará "$name" de TODOS los ingredientes vinculados. Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCELAR')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar definitivamente'),
+            child: const Text('SÍ, ELIMINAR'),
           ),
         ],
       ),
@@ -93,8 +98,9 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         final dio = ref.read(dioProvider);
         await dio.delete('etiquetas/$id');
         _fetch();
+        if (mounted) NutriSnack.show(context, "Etiqueta eliminada del sistema", ref: ref);
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+        if (mounted) NutriSnack.show(context, "Error al eliminar", isError: true, ref: ref);
       }
     }
   }
@@ -106,81 +112,104 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
     ).toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Gestión de Etiquetas', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900)),
-                      const Text('Administra los nombres y existencias de reglas nutricionales', style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                SizedBox(
-                  width: 220,
-                  height: 40,
-                  child: TextField(
-                    onChanged: (v) => setState(() => _search = v),
-                    decoration: InputDecoration(
-                      hintText: 'Filtrar etiquetas...',
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-              ],
+      backgroundColor: AppTema.grisLienzo,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(filtered.length),
+            const SizedBox(height: 32),
+            NutriTableToolbar(
+              actionLabel: "Nueva Etiqueta",
+              onAction: () => NutriSnack.show(context, "Módulo de creación automática mediante reglas"),
+              onSearch: (v) => setState(() => _search = v),
             ),
-          ),
-          if (_loading) 
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: ListView.separated(
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final e = filtered[index];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                      leading: CircleAvatar(
-                        backgroundColor: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue).withOpacity(0.1),
-                        child: Text(e['nombre_visible'][0], style: TextStyle(color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue)),
-                      ),
-                      title: Text(e['nombre_visible'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Tipo: ${e['tipo']} | Código: ${e['nombre']}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_note, color: Colors.blueGrey),
-                            onPressed: () => _rename(e['id'], e['nombre_visible']),
-                            tooltip: 'Renombrar',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            onPressed: () => _delete(e['id'], e['nombre_visible']),
-                            tooltip: 'Eliminar del sistema',
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-        ],
+            const SizedBox(height: 24),
+            _buildTableContainer(filtered),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Gestión de Etiquetas Nutricionales", 
+                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text("Control de advertencias y clasificaciones diagnósticas de alimentos.", 
+                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+              ],
+            ),
+            IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: _fetch),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsRow(int visibles) {
+    return Row(
+      children: [
+        Expanded(child: NutriResumenCard(titulo: "TOTAL ETIQUETAS", valor: "${_etiquetas.length}", icon: Icons.label_important_rounded)),
+        const SizedBox(width: 20),
+        Expanded(child: NutriResumenCard(titulo: "FILTRADAS", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_alt_rounded)),
+        const SizedBox(width: 20),
+        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.cianLimpio, icon: Icons.auto_awesome_rounded)),
+      ],
+    );
+  }
+
+  Widget _buildTableContainer(List<dynamic> filtered) {
+    return NutriTableContainer(
+      child: _loading
+        ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Cargando glosario de etiquetas..."))
+        : filtered.isEmpty
+          ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No se encontraron etiquetas.")))
+          : DataTable(
+              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
+              columns: [
+                _col("ETIQUETA VISIBLE"),
+                _col("CÓDIGO INTERNO"),
+                _col("TIPO"),
+                _col("ACCIONES"),
+              ],
+              rows: filtered.map((e) => DataRow(
+                cells: [
+                  DataCell(Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue).withOpacity(0.1), shape: BoxShape.circle),
+                        child: Text(e['nombre_visible'][0].toString().toUpperCase(), style: TextStyle(color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(e['nombre_visible'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
+                    ],
+                  )),
+                  DataCell(Text(e['nombre'], style: GoogleFonts.firaMono(fontSize: 11))),
+                  DataCell(NutriBadge(label: e['tipo'].toString(), type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info')),
+                  DataCell(Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal), onPressed: () => _rename(e['id'], e['nombre_visible'])),
+                      IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.redAccent), onPressed: () => _delete(e['id'], e['nombre_visible'])),
+                    ],
+                  )),
+                ],
+              )).toList(),
+            ),
+    );
+  }
+
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
 }

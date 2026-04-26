@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:flutter_localizations/flutter_localizations.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
@@ -115,6 +116,17 @@ class ReumaNutriApp extends ConsumerWidget {
       title: "Reuma Nutri",
       debugShowCheckedModeBanner: false,
       scrollBehavior: const MaterialScrollBehavior().copyWith(scrollbars: false),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'EC'),
+        Locale('es', 'ES'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('es', 'EC'),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

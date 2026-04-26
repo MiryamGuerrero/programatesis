@@ -1,163 +1,148 @@
 import "package:flutter/material.dart";
-
 import "../../shared/models/app_role.dart";
+
+// Páginas de Administración
 import "../admin/modules/usuarios/admin_users_page.dart";
-import "../medico/modules/alergias_condiciones/alergias_condiciones_page.dart";
-import "../medico/modules/catalogo_condiciones/condiciones_medicas_page.dart";
-import "../medico/modules/consulta_evolucion/consulta_evolucion_page.dart";
-import "../shared/widgets/gestion_pacientes_page.dart";
-import "../medico/modules/diagnostico_oms/diagnostico_page.dart";
-import "../medico/modules/registro_clinico/registro_clinico_page.dart";
+import "../admin/modules/usuarios/admin_tutors_page.dart";
+import "../admin/modules/catalogos/admin_catalogs_page.dart";
+
+// Páginas de Médico
+import "../medico/presentation/supervision_pacientes_page.dart";
+import "../medico/modules/catalogo_condiciones/catalogo_condiciones_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
-import "../../shared/repositories/gestion_tutores_pacientes_page.dart";
+
+// Páginas de Tutor
+import "../tutor/presentation/tutor_home_page.dart";
+import "../tutor/presentation/plan_diario_page.dart";
+
+// Páginas de Nutricionista
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
-import "../nutricionista/modules/etiquetas/etiquetas_gestion_page.dart";
-import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
+import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/reglas_nutricionales/reglas_nutricionales_page.dart";
 import "../nutricionista/modules/condiciones/condiciones_nutricionales_page.dart";
-import "../tutor/modules/calificacion/calificacion_page.dart";
-import "../tutor/modules/consumo/consumo_page.dart";
-import "../tutor/modules/plan/plan_page.dart";
-import "../tutor/modules/reemplazos/reemplazo_page.dart";
+
+// Página de Perfil (Común)
 import "../perfil/perfil_page.dart";
-import "role_module.dart";
+
+class RoleModule {
+  final String key;
+  final String title;
+  final IconData icon;
+  final Widget Function() builder;
+
+  RoleModule({
+    required this.key,
+    required this.title,
+    required this.icon,
+    required this.builder,
+  });
+}
 
 List<RoleModule> modulesForRole(AppRole role) {
+  final perfilItem = RoleModule(
+    key: "perfil",
+    title: "Mi Perfil",
+    icon: Icons.account_circle_outlined,
+    builder: () => const PerfilPage(),
+  );
+
   switch (role) {
     case AppRole.admin:
       return [
         RoleModule(
-          key: "usuarios",
-          title: "Usuarios",
-          icon: Icons.manage_accounts,
+          key: "personal",
+          title: "Equipo Médico",
+          icon: Icons.assignment_ind_rounded,
           builder: () => const AdminUsersPage(),
         ),
         RoleModule(
-          key: "perfil",
-          title: "Perfil",
-          icon: Icons.person,
-          builder: () => const PerfilPage(),
+          key: "tutores",
+          title: "Cuentas Tutores",
+          icon: Icons.supervised_user_circle_rounded,
+          builder: () => const AdminTutorsPage(),
         ),
+        perfilItem,
       ];
+
     case AppRole.medico:
       return [
         RoleModule(
-          key: "gestion-pacientes",
+          key: "pacientes",
           title: "Gestión de Pacientes",
-          icon: Icons.groups,
-          builder: () => const GestionPacientesPage(),
+          icon: Icons.people_outline_rounded,
+          builder: () => const SupervisionPacientesPage(),
         ),
         RoleModule(
-          key: "catalogo-condiciones",
-          title: "Catalogo de Condiciones",
-          icon: Icons.library_books,
-          builder: () => const CondicionesMedicasPage(),
+          key: "condiciones",
+          title: "Catálogo de Condiciones",
+          icon: Icons.table_chart_outlined,
+          builder: () => const CatalogoCondicionesPage(),
         ),
         RoleModule(
-          key: "reglas-medicas",
-          title: "Reglas Medicas",
-          icon: Icons.rule,
+          key: "reglas",
+          title: "Reglas Clínicas",
+          icon: Icons.rule_folder_outlined,
           builder: () => const ReglasMedicasPage(),
         ),
-        RoleModule(
-          key: "perfil",
-          title: "Perfil",
-          icon: Icons.person,
-          builder: () => const PerfilPage(),
-        ),
+        perfilItem,
       ];
+
+    case AppRole.tutor:
+      return [
+        RoleModule(
+          key: "inicio",
+          title: "Mi Paciente",
+          icon: Icons.dashboard_rounded,
+          builder: () => const TutorHomePage(idPaciente: "ID_PENDIENTE", nombrePaciente: "Paciente"),
+        ),
+        RoleModule(
+          key: "plan",
+          title: "Plan del Día",
+          icon: Icons.restaurant_menu_rounded,
+          builder: () => const PlanDiarioPage(idPaciente: "ID_PENDIENTE", fecha: "2026-04-22"),
+        ),
+        perfilItem,
+      ];
+
     case AppRole.nutricionista:
       return [
         RoleModule(
-          key: "gestion-pacientes",
-          title: "Gestión de Pacientes",
-          icon: Icons.groups,
-          builder: () => const GestionPacientesPage(),
-        ),
-        RoleModule(
           key: "ingredientes",
           title: "Ingredientes",
-          icon: Icons.eco,
+          icon: Icons.egg_alt_rounded,
           builder: () => const IngredientesPage(),
-        ),
-        RoleModule(
-          key: "etiquetas",
-          title: "Gestión de Etiquetas",
-          icon: Icons.label_important_outline_rounded,
-          builder: () => const EtiquetasGestionPage(),
         ),
         RoleModule(
           key: "recetas",
           title: "Recetas",
-          icon: Icons.menu_book,
+          icon: Icons.menu_book_rounded,
           builder: () => const RecetasPage(),
         ),
         RoleModule(
-          key: "plan-manual",
-          title: "Plan manual",
-          icon: Icons.calendar_view_week,
+          key: "plan_manual",
+          title: "Plan Manual",
+          icon: Icons.calendar_month_rounded,
           builder: () => const PlanManualPage(),
         ),
         RoleModule(
-          key: "reglas-inteligentes",
-          title: "Reglas Inteligentes",
-          icon: Icons.psychology_outlined,
+          key: "reglas_nutri",
+          title: "Reglas Nutricionales",
+          icon: Icons.rule_rounded,
           builder: () => const ReglasNutricionalesPage(),
         ),
         RoleModule(
-          key: "catalogo-condiciones",
-          title: "Catálogo de Condiciones",
-          icon: Icons.assignment_turned_in_outlined,
+          key: "condiciones_nutri",
+          title: "Condiciones",
+          icon: Icons.health_and_safety_rounded,
           builder: () => const CondicionesNutricionalesPage(),
         ),
-        RoleModule(
-          key: "perfil",
-          title: "Perfil",
-          icon: Icons.person,
-          builder: () => const PerfilPage(),
-        ),
+        perfilItem,
       ];
-    case AppRole.tutor:
-      return [
-        RoleModule(
-          key: "plan",
-          title: "Plan del paciente",
-          icon: Icons.calendar_month,
-          builder: () => const TutorPlanPage(),
-        ),
-        RoleModule(
-          key: "consumo",
-          title: "Registrar consumo",
-          icon: Icons.check_circle,
-          builder: () => const TutorConsumoPage(),
-        ),
-        RoleModule(
-          key: "reemplazos",
-          title: "Buscar reemplazos",
-          icon: Icons.swap_horiz,
-          builder: () => const TutorReemplazoPage(),
-        ),
-        RoleModule(
-          key: "calificar",
-          title: "Valorar recetas",
-          icon: Icons.star,
-          builder: () => const TutorCalificacionPage(),
-        ),
-        RoleModule(
-          key: "perfil",
-          title: "Perfil",
-          icon: Icons.person,
-          builder: () => const PerfilPage(),
-        ),
-      ];
+    
+    default:
+      return [perfilItem];
   }
 }
 
-int defaultModuleIndexForRole(AppRole role) {
-  if (role == AppRole.nutricionista) {
-    return 0;
-  }
-
-  return 0;
-}
+int defaultModuleIndexForRole(AppRole role) => 0;

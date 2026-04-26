@@ -1,7 +1,10 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
 
-import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "../../../../core/state/app_providers.dart";
+import "../../../../core/theme/app_theme.dart";
+import "../../../../shared/widgets/layout_components.dart";
 
 class RecetasPage extends ConsumerStatefulWidget {
   const RecetasPage({super.key});
@@ -11,7 +14,7 @@ class RecetasPage extends ConsumerStatefulWidget {
 }
 
 class _RecetasPageState extends ConsumerState<RecetasPage> {
-  final _searchController = TextEditingController();
+  String _query = "";
 
   bool _loading = false;
   String? _error;
@@ -23,12 +26,6 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     Future.microtask(_loadRecetas);
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadRecetas() async {
     setState(() {
       _loading = true;
@@ -38,109 +35,123 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       final data = await repo.fetchRecetas();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _recetas = data);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _error = error.toString());
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final query = _searchController.text.trim().toLowerCase();
-    final visible = query.isEmpty
+    final visible = _query.isEmpty
         ? _recetas
         : _recetas.where((row) {
             final nombre = row["nombre"]?.toString().toLowerCase() ?? "";
-            return nombre.contains(query);
+            return nombre.contains(_query.toLowerCase());
           }).toList();
 
-    return ListView(
-      children: [
-        Text("Recetas", style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        const Text(
-          "Extraccion directa desde CRUD. Sin flujo de IDs manuales para consulta basica.",
-          style: TextStyle(color: Color(0xFF5B6978), fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
+    return Scaffold(
+      backgroundColor: AppTema.grisLienzo,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 360,
-              child: TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: "Buscar receta",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
-                ),
-              ),
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(visible.length),
+            const SizedBox(height: 32),
+            NutriTableToolbar(
+              actionLabel: "Nueva Receta",
+              onAction: () => NutriSnack.show(context, "Módulo de creación en desarrollo"),
+              onSearch: (v) => setState(() => _query = v),
             ),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _loadRecetas,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Recargar"),
-            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ],
+            const SizedBox(height: 24),
+            _buildTableContainer(visible),
           ],
         ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(label: Text("Total: ${_recetas.length}")),
-            Chip(label: Text("Visibles: ${visible.length}")),
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (visible.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text("No hay recetas para el filtro actual."),
-          )
-        else
-          ...visible.map(
-            (receta) {
-              final kcalRaw = receta["calorias_totales"];
-              final kcalText = kcalRaw == null ? "Sin dato" : kcalRaw.toString();
+      ),
+    );
+  }
 
-              return Card(
-                child: ListTile(
-                  title: Text(receta["nombre"]?.toString() ?? "Receta"),
-                  subtitle: Text("Calorias totales: $kcalText"),
-                ),
-              );
-            },
-          ),
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Recetario Terapéutico", 
+                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text("Administración de preparaciones y composición nutricional por plato.", 
+                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), 
+              onPressed: _loadRecetas,
+            ),
+          ],
+        ),
       ],
     );
   }
+
+  Widget _buildStatsRow(int visibles) {
+    return Row(
+      children: [
+        Expanded(child: NutriResumenCard(titulo: "TOTAL RECETAS", valor: "${_recetas.length}", icon: Icons.menu_book_rounded)),
+        const SizedBox(width: 20),
+        Expanded(child: NutriResumenCard(titulo: "FILTRADAS", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_list_rounded)),
+        const SizedBox(width: 20),
+        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "ACTIVO", colorValor: AppTema.cianLimpio, icon: Icons.check_circle_outline)),
+      ],
+    );
+  }
+
+  Widget _buildTableContainer(List<Map<String, dynamic>> visible) {
+    return NutriTableContainer(
+      child: _loading
+        ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Consultando recetario..."))
+        : visible.isEmpty
+          ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No se encontraron recetas.")))
+          : DataTable(
+              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
+              columns: [
+                _col("RECETA"),
+                _col("CALORÍAS"),
+                _col("PROTEÍNAS"),
+                _col("TIPO"),
+                _col("ACCIONES"),
+              ],
+              rows: visible.map((r) => DataRow(
+                cells: [
+                  DataCell(Text(r["nombre"]?.toString() ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal))),
+                  DataCell(Text("${r["calorias_totales"] ?? 0} kcal", style: const TextStyle(fontSize: 12))),
+                  DataCell(Text("${r["proteinas_totales"] ?? 0} g", style: const TextStyle(fontSize: 12))),
+                  DataCell(NutriBadge(label: (r["tipo_comida"] ?? "PLATO").toString().toUpperCase(), type: "info")),
+                  DataCell(Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), onPressed: () {}),
+                      IconButton(icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), onPressed: () {}),
+                    ],
+                  )),
+                ],
+              )).toList(),
+            ),
+    );
+  }
+
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
 }

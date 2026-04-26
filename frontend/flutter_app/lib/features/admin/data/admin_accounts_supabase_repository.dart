@@ -101,7 +101,7 @@ class AdminAccountsSupabaseRepository {
   }) async {
     try {
       final response = await _dio.get(
-        "crud/users",
+        "usuarios",
         options: _authorizedOptions(),
       );
 

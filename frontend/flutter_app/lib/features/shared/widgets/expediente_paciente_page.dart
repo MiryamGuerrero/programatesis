@@ -1,8 +1,13 @@
 import "package:dio/dio.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
+import "package:intl/intl.dart";
+
 import "../../../core/state/app_providers.dart";
-import "../../../shared/models/app_role.dart";
+import "../../../core/theme/app_theme.dart";
+import "../../../shared/widgets/layout_components.dart";
 
 class ExpedientePacientePage extends ConsumerStatefulWidget {
   final String idPaciente;
@@ -15,82 +20,34 @@ class ExpedientePacientePage extends ConsumerStatefulWidget {
   ConsumerState<ExpedientePacientePage> createState() => _ExpedientePacientePageState();
 }
 
-class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage> {
+class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   bool _loading = true;
   Map<String, dynamic>? _data;
   
-  // Variables de Seguimiento
-  final _pesoCtrl = TextEditingController();
-  final _tallaCtrl = TextEditingController();
-  final _pcrCtrl = TextEditingController();
-  final _rigidezCtrl = TextEditingController();
-  final _notaCtrl = TextEditingController();
-  int _dolorEva = 0;
-  int _inflamacionArt = 0;
-  int _fatiga = 0;
-  bool _brote = false;
-  
-  // Bloqueo de campos si ya existen
-  bool _pesoYaRegistrado = false;
-  bool _tallaYaRegistrada = false;
-
-  // Catálogos
-  List<dynamic> _allIngredientes = [];
-  List<dynamic> _allGrupos = [];
-  List<dynamic> _allCondicionesMedicas = [];
-  List<int> _selectedIngredientes = [];
-  List<int> _selectedGrupos = [];
-  List<int> _selectedClinicas = [];
-  Map<int, DateTime> _selectedTemporales = {};
+  // Control de Cita
+  int _diasParaCita = 0;
+  bool _puedeRegistrarControl = false;
 
   @override
   void initState() {
     super.initState();
-    _loadExpediente();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadExpedienteMaestro();
   }
 
-  Future<void> _loadExpediente() async {
+  Future<void> _loadExpedienteMaestro() async {
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("gestion-pacientes/${widget.idPaciente}/expediente");
-      final resIng = await dio.get("ingredientes-lista", queryParameters: {"limit": 1000});
-      final resGrp = await dio.get("gestion-pacientes/catalogo-grupos");
-      final resCond = await dio.get("condiciones-medicas");
-
+      // Endpoint nuevo que extrae perfil 360
+      final res = await dio.get("pacientes/${widget.idPaciente}/expediente-completo");
+      
       setState(() {
         _data = res.data;
-        _allIngredientes = resIng.data['items'] ?? [];
-        _allGrupos = resGrp.data ?? [];
-        _allCondicionesMedicas = resCond.data ?? [];
-        
-        _selectedIngredientes = ((_data?['alergias_ingredientes'] ?? []) as List).map((e) => (e['id'] ?? 0) as int).toList();
-        _selectedGrupos = ((_data?['alergias_grupos'] ?? []) as List).map((e) => (e['id'] ?? 0) as int).toList();
-        _selectedClinicas = ((_data?['condiciones_clinicas'] ?? []) as List).map((e) => (e['id'] ?? 0) as int).toList();
-        
-        _selectedTemporales = {};
-        for (var t in ((_data?['condiciones_temporales'] ?? []) as List)) {
-          if (t['id'] != null && t['fin'] != null) {
-            _selectedTemporales[t['id']] = DateTime.parse(t['fin']);
-          }
-        }
-        
-        // Verificar registro de hoy
-        if ((_data?['historial'] as List?)?.isNotEmpty == true) {
-          final last = _data!['historial'][0];
-          final String hoyStr = DateTime.now().toIso8601String().split('T')[0];
-          if (last['fecha'] == hoyStr) {
-            if ((last['peso'] ?? 0) > 0) {
-              _pesoCtrl.text = last['peso'].toString();
-              _pesoYaRegistrado = true;
-            }
-            if ((last['talla'] ?? 0) > 0) {
-              _tallaCtrl.text = last['talla'].toString();
-              _tallaYaRegistrada = true;
-            }
-          }
-        }
-
+        _diasParaCita = _data?['ultimo_control']?['dias_para_cita'] ?? 0;
+        // Permitir si faltan 2 días o ya pasó
+        _puedeRegistrarControl = _diasParaCita <= 2;
         _loading = false;
       });
     } catch (e) {
@@ -98,367 +55,630 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
     }
   }
 
-  Future<void> _guardar() async {
-    final rol = ref.read(appRoleProvider).valueOrNull ?? AppRole.nutricionista;
-    final bool isNutri = rol == AppRole.nutricionista;
-
-    try {
-      final dio = ref.read(dioProvider);
-      
-      Map<String, dynamic> payloadControl = {
-        "id_paciente": widget.idPaciente,
-        "peso_kg": double.tryParse(_pesoCtrl.text),
-        "talla_cm": double.tryParse(_tallaCtrl.text),
-      };
-
-      if (!isNutri) {
-        payloadControl.addAll({
-          "nivel_dolor_eva": _dolorEva,
-          "nivel_inflamacion": _inflamacionArt,
-          "nivel_fatiga": _fatiga,
-          "minutos_rigidez_matutina": int.tryParse(_rigidezCtrl.text),
-          "inflamacion_pcr": double.tryParse(_pcrCtrl.text),
-          "hay_brote_activo": _brote,
-          "nota_evolucion": _notaCtrl.text,
-          "id_condiciones_activas": [..._selectedClinicas, ..._selectedTemporales.keys]
-        });
-      }
-
-      await dio.post("gestion-pacientes/control", data: payloadControl);
-
-      if (!isNutri) {
-        await dio.post("gestion-pacientes/${widget.idPaciente}/alergias", data: {
-          "ingredientes": _selectedIngredientes,
-          "grupos": _selectedGrupos,
-          "temporales": _selectedTemporales.entries.map((e) => {
-            "id": e.key, "fecha_fin": e.value.toIso8601String().split('T')[0]
-          }).toList()
-        });
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Información sincronizada"), backgroundColor: Colors.green));
-        _loadExpediente();
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("❌ Error al guardar")));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_loading || _data == null) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_data == null) return Scaffold(body: Center(child: Text("Error al cargar expediente")));
 
-    final info = _data?['info'] ?? {};
-    final rol = ref.watch(appRoleProvider).valueOrNull ?? AppRole.nutricionista;
-    final bool isNutri = rol == AppRole.nutricionista;
+    final pac = _data!['paciente'];
+    final tutor = _data!['tutor'];
+    final ctrl = _data!['ultimo_control'];
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
-          child: Row(
-            children: [
-              IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back, color: Colors.blueGrey)),
-              const SizedBox(width: 8),
-              Text("EXPEDIENTE: ${info['nombre'] ?? 'S/N'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _guardar, 
-                icon: const Icon(Icons.save_rounded, size: 18), 
-                label: Text(isNutri ? "GUARDAR PESO/TALLA" : "GUARDAR CONSULTA"),
-                style: FilledButton.styleFrom(backgroundColor: isNutri ? Colors.blue : Colors.green.shade700),
-              ),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back_ios_new, color: Colors.blueGrey, size: 20)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(pac['nombre_completo'].toString().toUpperCase(), style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: AppTema.azulPrincipal)),
+            Text("Expediente: ${widget.idPaciente}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
         ),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 260,
-                decoration: BoxDecoration(color: Colors.white, border: Border(right: BorderSide(color: Colors.grey.shade200))),
-                child: SingleChildScrollView(child: _buildFichaEstatica(info)),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
+        actions: [
+          _buildStatusCitaBadge(),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: Row(
+        children: [
+          // PANEL LATERAL IZQUIERDO (RESUMEN FIJO)
+          _buildSidebar(pac, ctrl),
+          
+          // CUERPO CENTRAL (TABS)
+          Expanded(
+            child: Column(
+              children: [
+                _buildTabBar(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
                     children: [
-                      _buildSeccionAntropometria(),
-                      const SizedBox(height: 24),
-                      if (!isNutri) _buildSeccionClinica(),
-                      if (isNutri) _buildAvisoNutri(),
-                      const SizedBox(height: 24),
-                      _buildTimelineEvolucion(),
+                      _buildTabIdentidad(pac, tutor),
+                      _buildTabSeguridad(),
+                      _buildTabHistorial(),
                     ],
                   ),
                 ),
-              ),
-              Container(
-                width: 300,
-                decoration: BoxDecoration(color: Colors.white, border: Border(left: BorderSide(color: Colors.grey.shade200))),
-                child: SingleChildScrollView(child: _buildSeccionRestricciones(isNutri)),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFichaEstatica(Map<String, dynamic> info) {
-    final String fnac = (info['fnac'] ?? "").toString();
-    final String nombre = (info['nombre'] ?? "Sin nombre").toString();
-    final String enfermedad = (info['enfermedad'] ?? "Sin diagnóstico").toString();
-    final String sexo = (info['sexo'] ?? "N/A").toString();
-
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Center(child: CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40))),
-          const SizedBox(height: 20),
-          _datoFijo("Identidad", nombre),
-          _datoFijo("Diagnóstico Base", enfermedad, isHighlight: true),
-          _datoFijo("Edad", fnac.isEmpty ? "-" : "${_calcularEdad(fnac)} años"),
-          _datoFijo("Sexo", sexo),
-          const Divider(height: 40),
-          const Text("ESTADO NUTRICIONAL", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            width: double.infinity,
-            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-            child: Text((info['estado_oms'] ?? "Pendiente").toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12)),
+        ],
+      ),
+      floatingActionButton: _puedeRegistrarControl 
+        ? FloatingActionButton.extended(
+            onPressed: () => _abrirFormularioControl(context),
+            backgroundColor: AppTema.azulPrincipal,
+            icon: const Icon(Icons.add_chart_rounded, color: Colors.white),
+            label: const Text("NUEVA CONSULTA MENSUAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           )
-        ],
-      ),
+        : null,
     );
   }
 
-  Widget _buildSeccionAntropometria() {
-    return Card(
-      elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("MEDICIONES ANTROPOMÉTRICAS", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: TextField(
-                  controller: _pesoCtrl, 
-                  enabled: !_pesoYaRegistrado,
-                  decoration: InputDecoration(labelText: "Peso (kg)", border: const OutlineInputBorder(), filled: _pesoYaRegistrado), 
-                  keyboardType: TextInputType.number
-                )),
-                const SizedBox(width: 16),
-                Expanded(child: TextField(
-                  controller: _tallaCtrl, 
-                  enabled: !_tallaYaRegistrada,
-                  decoration: InputDecoration(labelText: "Talla (cm)", border: const OutlineInputBorder(), filled: _tallaYaRegistrada), 
-                  keyboardType: TextInputType.number
-                )),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildStatusCitaBadge() {
+    Color bg = _diasParaCita > 0 ? Colors.green.shade50 : Colors.red.shade50;
+    Color tx = _diasParaCita > 0 ? Colors.green.shade700 : Colors.red.shade700;
+    String label = _diasParaCita > 0 ? "Próxima cita en $_diasParaCita días" : "CITA PENDIENTE / VENCIDA";
 
-  Widget _buildSeccionClinica() {
-    return Card(
-      elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("DIAGNÓSTICO MÉDICO DEL DÍA", style: TextStyle(fontWeight: FontWeight.bold)),
-            _sliderControl("Dolor (EVA)", _dolorEva, (v) => setState(() => _dolorEva = v.toInt()), Colors.orange),
-            _sliderControl("Inflamación", _inflamacionArt, (v) => setState(() => _inflamacionArt = v.toInt()), Colors.redAccent),
-            _sliderControl("Fatiga", _fatiga, (v) => setState(() => _fatiga = v.toInt()), Colors.blueGrey),
-            Row(
-              children: [
-                Expanded(child: TextField(controller: _pcrCtrl, decoration: const InputDecoration(labelText: "PCR"), keyboardType: TextInputType.number)),
-                const SizedBox(width: 16),
-                Expanded(child: TextField(controller: _rigidezCtrl, decoration: const InputDecoration(labelText: "Rigidez (min)"), keyboardType: TextInputType.number)),
-              ],
-            ),
-            SwitchListTile(title: const Text("¿Brote Activo?"), value: _brote, onChanged: (v) => setState(() => _brote = v)),
-            const Divider(),
-            _buildListaCondiciones("Clínicas Permanentes", 1, Colors.blue),
-            const SizedBox(height: 8),
-            _buildListaTemporales(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvisoNutri() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-      child: const Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: tx.withOpacity(0.3))),
+      child: Row(
         children: [
-          Icon(Icons.info_outline, color: Colors.blue),
-          SizedBox(width: 12),
-          Expanded(child: Text("Como Nutricionista, puede visualizar el historial y restricciones, pero solo actualizar medidas de peso/talla.", style: TextStyle(fontSize: 12))),
+          Icon(Icons.calendar_month, size: 16, color: tx),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(color: tx, fontWeight: FontWeight.bold, fontSize: 12)),
         ],
       ),
     );
   }
 
-  Widget _buildSeccionRestricciones(bool isReadOnly) {
+  Widget _buildSidebar(Map pac, Map ctrl) {
+    return Container(
+      width: 300,
+      color: Colors.white,
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          const CircleAvatar(radius: 50, backgroundColor: Color(0xFFF1F5F9), child: Icon(Icons.person, size: 50, color: Colors.blueGrey)),
+          const SizedBox(height: 24),
+          _sidebarItem("PATOLOGÍA BASE", pac['enfermedad_principal'] ?? "No registrada", isHigh: true),
+          _sidebarItem("SEXO", pac['sexo_nombre'] ?? "N/A"),
+          _sidebarItem("PROVINCIA", pac['provincia_nombre'] ?? "N/A"),
+          const Divider(height: 40),
+          _sidebarItem("ESTADO OMS", ctrl['diagnostico_oms_texto'] ?? "PENDIENTE"),
+          const Spacer(),
+          if (!_puedeRegistrarControl)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
+              child: const Text("⚠️ El control mensual se habilitará automáticamente al cumplirse la fecha de cita.", style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            )
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarItem(String label, String value, {bool isHigh = false}) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("RESTRICCIONES", style: TextStyle(fontWeight: FontWeight.bold)),
-          const Divider(),
-          const SizedBox(height: 8),
-          const Text("Ingredientes", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
-          Container(
-            height: 250,
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
-            child: ListView.builder(
-              itemCount: _allIngredientes.length,
-              itemBuilder: (ctx, i) {
-                final ing = _allIngredientes[i];
-                final int id = (ing['id'] ?? 0) as int;
-                return CheckboxListTile(
-                  title: Text((ing['nombre'] ?? 'Item').toString(), style: const TextStyle(fontSize: 10)),
-                  value: _selectedIngredientes.contains(id),
-                  onChanged: isReadOnly ? null : (v) => setState(() { if (v!) _selectedIngredientes.add(id); else _selectedIngredientes.remove(id); }),
-                  dense: true,
-                );
-              },
-            ),
-          ),
-          const Text("Grupos Prohibidos", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
-          ..._allGrupos.map((g) {
-            final int id = (g['id'] ?? 0) as int;
-            return CheckboxListTile(
-              title: Text((g['nombre'] ?? 'Grupo').toString(), style: const TextStyle(fontSize: 10)),
-              value: _selectedGrupos.contains(id),
-              onChanged: isReadOnly ? null : (v) => setState(() { if (v!) _selectedGrupos.add(id); else _selectedGrupos.remove(id); }),
-              dense: true,
-            );
-          }).toList(),
+          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+          const SizedBox(height: 4),
+          Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: isHigh ? FontWeight.w800 : FontWeight.w600, color: isHigh ? AppTema.azulPrincipal : Colors.black87)),
         ],
       ),
     );
   }
 
-  Widget _buildTimelineEvolucion() {
-    final hist = (_data?['historial'] ?? []) as List;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("HISTORIAL", style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        if (hist.isEmpty) const Text("Sin registros previos", style: TextStyle(fontSize: 12, color: Colors.grey)),
-        ...hist.map((h) {
-          final String fecha = (h['fecha'] ?? "N/A").toString();
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.history, size: 20),
-              title: Text("$fecha | ${h['peso'] ?? 0}kg - ${h['talla'] ?? 0}cm", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              subtitle: Text("Estado: ${h['estado'] ?? 'N/A'} | Dolor: ${h['dolor'] ?? 0} | Inflamación: ${h['inflamacion'] ?? 0} | Fatiga: ${h['fatiga'] ?? 0}", style: const TextStyle(fontSize: 11)),
+  Widget _buildTabBar() {
+    return Container(
+      color: Colors.white,
+      child: TabBar(
+        controller: _tabController,
+        labelColor: AppTema.azulPrincipal,
+        unselectedLabelColor: Colors.grey,
+        indicatorColor: AppTema.azulPrincipal,
+        tabs: const [
+          Tab(text: "IDENTIDAD & TUTOR"),
+          Tab(text: "SEGURIDAD ALIMENTARIA"),
+          Tab(text: "HISTORIAL CLÍNICO"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabIdentidad(Map pac, Map tutor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          NutriTableContainer(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("DATOS DEL PACIENTE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 24),
+                  _editableField("Nombre Completo", pac['nombre_completo']),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: _editableField("Cédula", pac['cedula'] ?? "S/N")),
+                      const SizedBox(width: 16),
+                      Expanded(child: _editableField("Fecha Nacimiento", pac['fecha_nacimiento'])),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          );
-        }).toList(),
-      ],
+          ),
+          const SizedBox(height: 24),
+          NutriTableContainer(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("REPRESENTANTE LEGAL (TUTOR)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 24),
+                  _editableField("Nombre Tutor", tutor['nombre_completo']),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: _editableField("Cédula Tutor", tutor['cedula'])),
+                      const SizedBox(width: 16),
+                      Expanded(child: _editableField("Parentesco", tutor['parentesco_nombre'])),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _editableField("Correo Electrónico", tutor['email']),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildListaCondiciones(String title, int typeId, Color color) {
-    final list = _allCondicionesMedicas.where((c) => c['id_tipo_condicion'] == typeId).toList();
+  Widget _buildTabSeguridad() {
+    final alergias = _data!['alergias'];
+    final subgrupos = (alergias['subgrupos'] as List);
+    final ingredientes = (alergias['ingredientes'] as List);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          NutriTableContainer(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                      const SizedBox(width: 12),
+                      const Text("ALERGIAS A GRUPOS BLOQUEADOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Spacer(),
+                      TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: subgrupos.map((s) => Chip(
+                      label: Text(s['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      backgroundColor: Colors.orange.shade50,
+                      side: BorderSide(color: Colors.orange.shade200),
+                    )).toList(),
+                  ),
+                  if (subgrupos.isEmpty) const Text("Sin bloqueos de grupos.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          NutriTableContainer(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.block_flipped, color: Colors.red),
+                      const SizedBox(width: 12),
+                      const Text("INGREDIENTES PROHIBIDOS ESPECÍFICOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Spacer(),
+                      TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: ingredientes.map((i) => Chip(
+                      label: Text(i['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      backgroundColor: Colors.red.shade50,
+                      side: BorderSide(color: Colors.red.shade200),
+                    )).toList(),
+                  ),
+                  if (ingredientes.isEmpty) const Text("Sin ingredientes prohibidos.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+import "package:fl_chart/fl_chart.dart";
+
+  Widget _buildTabHistorial() {
+    final historial = (_data!['historial_controles'] as List? ?? []);
+    if (historial.isEmpty) return const Center(child: Text("Sin historial clínico registrado."));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle("EVOLUCIÓN DE CRECIMIENTO (PESO)", Icons.monitor_weight_outlined),
+          const SizedBox(height: 24),
+          _buildChartPeso(historial),
+          
+          const SizedBox(height: 48),
+          _sectionTitle("ACTIVIDAD DE LA ENFERMEDAD (MÉTRICAS EVA)", Icons.analytics_outlined),
+          const SizedBox(height: 24),
+          _buildChartEVA(historial),
+
+          const SizedBox(height: 48),
+          _sectionTitle("LISTADO DE CONSULTAS", Icons.list_alt_rounded),
+          const SizedBox(height: 16),
+          ...historial.reversed.map((h) => _buildConsultaItem(h)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, IconData icon) {
+    return Row(children: [
+      Icon(icon, color: AppTema.azulPrincipal, size: 20),
+      const SizedBox(width: 12),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5)),
+    ]);
+  }
+
+  Widget _buildChartPeso(List historial) {
+    return Container(
+      height: 250,
+      padding: const EdgeInsets.only(right: 20, top: 20, bottom: 10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
+      child: LineChart(
+        LineChartData(
+          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (val, meta) {
+              if (val.toInt() >= historial.length) return const SizedBox.shrink();
+              final fecha = DateTime.parse(historial[val.toInt()]['fecha_control']);
+              return Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10, color: Colors.grey));
+            })),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['peso_kg'] as num).toDouble())),
+              isCurved: true, color: Colors.blue, barWidth: 4, dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartEVA(List historial) {
+    return Container(
+      height: 250,
+      padding: const EdgeInsets.only(right: 20, top: 20, bottom: 10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
+      child: LineChart(
+        LineChartData(
+          minY: 0, maxY: 10,
+          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          titlesData: const FlTitlesData(rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false))),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            _lineData(historial, 'nivel_dolor_eva', Colors.orange, "Dolor"),
+            _lineData(historial, 'nivel_inflamacion', Colors.red, "Inflamación"),
+            _lineData(historial, 'nivel_fatiga', Colors.green, "Energía"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  LineChartBarData _lineData(List hist, String key, Color color, String label) {
+    return LineChartBarData(
+      spots: List.generate(hist.length, (i) => FlSpot(i.toDouble(), (hist[i][key] as num? ?? 0).toDouble())),
+      isCurved: true, color: color, barWidth: 3, dotData: const FlDotData(show: false),
+    );
+  }
+
+  Widget _buildConsultaItem(Map h) {
+    final fecha = DateTime.parse(h['fecha_control']);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0, borderOnForeground: false,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: AppTema.azulPrincipal.withOpacity(0.1), child: Text(DateFormat('dd').format(fecha), style: const TextStyle(color: AppTema.azulPrincipal, fontWeight: FontWeight.bold))),
+        title: Text(DateFormat('MMMM yyyy', 'es').format(fecha).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        subtitle: Text("Peso: ${h['peso_kg']}kg | PCR: ${h['inflamacion_pcr'] ?? '-'} | Status: ${h['diagnostico_oms_texto']}"),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+
+  Widget _editableField(String label, dynamic value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-        ...list.map((c) {
-          final int id = (c['id'] ?? 0) as int;
-          return CheckboxListTile(
-            title: Text((c['nombre'] ?? '').toString(), style: const TextStyle(fontSize: 11)),
-            value: _selectedClinicas.contains(id),
-            onChanged: (v) => setState(() { if (v!) _selectedClinicas.add(id); else _selectedClinicas.remove(id); }),
-            dense: true,
-          );
-        }).toList(),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+          child: Text(value?.toString() ?? "-", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        ),
       ],
     );
   }
 
-  Widget _buildListaTemporales() {
-    final list = _allCondicionesMedicas.where((c) => c['id_tipo_condicion'] == 2).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Temporales", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
-        ...list.map((c) {
-          final int id = (c['id'] ?? 0) as int;
-          bool isSelected = _selectedTemporales.containsKey(id);
-          return CheckboxListTile(
-            title: Text((c['nombre'] ?? '').toString(), style: const TextStyle(fontSize: 11)),
-            subtitle: isSelected ? Text("Vence: ${_selectedTemporales[id]!.toLocal().toString().split(' ')[0]}", style: const TextStyle(fontSize: 9, color: Colors.orange)) : null,
-            value: isSelected,
-            onChanged: (v) async {
-              if (v!) {
-                final date = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 7)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 60)));
-                if (date != null) setState(() => _selectedTemporales[id] = date);
-              } else { setState(() => _selectedTemporales.remove(id)); }
-            },
-            dense: true,
-          );
-        }).toList(),
-      ],
+  void _abrirFormularioControl(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _FormularioControlMensual(
+        idPaciente: widget.idPaciente,
+        onSuccess: () {
+          Navigator.pop(context);
+          _loadExpedienteMaestro();
+          NutriSnack.show(context, "✅ Control Mensual Registrado", ref: ref);
+        },
+      ),
+    );
+  }
+}
+
+class _FormularioControlMensual extends ConsumerStatefulWidget {
+  final String idPaciente;
+  final VoidCallback onSuccess;
+  const _FormularioControlMensual({required this.idPaciente, required this.onSuccess});
+
+  @override
+  ConsumerState<_FormularioControlMensual> createState() => _FormularioControlMensualState();
+}
+
+class _FormularioControlMensualState extends ConsumerState<_FormularioControlMensual> {
+  int _step = 0;
+  bool _saving = false;
+
+  final _pesoCtrl = TextEditingController();
+  final _tallaCtrl = TextEditingController();
+  final _pcrCtrl = TextEditingController();
+  final _rigidezCtrl = TextEditingController();
+  final _notaCtrl = TextEditingController();
+
+  double _dolor = 0;
+  double _inflamacion = 0;
+  double _fatiga = 10;
+  bool _brote = false;
+  DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 32),
+          Expanded(
+            child: IndexedStack(
+              index: _step,
+              children: [
+                _stepMedidas(),
+                _stepClinico(),
+                _stepCita(),
+              ],
+            ),
+          ),
+          _buildFooter(),
+        ],
+      ),
     );
   }
 
-  Widget _sliderControl(String label, int value, Function(double) onChanged, Color color) {
+  Widget _buildHeader() {
     return Row(
       children: [
-        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 11))),
-        Expanded(child: Slider(value: value.toDouble(), min: 0, max: 10, divisions: 10, activeColor: color, onChanged: onChanged)),
-        Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("CONSULTA DE SEGUIMIENTO", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: AppTema.azulPrincipal)),
+          const Text("Evolución clínica mensual obligatoria.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ]),
+        const Spacer(),
+        IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
       ],
     );
   }
 
-  Widget _datoFijo(String label, String value, {bool isHighlight = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+  Widget _stepMedidas() {
+    return Column(
+      children: [
+        _field(_pesoCtrl, "Peso Actual (kg)*", Icons.monitor_weight_outlined),
+        const SizedBox(height: 16),
+        _field(_tallaCtrl, "Talla Actual (cm)*", Icons.height_rounded),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(20)),
+          child: const Row(children: [
+            Icon(Icons.auto_graph_rounded, color: Colors.blue),
+            SizedBox(width: 16),
+            Expanded(child: Text("El sistema recalculará automáticamente el estado nutricional del niño basado en las curvas OMS.", style: TextStyle(fontSize: 12, color: Colors.blue))),
+          ]),
+        )
+      ],
+    );
+  }
+
+  Widget _stepClinico() {
+    return SingleChildScrollView(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal)),
+          _buildMetricSlider("ESCALA DE DOLOR", _dolor, (v) => setState(() => _dolor = v), "DOLOR"),
+          const SizedBox(height: 16),
+          _buildMetricSlider("NIVEL DE INFLAMACIÓN", _inflamacion, (v) => setState(() => _inflamacion = v), "INFLAMACION"),
+          const SizedBox(height: 16),
+          _buildMetricSlider("NIVEL DE ENERGÍA", _fatiga, (v) => setState(() => _fatiga = v), "FATIGA"),
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(child: _field(_pcrCtrl, "PCR*", Icons.biotech)),
+            const SizedBox(width: 16),
+            Expanded(child: _field(_rigidezCtrl, "Rigidez (min)", Icons.timer_outlined)),
+          ]),
+          const SizedBox(height: 16),
+          _field(_notaCtrl, "Notas de evolución...", Icons.edit_note, maxLines: 2),
         ],
       ),
     );
   }
 
-  int _calcularEdad(String fnac) {
-    if (fnac.isEmpty) return 0;
+  Widget _stepCita() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.event_available_rounded, size: 60, color: AppTema.azulPrincipal),
+        const SizedBox(height: 16),
+        const Text("AGENDAR PRÓXIMA CITA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const Text("Se recomienda un seguimiento cada 30 días.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 32),
+        ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade300)),
+          leading: const Icon(Icons.calendar_today),
+          title: const Text("Fecha Programada"),
+          subtitle: Text(DateFormat('EEEE, d MMMM yyyy', 'es').format(_proximaCita).toUpperCase()),
+          trailing: const Icon(Icons.edit),
+          onTap: () async {
+            final d = await showDatePicker(context: context, initialDate: _proximaCita, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 90)));
+            if (d != null) setState(() => _proximaCita = d);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Row(
+      children: [
+        if (_step > 0) OutlinedButton(onPressed: () => setState(() => _step--), child: const Text("ANTERIOR")),
+        const Spacer(),
+        FilledButton(
+          onPressed: _saving ? null : () {
+            if (_step < 2) setState(() => _step++);
+            else _guardarControl();
+          },
+          child: Text(_saving ? "GUARDANDO..." : (_step < 2 ? "CONTINUAR" : "FINALIZAR CONSULTA")),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _guardarControl() async {
+    if (_pesoCtrl.text.isEmpty || _tallaCtrl.text.isEmpty || _pcrCtrl.text.isEmpty) {
+      NutriSnack.show(context, "Faltan datos obligatorios", isError: true, ref: ref);
+      return;
+    }
+    setState(() => _saving = true);
     try {
-      final birth = DateTime.parse(fnac);
-      final now = DateTime.now();
-      int age = now.year - birth.year;
-      if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) age--;
-      return age;
-    } catch (_) { return 0; }
+      final dio = ref.read(dioProvider);
+      final payload = {
+        "peso_kg": _pesoCtrl.text,
+        "talla_cm": _tallaCtrl.text,
+        "dolor_eva": _dolor.toInt(),
+        "inflamacion": _inflamacion.toInt(),
+        "fatiga": _fatiga.toInt(),
+        "pcr": double.tryParse(_pcrCtrl.text),
+        "rigidez_min": int.tryParse(_rigidezCtrl.text),
+        "brote_activo": _dolor > 7 || _inflamacion > 7, // Lógica automática de sugerencia de brote
+        "nota_evolucion": _notaCtrl.text,
+        "fecha_proxima_cita": _proximaCita.toIso8601String().split('T')[0],
+      };
+      await dio.post("pacientes/${widget.idPaciente}/control-mensual", data: payload);
+      widget.onSuccess();
+    } catch (e) {
+      NutriSnack.show(context, "Error al registrar control", isError: true, ref: ref);
+    } finally { setState(() => _saving = false); }
+  }
+
+  // REUTILIZAR WIDGETS DE ESCALAS Y CAMPOS (Iguales a los del registro para consistencia)
+  Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1}) {
+    bool n = l.contains("kg") || l.contains("cm") || l.contains("PCR") || l.contains("min");
+    return TextFormField(
+      controller: c, maxLines: maxLines,
+      keyboardType: n ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      inputFormatters: n ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))] : null,
+      decoration: InputDecoration(labelText: l, prefixIcon: Icon(i), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
+    );
+  }
+
+  Widget _buildMetricSlider(String title, double val, Function(double) onC, String type) {
+    String desc = ""; String emoji = ""; Color color = Colors.grey;
+    if (type == "DOLOR") {
+      if (val == 0) { desc = "SIN DOLOR: Sin molestias."; emoji = "😀"; color = Colors.green; }
+      else if (val <= 2) { desc = "POCO DOLOR: Molestia leve."; emoji = "🙂"; color = Colors.lightGreen; }
+      else if (val <= 4) { desc = "MODERADO: Percibe incomodidad."; emoji = "😐"; color = Colors.amber; }
+      else if (val <= 6) { desc = "FUERTE: Afecta bienestar."; emoji = "😟"; color = Colors.orange; }
+      else if (val <= 8) { desc = "MUY FUERTE: Limita movimiento."; emoji = "😫"; color = Colors.redAccent; }
+      else { desc = "INSOPORTABLE: Urgencia clínica."; emoji = "😭"; color = Colors.red.shade900; }
+    } else if (type == "INFLAMACION") {
+      if (val == 0) { desc = "NORMAL: Sin signos."; emoji = "💪"; color = Colors.green; }
+      else if (val <= 3) { desc = "MÍNIMA: Hinchazón leve."; emoji = "🙂"; color = Colors.lightGreen; }
+      else if (val <= 6) { desc = "MODERADA: Visible y limitante."; emoji = "😟"; color = Colors.orange; }
+      else { desc = "CRÍTICA: Inflamación sistémica."; emoji = "🔥"; color = Colors.red; }
+    } else {
+      if (val == 10) { desc = "ENÉRGICO: Energía máxima."; emoji = "⚡"; color = Colors.green; }
+      else if (val >= 7) { desc = "BUENO: Energía estable."; emoji = "🔋"; color = Colors.lightGreen; }
+      else if (val >= 4) { desc = "REGULAR: Cansancio moderado."; emoji = "🥱"; color = Colors.orange; }
+      else { desc = "AGOTADO: Sin energía basal."; emoji = "🪫"; color = Colors.red; }
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text("${val.toInt()}/10", style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
+      Container(
+        margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.3))),
+        child: Column(children: [
+          Row(children: [Text(emoji, style: const TextStyle(fontSize: 24)), const SizedBox(width: 12), Expanded(child: Text(desc, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))]),
+          SliderTheme(data: SliderThemeData(activeTrackColor: color, inactiveTrackColor: Colors.black12, thumbColor: color, trackHeight: 4), child: Slider(value: val, min: 0, max: 10, divisions: 10, onChanged: onC)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(11, (i) => Text("$i", style: TextStyle(fontSize: 8, color: val.toInt() == i ? color : Colors.grey))))),
+        ]),
+      ),
+    ]);
   }
 }

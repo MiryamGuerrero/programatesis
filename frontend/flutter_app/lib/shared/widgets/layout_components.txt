@@ -1,0 +1,244 @@
+import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
+import "../../core/theme/app_theme.dart";
+import "../../core/state/notification_provider.dart";
+
+// 1. Tarjeta de Resumen (KPIs) - Refinada
+class NutriResumenCard extends StatelessWidget {
+  const NutriResumenCard({super.key, required this.titulo, required this.valor, this.colorValor = AppTema.azulPrincipal, this.icon = Icons.analytics_outlined});
+  final String titulo;
+  final String valor;
+  final Color colorValor;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colorValor, size: 24),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(titulo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 0.5)),
+              const SizedBox(height: 2),
+              Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorValor)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 2. Barra de Búsqueda Pura (Blanca con Iluminación Celeste al seleccionar)
+class NutriTableToolbar extends StatelessWidget {
+  const NutriTableToolbar({super.key, required this.onSearch, required this.onAction, required this.actionLabel});
+  final ValueChanged<String> onSearch;
+  final VoidCallback onAction;
+  final String actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: TextField(
+              onChanged: onSearch,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white, 
+                hintText: "Escribe para buscar registros...",
+                hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5)),
+                prefixIcon: const Icon(Icons.search_rounded, color: AppTema.azulPrincipal, size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: Color(0xFFB3E5FC), width: 2), 
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          onPressed: onAction,
+          icon: const Icon(Icons.add_rounded, size: 20, color: Colors.white),
+          label: Text(actionLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTema.verdeSalud,
+            elevation: 2,
+            shadowColor: AppTema.verdeSalud.withOpacity(0.4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// 3. Contenedor de Tabla Minimalista
+class NutriTableContainer extends StatelessWidget {
+  const NutriTableContainer({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+// 4. Badge Corporativo Sutil
+class NutriBadge extends StatelessWidget {
+  const NutriBadge({super.key, required this.label, required this.type});
+  final String label;
+  final String type; 
+
+  @override
+  Widget build(BuildContext context) {
+    Color bg; Color txt;
+    if (type == 'success') { bg = const Color(0xFFE8F5E9); txt = const Color(0xFF2E7D32); }
+    else if (type == 'info') { bg = const Color(0xFFE1F5FE); txt = const Color(0xFF0277BD); }
+    else { bg = const Color(0xFFFFEBEE); txt = const Color(0xFFC62828); }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label, style: TextStyle(color: txt, fontWeight: FontWeight.bold, fontSize: 9)),
+    );
+  }
+}
+
+// 5. Utilidad de Notificaciones Estilo Toast Elegante (AdminLTE)
+class NutriSnack {
+  static void show(BuildContext context, String mensaje, {bool isError = false, WidgetRef? ref}) {
+    if (ref != null) {
+      ref.read(notificationProvider.notifier).add(
+        isError ? "Error de Sistema" : "Operación Exitosa",
+        mensaje,
+        type: isError ? NutriNotificationType.error : NutriNotificationType.success,
+      );
+    }
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.clearSnackBars(); 
+
+    final Color bgColor = isError ? const Color(0xFFC62828) : const Color(0xFF2E7D32);
+    
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent, 
+        duration: const Duration(seconds: 4),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height - 110,
+          left: MediaQuery.of(context).size.width * 0.6, 
+          right: 20,
+        ),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(4), 
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isError ? Icons.bolt_rounded : Icons.check_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  mensaje,
+                  style: GoogleFonts.inter(
+                    color: Colors.white, 
+                    fontWeight: FontWeight.w600, 
+                    fontSize: 13,
+                    letterSpacing: 0.3
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 6. Widget de Carga Tematizado (Nutrición/Salud)
+class NutriLoading extends StatelessWidget {
+  const NutriLoading({super.key, this.mensaje = "Procesando información..."});
+  final String mensaje;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 65,
+                height: 60,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal.withOpacity(0.2)),
+                ),
+              ),
+              const Icon(Icons.health_and_safety_rounded, color: AppTema.verdeSalud, size: 35),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            mensaje,
+            style: GoogleFonts.lexend(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppTema.azulPrincipal,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,4 +1,0 @@
-id,codigo,nombre,peso_puntaje
-1,ELIMINAR,Eliminar,-100
-2,DISMINUIR,Disminuir,-20
-3,PRIORIZAR,Priorizar,20

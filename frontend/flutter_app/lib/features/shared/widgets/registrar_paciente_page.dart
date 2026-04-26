@@ -2,7 +2,6 @@ import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../core/state/app_providers.dart";
-import "../../../shared/models/app_role.dart";
 
 class RegistrarPacientePage extends ConsumerStatefulWidget {
   final VoidCallback onBack;
@@ -32,30 +31,30 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   int _idProvincia = 5; // Chimborazo
   String? _enfermedadBase;
 
-  // --- ALERGIAS ---
+  // --- ALERGIAS E INTOLERANCIAS ---
+  bool? _esIntoleranteLactosa;
+  bool? _tieneAlergiaGrupos;
+  bool? _tieneAlergiaIngredientes;
   final List<int> _selectedSubgrupos = [];
   final List<Map<String, dynamic>> _selectedIngredientes = [];
-  final _searchIngredienteCtrl = TextEditingController();
 
-  // --- DATOS CLÍNICOS INICIALES ---
+  // --- DATOS CLÍNICOS ---
   final _pesoCtrl = TextEditingController();
   final _tallaCtrl = TextEditingController();
   final _pcrCtrl = TextEditingController();
   final _rigidezCtrl = TextEditingController();
-  final _notaCtrl = TextEditingController();
+  final _observacionesMedicoCtrl = TextEditingController();
   int _dolorEva = 0;
   int _inflamacion = 0;
   int _fatiga = 0;
   bool _brote = false;
 
-  // --- DATOS TUTOR ---
+  // --- TUTOR ---
   final _cedulaTutorCtrl = TextEditingController();
   final _nombreTutorCtrl = TextEditingController();
   final _emailTutorCtrl = TextEditingController();
   final _telTutorCtrl = TextEditingController();
   final _dirTutorCtrl = TextEditingController();
-  
-  String? _idTutorExistente;
   int? _idParentesco;
   bool _tutorVerificado = false;
   bool _esTutorNuevo = false;
@@ -97,17 +96,14 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       final res = await dio.get("gestion-pacientes/buscar-tutor/${_cedulaTutorCtrl.text}");
       if (res.data['existe'] == true) {
         setState(() {
-          _idTutorExistente = res.data['id'];
           _nombreTutorCtrl.text = res.data['nombre'] ?? "";
           _emailTutorCtrl.text = res.data['email'] ?? "";
-          _telTutorCtrl.text = res.data['telefono'] ?? "";
-          _dirTutorCtrl.text = res.data['direccion'] ?? "";
           _tutorVerificado = true; _esTutorNuevo = false;
         });
         _showMsg("✅ Tutor encontrado", Colors.blue);
       } else {
         setState(() {
-          _idTutorExistente = null; _nombreTutorCtrl.clear(); _emailTutorCtrl.clear();
+          _nombreTutorCtrl.clear(); _emailTutorCtrl.clear();
           _tutorVerificado = true; _esTutorNuevo = true;
         });
         _showMsg("ℹ️ Tutor nuevo. Complete los datos.", Colors.orange);
@@ -119,48 +115,47 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
 
   Future<void> _registrar() async {
     if (_nombreCtrl.text.isEmpty || _fnac == null || _idSexo == null || _enfermedadBase == null || !_tutorVerificado || _idParentesco == null) {
-      return _showMsg("⚠️ Faltan campos obligatorios o verificar al tutor", Colors.red);
+      return _showMsg("⚠️ Faltan campos obligatorios", Colors.red);
     }
 
     setState(() => _saving = true);
     try {
       final dio = ref.read(dioProvider);
+      
       final payload = {
-        "nombre": _nombreCtrl.text,
-        "fecha_nacimiento": _fnac!.toIso8601String().split('T')[0],
-        "id_sexo": _idSexo,
-        "id_provincia": _idProvincia,
-        "enfermedad_principal": _enfermedadBase,
-        "id_parentesco": _idParentesco,
-        "id_tutor": _idTutorExistente,
-        "tutor_cedula": _cedulaTutorCtrl.text,
-        "tutor_nombre": _nombreTutorCtrl.text,
-        "tutor_email": _emailTutorCtrl.text,
-        "tutor_telefono": _telTutorCtrl.text,
-        "tutor_direccion": _dirTutorCtrl.text,
-        "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
-        "alergias_subgrupos": _selectedSubgrupos
+        "paciente": {
+          "nombre_completo": _nombreCtrl.text,
+          "fecha_nacimiento": _fnac!.toIso8601String().split('T')[0],
+          "id_sexo": _idSexo,
+          "id_provincia": _idProvincia,
+        },
+        "tutor": {
+          "cedula": _cedulaTutorCtrl.text,
+          "nombre": _nombreTutorCtrl.text,
+          "email": _emailTutorCtrl.text,
+          "id_parentesco": _idParentesco,
+        },
+        "salud": {
+          "id_patologia_base": _condicionesClinicas.firstWhere((c) => c['nombre'] == _enfermedadBase)['id'],
+          "peso_kg": double.tryParse(_pesoCtrl.text) ?? 0,
+          "talla_cm": double.tryParse(_tallaCtrl.text) ?? 0,
+          "edad_meses": (DateTime.now().difference(_fnac!).inDays / 30).floor(),
+          "dolor_eva": _dolorEva,
+          "inflamacion": _inflamacion,
+          "fatiga": _fatiga,
+          "pcr": double.tryParse(_pcrCtrl.text) ?? 0,
+          "rigidez_min": int.tryParse(_rigidezCtrl.text) ?? 0,
+          "brote_activo": _brote,
+          "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
+          "alergias_subgrupos": _selectedSubgrupos,
+          "observaciones_medicas": _observacionesMedicoCtrl.text,
+        }
       };
 
-      final resP = await dio.post("gestion-pacientes/registrar", data: payload);
-      final String newId = resP.data['id'];
-
-      await dio.post("gestion-pacientes/control", data: {
-        "id_paciente": newId,
-        "peso_kg": double.tryParse(_pesoCtrl.text) ?? 0,
-        "talla_cm": double.tryParse(_tallaCtrl.text) ?? 0,
-        "nivel_dolor_eva": _dolorEva,
-        "nivel_inflamacion": _inflamacion,
-        "nivel_fatiga": _fatiga,
-        "inflamacion_pcr": double.tryParse(_pcrCtrl.text) ?? 0,
-        "minutos_rigidez_matutina": int.tryParse(_rigidezCtrl.text) ?? 0,
-        "hay_brote_activo": _brote,
-        "nota_evolucion": "Registro Inicial Maestro. ${_notaCtrl.text}",
-      });
-
-      _showMsg("✅ Expediente Completo Creado", Colors.green);
+      await dio.post("gestion-pacientes/registrar", data: payload);
+      _showMsg("✅ Expediente Maestro Creado", Colors.green);
       widget.onBack();
-    } catch (e) { _showMsg("❌ Error en el registro", Colors.red); }
+    } catch (e) { _showMsg("❌ Error en el registro integral", Colors.red); }
     finally { setState(() => _saving = false); }
   }
 
@@ -169,18 +164,16 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
     if (_loadingCatalogos) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        leading: IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back, color: Colors.white)),
-        title: const Text("REGISTRO MAESTRO DE PACIENTE", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.white)),
-        backgroundColor: const Color(0xFF00BFA5), // TURQUESA
-        elevation: 0,
+        title: const Text("REGISTRO INTEGRAL DEL PACIENTE", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: const Color(0xFF00BFA5),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         child: Center(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 1100),
+            constraints: const BoxConstraints(maxWidth: 1200),
             child: Form(
               key: _formKey,
               child: Column(
@@ -188,31 +181,34 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex: 1, child: _buildSectionIdentidad()),
-                      const SizedBox(width: 24),
-                      Expanded(flex: 1, child: _buildSectionClinica()),
+                      Expanded(child: _buildSectionIdentidad()),
+                      const SizedBox(width: 20),
+                      Expanded(child: _buildSectionClinica()),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex: 1, child: _buildSectionAlergias()),
-                      const SizedBox(width: 24),
-                      Expanded(flex: 1, child: _buildSectionTutor()),
+                      Expanded(child: _buildSectionAlergias()),
+                      const SizedBox(width: 20),
+                      Expanded(child: _buildSectionTutor()),
                     ],
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 24),
+                  _card(
+                    title: "OBSERVACIONES MÉDICAS GENERALES", icon: Icons.edit_note, color: Colors.blueGrey,
+                    child: TextFormField(controller: _observacionesMedicoCtrl, maxLines: 3, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: "Notas adicionales del médico...")),
+                  ),
+                  const SizedBox(height: 40),
                   SizedBox(
-                    width: double.infinity, height: 65,
-                    child: FilledButton.icon(
+                    width: double.infinity, height: 60,
+                    child: FilledButton(
                       onPressed: _saving ? null : _registrar,
-                      icon: const Icon(Icons.cloud_done_outlined),
-                      label: Text(_saving ? "PROCESANDO..." : "FINALIZAR Y CREAR EXPEDIENTE COMPLETO", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00BFA5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      child: Text(_saving ? "GUARDANDO..." : "FINALIZAR REGISTRO MAESTRO", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                  const SizedBox(height: 60),
                 ],
               ),
             ),
@@ -223,32 +219,26 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   }
 
   Widget _buildSectionIdentidad() {
-    return _card(title: "1. IDENTIDAD DEL NIÑO(A)", icon: Icons.child_care, color: Colors.blue, child: Column(
+    return _card(title: "1. DATOS DE IDENTIDAD", icon: Icons.person, color: Colors.blue, child: Column(
       children: [
         TextFormField(controller: _nombreCtrl, decoration: const InputDecoration(labelText: "Nombre Completo *", border: OutlineInputBorder())),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(children: [
           Expanded(child: ListTile(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
             title: Text(_fnac == null ? "Fecha Nacimiento *" : _fnac!.toLocal().toString().split(' ')[0]),
-            trailing: const Icon(Icons.calendar_month),
             onTap: () async {
               final d = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now());
               if (d != null) setState(() => _fnac = d);
             },
           )),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(child: DropdownButtonFormField<int>(
             value: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['nombre']))).toList(),
             onChanged: (v) => setState(() => _idSexo = v), decoration: const InputDecoration(labelText: "Sexo *", border: OutlineInputBorder()),
           )),
         ]),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<int>(
-          value: _idProvincia, items: _provincias.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
-          onChanged: null, decoration: const InputDecoration(labelText: "Provincia (Fijo: Chimborazo)", border: OutlineInputBorder(), filled: true),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']))).toList(),
           onChanged: (v) => setState(() => _enfermedadBase = v), decoration: const InputDecoration(labelText: "Enfermedad Base *", border: OutlineInputBorder()),
@@ -258,106 +248,162 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   }
 
   Widget _buildSectionClinica() {
-    return _card(title: "2. ESTADO CLÍNICO INICIAL", icon: Icons.monitor_heart, color: Colors.teal, child: Column(
+    return _card(title: "2. ESTADO CLÍNICO (BROTE Y PCR)", icon: Icons.health_and_safety, color: Colors.teal, child: Column(
       children: [
         Row(children: [
-          Expanded(child: TextFormField(controller: _pesoCtrl, decoration: const InputDecoration(labelText: "Peso (kg)", border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-          const SizedBox(width: 16),
-          Expanded(child: TextFormField(controller: _tallaCtrl, decoration: const InputDecoration(labelText: "Talla (cm)", border: OutlineInputBorder()), keyboardType: TextInputType.number)),
+          Expanded(child: TextFormField(controller: _pesoCtrl, decoration: const InputDecoration(labelText: "Peso (kg) *", border: OutlineInputBorder()))),
+          const SizedBox(width: 12),
+          Expanded(child: TextFormField(controller: _tallaCtrl, decoration: const InputDecoration(labelText: "Talla (cm) *", border: OutlineInputBorder()))),
         ]),
-        const SizedBox(height: 16),
-        Row(children: [
-          const Text("Dolor (EVA): "),
-          Expanded(child: Slider(value: _dolorEva.toDouble(), min: 0, max: 10, divisions: 10, label: _dolorEva.toString(), activeColor: Colors.orange, onChanged: (v) => setState(() => _dolorEva = v.toInt()))),
-          Text(_dolorEva.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          const Text("Inflamación: "),
-          Expanded(child: Slider(value: _inflamacion.toDouble(), min: 0, max: 10, divisions: 10, label: _inflamacion.toString(), activeColor: Colors.redAccent, onChanged: (v) => setState(() => _inflamacion = v.toInt()))),
-          Text(_inflamacion.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          const Text("Fatiga:       "),
-          Expanded(child: Slider(value: _fatiga.toDouble(), min: 0, max: 10, divisions: 10, label: _fatiga.toString(), activeColor: Colors.blueGrey, onChanged: (v) => setState(() => _fatiga = v.toInt()))),
-          Text(_fatiga.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(child: TextFormField(controller: _pcrCtrl, decoration: const InputDecoration(labelText: "PCR Inicial", border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-          const SizedBox(width: 16),
-          Expanded(child: TextFormField(controller: _rigidezCtrl, decoration: const InputDecoration(labelText: "Rigidez (min)", border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-        ]),
-        SwitchListTile(title: const Text("¿Brote activo?"), value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red),
+        const SizedBox(height: 12),
+        TextFormField(controller: _pcrCtrl, decoration: const InputDecoration(labelText: "PCR (Proteína C Reactiva) *", border: OutlineInputBorder(), hintText: "Valor numérico")),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: _brote ? Colors.red.shade50 : Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: _brote ? Colors.red : Colors.green)),
+          child: SwitchListTile(
+            title: Text(_brote ? "BROTE ACTIVO" : "SIN BROTE", style: TextStyle(fontWeight: FontWeight.bold, color: _brote ? Colors.red : Colors.green)),
+            subtitle: const Text("Estado inflamatorio actual de la enfermedad"),
+            value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red,
+          ),
+        ),
       ],
     ));
   }
 
   Widget _buildSectionAlergias() {
-    return _card(title: "3. ALERGIAS E INTOLERANCIAS", icon: Icons.no_food, color: Colors.redAccent, child: Column(
+    return _card(title: "3. SEGURIDAD: ALERGIAS", icon: Icons.warning_amber_rounded, color: Colors.redAccent, child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Paso 1: ¿Alergia a algún subgrupo completo?", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          height: 150, decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
-          child: ListView(children: _allSubgrupos.map((s) => CheckboxListTile(
-            title: Text(s['nombre'], style: const TextStyle(fontSize: 12)), value: _selectedSubgrupos.contains(s['id']),
-            onChanged: (v) => setState(() { if (v!) _selectedSubgrupos.add(s['id']); else _selectedSubgrupos.remove(s['id']); }), dense: true,
-          )).toList()),
+        _preguntaSiNo(
+          pregunta: "¿ES INTOLERANTE A LA LACTOSA?",
+          valor: _esIntoleranteLactosa,
+          onChanged: (v) => setState(() {
+            _esIntoleranteLactosa = v;
+            if (v == true) _marcarLacteosAuto();
+            else _quitarLacteosAuto();
+          }),
         ),
-        const SizedBox(height: 20),
-        const Text("Paso 2: Alergias a ingredientes específicos", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Autocomplete<Map<String, dynamic>>(
-          displayStringForOption: (o) => o['nombre'],
-          optionsBuilder: (v) => _allIngredientes.where((i) => i['nombre'].toString().toLowerCase().contains(v.text.toLowerCase())).cast<Map<String, dynamic>>(),
-          onSelected: (i) { if (!_selectedIngredientes.any((x) => x['id'] == i['id'])) setState(() => _selectedIngredientes.add(i)); },
-          fieldViewBuilder: (ctx, ctrl, focus, onFieldSubmitted) => TextField(
-            controller: ctrl, focusNode: focus, decoration: const InputDecoration(hintText: "Buscar ingrediente...", prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
+        const Divider(height: 32),
+        _preguntaSiNo(
+          pregunta: "¿TIENE ALERGIAS A GRUPOS (MARISCOS, ETC)?",
+          valor: _tieneAlergiaGrupos,
+          onChanged: (v) => setState(() {
+            _tieneAlergiaGrupos = v;
+            if (v == false) _selectedSubgrupos.clear();
+            // Mantener lácteos si Step 1 fue SÍ
+            if (_esIntoleranteLactosa == true) _marcarLacteosAuto();
+          }),
+        ),
+        if (_tieneAlergiaGrupos == true) 
+          Container(
+            height: 140, margin: const EdgeInsets.only(top: 10), decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+            child: ListView(children: _allSubgrupos.where((s) {
+              final isLacteo = s['nombre'].toString().toLowerCase().contains("lácteo");
+              // REDUNDANCIA: Si ya dijo que es intolerante, NO mostramos los grupos lácteos aquí
+              if (_esIntoleranteLactosa == true && isLacteo) return false;
+              return true;
+            }).map((s) => CheckboxListTile(
+              title: Text(s['nombre'], style: const TextStyle(fontSize: 13)), value: _selectedSubgrupos.contains(s['id']),
+              onChanged: (v) => setState(() { if(v!) _selectedSubgrupos.add(s['id']); else _selectedSubgrupos.remove(s['id']); }),
+            )).toList()),
           ),
+        const Divider(height: 32),
+        _preguntaSiNo(
+          pregunta: "¿ALERGIA A INGREDIENTES PUNTUALES?",
+          valor: _tieneAlergiaIngredientes,
+          onChanged: (v) => setState(() => _tieneAlergiaIngredientes = v),
         ),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, children: _selectedIngredientes.map((i) => Chip(
-          label: Text(i['nombre'], style: const TextStyle(fontSize: 10)), onDeleted: () => setState(() => _selectedIngredientes.remove(i)),
-        )).toList()),
+        if (_tieneAlergiaIngredientes == true) 
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Autocomplete<Map<String, dynamic>>(
+              displayStringForOption: (o) => o['nombre'],
+              optionsBuilder: (v) => _allIngredientes.where((i) {
+                final n = i['nombre'].toString().toLowerCase();
+                final subgrupoId = i['id_subgrupo_alimentario'];
+
+                // 1. FILTRO LACTOSA: Si es intolerante, bloqueamos derivados por nombre por seguridad
+                if (_esIntoleranteLactosa == true && (n.contains("leche") || n.contains("queso") || n.contains("lactosa") || n.contains("yogurt"))) return false;
+                
+                // 2. FILTRO REDUNDANCIA GRUPO: Si el subgrupo ya está bloqueado (ej. Mariscos), no mostrar ingrediente
+                if (subgrupoId != null && _selectedSubgrupos.contains(subgrupoId)) return false;
+
+                return n.contains(v.text.toLowerCase());
+              }).cast<Map<String, dynamic>>(),
+              onSelected: (i) => setState(() {
+                if (!_selectedIngredientes.any((x) => x['id'] == i['id'])) {
+                  _selectedIngredientes.add(i);
+                }
+              }),
+            ),
+          ),
+        if (_selectedIngredientes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(spacing: 8, children: _selectedIngredientes.map((i) => Chip(
+              label: Text(i['nombre'], style: const TextStyle(fontSize: 10)),
+              onDeleted: () => setState(() => _selectedIngredientes.remove(i)),
+            )).toList()),
+          ),
       ],
     ));
   }
 
+  Widget _preguntaSiNo({required String pregunta, bool? valor, required Function(bool) onChanged}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(pregunta, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      const SizedBox(height: 8),
+      Row(children: [
+        _btnSiNo(label: "SÍ", isSelected: valor == true, color: Colors.redAccent, onTap: () => onChanged(true)),
+        const SizedBox(width: 10),
+        _btnSiNo(label: "NO", isSelected: valor == false, color: Colors.green, onTap: () => onChanged(false)),
+      ]),
+    ]);
+  }
+
+  Widget _btnSiNo({required String label, required bool isSelected, required Color color, required VoidCallback onTap}) {
+    return Expanded(child: InkWell(onTap: onTap, child: Container(
+      height: 45, alignment: Alignment.center,
+      decoration: BoxDecoration(color: isSelected ? color : Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: isSelected ? color : Colors.grey.shade300, width: 2)),
+      child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.grey)),
+    )));
+  }
+
+  void _marcarLacteosAuto() {
+    final ids = _allSubgrupos.where((s) => s['nombre'].toString().toLowerCase().contains("lácteo")).map((s) => s['id'] as int);
+    setState(() => _selectedSubgrupos.addAll(ids));
+  }
+
+  void _quitarLacteosAuto() {
+    final ids = _allSubgrupos.where((s) => s['nombre'].toString().toLowerCase().contains("lácteo")).map((s) => s['id'] as int).toSet();
+    setState(() => _selectedSubgrupos.removeWhere((id) => ids.contains(id)));
+  }
+
   Widget _buildSectionTutor() {
-    return _card(title: "4. REPRESENTANTE (TUTOR)", icon: Icons.person_search, color: Colors.orange, child: Column(
+    return _card(title: "4. REPRESENTANTE", icon: Icons.family_restroom, color: Colors.orange, child: Column(
       children: [
         Row(children: [
-          Expanded(child: TextFormField(controller: _cedulaTutorCtrl, decoration: const InputDecoration(labelText: "Cédula Tutor *", border: OutlineInputBorder()), keyboardType: TextInputType.number)),
+          Expanded(child: TextFormField(controller: _cedulaTutorCtrl, decoration: const InputDecoration(labelText: "Cédula *", border: OutlineInputBorder()))),
           const SizedBox(width: 8),
-          ElevatedButton(onPressed: _buscandoTutor ? null : _verificarTutor, style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white), child: const Text("VERIFICAR")),
+          ElevatedButton(onPressed: _verificarTutor, child: const Text("VERIFICAR")),
         ]),
-        if (_tutorVerificado) ...[
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            value: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
-            onChanged: (v) => setState(() => _idParentesco = v), decoration: const InputDecoration(labelText: "Parentesco *", border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(controller: _nombreTutorCtrl, enabled: _esTutorNuevo, decoration: const InputDecoration(labelText: "Nombre Completo *", border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          TextFormField(controller: _emailTutorCtrl, enabled: _esTutorNuevo, decoration: const InputDecoration(labelText: "Email *", border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          TextFormField(controller: _telTutorCtrl, decoration: const InputDecoration(labelText: "Teléfono", border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          TextFormField(controller: _dirTutorCtrl, decoration: const InputDecoration(labelText: "Dirección", border: OutlineInputBorder())),
-        ]
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          value: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+          onChanged: (v) => setState(() => _idParentesco = v), decoration: const InputDecoration(labelText: "Parentesco *", border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(controller: _nombreTutorCtrl, enabled: _esTutorNuevo, decoration: const InputDecoration(labelText: "Nombre Tutor *", border: OutlineInputBorder())),
       ],
     ));
   }
 
   Widget _card({required String title, required IconData icon, required Color color, required Widget child}) {
     return Card(
-      elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 10), Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color))]),
+      elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Icon(icon, color: color), const SizedBox(width: 10), Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
         const SizedBox(height: 20),
         child,
       ])),

@@ -1,3 +1,4 @@
-from app.api.v1.route_registry import default_route_registry
+from fastapi import APIRouter
+from app.api.v1.route_registry import registro_rutas_defecto
 
-api_router = default_route_registry().build_router()
+api_router = registro_rutas_defecto.construir_router()

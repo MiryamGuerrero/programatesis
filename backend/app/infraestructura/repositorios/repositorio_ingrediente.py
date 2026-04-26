@@ -1,0 +1,152 @@
+from typing import List, Dict, Set
+from ...core.db import db_cursor
+from ...domain.repositorios.interfaces import IRepositorioIngrediente
+
+class RepositorioIngredientePostgres(IRepositorioIngrediente):
+    def listar_todos_activos(self) -> List[dict]:
+        with db_cursor() as cur:
+            cur.execute("select id, nombre, id_subgrupo_alimentario from nutricion.ingrediente where activo = true")
+            columnas = [desc[0] for desc in cur.description]
+            return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def listar_ingredientes_admin(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False) -> List[dict]:
+        term = f"%{consulta}%" if consulta else "%"
+        sql = """
+            with etiquetas_agg as (
+                select ie.id_ingrediente, array_agg(en.nombre_visible) as etiquetas
+                from nutricion.ingrediente_etiqueta ie
+                join nutricion.etiqueta_nutricional en on en.id = ie.id_etiqueta
+                group by ie.id_ingrediente
+            ),
+            valores_nutri as (
+                select 
+                    inut.id_ingrediente,
+                    max(inut.valor_por_100g) filter (where n.codigo = 'ENERGIA_KCAL') as energia_kcal,
+                    max(inut.valor_por_100g) filter (where n.codigo = 'PROTEINAS_G') as proteinas_g
+                from nutricion.ingrediente_nutriente inut
+                join nutricion.nutriente n on n.id = inut.id_nutriente
+                group by inut.id_ingrediente
+            )
+            select 
+                i.*, 
+                g.nombre as categoria, 
+                sg.nombre as subgrupo,
+                coalesce(ea.etiquetas, '{}') as etiquetas,
+                coalesce(vn.energia_kcal, 0) as energia_kcal,
+                coalesce(vn.proteinas_g, 0) as proteinas_g
+            from nutricion.ingrediente i
+            left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+            left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
+            left join etiquetas_agg ea on ea.id_ingrediente = i.id
+            left join valores_nutri vn on vn.id_ingrediente = i.id
+            where (%s or i.activo = true) and (i.nombre ilike %s)
+            order by i.nombre limit %s offset %s
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (incluir_inactivos, term, limite, desplazamiento))
+            columnas = [desc[0] for desc in cur.description]
+            return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def resolver_id_grupo(self, id_grupo: int | None, nombre: str | None) -> int | None:
+        if id_grupo: return id_grupo
+        if not nombre: return None
+        with db_cursor() as cur:
+            cur.execute("insert into nutricion.grupo_alimentario (nombre) values (%s) on conflict (nombre) do update set nombre = excluded.nombre returning id", (nombre.strip(),))
+            return cur.fetchone()[0]
+
+    def resolver_id_subgrupo(self, id_grupo: int | None, id_subgrupo: int | None, nombre: str | None) -> int | None:
+        if id_subgrupo: return id_subgrupo
+        if not id_grupo or not nombre: return None
+        with db_cursor() as cur:
+            cur.execute("insert into nutricion.subgrupo_alimentario (id_grupo_alimentario, nombre) values (%s, %s) on conflict (id_grupo_alimentario, nombre) do update set nombre = excluded.nombre returning id", (id_grupo, nombre.strip()))
+            return cur.fetchone()[0]
+
+    def crear_ingrediente(self, datos: dict) -> int:
+        columnas = ", ".join(datos.keys())
+        marcadores = ", ".join(["%s"] * len(datos))
+        sql = f"insert into nutricion.ingrediente ({columnas}) values ({marcadores}) returning id"
+        with db_cursor() as cur:
+            cur.execute(sql, list(datos.values()))
+            return cur.fetchone()[0]
+
+    def obtener_mapa_etiquetas_ingrediente(self) -> Dict[int, Set[int]]:
+        with db_cursor() as cur:
+            cur.execute("select id_ingrediente, id_etiqueta from nutricion.ingrediente_etiqueta")
+            mapa: Dict[int, Set[int]] = {}
+            for row in cur.fetchall():
+                id_ing, id_eti = row
+                if id_ing not in mapa: mapa[id_ing] = set()
+                mapa[id_ing].add(id_eti)
+            return mapa
+
+    def obtener_mapa_ingredientes_receta(self) -> Dict[int, Set[int]]:
+        with db_cursor() as cur:
+            cur.execute("select id_receta, id_ingrediente from nutricion.receta_ingrediente")
+            mapa: Dict[int, Set[int]] = {}
+            for row in cur.fetchall():
+                id_rec, id_ing = row
+                if id_rec not in mapa: mapa[id_rec] = set()
+                mapa[id_rec].add(id_ing)
+            return mapa
+
+    def buscar_ingredientes_filtrados(self, id_paciente: str, consulta: str = None, limite: int = 50) -> List[dict]:
+        """
+        Busca ingredientes aplicando filtros de alergias del paciente.
+        Implementa búsqueda inteligente: bloquea derivados por nombre y subgrupos.
+        Incluye lógica especial para intolerancia a la lactosa.
+        """
+        with db_cursor() as cur:
+            # 1. Obtener IDs de ingredientes y subgrupos prohibidos
+            cur.execute("select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true", (id_paciente,))
+            ing_prohibidos = {r[0] for r in cur.fetchall()}
+            
+            cur.execute("select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true", (id_paciente,))
+            sub_prohibidos = {r[0] for r in cur.fetchall()}
+
+            # 2. Verificar si hay intolerancia a la lactosa registrada en condiciones o alergias
+            # Buscamos si el grupo 'Lácteos' está en sub_prohibidos
+            cur.execute("select id from nutricion.grupo_alimentario where nombre ilike '%%lácteo%%'")
+            res_lacteos = cur.fetchall()
+            id_lacteos = [r[0] for r in res_lacteos]
+            
+            es_intolerante_lactosa = any(idx in sub_prohibidos for idx in id_lacteos)
+
+            # 3. Obtener nombres de ingredientes prohibidos para expansión inteligente
+            nombres_prohibidos = []
+            if ing_prohibidos:
+                cur.execute("select nombre from nutricion.ingrediente where id = any(%s)", (list(ing_prohibidos),))
+                nombres_prohibidos = [r[0].lower().strip() for r in cur.fetchall()]
+
+            # Si es intolerante a la lactosa, añadimos palabras clave de advertencia
+            if es_intolerante_lactosa:
+                nombres_prohibidos.extend(["leche", "queso", "yogurt", "lactosa", "mantequilla", "crema de leche"])
+
+            term = f"%{consulta}%" if consulta else "%"
+            
+            # 4. Consulta principal con exclusión
+            sql = """
+                select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
+                from nutricion.ingrediente i
+                left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
+                where i.activo = true 
+                  and i.nombre ilike %s
+                  and i.id != all(%s)
+                  and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))
+            """
+            
+            # Exclusión adicional por nombre (búsqueda inteligente y preventiva)
+            # Eliminamos duplicados en nombres_prohibidos
+            nombres_unicos = list(set(nombres_prohibidos))
+            for nombre in nombres_unicos:
+                # Usamos marcadores para evitar inyección aunque sean nombres controlados
+                sql += f" and i.nombre not ilike '%%{nombre}%%'"
+
+            # Si es intolerante a la lactosa, también bloqueamos ingredientes del grupo lácteo directamente
+            if id_lacteos:
+                sql += f" and (i.id_grupo_alimentario is null or i.id_grupo_alimentario != all(array{id_lacteos}))"
+
+            sql += " order by i.nombre limit %s"
+            
+            cur.execute(sql, (term, list(ing_prohibidos) if ing_prohibidos else [0], list(sub_prohibidos) if sub_prohibidos else [0], limite))
+            columnas = [desc[0] for desc in cur.description]
+            return [dict(zip(columnas, row)) for row in cur.fetchall()]

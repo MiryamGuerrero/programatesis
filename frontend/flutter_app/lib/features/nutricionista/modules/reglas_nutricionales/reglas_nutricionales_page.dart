@@ -1,19 +1,20 @@
 import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
 
 import "../../../../core/state/app_providers.dart";
+import "../../../../core/theme/app_theme.dart";
+import "../../../../shared/widgets/layout_components.dart";
 
 class ReglasNutricionalesPage extends ConsumerStatefulWidget {
   const ReglasNutricionalesPage({super.key});
 
   @override
-  ConsumerState<ReglasNutricionalesPage> createState() =>
-      _ReglasNutricionalesPageState();
+  ConsumerState<ReglasNutricionalesPage> createState() => _ReglasNutricionalesPageState();
 }
 
-class _ReglasNutricionalesPageState
-    extends ConsumerState<ReglasNutricionalesPage> {
+class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPage> {
   bool _loading = true;
   List<dynamic> _rules = [];
   Map<String, List<dynamic>> _formData = {
@@ -44,36 +45,140 @@ class _ReglasNutricionalesPageState
         _loading = false;
       });
     } catch (e) {
-      debugPrint("Error loading rules: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error al cargar datos")),
-        );
+        NutriSnack.show(context, "Error al sincronizar motor de reglas", isError: true, ref: ref);
         setState(() => _loading = false);
       }
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTema.grisLienzo,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(),
+            const SizedBox(height: 32),
+            NutriTableToolbar(
+              actionLabel: "Nueva Regla",
+              onAction: () => _showForm(),
+              onSearch: (v) {}, // TODO: Implementar búsqueda local
+            ),
+            const SizedBox(height: 24),
+            _buildTableContainer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Motor de Reglas Nutricionales", 
+                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text("Configuración de lógica experta basada en etiquetas y condiciones clínicas.", 
+                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+              ],
+            ),
+            IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: _loadData),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsRow() {
+    return Row(
+      children: [
+        Expanded(child: NutriResumenCard(titulo: "TOTAL REGLAS", valor: "${_rules.length}", icon: Icons.rule_rounded)),
+        const SizedBox(width: 20),
+        Expanded(child: NutriResumenCard(titulo: "ESTRICTAS", valor: "${_rules.where((r) => r['es_estricta'] == true).length}", colorValor: Colors.redAccent, icon: Icons.gavel_rounded)),
+        const SizedBox(width: 20),
+        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.cianLimpio, icon: Icons.auto_awesome_rounded)),
+      ],
+    );
+  }
+
+  Widget _buildTableContainer() {
+    return NutriTableContainer(
+      child: _loading
+        ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Consultando base de conocimientos..."))
+        : _rules.isEmpty
+          ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No se encontraron reglas configuradas.")))
+          : DataTable(
+              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
+              columns: [
+                _col("REGLA / ACCIÓN"),
+                _col("CONDICIONES ACTIVADORAS"),
+                _col("ESTADO"),
+                _col("ACCIONES"),
+              ],
+              rows: _rules.map((r) {
+                final condicionesIds = r["id_condiciones"] as List;
+                final nombresCondiciones = condicionesIds.map((id) {
+                  final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
+                  return c != null ? c["nombre"] : "Condición $id";
+                }).join(", ");
+
+                return DataRow(cells: [
+                  DataCell(Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("${r['etiqueta_nombre']} ➔ ${r['accion_codigo']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
+                      if (r['mensaje_error'] != null)
+                        Text(r['mensaje_error'], style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontStyle: FontStyle.italic)),
+                    ],
+                  )),
+                  DataCell(SizedBox(width: 300, child: Text(nombresCondiciones, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))),
+                  DataCell(NutriBadge(label: r['es_estricta'] == true ? "ESTRICTA" : "RECOMENDACIÓN", type: r['es_estricta'] == true ? 'danger' : 'info')),
+                  DataCell(Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.edit_note_rounded, color: AppTema.azulPrincipal, size: 20), onPressed: () => _showForm(r)),
+                      IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _deleteRule(r["id"])),
+                    ],
+                  )),
+                ]);
+              }).toList(),
+            ),
+    );
+  }
+
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+
   Future<void> _deleteRule(int id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Eliminar Regla"),
-        content: const Text("¿Estás seguro de eliminar esta regla nutricional?"),
+        title: const Text("Confirmar eliminación"),
+        content: const Text("¿Deseas eliminar esta regla del motor heurístico?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Eliminar")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text("SÍ, ELIMINAR")),
         ],
       ),
     );
-
     if (confirm != true) return;
-
     try {
       await _dio.delete("reglas-nutricionales/$id");
       _loadData();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al eliminar")));
+      if (mounted) NutriSnack.show(context, "Regla eliminada", ref: ref);
+    } catch (_) {
+      if (mounted) NutriSnack.show(context, "Error al eliminar", isError: true, ref: ref);
     }
   }
 
@@ -90,134 +195,13 @@ class _ReglasNutricionalesPageState
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.restaurant_menu, color: Colors.blue.shade800, size: 28),
-                      const SizedBox(width: 12),
-                      const Text("Reglas de Condición Nutricional", 
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => _showForm(),
-                    icon: const Icon(Icons.add),
-                    label: const Text("Nueva Regla Nutricional"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text("Configure cómo las etiquetas de los alimentos afectan las recomendaciones basándose exclusivamente en condiciones de tipo nutricional.",
-                style: TextStyle(color: Colors.black54)),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _rules.isEmpty 
-          ? const Center(child: Text("No hay reglas nutricionales configuradas."))
-          : ListView.builder(
-            padding: const EdgeInsets.only(top: 8),
-            itemCount: _rules.length,
-            itemBuilder: (ctx, i) {
-              final r = _rules[i] as Map<String, dynamic>;
-              final condicionesIds = r["id_condiciones"] as List;
-              final nombresCondiciones = condicionesIds.map((id) {
-                final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
-                return c != null ? c["nombre"] : "Condición $id";
-              }).join(", ");
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                elevation: 1,
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: _getActionColor(r['accion_codigo']).withOpacity(0.1),
-                    child: Icon(_getActionIcon(r['accion_codigo']), color: _getActionColor(r['accion_codigo'])),
-                  ),
-                  title: Text("${r['etiqueta_nombre']} ➔ ${r['accion_codigo']}", 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      if (r["es_estricta"] == true)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                          child: const Text("⚠️ REGLA ESTRICTA", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
-                        ),
-                      const SizedBox(height: 4),
-                      RichText(text: TextSpan(
-                        style: const TextStyle(color: Colors.black87, fontSize: 13),
-                        children: [
-                          const TextSpan(text: "Se aplica en: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                          TextSpan(text: nombresCondiciones),
-                        ]
-                      )),
-                      Text("Mensaje: ${r['mensaje_error'] ?? 'Sin mensaje'}", style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black54)),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit_note, color: Colors.blue), onPressed: () => _showForm(r), tooltip: "Editar"),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteRule(r["id"]), tooltip: "Eliminar"),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getActionColor(String? action) {
-    switch (action) {
-      case 'ELIMINAR': return Colors.red;
-      case 'DISMINUIR': return Colors.orange;
-      case 'PRIORIZAR': return Colors.green;
-      default: return Colors.grey;
-    }
-  }
-
-  IconData _getActionIcon(String? action) {
-    switch (action) {
-      case 'ELIMINAR': return Icons.block;
-      case 'DISMINUIR': return Icons.trending_down;
-      case 'PRIORIZAR': return Icons.star;
-      default: return Icons.rule;
-    }
-  }
 }
 
 class _RuleFormDialog extends StatefulWidget {
   final Map<String, List<dynamic>> formData;
   final Map<String, dynamic>? initialRule;
   final VoidCallback onSaved;
-
   const _RuleFormDialog({required this.formData, this.initialRule, required this.onSaved});
-
   @override
   State<_RuleFormDialog> createState() => _RuleFormDialogState();
 }
@@ -241,128 +225,69 @@ class _RuleFormDialogState extends State<_RuleFormDialog> {
     _esEstricta = r?["es_estricta"] ?? false;
   }
 
-  Future<void> _save(WidgetRef ref) async {
-    if (_idEtiqueta == null || _idAccion == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Complete etiqueta y acción")));
-      return;
-    }
-    if (_selectedCondiciones.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Seleccione al menos una condición")));
-      return;
-    }
-    
-    setState(() => _saving = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final payload = {
-        "id_etiqueta": _idEtiqueta,
-        "id_accion": _idAccion,
-        "id_tipo_objetivo": 3,
-        "mensaje_error": _mensajeController.text,
-        "id_condiciones": _selectedCondiciones,
-        "es_estricta": _esEstricta,
-      };
-
-      if (widget.initialRule != null) {
-        await dio.put("reglas-nutricionales/${widget.initialRule!['id']}", data: payload);
-      } else {
-        await dio.post("reglas-nutricionales", data: payload);
-      }
-      widget.onSaved();
-    } catch (e) {
-      setState(() => _saving = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al guardar regla")));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(widget.initialRule != null ? Icons.edit_calendar : Icons.add_moderator, color: Colors.blue),
-            const SizedBox(width: 10),
-            Text(widget.initialRule != null ? "Editar Regla Nutricional" : "Nueva Regla Nutricional"),
-          ],
-        ),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DropdownButtonFormField<int>(
-                  value: _idEtiqueta,
-                  decoration: const InputDecoration(labelText: "Etiqueta Alimentaria", prefixIcon: Icon(Icons.label)),
-                  items: widget.formData["etiquetas"]?.map((e) => DropdownMenuItem<int>(
-                    value: e["id"], child: Text(e["nombre"]))).toList(),
-                  onChanged: (v) => setState(() => _idEtiqueta = v),
+    return Consumer(builder: (context, ref, _) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(widget.initialRule != null ? "Editar Regla Experta" : "Nueva Regla Experta", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                value: _idEtiqueta,
+                decoration: const InputDecoration(labelText: "Etiqueta", filled: true),
+                items: widget.formData["etiquetas"]?.map((e) => DropdownMenuItem<int>(value: e["id"], child: Text(e["nombre"]))).toList(),
+                onChanged: (v) => setState(() => _idEtiqueta = v),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: _idAccion,
+                decoration: const InputDecoration(labelText: "Acción", filled: true),
+                items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]))).toList(),
+                onChanged: (v) => setState(() => _idAccion = v),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                height: 180,
+                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+                child: ListView(
+                  children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(
+                    title: Text(c["nombre"], style: const TextStyle(fontSize: 13)),
+                    value: _selectedCondiciones.contains(c["id"]),
+                    onChanged: (v) => setState(() => v == true ? _selectedCondiciones.add(c["id"]) : _selectedCondiciones.remove(c["id"])),
+                  )).toList(),
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  value: _idAccion,
-                  decoration: const InputDecoration(labelText: "Acción Recomendada", prefixIcon: Icon(Icons.settings_suggest)),
-                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(
-                    value: a["id"], child: Text(a["nombre"]))).toList(),
-                  onChanged: (v) => setState(() => _idAccion = v),
-                ),
-                const SizedBox(height: 20),
-                const Text("Condiciones Nutricionales activadoras:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey.shade50
-                  ),
-                  height: 200,
-                  child: ListView(
-                    children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(
-                      title: Text(c["nombre"], style: const TextStyle(fontSize: 14)),
-                      value: _selectedCondiciones.contains(c["id"]),
-                      activeColor: Colors.blue,
-                      onChanged: (v) {
-                        setState(() {
-                          if (v == true) _selectedCondiciones.add(c["id"]);
-                          else _selectedCondiciones.remove(c["id"]);
-                        });
-                      },
-                      dense: true,
-                    )).toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _mensajeController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: "Mensaje de Guía", 
-                    hintText: "Ej: Disminuir por exceso de sodio...",
-                    prefixIcon: Icon(Icons.comment)
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  title: const Text("¿Regla Estricta?", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                  subtitle: const Text("Si se marca, el sistema prohibirá el alimento."),
-                  value: _esEstricta,
-                  activeColor: Colors.red,
-                  onChanged: (v) => setState(() => _esEstricta = v),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+              TextField(controller: _mensajeController, decoration: const InputDecoration(labelText: "Mensaje Guía", filled: true)),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                title: const Text("¿Regla Estricta?", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                value: _esEstricta,
+                onChanged: (v) => setState(() => _esEstricta = v),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
-          FilledButton(
-            onPressed: _saving ? null : () => _save(ref),
-            child: _saving ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("Guardar Regla"),
-          ),
-        ],
       ),
-    );
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
+        ElevatedButton(onPressed: () => _save(ref), style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white), child: const Text("GUARDAR REGLA")),
+      ],
+    ));
+  }
+
+  Future<void> _save(WidgetRef ref) async {
+    if (_idEtiqueta == null || _idAccion == null || _selectedCondiciones.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final payload = { "id_etiqueta": _idEtiqueta, "id_accion": _idAccion, "id_tipo_objetivo": 3, "mensaje_error": _mensajeController.text, "id_condiciones": _selectedCondiciones, "es_estricta": _esEstricta };
+      if (widget.initialRule != null) await ref.read(dioProvider).put("reglas-nutricionales/${widget.initialRule!['id']}", data: payload);
+      else await ref.read(dioProvider).post("reglas-nutricionales", data: payload);
+      widget.onSaved();
+    } catch (_) {}
   }
 }

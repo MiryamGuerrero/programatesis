@@ -110,100 +110,104 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     double energy = (comp['energia_kcal'] ?? 0).toDouble();
     double total = prot + fat + carb;
 
-    // Si todo es cero, mostramos un círculo gris
     bool hasData = total > 0;
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        SizedBox(
-          height: 220,
-          child: PieChart(
-            PieChartData(
-              sectionsSpace: 4,
-              centerSpaceRadius: 65,
-              startDegreeOffset: -90,
-              sections: hasData ? [
-                PieChartSectionData(
-                  value: prot, 
-                  color: const Color(0xFF3B82F6), 
-                  radius: 20, 
-                  title: '${((prot/total)*100).toStringAsFixed(0)}%',
-                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                  showTitle: total > 5
-                ),
-                PieChartSectionData(
-                  value: fat, 
-                  color: const Color(0xFFF59E0B), 
-                  radius: 20, 
-                  title: '${((fat/total)*100).toStringAsFixed(0)}%',
-                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                  showTitle: total > 5
-                ),
-                PieChartSectionData(
-                  value: carb, 
-                  color: const Color(0xFF10B981), 
-                  radius: 20, 
-                  title: '${((carb/total)*100).toStringAsFixed(0)}%',
-                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                  showTitle: total > 5
-                ),
-              ] : [
-                PieChartSectionData(value: 1, color: Colors.grey.shade200, radius: 20, showTitle: false),
-              ],
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            height: 200,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 0, // Eliminar espacio para un look más limpio
+                centerSpaceRadius: 70,
+                startDegreeOffset: -90,
+                sections: hasData ? [
+                  PieChartSectionData(
+                    value: prot, 
+                    color: const Color(0xFF3B82F6), 
+                    radius: 12, // Radio más delgado
+                    showTitle: false,
+                  ),
+                  PieChartSectionData(
+                    value: fat, 
+                    color: const Color(0xFFF59E0B), 
+                    radius: 12,
+                    showTitle: false,
+                  ),
+                  PieChartSectionData(
+                    value: carb, 
+                    color: const Color(0xFF10B981), 
+                    radius: 12,
+                    showTitle: false,
+                  ),
+                ] : [
+                  PieChartSectionData(value: 1, color: Colors.grey.shade100, radius: 10, showTitle: false),
+                ],
+              ),
             ),
           ),
-        ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${energy.toStringAsFixed(0)}',
+                style: GoogleFonts.inter(fontSize: 40, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -1),
+              ),
+              Text(
+                'KCAL / 100g',
+                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey.shade300, letterSpacing: 1),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacroGrid(Map comp) {
+    return Column(
+      children: [
+        Row(
           children: [
-            Text(
-              '${energy.toStringAsFixed(0)}',
-              style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
-            ),
-            Text(
-              'KCAL',
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade400, letterSpacing: 1.5),
-            ),
+            Expanded(child: _macroCard('Proteínas', '${comp['proteinas_g'] ?? 0}g', const Color(0xFF3B82F6))),
+            const SizedBox(width: 12),
+            Expanded(child: _macroCard('Grasas', '${comp['grasa_total_g'] ?? 0}g', const Color(0xFFF59E0B))),
+            const SizedBox(width: 12),
+            Expanded(child: _macroCard('Carbs', '${comp['hidratos_carbono_g'] ?? 0}g', const Color(0xFF10B981))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _macroCard('Fibra', '${comp['fibra_g'] ?? 0}g', Colors.brown.shade300)),
+            const SizedBox(width: 12),
+            Expanded(child: _macroCard('Sodio', '${comp['sodio_mg'] ?? 0}mg', Colors.blueGrey.shade400)),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildMacroGrid(Map comp) {
+  Widget _macroCard(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9))
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
+        ]
       ),
       child: Column(
         children: [
-          _macroRow('Proteínas', '${comp['proteinas_g'] ?? 0} g', const Color(0xFF3B82F6)),
-          const Divider(height: 24),
-          _macroRow('Grasas Totales', '${comp['grasa_total_g'] ?? 0} g', const Color(0xFFF59E0B)),
-          const Divider(height: 24),
-          _macroRow('Carbohidratos', '${comp['hidratos_carbono_g'] ?? 0} g', const Color(0xFF10B981)),
-          const Divider(height: 24),
-          _macroRow('Fibra Vegetal', '${comp['fibra_g'] ?? 0} g', Colors.brown.shade300),
-          const Divider(height: 24),
-          _macroRow('Sodio', '${comp['sodio_mg'] ?? 0} mg', Colors.blueGrey),
+          Text(label, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
         ],
       ),
-    );
-  }
-
-  Widget _macroRow(String label, String value, Color color) {
-    return Row(
-      children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 12),
-        Text(label, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
-        const Spacer(),
-        Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF1E293B))),
-      ],
     );
   }
 
@@ -214,21 +218,26 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Etiquetas de Seguridad Alimentaria", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Row(
+          children: [
+            const Icon(Icons.security_rounded, size: 16, color: Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Text("SEGURIDAD ALIMENTARIA", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.5)),
+          ],
+        ),
         const SizedBox(height: 12),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           children: tags.map((t) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.blue.shade100)
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              t['nombre'], 
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800)
+              t['nombre'].toString().toUpperCase(), 
+              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF334155))
             ),
           )).toList(),
         ),

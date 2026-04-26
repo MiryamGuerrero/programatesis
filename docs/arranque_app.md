@@ -175,3 +175,63 @@ Ejemplos:
 - POST /reemplazo-equivalente
 - POST /adherencia-calculo
 - POST /preferencias-aprendidas
+-----------------------------------------------
+✦ Para verificar que la reingeniería ha sido exitosa, debes arrancar los dos componentes principales: el   
+  Backend (FastAPI) y el Frontend (Flutter).                                                               
+                                                                                                           
+  Aquí tienes las instrucciones exactas paso a paso para tu sistema:
+
+  1. Arrancar el Backend (Servidor de Inteligencia)
+
+  Abre una terminal en la carpeta del backend y ejecuta los siguientes comandos:
+
+   1 # 1. Entra a la carpeta del backend
+   2 cd "C:\Users\mirya\Desktop\ReumaNutri vf\programatesis\backend"
+   3
+   4 # 2. Activa el entorno virtual (ya configurado)
+   5 .\.venv\Scripts\activate
+   6
+   7 # 3. Inicia el servidor con Uvicorn
+   8 uvicorn app.main:app --reload --port 8000
+
+   * ¿Cómo saber si sirve? Abre tu navegador en http://localhost:8000/docs (http://localhost:8000/docs).
+     Verás la documentación Swagger con todos los nuevos endpoints en español que hemos creado.
+
+  ---
+
+  2. Arrancar el Frontend (App de Flutter)
+
+  Abre otra terminal (no cierres la del backend) y ejecuta:
+
+   1 # 1. Entra a la carpeta de la app
+   2 cd "C:\Users\mirya\Desktop\ReumaNutri vf\programatesis\frontend\flutter_app"
+   3
+   4 # 2. Descarga las dependencias si es necesario
+   5 flutter pub get
+   6
+   7 # 3. Lanza la aplicación (en el navegador para pruebas rápidas o en un emulador)
+   8 flutter run -d chrome
+
+  ---
+
+  3. Prueba de Fuego: ¿Qué debes ver?
+
+  Una vez que ambos estén corriendo:
+
+   1. Dashboard del Tutor: Al loguearte como tutor de un paciente, deberías ver la nueva pantalla azul con
+      el círculo de cumplimiento ("Panel del Tutor").
+   2. Plan del Día: Haz clic en "Ver Plan de Comidas de Hoy". Si hay datos en la base de datos, verás la
+      lista de platos.
+   3. Registro de Consumo: Dale al botón "Marcar" en un plato. Si se pone en verde y el círculo de la
+      pantalla principal sube su porcentaje, la Arquitectura Hexagonal está funcionando al 100% (desde la
+      UI hasta la base de datos).
+
+  4. Verificación de la API (Swagger)
+  En el Swagger (/docs), busca estos endpoints para confirmar que la reingeniería está activa:
+   * GET /api/v1/nutricionista/paciente/{id}/evaluar-reglas (El nuevo motor de reglas).
+   * POST /api/v1/tutor/registrar-consumo (El nuevo sistema de seguimiento).
+
+  Nota: Asegúrate de tener conexión a internet para que Supabase pueda responder a las consultas de la base
+  de datos.
+
+  ¿Lograste levantar el servidor de Backend con éxito?

@@ -1,36 +1,54 @@
+import logging
 from contextlib import contextmanager
-from functools import lru_cache
+import time
 
 from psycopg_pool import ConnectionPool
-
+from psycopg import OperationalError
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 
-@lru_cache
+_pool = None
+
 def get_pool() -> ConnectionPool:
-    settings = get_settings()
-    if not settings.database_url:
-        raise RuntimeError("DATABASE_URL must be configured")
+    global _pool
+    if _pool is None:
+        settings = get_settings()
+        if not settings.database_url:
+            raise RuntimeError("DATABASE_URL must be configured")
+        
+        _pool = ConnectionPool(
+            conninfo=settings.database_url,
+            min_size=1,
+            max_size=10,
+            kwargs={"autocommit": True, "prepare_threshold": None},
+            check=ConnectionPool.check_connection,
+            num_workers=1 
+        )
+    return _pool
 
-    return ConnectionPool(
-        conninfo=settings.database_url,
-        min_size=1,
-        max_size=8,
-        kwargs={"autocommit": True, "prepare_threshold": None},
-    )
-
+def close_pool():
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None
+        logger.info("Pool de conexiones cerrado correctamente.")
 
 @contextmanager
 def db_cursor():
     pool = get_pool()
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            yield cur
-
-
-@contextmanager
-def get_connection():
-    """Backward-compatible connection helper for legacy repositories."""
-    pool = get_pool()
-    with pool.connection() as conn:
-        yield conn
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            with pool.connection() as conn:
+                with conn.cursor() as cur:
+                    yield cur
+                    return
+        except OperationalError as e:
+            retry_count += 1
+            logger.warning(f"Reintento de conexión {retry_count}/{max_retries}")
+            if retry_count >= max_retries:
+                raise e
+            time.sleep(1)

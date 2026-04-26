@@ -295,6 +295,30 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
 
 final selectedPatientIdProvider = StateProvider<String?>((ref) => null);
 
+final miPerfilProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  // Observar la sesión: si la sesión cambia, este provider se reiniciará automáticamente
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return {}; // O manejar como error/limpio si no hay sesión
+  }
+  
+  final repo = ref.watch(supabaseCrudRepositoryProvider);
+  return await repo.fetchMyProfile();
+});
+
+final usersListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(supabaseCrudRepositoryProvider).fetchUsers();
+});
+
+final patientsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(supabaseCrudRepositoryProvider).fetchPatients();
+});
+
+// NAVEGACIÓN INTERNA MÉDICO
+enum MedicoView { list, register, control }
+final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);
+final selectedPatientProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+
 final supabaseCrudRepositoryProvider = Provider<SupabaseCrudRepository>((ref) {
   return SupabaseCrudRepository(
     ref.watch(supabaseClientProvider),

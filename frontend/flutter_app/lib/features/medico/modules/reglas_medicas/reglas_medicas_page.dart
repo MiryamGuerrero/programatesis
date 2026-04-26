@@ -241,26 +241,35 @@ class _MedicalRuleFormDialogState extends State<_MedicalRuleFormDialog> {
                 DropdownButtonFormField<int>(
                   value: _idObjetivo,
                   decoration: const InputDecoration(labelText: "Tipo de Objetivo"),
-                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"]))).toList(),
+                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(
+                    value: o["id"], 
+                    child: Text(o["nombre"]?.toString() ?? "Objetivo ${o['id']}")
+                  )).toList(),
                   onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
                 ),
                 if (_idObjetivo != null)
                   DropdownButtonFormField<int>(
                     value: _idTarget,
                     decoration: const InputDecoration(labelText: "Seleccionar Item"),
-                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"]))).toList(),
+                    items: targetList.map((t) => DropdownMenuItem<int>(
+                      value: t["id"], 
+                      child: Text(t["nombre"]?.toString() ?? "Item ${t['id']}")
+                    )).toList(),
                     onChanged: (v) => setState(() => _idTarget = v),
                   ),
                 DropdownButtonFormField<int>(
                   value: _idAccion,
                   decoration: const InputDecoration(labelText: "Acción Médica"),
-                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]))).toList(),
+                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(
+                    value: a["id"], 
+                    child: Text(a["nombre"]?.toString() ?? "Acción ${a['id']}")
+                  )).toList(),
                   onChanged: (v) => setState(() => _idAccion = v),
                 ),
                 const SizedBox(height: 16),
                 const Text("Se activa en diagnósticos:", style: TextStyle(fontWeight: FontWeight.bold)),
                 ...widget.formData["condiciones"]!.map((c) => CheckboxListTile(
-                  title: Text(c["nombre"]),
+                  title: Text(c["nombre"]?.toString() ?? "Condición ${c['id']}"),
                   value: _selectedCondiciones.contains(c["id"]),
                   onChanged: (v) {
                     setState(() { if (v == true) _selectedCondiciones.add(c["id"]); else _selectedCondiciones.remove(c["id"]); });

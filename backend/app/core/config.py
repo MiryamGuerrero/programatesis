@@ -1,13 +1,18 @@
+import os
 from functools import lru_cache
 from typing import List
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Obtener la ruta raíz del proyecto (donde debería estar el .env)
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_PATH = ROOT_DIR / ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "backend/.env"),
+        env_file=str(ENV_PATH),
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -26,6 +26,9 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   List<Map<String, dynamic>> _alergiasGrupos = [];
   List<int> _condicionesTemporalesActivas = [];
 
+  bool? _tieneAlergias;
+  bool _esIntoleranteLactosa = false;
+
   String? _selectedPacienteId;
   int? _selectedIngredienteId;
   int? _selectedGrupoId;
@@ -52,487 +55,149 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   List<Map<String, dynamic>> get _ingredientesFiltrados {
     final query = _ingredienteSearchController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _ingredientes;
-    }
-
-    return _ingredientes
-        .where(
-          (item) => (item["nombre"]?.toString().toLowerCase() ?? "").contains(query),
-        )
-        .toList();
+    final seleccionados = _alergiasIngredientes.map((a) => a["id_ingrediente"] as int).toSet();
+    
+    return _ingredientes.where((item) {
+      final id = (item["id"] as num).toInt();
+      if (seleccionados.contains(id)) return false;
+      if (query.isEmpty) return true;
+      return (item["nombre"]?.toString().toLowerCase() ?? "").contains(query);
+    }).toList();
   }
 
   List<Map<String, dynamic>> get _gruposFiltrados {
     final query = _grupoSearchController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _grupos;
-    }
+    final seleccionados = _alergiasGrupos.map((a) => a["id_grupo_alimentario"] as int).toSet();
 
-    return _grupos
-        .where(
-          (item) => (item["nombre"]?.toString().toLowerCase() ?? "").contains(query),
-        )
-        .toList();
+    return _grupos.where((item) {
+      final id = (item["id"] as num).toInt();
+      if (seleccionados.contains(id)) return false;
+      if (query.isEmpty) return true;
+      return (item["nombre"]?.toString().toLowerCase() ?? "").contains(query);
+    }).toList();
   }
 
-  Future<void> _loadCatalogs() async {
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      final ingredientes = await repo.fetchIngredientes();
-      final grupos = await repo.fetchCatalog("nutricion", "grupo_alimentario");
-      final condiciones = await repo.fetchCatalog("heuristico", "condicion");
-      final tipos = await repo.fetchCatalog("heuristico", "catalogo_tipo_condicion");
-
-      final tiposTemporales = tipos
-          .where((t) => (t["codigo"]?.toString().toLowerCase().trim() ?? "") == "temporal")
-          .map((t) => (t["id"] as num).toInt())
-          .toSet();
-
-      final temporales = condiciones
-          .where((c) {
-            final idTipo = c["id_tipo_condicion"];
-            if (idTipo is! num) {
-              return false;
-            }
-            final activa = c["activa"];
-            if (activa is bool && !activa) {
-              return false;
-            }
-            return tiposTemporales.contains(idTipo.toInt());
-          })
-          .toList();
-
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _ingredientes = ingredientes;
-        _grupos = grupos;
-        _condicionesTemporalesCatalogo = temporales;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = "No fue posible cargar catálogos para alergias y condiciones: $error");
-    }
-  }
-
-  Future<void> _buscarPacientes() async {
-    final query = _pacienteSearchController.text.trim();
-    if (query.isEmpty) {
-      setState(() {
-        _pacientesEncontrados = [];
-        _selectedPacienteId = null;
-      });
-      return;
-    }
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      final rows = await repo.searchPatients(query: query, limit: 10);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _pacientesEncontrados = rows;
-        _selectedPacienteId = rows.isEmpty ? null : rows.first["id"]?.toString();
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  String _label(Map<String, dynamic> item) {
-    final nombre = item["nombre"]?.toString().trim();
-    if (nombre != null && nombre.isNotEmpty) {
-      return nombre;
-    }
-    final descripcion = item["descripcion"]?.toString().trim();
-    if (descripcion != null && descripcion.isNotEmpty) {
-      return descripcion;
-    }
-    return "Elemento";
-  }
-
-  Future<void> _cargarPaciente() async {
-    final idPaciente = _selectedPacienteId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      setState(() => _error = "Selecciona un paciente para cargar alergias y condiciones.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      final alergias = await repo.fetchPatientAllergies(idPaciente: idPaciente);
-      final condiciones = await repo.fetchPatientTemporaryConditions(idPaciente: idPaciente);
-
-      if (!mounted) {
-        return;
-      }
-
-      final ingredientes = (alergias["ingredientes"] is List)
-          ? List<Map<String, dynamic>>.from(alergias["ingredientes"] as List)
-          : <Map<String, dynamic>>[];
-      final grupos = (alergias["grupos"] is List)
-          ? List<Map<String, dynamic>>.from(alergias["grupos"] as List)
-          : <Map<String, dynamic>>[];
-      final ids = (condiciones["id_condiciones_temporales"] is List)
-          ? (condiciones["id_condiciones_temporales"] as List).whereType<num>().map((n) => n.toInt()).toList()
-          : <int>[];
-
-      setState(() {
-        _alergiasIngredientes = ingredientes;
-        _alergiasGrupos = grupos;
-        _condicionesTemporalesActivas = ids;
-        _resultado = "Datos del paciente cargados correctamente.";
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _agregarAlergiaIngrediente() async {
-    final idPaciente = _selectedPacienteId;
-    final idIngrediente = _selectedIngredienteId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      setState(() => _error = "Selecciona un paciente para registrar alergia por ingrediente.");
-      return;
-    }
-    if (idIngrediente == null) {
-      setState(() => _error = "Selecciona un ingrediente.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.addPatientIngredientAllergy(
-        idPaciente: idPaciente,
-        idIngrediente: idIngrediente,
-        observacion: _observacionIngredienteController.text.trim().isEmpty
-            ? null
-            : _observacionIngredienteController.text.trim(),
-      );
-      _observacionIngredienteController.clear();
-      await _cargarPaciente();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Alergia por ingrediente registrada.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _eliminarAlergiaIngrediente(int idIngrediente) async {
-    final idPaciente = _selectedPacienteId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      return;
-    }
-
-    final confirmed = await _confirmDeletion(
-      title: "Quitar alergia por ingrediente",
-      message: "¿Deseas quitar esta alergia por ingrediente del paciente?",
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.removePatientIngredientAllergy(
-        idPaciente: idPaciente,
-        idIngrediente: idIngrediente,
-      );
-      await _cargarPaciente();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  Future<void> _agregarAlergiaGrupo() async {
-    final idPaciente = _selectedPacienteId;
-    final idGrupo = _selectedGrupoId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      setState(() => _error = "Selecciona un paciente para registrar alergia por grupo.");
-      return;
-    }
-    if (idGrupo == null) {
-      setState(() => _error = "Selecciona un grupo alimentario.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.addPatientGroupAllergy(
-        idPaciente: idPaciente,
-        idGrupoAlimentario: idGrupo,
-        observacion: _observacionGrupoController.text.trim().isEmpty
-            ? null
-            : _observacionGrupoController.text.trim(),
-      );
-      _observacionGrupoController.clear();
-      await _cargarPaciente();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Alergia por grupo alimentario registrada.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _eliminarAlergiaGrupo(int idGrupo) async {
-    final idPaciente = _selectedPacienteId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      return;
-    }
-
-    final confirmed = await _confirmDeletion(
-      title: "Quitar alergia por grupo",
-      message: "¿Deseas quitar esta alergia por grupo alimentario del paciente?",
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.removePatientGroupAllergy(
-        idPaciente: idPaciente,
-        idGrupoAlimentario: idGrupo,
-      );
-      await _cargarPaciente();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  Future<void> _guardarCondicionesTemporales() async {
-    final idPaciente = _selectedPacienteId;
-    if (idPaciente == null || idPaciente.isEmpty) {
-      setState(() => _error = "Selecciona un paciente antes de guardar condiciones temporales.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.updatePatientTemporaryConditions(
-        idPaciente: idPaciente,
-        idCondicionesTemporales: _condicionesTemporalesActivas,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Condiciones temporales actualizadas correctamente.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<bool> _confirmDeletion({
-    required String title,
-    required String message,
-  }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("Cancelar"),
-            ),
-            FilledButton.tonal(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text("Quitar"),
-            ),
-          ],
-        );
-      },
-    );
-
-    return result == true;
-  }
-
-  Widget _statusBadge({
-    required String label,
-    required int count,
-    required bool highlighted,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: highlighted ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        "$label: $count",
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: highlighted ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPacienteSelector() {
+  Widget _buildValidacionAlergias() {
     return Card(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Paciente",
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            const Text(
+              "¿El paciente presenta alergias o intolerancias?",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _pacienteSearchController,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _buscarPacientes(),
-                    decoration: const InputDecoration(
-                      labelText: "Buscar paciente por nombre",
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                  ),
+                ChoiceChip(
+                  label: const Text("SÍ"),
+                  selected: _tieneAlergias == true,
+                  onSelected: (val) => setState(() => _tieneAlergias = val ? true : null),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _buscarPacientes,
-                  child: const Text("Buscar"),
+                const SizedBox(width: 12),
+                ChoiceChip(
+                  label: const Text("NO"),
+                  selected: _tieneAlergias == false,
+                  onSelected: (val) => setState(() {
+                    _tieneAlergias = val ? false : null;
+                    if (val) {
+                      _alergiasIngredientes = [];
+                      _alergiasGrupos = [];
+                      _esIntoleranteLactosa = false;
+                    }
+                  }),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedPacienteId,
-              decoration: const InputDecoration(labelText: "Seleccionar paciente"),
-              items: _pacientesEncontrados
-                  .map(
-                    (p) => DropdownMenuItem<String>(
-                      value: p["id"]?.toString(),
-                      child: Text("${p["nombre_completo"] ?? ""} - ID: ${p["id"] ?? "N/A"}"),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _selectedPacienteId = value),
-            ),
-            const SizedBox(height: 10),
-            FilledButton.tonalIcon(
-              onPressed: _loading ? null : _cargarPaciente,
-              icon: const Icon(Icons.download),
-              label: Text(_loading ? "Cargando..." : "Cargar alergias y condiciones"),
-            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildIntoleranciaLactosa() {
+    return SwitchListTile(
+      title: const Text("Intolerancia a la Lactosa", style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: const Text("Bloquea automáticamente todos los subgrupos de lácteos"),
+      value: _esIntoleranteLactosa,
+      onChanged: (val) {
+        setState(() => _esIntoleranteLactosa = val);
+        if (val) {
+          // Lógica para bloquear lácteos automáticamente si el backend lo requiere o marcar grupo
+          _marcarLacteosComoAlergia();
+        }
+      },
+    );
+  }
+
+  void _marcarLacteosComoAlergia() {
+    // Buscar grupo de lácteos en el catálogo
+    final lacteos = _grupos.firstWhere(
+      (g) => (g["nombre"]?.toString().toLowerCase().contains("lácteo") ?? false),
+      orElse: () => {},
+    );
+    if (lacteos.isNotEmpty) {
+      final idLacteos = (lacteos["id"] as num).toInt();
+      if (!_alergiasGrupos.any((a) => a["id_grupo_alimentario"] == idLacteos)) {
+        _selectedGrupoId = idLacteos;
+        _observacionGrupoController.text = "Bloqueo automático por intolerancia a la lactosa";
+        _agregarAlergiaGrupo();
+      }
+    }
+  }
+
   Widget _buildAlergiasTab() {
+    if (_selectedPacienteId == null) {
+      return const Center(child: Text("Selecciona un paciente primero"));
+    }
+
+    if (_tieneAlergias == null) {
+      return _buildValidacionAlergias();
+    }
+
+    if (_tieneAlergias == false) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+            SizedBox(height: 12),
+            Text("Paciente sin restricciones alimentarias reportadas"),
+          ],
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.only(top: 12),
       children: [
+        Card(
+          child: Column(
+            children: [
+              _buildIntoleranciaLactosa(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Alergias por ingrediente", style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _ingredienteSearchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: "Filtrar ingredientes por nombre",
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _ingredienteSearchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: "Limpiar",
-                            onPressed: () {
-                              _ingredienteSearchController.clear();
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.close),
-                          ),
-                  ),
-                ),
+                Text("Alergia a ingredientes específicos", 
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
-                  initialValue: _selectedIngredienteId,
-                  decoration: const InputDecoration(labelText: "Ingrediente"),
+                  isExpanded: true,
+                  value: _selectedIngredienteId,
+                  decoration: const InputDecoration(
+                    labelText: "Buscar e ingrediente a bloquear",
+                    prefixIcon: Icon(Icons.search),
+                  ),
                   items: _ingredientesFiltrados
                       .map(
                         (i) => DropdownMenuItem<int>(
@@ -546,30 +211,33 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 const SizedBox(height: 10),
                 TextField(
                   controller: _observacionIngredienteController,
-                  decoration: const InputDecoration(labelText: "Observación (opcional)"),
+                  decoration: const InputDecoration(labelText: "Observación"),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _agregarAlergiaIngrediente,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Agregar alergia de ingrediente"),
-                ),
-                const SizedBox(height: 12),
-                ..._alergiasIngredientes.map(
-                  (item) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(item["nombre_ingrediente"]?.toString() ?? "Ingrediente"),
-                    subtitle: Text(item["observacion"]?.toString() ?? "Sin observación"),
-                    trailing: IconButton(
-                      tooltip: "Quitar alergia",
-                      onPressed: () => _eliminarAlergiaIngrediente((item["id_ingrediente"] as num).toInt()),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _loading || _selectedIngredienteId == null ? null : _agregarAlergiaIngrediente,
+                    icon: const Icon(Icons.block),
+                    label: const Text("Bloquear Ingrediente"),
                   ),
                 ),
-                if (_alergiasIngredientes.isEmpty)
-                  const Text("No hay alergias por ingrediente registradas."),
+                const SizedBox(height: 12),
+                if (_alergiasIngredientes.isNotEmpty) ...[
+                  const Divider(),
+                  ..._alergiasIngredientes.map(
+                    (item) => ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.cancel, color: Colors.red),
+                      title: Text(item["nombre_ingrediente"]?.toString() ?? "Ingrediente"),
+                      subtitle: Text(item["observacion"]?.toString() ?? ""),
+                      trailing: IconButton(
+                        onPressed: () => _eliminarAlergiaIngrediente((item["id_ingrediente"] as num).toInt()),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -581,30 +249,16 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Alergias por grupo alimentario", style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _grupoSearchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: "Filtrar grupos por nombre",
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _grupoSearchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: "Limpiar",
-                            onPressed: () {
-                              _grupoSearchController.clear();
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.close),
-                          ),
-                  ),
-                ),
+                Text("Alergia a subgrupos alimentarios", 
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
-                  initialValue: _selectedGrupoId,
-                  decoration: const InputDecoration(labelText: "Grupo alimentario"),
+                  isExpanded: true,
+                  value: _selectedGrupoId,
+                  decoration: const InputDecoration(
+                    labelText: "Seleccionar subgrupo a eliminar",
+                    prefixIcon: Icon(Icons.category),
+                  ),
                   items: _gruposFiltrados
                       .map(
                         (g) => DropdownMenuItem<int>(
@@ -618,30 +272,33 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 const SizedBox(height: 10),
                 TextField(
                   controller: _observacionGrupoController,
-                  decoration: const InputDecoration(labelText: "Observación (opcional)"),
+                  decoration: const InputDecoration(labelText: "Observación"),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _agregarAlergiaGrupo,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Agregar alergia de grupo"),
-                ),
-                const SizedBox(height: 12),
-                ..._alergiasGrupos.map(
-                  (item) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(item["nombre_grupo"]?.toString() ?? "Grupo"),
-                    subtitle: Text(item["observacion"]?.toString() ?? "Sin observación"),
-                    trailing: IconButton(
-                      tooltip: "Quitar alergia",
-                      onPressed: () => _eliminarAlergiaGrupo((item["id_grupo_alimentario"] as num).toInt()),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _loading || _selectedGrupoId == null ? null : _agregarAlergiaGrupo,
+                    icon: const Icon(Icons.layers_clear),
+                    label: const Text("Eliminar Subgrupo"),
                   ),
                 ),
-                if (_alergiasGrupos.isEmpty)
-                  const Text("No hay alergias por grupo registradas."),
+                const SizedBox(height: 12),
+                if (_alergiasGrupos.isNotEmpty) ...[
+                  const Divider(),
+                  ..._alergiasGrupos.map(
+                    (item) => ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.warning, color: Colors.orange),
+                      title: Text(item["nombre_grupo"]?.toString() ?? "Grupo"),
+                      subtitle: Text(item["observacion"]?.toString() ?? ""),
+                      trailing: IconButton(
+                        onPressed: () => _eliminarAlergiaGrupo((item["id_grupo_alimentario"] as num).toInt()),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
