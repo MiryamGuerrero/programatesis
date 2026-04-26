@@ -211,3 +211,61 @@ def listar_etiquetas_medico(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     return repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
+
+# --- CRUD CATÁLOGO DE CONDICIONES ---
+
+@router.get("/catalogos/condiciones")
+def listar_condiciones_catalogo(
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("heuristico", "condicion")
+
+@router.get("/catalogos/tipos-condicion")
+def listar_tipos_condicion(
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("heuristico", "catalogo_tipo_condicion")
+
+@router.post("/catalogos/condiciones")
+def crear_nueva_condicion(
+    payload: dict,
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    try:
+        id_c = repo.crear_condicion(payload)
+        return {"id": id_c, "success": True}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.put("/catalogos/condiciones/{id_condicion}")
+def actualizar_condicion_catalogo(
+    id_condicion: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    try:
+        exito = repo.actualizar_condicion(id_condicion, payload)
+        return {"success": exito}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.delete("/catalogos/condiciones/{id_condicion}")
+def eliminar_condicion_catalogo(
+    id_condicion: int,
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    try:
+        exito = repo.eliminar_condicion(id_condicion)
+        return {"success": exito}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

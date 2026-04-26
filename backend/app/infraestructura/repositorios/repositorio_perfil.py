@@ -122,3 +122,19 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         if esquema not in esquemas_permitidos: raise ValueError(f"Esquema {esquema} no permitido")
         sql = f"select * from {esquema}.{tabla}"
         return self.ejecutar_consulta(sql)
+
+    # --- GESTIÓN DE CONDICIONES (PATOLOGÍAS/TEMPORALES) ---
+    def crear_condicion(self, datos: dict) -> int:
+        sql = """
+            insert into heuristico.condicion (nombre, descripcion, id_tipo_condicion, activa)
+            values (%s, %s, %s, true) returning id
+        """
+        return self.ejecutar_comando(sql, (datos["nombre"], datos["descripcion"], datos["id_tipo_condicion"]))
+
+    def actualizar_condicion(self, id_condicion: int, datos: dict) -> bool:
+        sql = "update heuristico.condicion set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s where id = %s"
+        return self.ejecutar_comando(sql, (datos["nombre"], datos["descripcion"], datos["id_tipo_condicion"], datos.get("activa", True), id_condicion))
+
+    def eliminar_condicion(self, id_condicion: int) -> bool:
+        sql = "delete from heuristico.condicion where id = %s"
+        return self.ejecutar_comando(sql, (id_condicion,))

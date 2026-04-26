@@ -1,7 +1,10 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
 
-import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "../../../../core/state/app_providers.dart";
+import "../../../../core/theme/app_theme.dart";
+import "../../../../shared/widgets/layout_components.dart";
 
 class CatalogoCondicionesPage extends ConsumerStatefulWidget {
   const CatalogoCondicionesPage({super.key});
@@ -11,530 +14,324 @@ class CatalogoCondicionesPage extends ConsumerStatefulWidget {
 }
 
 class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPage> {
-  final _tipoCodigoController = TextEditingController();
-  final _tipoNombreController = TextEditingController();
-  final _condicionNombreController = TextEditingController();
-  final _condicionDescripcionController = TextEditingController();
-  final _filtroController = TextEditingController();
-
-  List<Map<String, dynamic>> _tipos = [];
-  List<Map<String, dynamic>> _condiciones = [];
-
-  int? _selectedTipoCondicion;
-  bool _condicionActiva = true;
-  bool _loading = false;
-  String? _resultado;
-  String? _error;
+  bool _loading = true;
+  List<dynamic> _condiciones = [];
+  List<dynamic> _tipos = [];
+  String _searchQuery = "";
+  final Set<int> _selectedTipos = {};
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadData);
+    _fetchData();
   }
 
-  @override
-  void dispose() {
-    _tipoCodigoController.dispose();
-    _tipoNombreController.dispose();
-    _condicionNombreController.dispose();
-    _condicionDescripcionController.dispose();
-    _filtroController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadData() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+  Future<void> _fetchData() async {
+    setState(() => _loading = true);
     try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      final tipos = await repo.fetchCatalog("heuristico", "catalogo_tipo_condicion");
-      final condiciones = await repo.fetchCatalog("heuristico", "condicion");
-
-      if (!mounted) {
-        return;
+      final dio = ref.read(dioProvider);
+      final res = await Future.wait([
+        dio.get("catalogos/condiciones"),
+        dio.get("catalogos/tipos-condicion"),
+      ]);
+      if (mounted) {
+        setState(() {
+          final allowedTypeIds = [1, 2];
+          _tipos = (res[1].data as List).where((t) => allowedTypeIds.contains(t["id"])).toList();
+          _condiciones = (res[0].data as List).where((c) => allowedTypeIds.contains(c["id_tipo_condicion"])).toList();
+          _loading = false;
+        });
       }
-      setState(() {
-        _tipos = tipos;
-        _condiciones = condiciones;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
+    } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
       }
     }
   }
 
-  String _tipoNombreById(int? idTipo) {
-    if (idTipo == null) {
-      return "Sin tipo";
-    }
-    Map<String, dynamic>? tipo;
-    for (final item in _tipos) {
-      final value = item["id"];
-      if (value is num && value.toInt() == idTipo) {
-        tipo = item;
-        break;
-      }
-    }
-    if (tipo == null) {
-      return "Tipo $idTipo";
-    }
-    return tipo["nombre"]?.toString() ?? "Tipo $idTipo";
-  }
-
-  Future<void> _crearTipo() async {
-    final codigo = _tipoCodigoController.text.trim();
-    final nombre = _tipoNombreController.text.trim();
-
-    if (codigo.isEmpty || nombre.isEmpty) {
-      setState(() => _error = "Código y nombre son obligatorios para crear tipo de condición.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.createConditionType(codigo: codigo, nombre: nombre);
-      _tipoCodigoController.clear();
-      _tipoNombreController.clear();
-      await _loadData();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Tipo de condición creado correctamente.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _crearCondicion() async {
-    final nombre = _condicionNombreController.text.trim();
-    if (nombre.isEmpty || _selectedTipoCondicion == null) {
-      setState(() => _error = "Nombre y tipo son obligatorios para crear la condición.");
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _resultado = null;
-    });
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.createCondition(
-        nombre: nombre,
-        idTipoCondicion: _selectedTipoCondicion!,
-        descripcion: _condicionDescripcionController.text.trim().isEmpty
-            ? null
-            : _condicionDescripcionController.text.trim(),
-        activa: _condicionActiva,
-      );
-      _condicionNombreController.clear();
-      _condicionDescripcionController.clear();
-      _selectedTipoCondicion = null;
-      _condicionActiva = true;
-      await _loadData();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Condición creada correctamente.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _editarTipo(Map<String, dynamic> tipo) async {
-    final idTipo = (tipo["id"] as num?)?.toInt();
-    if (idTipo == null) {
-      return;
-    }
-
-    final codigoController = TextEditingController(text: tipo["codigo"]?.toString() ?? "");
-    final nombreController = TextEditingController(text: tipo["nombre"]?.toString() ?? "");
-
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Editar tipo"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: codigoController,
-              decoration: const InputDecoration(labelText: "Código"),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: nombreController,
-              decoration: const InputDecoration(labelText: "Nombre"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text("Cancelar"),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text("Guardar"),
-          ),
-        ],
-      ),
-    );
-
-    if (updated != true) {
-      return;
-    }
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.updateConditionType(
-        idTipoCondicion: idTipo,
-        codigo: codigoController.text.trim(),
-        nombre: nombreController.text.trim(),
-      );
-      await _loadData();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Tipo actualizado correctamente.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  Future<void> _editarCondicion(Map<String, dynamic> condicion) async {
-    final idCondicion = (condicion["id"] as num?)?.toInt();
-    if (idCondicion == null) {
-      return;
-    }
-
-    final nombreController = TextEditingController(text: condicion["nombre"]?.toString() ?? "");
-    final descripcionController = TextEditingController(text: condicion["descripcion"]?.toString() ?? "");
-    int? idTipo = (condicion["id_tipo_condicion"] as num?)?.toInt();
-    bool activa = condicion["activa"] == true;
-
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Editar condición"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: "Nombre"),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: idTipo,
-                  decoration: const InputDecoration(labelText: "Tipo"),
-                  items: _tipos
-                      .map(
-                        (t) => DropdownMenuItem<int>(
-                          value: (t["id"] as num).toInt(),
-                          child: Text(t["nombre"]?.toString() ?? "Tipo"),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setDialogState(() => idTipo = value),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descripcionController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: "Descripción"),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: activa,
-                  onChanged: (value) => setDialogState(() => activa = value),
-                  title: const Text("Activa"),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("Cancelar"),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text("Guardar"),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (updated != true) {
-      return;
-    }
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.updateCondition(
-        idCondicion: idCondicion,
-        nombre: nombreController.text.trim(),
-        idTipoCondicion: idTipo,
-        descripcion: descripcionController.text.trim(),
-        activa: activa,
-      );
-      await _loadData();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Condición actualizada correctamente.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  Future<void> _toggleCondicionActiva(Map<String, dynamic> condicion, bool activa) async {
-    final idCondicion = (condicion["id"] as num).toInt();
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.updateCondition(idCondicion: idCondicion, activa: activa);
-      await _loadData();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resultado = "Estado de la condición actualizado.");
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = error.toString());
-    }
-  }
-
-  List<Map<String, dynamic>> get _condicionesFiltradas {
-    final query = _filtroController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      return _condiciones;
-    }
-
+  List<dynamic> get _filtradas {
     return _condiciones.where((c) {
-      final nombre = c["nombre"]?.toString().toLowerCase() ?? "";
-      final descripcion = c["descripcion"]?.toString().toLowerCase() ?? "";
-      return nombre.contains(query) || descripcion.contains(query);
+      final matchesSearch = c["nombre"].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesTipo = _selectedTipos.isEmpty || _selectedTipos.contains(c["id_tipo_condicion"]);
+      return matchesSearch && matchesTipo;
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Scaffold(
+      backgroundColor: AppTema.grisLienzo,
+      body: _loading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 32),
+                _buildToolbar(),
+                const SizedBox(height: 24),
+                _buildChipsFilters(),
+                const SizedBox(height: 24),
+                _buildTable(),
+              ],
+            ),
+          ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Catálogo de Condiciones",
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Tipos de condición", style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _tipoCodigoController,
-                  decoration: const InputDecoration(labelText: "Código (ej. CLINICA, TEMPORAL, NUTRICIONAL)"),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _tipoNombreController,
-                  decoration: const InputDecoration(labelText: "Nombre visible"),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _crearTipo,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Crear tipo"),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Condiciones", style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _condicionNombreController,
-                  decoration: const InputDecoration(labelText: "Nombre de condición"),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  initialValue: _selectedTipoCondicion,
-                  decoration: const InputDecoration(labelText: "Tipo de condición"),
-                  items: _tipos
-                      .map(
-                        (t) => DropdownMenuItem<int>(
-                          value: (t["id"] as num).toInt(),
-                          child: Text("${t["nombre"] ?? ""} (${t["codigo"] ?? ""})"),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _selectedTipoCondicion = value),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _condicionDescripcionController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: "Descripción (opcional)"),
-                ),
-                const SizedBox(height: 10),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _condicionActiva,
-                  onChanged: (value) => setState(() => _condicionActiva = value),
-                  title: const Text("Activa"),
-                ),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _crearCondicion,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Crear condición"),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Tipos existentes", style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                if (_tipos.isEmpty) const Text("No hay tipos registrados."),
-                ..._tipos.map(
-                  (tipo) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(tipo["nombre"]?.toString() ?? "Tipo"),
-                    subtitle: Text("Código: ${tipo["codigo"] ?? "-"}"),
-                    trailing: IconButton(
-                      onPressed: () => _editarTipo(tipo),
-                      icon: const Icon(Icons.edit),
-                      tooltip: "Editar tipo",
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _filtroController,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            labelText: "Filtrar condiciones por nombre o descripción",
-            prefixIcon: Icon(Icons.search),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_loading)
-          const LinearProgressIndicator(),
-        const SizedBox(height: 8),
-        ..._condicionesFiltradas.map(
-          (condicion) {
-            final idTipo = (condicion["id_tipo_condicion"] as num?)?.toInt();
-            final activa = condicion["activa"] == true;
-            return Card(
-              child: ListTile(
-                title: Text(condicion["nombre"]?.toString() ?? "Condición"),
-                subtitle: Text(
-                  "Tipo: ${_tipoNombreById(idTipo)}\n${condicion["descripcion"]?.toString() ?? "Sin descripción"}",
-                ),
-                isThreeLine: true,
-                trailing: Switch(
-                  value: activa,
-                  onChanged: (value) => _toggleCondicionActiva(condicion, value),
-                ),
-                onTap: () => _editarCondicion(condicion),
-              ),
-            );
-          },
-        ),
-        if (_condicionesFiltradas.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text("No hay condiciones que mostrar."),
-          ),
-        if (_resultado != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            _resultado!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        if (_error != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+        Text("Catálogo de Condiciones", 
+          style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        Text("Administración de patologías y estados clínicos pediátricos.", 
+          style: GoogleFonts.poppins(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
+  }
+
+  Widget _buildToolbar() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 55,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre de patología...",
+                hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
+        ),
+        const SizedBox(width: 20),
+        SizedBox(
+          height: 55,
+          child: FilledButton.icon(
+            onPressed: () => _abrirFormulario(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
+            label: Text("NUEVA CONDICIÓN", 
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChipsFilters() {
+    return Row(
+      children: [
+        Text("FILTRAR POR:", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+        const SizedBox(width: 16),
+        _filterChip("TODAS", _selectedTipos.isEmpty, () => setState(() => _selectedTipos.clear())),
+        const SizedBox(width: 12),
+        ..._tipos.map((t) => Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: _filterChip(
+            t["nombre"].toString().toUpperCase(), 
+            _selectedTipos.contains(t["id"]),
+            () => setState(() => _selectedTipos.contains(t["id"]) ? _selectedTipos.remove(t["id"]) : _selectedTipos.add(t["id"] as int))
+          ),
+        )),
+      ],
+    );
+  }
+
+  Widget _filterChip(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTema.azulPrincipal : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
+        ),
+        child: Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : Colors.grey.shade600)),
+      ),
+    );
+  }
+
+  Widget _buildTable() {
+    return NutriTableContainer(
+      child: DataTable(
+        headingRowHeight: 56,
+        dataRowMaxHeight: 64,
+        headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+        columns: [
+          _col("NOMBRE"),
+          _col("CLASIFICACIÓN"),
+          _col("ESTADO"),
+          _col("ACCIONES"),
+        ],
+        rows: _filtradas.map((c) {
+          final tipo = _tipos.firstWhere((t) => t["id"] == c["id_tipo_condicion"], orElse: () => {"nombre": "Médica"});
+          return DataRow(cells: [
+            DataCell(Text(c["nombre"], style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13, color: AppTema.azulOscuro))),
+            DataCell(_tipoBadge(tipo["nombre"].toString().toUpperCase(), c["id_tipo_condicion"] == 1)),
+            DataCell(_statusIcon(c["activa"] == true)),
+            DataCell(Row(
+              children: [
+                IconButton(tooltip: "Editar", icon: const Icon(Icons.edit_rounded, color: Colors.orange, size: 20), onPressed: () => _abrirFormulario(condicion: c)),
+                IconButton(tooltip: "Eliminar", icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _eliminar(c)),
+              ],
+            )),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal, letterSpacing: 0.5)));
+
+  Widget _tipoBadge(String label, bool isCronica) {
+    final bg = isCronica ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7);
+    final tx = isCronica ? const Color(0xFF0369A1) : const Color(0xFF92400E);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
+    );
+  }
+
+  Widget _statusIcon(bool active) {
+    return Icon(
+      active ? Icons.check_circle_rounded : Icons.pause_circle_filled_rounded,
+      color: active ? const Color(0xFF10B981) : Colors.grey.shade400,
+      size: 20,
+    );
+  }
+
+  void _abrirFormulario({Map<String, dynamic>? condicion}) {
+    showDialog(context: context, builder: (context) => _FormularioCondicion(condicion: condicion, tipos: _tipos, onSuccess: _fetchData));
+  }
+
+  Future<void> _eliminar(Map<String, dynamic> c) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("¿Eliminar registro?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        content: Text("Desea eliminar '${c["nombre"]}' del catálogo.", style: GoogleFonts.poppins(fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCELAR")),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => Navigator.pop(context, true), child: const Text("ELIMINAR")),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        final dio = ref.read(dioProvider);
+        await dio.delete("catalogos/condiciones/${c["id"]}");
+        _fetchData();
+      } catch (e) {}
+    }
+  }
+}
+
+class _FormularioCondicion extends ConsumerStatefulWidget {
+  final Map<String, dynamic>? condicion;
+  final List<dynamic> tipos;
+  final VoidCallback onSuccess;
+  const _FormularioCondicion({this.condicion, required this.tipos, required this.onSuccess});
+  @override
+  ConsumerState<_FormularioCondicion> createState() => _FormularioCondicionState();
+}
+
+class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
+  final _nombreCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  int? _idTipo;
+  bool _activa = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.condicion != null) {
+      _nombreCtrl.text = widget.condicion!["nombre"];
+      _descCtrl.text = widget.condicion!["descripcion"] ?? "";
+      _idTipo = widget.condicion!["id_tipo_condicion"];
+      _activa = widget.condicion!["activa"] ?? true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.condicion != null;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      titlePadding: EdgeInsets.zero,
+      title: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+        child: Row(children: [
+          const Icon(Icons.medical_services_outlined, color: Colors.white, size: 22),
+          const SizedBox(width: 12),
+          Text(isEdit ? "EDITAR CONDICIÓN" : "NUEVA CONDICIÓN", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        ]),
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _modalField(_nombreCtrl, "Nombre de la Condición*", Icons.title),
+            const SizedBox(height: 16),
+            _modalField(_descCtrl, "Descripción", Icons.description, maxLines: 2),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              value: _idTipo,
+              decoration: _modalInputDecor("Tipo de Condición*", Icons.category),
+              items: widget.tipos.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+              onChanged: (v) => setState(() => _idTipo = v),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(title: Text("Estado Activo", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)), value: _activa, onChanged: (v) => setState(() => _activa = v)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.grey))),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? "..." : "GUARDAR", style: GoogleFonts.poppins(fontWeight: FontWeight.bold))),
+      ],
+    );
+  }
+
+  Widget _modalField(TextEditingController c, String l, IconData i, {int maxLines = 1}) => TextFormField(controller: c, maxLines: maxLines, style: GoogleFonts.poppins(fontSize: 14), decoration: _modalInputDecor(l, i));
+
+  InputDecoration _modalInputDecor(String l, IconData i) => InputDecoration(labelText: l, prefixIcon: Icon(i, size: 18), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none));
+
+  Future<void> _save() async {
+    if (_nombreCtrl.text.isEmpty || _idTipo == null) return;
+    setState(() => _saving = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final payload = {"nombre": _nombreCtrl.text, "descripcion": _descCtrl.text, "id_tipo_condicion": _idTipo, "activa": _activa};
+      if (widget.condicion != null) await dio.put("catalogos/condiciones/${widget.condicion!["id"]}", data: payload);
+      else await dio.post("catalogos/condiciones", data: payload);
+      widget.onSuccess();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {} finally { if (mounted) setState(() => _saving = false); }
   }
 }
