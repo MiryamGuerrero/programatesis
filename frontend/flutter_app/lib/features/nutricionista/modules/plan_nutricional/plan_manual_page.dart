@@ -168,10 +168,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.restaurant, size: 80, color: Colors.orange), 
+            const Icon(Icons.restaurant, size: 80, color: Colors.orange),
             const SizedBox(height: 24),
-            Text("Calculando recetas seguras para ${_selectedPatient!["nombre_completo"]}...", 
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              "Calculando recetas seguras para ${_selectedPatient!["nombre_completo"]}...",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             const CircularProgressIndicator(color: Colors.orange),
           ],

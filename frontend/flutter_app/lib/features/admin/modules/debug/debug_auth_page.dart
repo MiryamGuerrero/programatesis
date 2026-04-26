@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
-import "../../../core/state/app_providers.dart";
-import "../../../shared/models/app_role.dart";
+import "../../../../core/state/app_providers.dart";
+import "../../../../shared/models/app_role.dart";
 
 /// Página de debug para verificar resolución de roles
 /// Útil para diagnosticar problemas con autenticación y permisos
@@ -172,8 +172,8 @@ class _Section extends StatelessWidget {
 }
 
 class _KeyValue extends StatelessWidget {
-  const _KeyValue(this.key, this.value);
-  final String key;
+  const _KeyValue(this.label, this.value);
+  final String label;
   final String value;
 
   @override
@@ -186,7 +186,7 @@ class _KeyValue extends StatelessWidget {
           SizedBox(
             width: 140,
             child: Text(
-              "$key:",
+              "$label:",
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),

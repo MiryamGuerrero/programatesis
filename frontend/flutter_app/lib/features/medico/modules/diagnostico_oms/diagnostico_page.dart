@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "package:reuma_nutri_app/shared/widgets/module_ux.dart";
 
 class DiagnosticoPage extends ConsumerStatefulWidget {
   const DiagnosticoPage({super.key});
@@ -76,44 +77,40 @@ class _DiagnosticoPageState extends ConsumerState<DiagnosticoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        Text("Diagnostico OMS", style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _text(_indicadorController, "Indicador codigo"),
-        const SizedBox(height: 12),
-        _text(_sexoController, "ID Sexo", number: true),
-        const SizedBox(height: 12),
-        _text(_edadController, "Edad meses", number: true),
-        const SizedBox(height: 12),
-        _text(_valorController, "Valor antropometrico", number: true),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _loading ? null : _diagnosticar,
-          icon: const Icon(Icons.biotech),
-          label: const Text("Calcular diagnostico"),
-        ),
-        if (_resultado != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _resultado!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
+    return ModuleViewport(
+      child: ListView(
+        children: [
+          const ModuleHeaderCard(
+            title: "Diagnostico OMS",
+            subtitle:
+                "Calcula z-score y clasificacion nutricional segun indicador antropometrico.",
+            icon: Icons.biotech_rounded,
           ),
-        ],
-        if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
+          const SizedBox(height: 12),
+          _text(_indicadorController, "Indicador codigo"),
+          const SizedBox(height: 12),
+          _text(_sexoController, "ID Sexo", number: true),
+          const SizedBox(height: 12),
+          _text(_edadController, "Edad meses", number: true),
+          const SizedBox(height: 12),
+          _text(_valorController, "Valor antropometrico", number: true),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _loading ? null : _diagnosticar,
+            icon: const Icon(Icons.biotech),
+            label: const Text("Calcular diagnostico"),
           ),
+          if (_resultado != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.success(_resultado!),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.error(_error!),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -128,4 +125,3 @@ class _DiagnosticoPageState extends ConsumerState<DiagnosticoPage> {
     );
   }
 }
-

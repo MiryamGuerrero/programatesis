@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:reuma_nutri_app/core/state/app_providers.dart";
+import "package:reuma_nutri_app/shared/widgets/module_ux.dart";
 
 class TutorReemplazoPage extends ConsumerStatefulWidget {
   const TutorReemplazoPage({super.key});
@@ -52,7 +53,9 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
       setState(() {
         _ingredientes = ingredientes;
         if (_selectedIngredienteId != null &&
-            !_ingredientes.any((i) => (i["id"]?.toString() ?? "") == _selectedIngredienteId.toString())) {
+            !_ingredientes.any((i) =>
+                (i["id"]?.toString() ?? "") ==
+                _selectedIngredienteId.toString())) {
           _selectedIngredienteId = null;
         }
       });
@@ -71,7 +74,8 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
   Future<void> _consultar() async {
     final idIngrediente = _selectedIngredienteId;
     if (idIngrediente == null) {
-      setState(() => _error = "Selecciona un ingrediente para buscar equivalentes.");
+      setState(
+          () => _error = "Selecciona un ingrediente para buscar equivalentes.");
       return;
     }
 
@@ -113,8 +117,6 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     final ingredientOptions = _ingredientes
         .map((item) {
           final id = int.tryParse((item["id"] ?? "").toString());
@@ -132,122 +134,124 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
         .whereType<DropdownMenuItem<int>>()
         .toList();
 
-    return ListView(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Reemplazos equivalentes", style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(
-                  "Encuentra alternativas para un ingrediente y calcula gramos sugeridos.",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<int>(
-                  key: ValueKey<int?>(_selectedIngredienteId),
-                  initialValue: _selectedIngredienteId,
-                  decoration: const InputDecoration(
-                    labelText: "Ingrediente original",
+    return ModuleViewport(
+      child: ListView(
+        children: [
+          const ModuleHeaderCard(
+            title: "Reemplazos equivalentes",
+            subtitle:
+                "Encuentra alternativas por ingrediente y gramos sugeridos para el paciente.",
+            icon: Icons.swap_horiz_rounded,
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<int>(
+                    key: ValueKey<int?>(_selectedIngredienteId),
+                    initialValue: _selectedIngredienteId,
+                    decoration: const InputDecoration(
+                      labelText: "Ingrediente original",
+                    ),
+                    items: ingredientOptions,
+                    onChanged: (value) =>
+                        setState(() => _selectedIngredienteId = value),
                   ),
-                  items: ingredientOptions,
-                  onChanged: (value) => setState(() => _selectedIngredienteId = value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _cantidadController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: "Cantidad en gramos (opcional)",
-            hintText: "Ejemplo: 120",
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _loading ? null : _consultar,
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text("Buscar reemplazos"),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _cargarIngredientes,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Actualizar"),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _cantidadController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Cantidad en gramos (opcional)",
+              hintText: "Ejemplo: 120",
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _consultar,
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text("Buscar reemplazos"),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : _cargarIngredientes,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Actualizar"),
+              ),
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ModuleNotice.error(_error!),
+          ],
+          if (_loading) ...[
+            const SizedBox(height: 16),
+            const Center(child: CircularProgressIndicator()),
+          ] else if (_reemplazos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              "Opciones disponibles (${_reemplazos.length})",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ..._reemplazos.map((item) {
+              final ratio = (item["ratio_conversion"] ?? "-").toString();
+              final grams = item["gramos_recomendados"];
+              final aviso = (item["mensaje_aviso"] ?? "").toString().trim();
+
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.12),
+                    child: Icon(
+                      Icons.restaurant,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  title: Text((item["nombre"] ?? "Sin nombre").toString()),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Ratio de conversion: $ratio"),
+                      if (grams != null) Text("Gramos recomendados: $grams g"),
+                      if (aviso.isNotEmpty)
+                        Text(
+                          aviso,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ] else if (_error == null) ...[
+            const SizedBox(height: 12),
+            Text(
+              "Aun no hay resultados. Selecciona ingrediente y consulta.",
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(
-              color: colors.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ],
-        if (_loading) ...[
-          const SizedBox(height: 16),
-          const Center(child: CircularProgressIndicator()),
-        ] else if (_reemplazos.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            "Opciones disponibles (${_reemplazos.length})",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
-          ..._reemplazos.map((item) {
-            final ratio = (item["ratio_conversion"] ?? "-").toString();
-            final grams = item["gramos_recomendados"];
-            final aviso = (item["mensaje_aviso"] ?? "").toString().trim();
-
-            return Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: colors.primary.withValues(alpha: 0.12),
-                  child: Icon(Icons.restaurant, color: colors.primary),
-                ),
-                title: Text((item["nombre"] ?? "Sin nombre").toString()),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Ratio de conversion: $ratio"),
-                    if (grams != null) Text("Gramos recomendados: $grams g"),
-                    if (aviso.isNotEmpty)
-                      Text(
-                        aviso,
-                        style: TextStyle(
-                          color: colors.error,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ] else if (_error == null) ...[
-          const SizedBox(height: 12),
-          Text(
-            "Aun no hay resultados. Selecciona ingrediente y consulta.",
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
-
