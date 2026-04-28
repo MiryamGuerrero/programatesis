@@ -21,7 +21,7 @@ class TutorMobileApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF0A7E8C),
-        textTheme: GoogleFonts.nunitoSansTextTheme(),
+        textTheme: GoogleFonts.latoTextTheme(),
         useMaterial3: true,
       ),
       home: authSession.when(

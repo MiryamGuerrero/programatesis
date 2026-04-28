@@ -47,7 +47,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Renombrar Etiqueta', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        title: Text('Renombrar Etiqueta', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Nuevo nombre descriptivo', filled: true),
@@ -146,9 +146,9 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Gestión de Etiquetas Nutricionales", 
-                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
                 Text("Control de advertencias y clasificaciones diagnósticas de alimentos.", 
-                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                  style: GoogleFonts.lato(color: Colors.blueGrey, fontSize: 13)),
               ],
             ),
             IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: _fetch),
@@ -165,7 +165,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         const SizedBox(width: 20),
         Expanded(child: NutriResumenCard(titulo: "FILTRADAS", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_alt_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.cianLimpio, icon: Icons.auto_awesome_rounded)),
+        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.azulOscuro, icon: Icons.auto_awesome_rounded)),
       ],
     );
   }
@@ -197,7 +197,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
                       Text(e['nombre_visible'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
                     ],
                   )),
-                  DataCell(Text(e['nombre'], style: GoogleFonts.firaMono(fontSize: 11))),
+                  DataCell(Text(e['nombre'], style: GoogleFonts.lato(fontSize: 11))),
                   DataCell(NutriBadge(label: e['tipo'].toString(), type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info')),
                   DataCell(Row(
                     children: [
@@ -211,5 +211,5 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulPrincipal)));
 }

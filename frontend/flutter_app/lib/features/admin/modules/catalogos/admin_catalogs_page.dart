@@ -90,9 +90,9 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Configuración de Catálogos", 
-          style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Administración de tablas maestras del sistema.", 
-          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -108,7 +108,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               initialValue: "$_schema.$_table",
               decoration: InputDecoration(
                 labelText: "Seleccionar Catálogo",
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal),
+                labelStyle: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal),
                 filled: true,
                 fillColor: AppTema.grisLienzo.withOpacity(0.5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -118,7 +118,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
                 for (final item in _catalogs)
                   DropdownMenuItem(
                     value: "${item.$1}.${item.$2}",
-                    child: Text("${item.$1}.${item.$2}".toUpperCase(), style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w600)),
+                    child: Text("${item.$1}.${item.$2}".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
               ],
               onChanged: (value) {
@@ -133,17 +133,20 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
             ),
           ),
           const SizedBox(width: 16),
-          ElevatedButton.icon(
-            onPressed: _loading ? null : _loadCatalog,
-            icon: _loading 
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.refresh_rounded, size: 20),
-            label: Text(_loading ? "CARGANDO..." : "RECARGAR", style: GoogleFonts.lexend(fontWeight: FontWeight.w900, fontSize: 11)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTema.azulPrincipal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          SizedBox(
+            height: 55,
+            child: FilledButton.icon(
+              onPressed: _loading ? null : _loadCatalog,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTema.azulPrincipal,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+              ),
+              icon: _loading 
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(_loading ? "CARGANDO..." : "RECARGAR", 
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
             ),
           ),
         ],
@@ -157,22 +160,48 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
         ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Sincronizando registros..."))
         : _rows.isEmpty
           ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No hay registros en este catálogo.")))
-          : DataTable(
-              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
-              columns: const [
-                DataColumn(label: Text("ID", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTema.azulPrincipal))),
-                DataColumn(label: Text("CONTENIDO DEL REGISTRO (JSON)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTema.azulPrincipal))),
-              ],
-              rows: _rows.map((row) => DataRow(
-                cells: [
-                  DataCell(Text(row["id"]?.toString() ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  DataCell(SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Text(row.toString(), style: GoogleFonts.firaMono(fontSize: 11, color: Colors.blueGrey)),
-                  )),
+          : Theme(
+              data: Theme.of(context).copyWith(
+                cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+              ),
+              child: PaginatedDataTable(
+                header: null,
+                rowsPerPage: 5,
+                showFirstLastButtons: true,
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                columns: [
+                  DataColumn(label: Text("ID", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                  DataColumn(label: Text("CONTENIDO DEL REGISTRO (JSON)", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
                 ],
-              )).toList(),
+                source: _CatalogDataSource(rows: _rows),
+              ),
             ),
     );
   }
+}
+
+class _CatalogDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> rows;
+
+  _CatalogDataSource({required this.rows});
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= rows.length) return null;
+    final row = rows[index];
+    return DataRow(cells: [
+      DataCell(Text(row["id"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text(row.toString(), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600)),
+      )),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => rows.length;
+  @override
+  int get selectedRowCount => 0;
 }

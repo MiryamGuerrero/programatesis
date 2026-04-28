@@ -120,14 +120,63 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         tutor = payload["tutor"]
         paciente = payload["paciente"]
         salud = payload["salud"]
+        cond_temporales = salud.get("condiciones_temporales", [])
         with db_cursor() as cur:
             try:
-                cur.execute("update usuarios.paciente set nombre_completo = %s, fecha_nacimiento = %s, id_sexo = %s, cedula = %s, enfermedad_principal = %s where id = %s", (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("cedula"), salud.get("enfermedad_nombre"), id_paciente))
+                # 1. Datos del Paciente
+                cur.execute("update usuarios.paciente set nombre_completo = %s, fecha_nacimiento = %s, id_sexo = %s, cedula = %s, enfermedad_principal = %s where id = %s", 
+                            (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("cedula"), salud.get("enfermedad_nombre"), id_paciente))
+                
+                # 2. Datos del Tutor Principal
                 cur.execute("select id_usuario_tutor from usuarios.tutor_paciente where id_paciente = %s and es_principal = true", (id_paciente,))
                 t_row = cur.fetchone()
                 if t_row:
-                    cur.execute("update usuarios.usuario set nombre_completo = %s, email = %s, cedula = %s where id = %s", (tutor["nombre"], tutor["email"], tutor["cedula"], t_row[0]))
-                cur.execute("update clinico.diagnostico_paciente set id_condicion = %s, observaciones = %s where id_paciente = %s and activa = true", (salud["id_patologia_base"], salud.get("observaciones"), id_paciente))
+                    cur.execute("update usuarios.usuario set nombre_completo = %s, email = %s, cedula = %s where id = %s", 
+                                (tutor["nombre"], tutor["email"], tutor["cedula"], t_row[0]))
+                    cur.execute("update usuarios.tutor_paciente set id_parentesco = %s where id_usuario_tutor = %s and id_paciente = %s", 
+                                (tutor["id_parentesco"], t_row[0], id_paciente))
+
+                # 3. Patología Base (Diagnóstico)
+                cur.execute("update clinico.diagnostico_paciente set id_condicion = %s, observaciones = %s where id_paciente = %s and activa = true", 
+                            (salud["id_patologia_base"], salud.get("observaciones"), id_paciente))
+
+                # 4. Actualizar ÚLTIMO CONTROL (Métricas clínicas)
+                cur.execute("select id from clinico.control_paciente where id_paciente = %s order by fecha_control desc limit 1", (id_paciente,))
+                ctrl_row = cur.fetchone()
+                if ctrl_row:
+                    control_id = ctrl_row[0]
+                    peso = float(salud["peso_kg"])
+                    talla_m = float(salud["talla_cm"]) / 100
+                    imc = round(peso / (talla_m * talla_m), 2)
+                    id_oms, texto_oms = self._clasificar_oms(imc)
+                    
+                    cur.execute("""
+                        update clinico.control_paciente set 
+                        peso_kg = %s, talla_cm = %s, imc_calculado = %s, 
+                        id_condicion_nutricional_resultado = %s, diagnostico_oms_id = %s, diagnostico_oms_texto = %s,
+                        nivel_dolor_eva = %s, nivel_inflamacion = %s, nivel_fatiga = %s, 
+                        minutos_rigidez_matutina = %s, inflamacion_pcr = %s, hay_brote_activo = %s,
+                        fecha_proxima_cita = %s, nota_evolucion = %s
+                        where id = %s
+                    """, (peso, salud["talla_cm"], imc, id_oms, id_oms, texto_oms, 
+                          salud.get("dolor_eva"), salud.get("inflamacion"), salud.get("fatiga"),
+                          salud.get("rigidez_min"), salud.get("pcr"), salud.get("brote_activo"),
+                          salud.get("fecha_proxima_cita"), salud.get("observaciones"), control_id))
+
+                    # 5. Condiciones Temporales (Borrar y Reinsertar para el control actual)
+                    cur.execute("delete from clinico.control_condicion_activa where id_control = %s", (control_id,))
+                    for ct in cond_temporales:
+                        cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion) values (%s, %s)", (control_id, ct["id"]))
+
+                # 6. Alergias (Subgrupos e Ingredientes) - Se actualizan para el PACIENTE
+                cur.execute("delete from clinico.alergia_paciente_subgrupo where id_paciente = %s", (id_paciente,))
+                for sub_id in salud.get("alergias_subgrupos", []):
+                    cur.execute("insert into clinico.alergia_paciente_subgrupo (id_paciente, id_subgrupo_alimentario, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, sub_id))
+                
+                cur.execute("delete from clinico.alergia_paciente_ingrediente where id_paciente = %s", (id_paciente,))
+                for ing_id in salud.get("alergias_ingredientes", []):
+                    cur.execute("insert into clinico.alergia_paciente_ingrediente (id_paciente, id_ingrediente, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, ing_id))
+
                 return True
             except Exception as e:
                 raise e

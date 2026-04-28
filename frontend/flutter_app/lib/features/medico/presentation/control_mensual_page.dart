@@ -125,8 +125,17 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       child: Row(
         children: [
           IconButton.filledTonal(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18), onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.list),
-          const SizedBox(width: 16),
-          const Text("CENTRO DE CONTROL CLÍNICO", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1, color: Colors.blueGrey)),
+          const SizedBox(width: 24),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Centro de Control Clínico", 
+                style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+              Text("Seguimiento y evolución del paciente.", 
+                style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+            ],
+          ),
         ],
       ),
     );
@@ -140,9 +149,9 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
-          CircleAvatar(radius: 45, backgroundColor: AppTema.azulPrincipal, child: Text(_getInitials(nombre), style: GoogleFonts.lexend(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white))),
+          CircleAvatar(radius: 45, backgroundColor: AppTema.azulPrincipal, child: Text(_getInitials(nombre), style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white))),
           const SizedBox(height: 24),
-          Text(nombre.toString().toUpperCase(), textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, height: 1.2)),
+          Text(nombre.toString().toUpperCase(), textAlign: TextAlign.center, style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, height: 1.2)),
           const SizedBox(height: 8),
           NutriBadge(label: pac['enfermedad_principal'] ?? "LES", type: "info"),
           const SizedBox(height: 40),

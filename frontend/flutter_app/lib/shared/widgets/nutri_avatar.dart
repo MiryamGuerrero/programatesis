@@ -34,7 +34,7 @@ class NutriAvatar extends StatelessWidget {
       backgroundColor: colorFondo ?? AppTema.azulPrincipal.withOpacity(0.1),
       child: Text(
         _obtenerIniciales(nombreCompleto),
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.montserrat(
           fontSize: radio * 0.8,
           fontWeight: FontWeight.bold,
           color: colorTexto ?? AppTema.azulPrincipal,

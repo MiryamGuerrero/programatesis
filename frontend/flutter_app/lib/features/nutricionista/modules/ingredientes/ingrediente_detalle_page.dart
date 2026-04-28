@@ -54,15 +54,15 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Text(_data!['nombre'] ?? '-', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
-              Text(_data!['categoria_nombre'] ?? '-', style: GoogleFonts.inter(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 14)),
+              Text(_data!['nombre'] ?? '-', style: GoogleFonts.lato(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
+              Text(_data!['categoria_nombre'] ?? '-', style: GoogleFonts.lato(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 32),
               
               // Contenedor de la gráfica con la energía en el centro
               _buildChartSection(comp),
               
               const SizedBox(height: 32),
-              Text("Desglose Nutricional (por 100g)", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              Text("Desglose Nutricional (por 100g)", style: GoogleFonts.lato(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
               const SizedBox(height: 16),
               _buildMacroGrid(comp),
               
@@ -153,11 +153,11 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
             children: [
               Text(
                 '${energy.toStringAsFixed(0)}',
-                style: GoogleFonts.inter(fontSize: 40, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -1),
+                style: GoogleFonts.lato(fontSize: 40, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -1),
               ),
               Text(
                 'KCAL / 100g',
-                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey.shade300, letterSpacing: 1),
+                style: GoogleFonts.lato(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey.shade300, letterSpacing: 1),
               ),
             ],
           ),
@@ -203,9 +203,9 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
       ),
       child: Column(
         children: [
-          Text(label, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.lato(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
+          Text(value, style: GoogleFonts.lato(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
         ],
       ),
     );
@@ -222,7 +222,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
           children: [
             const Icon(Icons.security_rounded, size: 16, color: Color(0xFF64748B)),
             const SizedBox(width: 8),
-            Text("SEGURIDAD ALIMENTARIA", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.5)),
+            Text("SEGURIDAD ALIMENTARIA", style: GoogleFonts.lato(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.5)),
           ],
         ),
         const SizedBox(height: 12),
@@ -237,7 +237,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
             ),
             child: Text(
               t['nombre'].toString().toUpperCase(), 
-              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF334155))
+              style: GoogleFonts.lato(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF334155))
             ),
           )).toList(),
         ),

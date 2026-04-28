@@ -70,10 +70,10 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         useMaterial3: true,
         colorScheme: colorScheme,
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        textTheme: GoogleFonts.interTextTheme(),
+        textTheme: GoogleFonts.latoTextTheme(),
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
-          titleTextStyle: GoogleFonts.nunitoSans(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF334155)),
+          titleTextStyle: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF334155)),
         ),
       ),
       home: rootPage,

@@ -4,7 +4,7 @@ import "package:google_fonts/google_fonts.dart";
 import "../../core/theme/app_theme.dart";
 import "../../core/state/notification_provider.dart";
 
-// 1. Tarjeta de Resumen (KPIs) - Refinada
+// 1. Tarjeta de Resumen (KPIs) - Refinada y más pequeña
 class NutriResumenCard extends StatelessWidget {
   const NutriResumenCard({super.key, required this.titulo, required this.valor, this.colorValor = AppTema.azulPrincipal, this.icon = Icons.analytics_outlined});
   final String titulo;
@@ -15,25 +15,40 @@ class NutriResumenCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: colorValor, size: 24),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colorValor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: colorValor, size: 20),
+          ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(titulo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 0.5)),
+              Text(
+                titulo.toUpperCase(), 
+                style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 0.8)
+              ),
               const SizedBox(height: 2),
-              Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorValor)),
+              Text(
+                valor, 
+                style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), letterSpacing: -0.5)
+              ),
             ],
           ),
         ],
@@ -42,7 +57,7 @@ class NutriResumenCard extends StatelessWidget {
   }
 }
 
-// 2. Barra de Búsqueda Pura
+// 2. Barra de Búsqueda y Acciones - Rediseño Figma
 class NutriTableToolbar extends StatelessWidget {
   const NutriTableToolbar({super.key, required this.onSearch, required this.onAction, required this.actionLabel});
   final ValueChanged<String> onSearch;
@@ -51,57 +66,55 @@ class NutriTableToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: TextField(
-              onChanged: onSearch,
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white, 
-                hintText: "Buscar registros...",
-                hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5)),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppTema.azulPrincipal, size: 20),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: Color(0xFFB3E5FC), width: 2), 
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: TextField(
+                onChanged: onSearch,
+                style: GoogleFonts.lato(fontSize: 14, color: const Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: "Escriba para filtrar resultados...",
+                  hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8), fontSize: 14),
+                  prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 20),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: onAction,
-          icon: const Icon(Icons.add_rounded, size: 20, color: Colors.white),
-          label: Text(actionLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            elevation: 2,
-            shadowColor: AppTema.verdeSalud.withOpacity(0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: Text(actionLabel.toUpperCase()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shadowColor: AppTema.verdeSalud.withOpacity(0.3),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.5),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// 3. Contenedor de Tabla Minimalista
+// 3. Contenedor de Tabla - Estética de Alta Gama
 class NutriTableContainer extends StatelessWidget {
   const NutriTableContainer({super.key, required this.child});
   final Widget child;
@@ -112,8 +125,11 @@ class NutriTableContainer extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 20, offset: const Offset(0, 4)),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: child,
@@ -121,7 +137,7 @@ class NutriTableContainer extends StatelessWidget {
   }
 }
 
-// 4. Badge Corporativo Sutil
+// 4. Badge Corporativo - Moderno
 class NutriBadge extends StatelessWidget {
   const NutriBadge({super.key, required this.label, required this.type});
   final String label;
@@ -130,24 +146,31 @@ class NutriBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color bg; Color txt;
-    if (type == 'success') { bg = const Color(0xFFE8F5E9); txt = const Color(0xFF2E7D32); }
-    else if (type == 'info') { bg = const Color(0xFFE1F5FE); txt = const Color(0xFF0277BD); }
-    else { bg = const Color(0xFFFFEBEE); txt = const Color(0xFFC62828); }
+    if (type == 'success') { bg = const Color(0xFFDCFCE7); txt = const Color(0xFF166534); }
+    else if (type == 'info') { bg = const Color(0xFFDBEAFE); txt = const Color(0xFF1E40AF); }
+    else if (type == 'warning') { bg = const Color(0xFFFEF9C3); txt = const Color(0xFF854D0E); }
+    else { bg = const Color(0xFFFEE2E2); txt = const Color(0xFF991B1B); }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: TextStyle(color: txt, fontWeight: FontWeight.bold, fontSize: 9)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg, 
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label.toUpperCase(), 
+        style: GoogleFonts.montserrat(color: txt, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.5)
+      ),
     );
   }
 }
 
-// 5. Utilidad de Notificaciones Estilo Pastel (Superior Derecha)
+// 5. Utilidad de Notificaciones
 class NutriSnack {
   static void show(BuildContext context, String mensaje, {bool isError = false, WidgetRef? ref}) {
     if (ref != null) {
       ref.read(notificationProvider.notifier).add(
-        isError ? "Atención" : "Confirmación",
+        isError ? "Atención" : "Operación Exitosa",
         mensaje,
         type: isError ? NutriNotificationType.error : NutriNotificationType.success,
       );
@@ -156,37 +179,28 @@ class NutriSnack {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     scaffoldMessenger.clearSnackBars(); 
 
-    final Color bgColor = isError ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9);
-    final Color iconColor = isError ? const Color(0xFFD32F2F) : const Color(0xFF388E3C);
-    final Color textColor = isError ? const Color(0xFFB71C1C) : const Color(0xFF1B5E20);
+    final Color bgColor = isError ? const Color(0xFF1E293B) : const Color(0xFF0F172A);
     
     scaffoldMessenger.showSnackBar(
       SnackBar(
-        elevation: 3,
+        elevation: 8,
         behavior: SnackBarBehavior.floating,
         backgroundColor: bgColor,
         duration: const Duration(seconds: 4),
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 130, // Debajo del AppBar
-          left: MediaQuery.of(context).size.width * 0.65, // Alineado a la derecha
-          right: 20,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: iconColor.withOpacity(0.15), width: 1),
-        ),
+        margin: const EdgeInsets.all(24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         content: Row(
           children: [
-            Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: iconColor, size: 18),
-            const SizedBox(width: 10),
+            Icon(
+              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, 
+              color: isError ? Colors.redAccent : AppTema.verdeSalud, 
+              size: 20
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 mensaje,
-                style: GoogleFonts.lexend(
-                  color: textColor, 
-                  fontWeight: FontWeight.w600, 
-                  fontSize: 12,
-                ),
+                style: GoogleFonts.lato(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
               ),
             ),
           ],
@@ -196,9 +210,9 @@ class NutriSnack {
   }
 }
 
-// 6. Widget de Carga Tematizado
+// 6. Widget de Carga
 class NutriLoading extends StatelessWidget {
-  const NutriLoading({super.key, this.mensaje = "Procesando información..."});
+  const NutriLoading({super.key, this.mensaje = "Cargando información..."});
   final String mensaje;
 
   @override
@@ -207,22 +221,19 @@ class NutriLoading extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 60,
-                height: 60,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal.withOpacity(0.2)),
-                ),
-              ),
-              const Icon(Icons.health_and_safety_rounded, color: AppTema.verdeSalud, size: 30),
-            ],
+          const SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
+            ),
           ),
           const SizedBox(height: 20),
-          Text(mensaje, style: GoogleFonts.lexend(fontSize: 13, fontWeight: FontWeight.w500, color: AppTema.azulPrincipal)),
+          Text(
+            mensaje, 
+            style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))
+          ),
         ],
       ),
     );

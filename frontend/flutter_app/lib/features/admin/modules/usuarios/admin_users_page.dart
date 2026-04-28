@@ -46,9 +46,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Gestión de Equipo Médico", 
-                      style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                      style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
                     Text("Control institucional de accesos y perfiles profesionales.", 
-                      style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                      style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
                 IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: () => ref.invalidate(usersListProvider)),
@@ -69,7 +69,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     const SizedBox(width: 20),
                     Expanded(child: NutriResumenCard(titulo: "MÉDICOS", valor: "$medicos", colorValor: AppTema.verdeSalud, icon: Icons.medical_services_rounded)),
                     const SizedBox(width: 20),
-                    Expanded(child: NutriResumenCard(titulo: "NUTRICIONISTAS", valor: "$nutris", colorValor: AppTema.cianLimpio, icon: Icons.restaurant_menu_rounded)),
+                    Expanded(child: NutriResumenCard(titulo: "NUTRICIONISTAS", valor: "$nutris", colorValor: AppTema.azulOscuro, icon: Icons.restaurant_menu_rounded)),
                   ],
                 );
               },
@@ -77,22 +77,63 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               error: (_, __) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 32),
-            NutriTableToolbar(actionLabel: "Nuevo Miembro", onAction: () => _dialogoUsuario(null), onSearch: (v) => setState(() => _searchQuery = v)),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 55,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        hintText: "Buscar por nombre de profesional...",
+                        hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                SizedBox(
+                  height: 55,
+                  child: FilledButton.icon(
+                    onPressed: () => _dialogoUsuario(null),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.verdeSalud,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 20, color: Colors.white),
+                    label: Text("NUEVO MIEMBRO", 
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             rolesAsync.when(
               data: (roles) => Padding(
                 padding: const EdgeInsets.only(bottom: 24),
-                child: Wrap(
-                  spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center,
+                child: Row(
                   children: [
-                    const Text("FILTRAR POR ROL:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    ChoiceChip(
-                      label: Text("TODOS", style: GoogleFonts.lexend(fontSize: 11)), 
-                      selected: _selectedRoles.isEmpty, onSelected: (_) => setState(() => _selectedRoles.clear()),
-                    ),
-                    ...roles.map((r) => FilterChip(
-                      label: Text(r["nombre"].toString().toUpperCase(), style: GoogleFonts.lexend(fontSize: 11)),
-                      selected: _selectedRoles.contains(r["nombre"]), onSelected: (v) => setState(() => v ? _selectedRoles.add(r["nombre"]) : _selectedRoles.remove(r["nombre"])),
+                    Text("FILTRAR POR ROL:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+                    const SizedBox(width: 16),
+                    _filterChip("TODOS", _selectedRoles.isEmpty, () => setState(() => _selectedRoles.clear())),
+                    const SizedBox(width: 12),
+                    ...roles.map((r) => Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: _filterChip(
+                        r["nombre"].toString().toUpperCase(), 
+                        _selectedRoles.contains(r["nombre"]),
+                        () => setState(() => _selectedRoles.contains(r["nombre"]) ? _selectedRoles.remove(r["nombre"]) : _selectedRoles.add(r["nombre"]))
+                      ),
                     )),
                   ],
                 ),
@@ -110,16 +151,29 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     final roleName = u["rol_nombre"].toString();
                     return nameMatches && (_selectedRoles.isEmpty || _selectedRoles.contains(roleName)) && nombresRolesPermitidos.contains(roleName);
                   }).toList();
-                  return DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste), 
-                    columns: [
-                      DataColumn(label: Text("PROFESIONAL", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal))),
-                      DataColumn(label: Text("CÉDULA", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal))),
-                      DataColumn(label: Text("CORREO", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal))),
-                      DataColumn(label: Text("ROL", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal))),
-                      DataColumn(label: Text("ACCIONES", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal))),
-                    ],
-                    rows: filtered.map((u) => _buildRow(u)).toList(),
+
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+                    ),
+                    child: PaginatedDataTable(
+                      header: null,
+                      rowsPerPage: 5,
+                      showFirstLastButtons: true,
+                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                      columns: [
+                        DataColumn(label: Text("PROFESIONAL", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                        DataColumn(label: Text("CÉDULA", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                        DataColumn(label: Text("CORREO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                        DataColumn(label: Text("ROL", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                        DataColumn(label: Text("ACCIONES", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+                      ],
+                      source: _UsersDataSource(
+                        users: filtered,
+                        onEdit: _dialogoUsuario,
+                        onToggle: _toggle,
+                      ),
+                    ),
                   );
                 },
                 loading: () => const NutriLoading(mensaje: "Obteniendo lista de profesionales..."),
@@ -130,28 +184,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         ),
       ),
     );
-  }
-
-  DataRow _buildRow(Map<String, dynamic> u) {
-    final nombre = u["nombre_completo"] ?? "Usuario";
-    final activo = u["activo"] ?? true;
-    return DataRow(cells: [
-      DataCell(Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          NutriAvatar(nombreCompleto: nombre, radio: 14, colorTexto: AppTema.azulPrincipal),
-          const SizedBox(width: 10),
-          Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        ],
-      )),
-      DataCell(Text(u["cedula"] ?? "-", style: const TextStyle(fontSize: 13))),
-      DataCell(Text(u["email"] ?? "-", style: const TextStyle(fontSize: 13))),
-      DataCell(NutriBadge(label: u["rol_nombre"].toString().toUpperCase(), type: "info")),
-      DataCell(Row(children: [
-        Tooltip(message: "Editar Profesional", child: IconButton(icon: const Icon(Icons.edit_outlined, color: AppTema.azulPrincipal, size: 18), onPressed: () => _dialogoUsuario(u))),
-        Tooltip(message: "Gestionar Acceso", child: IconButton(icon: Icon(activo ? Icons.person_off_outlined : Icons.person_add_alt_1_outlined, color: activo ? Colors.redAccent : Colors.green, size: 18), onPressed: () => _toggle(u))),
-      ])),
-    ]);
   }
 
   void _dialogoUsuario(Map<String, dynamic>? user) {
@@ -192,7 +224,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             child: Row(children: [
               Icon(isEdit ? Icons.edit_note_rounded : Icons.person_add_alt_1_rounded, color: Colors.white, size: 24),
               const SizedBox(width: 12),
-              Expanded(child: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17))),
+              Expanded(child: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17))),
               IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.cancel_rounded, color: Colors.white70, size: 22)),
             ]),
           ),
@@ -226,7 +258,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: passCtrl, obscureText: obscurePass,
-                        style: GoogleFonts.lexend(fontSize: 13),
+                        style: GoogleFonts.lato(fontSize: 13),
                         validator: (v) => v!.length < 6 ? "Mínimo 6 caracteres" : null,
                         decoration: _modalInputDecoration("Contraseña Temporal *", Icons.lock_outline).copyWith(
                           suffixIcon: IconButton(icon: Icon(obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), onPressed: () => setDialogState(() => obscurePass = !obscurePass)),
@@ -237,7 +269,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     Consumer(builder: (context, ref, _) {
                       final roles = ref.watch(rolesStaffProvider).valueOrNull ?? [];
                       return DropdownButtonFormField<int>(
-                        value: rolId, style: GoogleFonts.lexend(color: Colors.black87, fontSize: 13),
+                        value: rolId, style: GoogleFonts.lato(color: Colors.black87, fontSize: 13),
                         validator: (v) => v == null ? "Seleccione un rol" : null,
                         decoration: _modalInputDecoration("Rol Profesional *", Icons.admin_panel_settings_outlined),
                         items: roles.map((r) => DropdownMenuItem<int>(value: r["id"], child: Text(r["nombre"].toString().toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(),
@@ -257,7 +289,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           actions: [
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16), side: const BorderSide(color: Colors.grey)), child: Text("CANCELAR", style: GoogleFonts.lexend(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold))),
+              OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16), side: const BorderSide(color: Colors.grey)), child: Text("CANCELAR", style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold))),
               const SizedBox(width: 10),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24)),
@@ -281,7 +313,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     else NutriSnack.show(context, "Error en la operación", isError: true, ref: ref);
                   }
                 },
-                child: Text(isEdit ? "GUARDAR" : "CREAR", style: GoogleFonts.lexend(fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text(isEdit ? "GUARDAR" : "CREAR", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ]),
           ],
@@ -292,13 +324,13 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
 
   Widget _buildFieldSection(String title, List<Widget> children) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title.toUpperCase(), style: GoogleFonts.quicksand(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black87, letterSpacing: 1.1)),
+      Text(title.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black87, letterSpacing: 1.1)),
       const SizedBox(height: 8), ...children,
     ]);
   }
 
   Widget _buildModalField({required TextEditingController controller, required String label, required IconData icon, bool enabled = true, int maxLines = 1, FormFieldValidator<String>? validator, String? errorText}) {
-    return TextFormField(controller: controller, enabled: enabled, maxLines: maxLines, validator: validator, style: GoogleFonts.lexend(fontSize: 13), decoration: _modalInputDecoration(label, icon).copyWith(errorText: errorText));
+    return TextFormField(controller: controller, enabled: enabled, maxLines: maxLines, validator: validator, style: GoogleFonts.lato(fontSize: 13), decoration: _modalInputDecoration(label, icon).copyWith(errorText: errorText));
   }
 
   InputDecoration _modalInputDecoration(String label, IconData icon) {
@@ -315,6 +347,23 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
   }
 
+  Widget _filterChip(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTema.azulPrincipal : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
+        ),
+        child: Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : Colors.grey.shade600)),
+      ),
+    );
+  }
+
   Future<void> _toggle(Map<String, dynamic> u) async {
     try {
       final nuevo = !(u["activo"] ?? true);
@@ -325,4 +374,49 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       if (mounted) NutriSnack.show(context, "Error al cambiar estado", isError: true, ref: ref);
     }
   }
+}
+
+class _UsersDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> users;
+  final Function(Map<String, dynamic>) onEdit;
+  final Function(Map<String, dynamic>) onToggle;
+
+  _UsersDataSource({
+    required this.users,
+    required this.onEdit,
+    required this.onToggle,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= users.length) return null;
+    final u = users[index];
+    final nombre = u["nombre_completo"] ?? "Usuario";
+    final activo = u["activo"] ?? true;
+
+    return DataRow(cells: [
+      DataCell(Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NutriAvatar(nombreCompleto: nombre, radio: 14, colorTexto: AppTema.azulPrincipal),
+          const SizedBox(width: 10),
+          Text(nombre, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w500)),
+        ],
+      )),
+      DataCell(Text(u["cedula"] ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w500))),
+      DataCell(Text(u["email"] ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w500))),
+      DataCell(NutriBadge(label: u["rol_nombre"].toString().toUpperCase(), type: "info")),
+      DataCell(Row(children: [
+        Tooltip(message: "Editar Profesional", child: IconButton(icon: const Icon(Icons.edit_outlined, color: AppTema.azulPrincipal, size: 18), onPressed: () => onEdit(u))),
+        Tooltip(message: "Gestionar Acceso", child: IconButton(icon: Icon(activo ? Icons.person_off_outlined : Icons.person_add_alt_1_outlined, color: activo ? Colors.redAccent : Colors.green, size: 18), onPressed: () => onToggle(u))),
+      ])),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => users.length;
+  @override
+  int get selectedRowCount => 0;
 }

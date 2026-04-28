@@ -26,7 +26,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   int? _groupId;
   int? _subgroupId;
   int _page = 0;
-  final int _limit = 10;
+  final int _limit = 1000; // Aumentado para PaginatedDataTable
 
   @override
   void initState() {
@@ -35,20 +35,6 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       _loadFilters();
       _fetch();
     });
-  }
-
-  String _capitalize(String? text) {
-    if (text == null || text.isEmpty) return '-';
-    String raw = text.trim();
-    if (raw.isEmpty) return '-';
-    return raw[0].toUpperCase() + raw.substring(1).toLowerCase();
-  }
-
-  String _fmt(dynamic v) {
-    if (v == null) return '0';
-    double val = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
-    if (val == val.toInt().toDouble()) return val.toInt().toString();
-    return val.toStringAsFixed(2);
   }
 
   Future<void> _loadFilters() async {
@@ -66,7 +52,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
       final data = await repo.ingredientesLista(
-          q: _query, cat: _groupId, limit: _limit, offset: _page * _limit);
+          q: _query, cat: _groupId, limit: _limit, offset: 0);
       if (mounted) {
         setState(() {
           _items = data['items'] ?? [];
@@ -99,8 +85,6 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                   _buildToolbar(),
                   const SizedBox(height: 24),
                   _buildTableContainer(),
-                  const SizedBox(height: 24),
-                  _buildPagination(),
                 ],
               ),
             ),
@@ -136,9 +120,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Catálogo Maestro de Alimentos", 
-          style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Gestión de base nutricional, grupos alimentarios y composición química.", 
-          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -150,7 +134,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         const SizedBox(width: 20),
         Expanded(child: NutriResumenCard(titulo: "GRUPOS", valor: "${_groups.length}", colorValor: AppTema.verdeSalud, icon: Icons.category_rounded)),
         const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "SUBGRUPOS", valor: "${_subgroups.length}", colorValor: AppTema.cianLimpio, icon: Icons.layers_rounded)),
+        Expanded(child: NutriResumenCard(titulo: "SUBGRUPOS", valor: "${_subgroups.length}", colorValor: AppTema.azulOscuro, icon: Icons.layers_rounded)),
       ],
     );
   }
@@ -161,19 +145,54 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEEEEEE))),
       child: Column(
         children: [
-          NutriTableToolbar(
-            actionLabel: "Nuevo Alimento",
-            onAction: () => setState(() { _selectedId = 0; _isEditing = true; }),
-            onSearch: (v) { _query = v; _page = 0; _fetch(); },
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 55,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: TextField(
+                    style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                    decoration: InputDecoration(
+                      hintText: "Buscar alimento...",
+                      hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    onChanged: (v) { _query = v; _fetch(); },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              SizedBox(
+                height: 55,
+                child: FilledButton.icon(
+                  onPressed: () => setState(() { _selectedId = 0; _isEditing = true; }),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTema.verdeSalud,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
+                  label: Text("NUEVO ALIMENTO", 
+                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              const Text("FILTRAR POR:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+              Text("FILTRAR POR:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
               const SizedBox(width: 16),
-              _buildFilterDropdown("GRUPO", _groups, _groupId, (v) => setState(() { _groupId = v; _page = 0; _fetch(); })),
+              _buildFilterDropdown("GRUPO", _groups, _groupId, (v) => setState(() { _groupId = v; _fetch(); })),
               const SizedBox(width: 12),
-              _buildFilterDropdown("SUBGRUPO", _subgroups, _subgroupId, (v) => setState(() { _subgroupId = v; _page = 0; _fetch(); })),
+              _buildFilterDropdown("SUBGRUPO", _subgroups, _subgroupId, (v) => setState(() { _subgroupId = v; _fetch(); })),
             ],
           ),
         ],
@@ -190,10 +209,10 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         child: DropdownButton<int?>(
           value: value,
           isExpanded: true,
-          hint: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          hint: Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700)),
           items: [
-            DropdownMenuItem(value: null, child: Text("TODOS LOS ${label}S", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-            ...items.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['nombre'].toString().toUpperCase(), style: const TextStyle(fontSize: 10)))),
+            DropdownMenuItem(value: null, child: Text("TODOS LOS ${label}S", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700))),
+            ...items.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['nombre'].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w600)))),
           ],
           onChanged: onChanged,
         ),
@@ -205,42 +224,87 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     return NutriTableContainer(
       child: _loading && _items.isEmpty
         ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Sincronizando catálogo..."))
-        : DataTable(
-            headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
-            columns: [
-              _col("ALIMENTO"),
-              _col("CATEGORÍA"),
-              _col("SUBGRUPO"),
-              _col("KCAL/100G"),
-              _col("PROT/100G"),
-              _col("ACCIONES"),
-            ],
-            rows: _items.map((ing) => DataRow(
-              cells: [
-                DataCell(Text(ing['nombre'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal))),
-                DataCell(Text(_capitalize(ing['categoria']), style: const TextStyle(fontSize: 12))),
-                DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
-                DataCell(Text("${_fmt(ing['energia_kcal'])} kcal", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                DataCell(Text("${_fmt(ing['proteinas_g'])} g", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                DataCell(Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), 
-                      onPressed: () => setState(() { _selectedId = ing['id']; _isEditing = false; })
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), 
-                      onPressed: () => setState(() { _selectedId = ing['id']; _isEditing = true; })
-                    ),
-                  ],
-                )),
+        : Theme(
+            data: Theme.of(context).copyWith(
+              cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            ),
+            child: PaginatedDataTable(
+              header: null,
+              rowsPerPage: 5,
+              showFirstLastButtons: true,
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+              columns: [
+                _col("ALIMENTO"),
+                _col("CATEGORÍA"),
+                _col("SUBGRUPO"),
+                _col("KCAL/100G"),
+                _col("PROT/100G"),
+                _col("ACCIONES"),
               ],
-            )).toList(),
+              source: _IngredientesDataSource(
+                items: _items,
+                onAction: (id, edit) => setState(() { _selectedId = id; _isEditing = edit; }),
+                context: context,
+              ),
+            ),
           ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+  DataColumn _col(String l) => DataColumn(
+    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
+  );
+}
+
+class _IngredientesDataSource extends DataTableSource {
+  final List<dynamic> items;
+  final Function(int, bool) onAction;
+  final BuildContext context;
+
+  _IngredientesDataSource({
+    required this.items,
+    required this.onAction,
+    required this.context,
+  });
+
+  String _capitalize(String? text) {
+    if (text == null || text.isEmpty) return '-';
+    String raw = text.trim();
+    if (raw.isEmpty) return '-';
+    return raw[0].toUpperCase() + raw.substring(1).toLowerCase();
+  }
+
+  String _fmt(dynamic v) {
+    if (v == null) return '0';
+    double val = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+    if (val == val.toInt().toDouble()) return val.toInt().toString();
+    return val.toStringAsFixed(2);
+  }
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= items.length) return null;
+    final ing = items[index];
+    return DataRow(cells: [
+      DataCell(Text(ing['nombre'], style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text(_capitalize(ing['categoria']), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
+      DataCell(Text("${_fmt(ing['energia_kcal'])} kcal", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text("${_fmt(ing['proteinas_g'])} g", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), 
+            onPressed: () => onAction(ing['id'], false)
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), 
+            onPressed: () => onAction(ing['id'], true)
+          ),
+        ],
+      )),
+    ]);
+  }
 
   Widget _subgroupBadge(String text) {
     if (text == '-') return const Text('-', style: TextStyle(color: Colors.grey));
@@ -251,38 +315,10 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     );
   }
 
-  Widget _buildPagination() {
-    int totalP = (_total / _limit).ceil();
-    if (totalP == 0) totalP = 1;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text('Mostrando ${(_page * _limit) + 1} - ${((_page + 1) * _limit).clamp(0, _total)} de $_total registros', 
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.chevron_left),
-              label: const Text("ANTERIOR"),
-              onPressed: _page > 0 ? () { setState(() => _page--); _fetch(); } : null,
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFEEEEEE))),
-              child: Text("${_page + 1} / $totalP", style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.chevron_right),
-              label: const Text("SIGUIENTE"),
-              onPressed: (_page + 1) < totalP ? () { setState(() => _page++); _fetch(); } : null,
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => items.length;
+  @override
+  int get selectedRowCount => 0;
 }

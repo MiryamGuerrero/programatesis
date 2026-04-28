@@ -65,23 +65,27 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final isWide = MediaQuery.of(context).size.width >= 1024;
 
     return Scaffold(
-      backgroundColor: AppTema.grisLienzo,
-      appBar: _buildTopBar(nombreUsuario, nombreRol, iniciales, isWide),
-      body: Row(
+      backgroundColor: const Color(0xFFF8FAFC), // Gris muy claro limpio
+      body: Column(
         children: [
-          if (isWide) _buildSidebar(modules),
+          // 1. TOP BAR GLOBAL (MARCA ESTÁTICA ESTILO LOGIN)
+          _buildGlobalHeader(nombreUsuario, nombreRol, iniciales, isWide),
+          
+          // 2. CUERPO: SIDEBAR + CONTENIDO (SIN RECUADRO LIMITANTE)
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: IndexedStack(
-                index: _index,
-                children: [for (final m in modules) m.builder()],
-              ),
+            child: Row(
+              children: [
+                if (isWide) _buildSidebar(modules),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0), // Margen sutil respecto al menú
+                    child: IndexedStack(
+                      index: _index,
+                      children: [for (final m in modules) m.builder()],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -89,75 +93,141 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     );
   }
 
-  PreferredSizeWidget _buildTopBar(String nombre, String nombreRol, String iniciales, bool isWide) {
-    return AppBar(
-      elevation: 2,
-      toolbarHeight: 75,
-      backgroundColor: AppTema.azulPrincipal,
-      automaticallyImplyLeading: false,
-      title: Row(
-        children: [
-          IconButton(
-            icon: Icon(_isMenuExpanded ? Icons.menu_open_rounded : Icons.menu_rounded, color: Colors.white, size: 28),
-            onPressed: () => setState(() => _isMenuExpanded = !_isMenuExpanded),
-          ),
-          const SizedBox(width: 8),
-          Text("NutriReuma", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20)),
-        ],
+  Widget _buildGlobalHeader(String nombre, String nombreRol, String iniciales, bool isWide) {
+    const Color brandBlue = Color(0xFF0068B7);
+    const Color brandGreen = Color(0xFF58A932);
+
+    return Container(
+      height: 75,
+      decoration: const BoxDecoration(
+        color: Colors.white,
       ),
-      actions: [
-        const _NotificationBell(),
-        const SizedBox(width: 24),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(nombre, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            Text(nombreRol.toUpperCase(), style: const TextStyle(color: AppTema.verdeLima, fontSize: 11, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle, border: Border.all(color: Colors.white)),
-          child: Center(child: Text(iniciales, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
-        ),
-        const SizedBox(width: 16),
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: _HoverSignOutButton(
+      child: Row(
+        children: [
+          // SECCIÓN DE MARCA ESTÁTICA (ESTILO LOGIN)
+          Container(
+            width: isWide ? 280 : null,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: brandBlue, size: 28),
+                  onPressed: () => setState(() => _isMenuExpanded = !_isMenuExpanded),
+                ),
+                const SizedBox(width: 10),
+                Image.asset("assets/images/logo sin.png", width: 40, height: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: RichText(
+                    overflow: TextOverflow.clip,
+                    text: TextSpan(
+                      style: GoogleFonts.montserrat(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                      children: const [
+                        TextSpan(text: "Nutri", style: TextStyle(color: brandBlue)),
+                        TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const Spacer(),
+          
+          // ACCIONES DE USUARIO
+          const _NotificationBell(),
+          const SizedBox(width: 24),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(nombre, style: GoogleFonts.montserrat(color: const Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w700)),
+              Text(nombreRol.toUpperCase(), style: GoogleFonts.montserrat(color: brandGreen, fontSize: 10, fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: brandBlue.withOpacity(0.08),
+            child: Text(iniciales, style: const TextStyle(color: brandBlue, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(width: 24),
+          
+          _HoverSignOutButton(
             onPressed: _signingOut ? null : _handleSignOut,
             isSigningOut: _signingOut,
           ),
-        ),
-      ],
+          const SizedBox(width: 24),
+        ],
+      ),
     );
   }
 
   Widget _buildSidebar(List<RoleModule> modules) {
+    const Color companyBlue = Color(0xFF0068B7); 
+    const Color selectionGreen = Color(0xFF58A932);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isMenuExpanded ? 240 : 75,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Colors.grey.withOpacity(0.1))),
-      ),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        itemCount: modules.length,
-        itemBuilder: (context, i) {
-          final active = i == _index;
-          return ListTile(
-            onTap: () => setState(() => _index = i),
-            selected: active,
-            leading: Icon(modules[i].icon, color: active ? AppTema.azulPrincipal : Colors.grey[400]),
-            title: _isMenuExpanded 
-                ? Text(modules[i].title, style: TextStyle(color: active ? AppTema.azulPrincipal : Colors.black87, fontWeight: active ? FontWeight.bold : FontWeight.normal))
-                : null,
-            tileColor: active ? AppTema.cianLimpio.withOpacity(0.5) : Colors.transparent,
-          );
-        },
+      width: _isMenuExpanded ? 280 : 85,
+      color: companyBlue,
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: modules.length,
+              itemBuilder: (context, i) {
+                final active = i == _index;
+                return InkWell(
+                  onTap: () => setState(() => _index = i),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: active ? selectionGreen : Colors.transparent,
+                      border: active ? const Border(left: BorderSide(color: Colors.white, width: 4)) : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(modules[i].icon, color: Colors.white, size: 24),
+                        if (_isMenuExpanded) ...[
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              modules[i].title, 
+                              style: GoogleFonts.montserrat(color: Colors.white, fontWeight: active ? FontWeight.w700 : FontWeight.w500, fontSize: 13),
+                              softWrap: false,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // INDICADOR DE VERSIÓN SUTIL ABAJO
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _isMenuExpanded ? 1.0 : 0.0,
+            child: Container(
+              width: _isMenuExpanded ? 280 : 0,
+              padding: const EdgeInsets.all(16.0),
+              child: _isMenuExpanded 
+                ? Text(
+                    "REUMANUTRI V1.0", 
+                    style: GoogleFonts.montserrat(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    softWrap: false,
+                  )
+                : const SizedBox.shrink(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -181,109 +251,19 @@ class _NotificationBell extends ConsumerWidget {
 
     return PopupMenuButton<void>(
       offset: const Offset(0, 50),
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
-          if (unreadCount > 0)
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                child: Text(
-                  unreadCount > 9 ? "+9" : unreadCount.toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-        ],
-      ),
+      icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 26),
       tooltip: "Notificaciones",
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       itemBuilder: (context) => [
         PopupMenuItem<void>(
           enabled: false,
-          child: SizedBox(
-            width: 320,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Notificaciones", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: AppTema.azulPrincipal)),
-                    if (notifications.isNotEmpty)
-                      TextButton(
-                        onPressed: () {
-                          ref.read(notificationProvider.notifier).markAllAsRead();
-                          Navigator.pop(context);
-                        },
-                        child: const Text("Leer todas", style: TextStyle(fontSize: 11)),
-                      ),
-                  ],
-                ),
-                const Divider(),
-              ],
-            ),
-          ),
+          child: Text("NOTIFICACIONES", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 11, color: const Color(0xFF0068B7))),
         ),
-        if (notifications.isEmpty)
-          const PopupMenuItem<void>(
-            enabled: false,
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text("No tienes notificaciones", style: TextStyle(color: Colors.grey, fontSize: 13))),
-            ),
-          )
-        else
-          ...notifications.take(5).map((n) => PopupMenuItem<void>(
-            onTap: () => ref.read(notificationProvider.notifier).markAsRead(n.id),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _getIcon(n.type),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(n.title, style: TextStyle(fontWeight: n.read ? FontWeight.normal : FontWeight.bold, fontSize: 13)),
-                        Text(n.message, style: const TextStyle(fontSize: 11, color: Colors.blueGrey), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
-                        Text(DateFormat("HH:mm").format(n.timestamp), style: const TextStyle(fontSize: 9, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                  if (!n.read)
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppTema.azulPrincipal, shape: BoxShape.circle)),
-                ],
-              ),
-            ),
-          )),
-        if (notifications.isNotEmpty)
-          PopupMenuItem<void>(
-            onTap: () => ref.read(notificationProvider.notifier).clearAll(),
-            child: const Center(child: Text("Limpiar historial", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold))),
-          ),
+        ...notifications.take(3).map((n) => PopupMenuItem<void>(
+          child: Text(n.title, style: const TextStyle(fontSize: 12)),
+        )),
       ],
     );
-  }
-
-  Widget _getIcon(NutriNotificationType type) {
-    IconData icon; Color color;
-    switch (type) {
-      case NutriNotificationType.success: icon = Icons.check_circle_rounded; color = const Color(0xFF4DB6AC); break;
-      case NutriNotificationType.error: icon = Icons.error_rounded; color = Colors.redAccent; break;
-      case NutriNotificationType.warning: icon = Icons.warning_rounded; color = Colors.orange; break;
-      default: icon = Icons.info_rounded; color = AppTema.azulPrincipal;
-    }
-    return Icon(icon, color: color, size: 20);
   }
 }
 
@@ -301,20 +281,43 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
 
   @override
   Widget build(BuildContext context) {
+    const Color brandBlue = Color(0xFF0068B7);
+    
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: OutlinedButton.icon(
-        onPressed: widget.onPressed,
-        icon: widget.isSigningOut 
-          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : Icon(Icons.power_settings_new_rounded, color: _isHovered ? AppTema.azulPrincipal : Colors.white, size: 16),
-        label: Text(widget.isSigningOut ? "..." : "Cerrar Sesión", 
-          style: TextStyle(color: _isHovered ? AppTema.azulPrincipal : Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: _isHovered ? Colors.white : Colors.transparent,
-          side: const BorderSide(color: Colors.white),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              color: _isHovered ? Colors.white : brandBlue,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: brandBlue, width: 2),
+            ),
+            child: widget.isSigningOut 
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.power_settings_new_rounded, color: _isHovered ? brandBlue : Colors.white, size: 16),
+                    const SizedBox(width: 10),
+                    Text(
+                      "CERRAR SESIÓN", 
+                      style: GoogleFonts.montserrat(
+                        color: _isHovered ? brandBlue : Colors.white, 
+                        fontWeight: FontWeight.w800, 
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                      )
+                    ),
+                  ],
+                ),
+          ),
         ),
       ),
     );

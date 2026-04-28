@@ -73,7 +73,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(pac['nombre_completo'].toString().toUpperCase(), style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: AppTema.azulPrincipal)),
+            Text(pac['nombre_completo'].toString().toUpperCase(), style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16, color: AppTema.azulPrincipal)),
             Text("Expediente: ${widget.idPaciente}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
         ),
@@ -170,7 +170,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
         children: [
           Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: isHigh ? FontWeight.w800 : FontWeight.w600, color: isHigh ? AppTema.azulPrincipal : Colors.black87)),
+          Text(value, style: GoogleFonts.lato(fontSize: 13, fontWeight: isHigh ? FontWeight.w800 : FontWeight.w600, color: isHigh ? AppTema.azulPrincipal : Colors.black87)),
         ],
       ),
     );
@@ -519,7 +519,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
     return Row(
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("CONSULTA DE SEGUIMIENTO", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: AppTema.azulPrincipal)),
+          Text("CONSULTA DE SEGUIMIENTO", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 18, color: AppTema.azulPrincipal)),
           const Text("Evolución clínica mensual obligatoria.", style: TextStyle(fontSize: 12, color: Colors.grey)),
         ]),
         const Spacer(),

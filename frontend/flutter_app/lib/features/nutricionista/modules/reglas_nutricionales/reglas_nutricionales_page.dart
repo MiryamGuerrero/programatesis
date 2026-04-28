@@ -65,10 +65,45 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
             const SizedBox(height: 32),
             _buildStatsRow(),
             const SizedBox(height: 32),
-            NutriTableToolbar(
-              actionLabel: "Nueva Regla",
-              onAction: () => _showForm(),
-              onSearch: (v) {}, // TODO: Implementar búsqueda local
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 55,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        hintText: "Buscar por nombre de regla...",
+                        hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      onChanged: (v) {}, // TODO: Implementar búsqueda local
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                SizedBox(
+                  height: 55,
+                  child: FilledButton.icon(
+                    onPressed: () => _showForm(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.verdeSalud,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
+                    label: Text("NUEVA REGLA", 
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             _buildTableContainer(),
@@ -89,9 +124,9 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Motor de Reglas Nutricionales", 
-                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
                 Text("Configuración de lógica experta basada en etiquetas y condiciones clínicas.", 
-                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                  style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
             IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: _loadData),
@@ -108,7 +143,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
         const SizedBox(width: 20),
         Expanded(child: NutriResumenCard(titulo: "ESTRICTAS", valor: "${_rules.where((r) => r['es_estricta'] == true).length}", colorValor: Colors.redAccent, icon: Icons.gavel_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.cianLimpio, icon: Icons.auto_awesome_rounded)),
+        const Expanded(child: NutriResumenCard(titulo: "SISTEMA", valor: "SIA", colorValor: AppTema.azulOscuro, icon: Icons.auto_awesome_rounded)),
       ],
     );
   }
@@ -119,46 +154,37 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
         ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Consultando base de conocimientos..."))
         : _rules.isEmpty
           ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No se encontraron reglas configuradas.")))
-          : DataTable(
-              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
-              columns: [
-                _col("REGLA / ACCIÓN"),
-                _col("CONDICIONES ACTIVADORAS"),
-                _col("ESTADO"),
-                _col("ACCIONES"),
-              ],
-              rows: _rules.map((r) {
-                final condicionesIds = r["id_condiciones"] as List;
-                final nombresCondiciones = condicionesIds.map((id) {
-                  final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
-                  return c != null ? c["nombre"] : "Condición $id";
-                }).join(", ");
-
-                return DataRow(cells: [
-                  DataCell(Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("${r['etiqueta_nombre']} ➔ ${r['accion_codigo']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
-                      if (r['mensaje_error'] != null)
-                        Text(r['mensaje_error'], style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontStyle: FontStyle.italic)),
-                    ],
-                  )),
-                  DataCell(SizedBox(width: 300, child: Text(nombresCondiciones, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))),
-                  DataCell(NutriBadge(label: r['es_estricta'] == true ? "ESTRICTA" : "RECOMENDACIÓN", type: r['es_estricta'] == true ? 'danger' : 'info')),
-                  DataCell(Row(
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit_note_rounded, color: AppTema.azulPrincipal, size: 20), onPressed: () => _showForm(r)),
-                      IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _deleteRule(r["id"])),
-                    ],
-                  )),
-                ]);
-              }).toList(),
+          : Theme(
+              data: Theme.of(context).copyWith(
+                cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+              ),
+              child: PaginatedDataTable(
+                header: null,
+                rowsPerPage: 5,
+                showFirstLastButtons: true,
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                columns: [
+                  _col("REGLA / ACCIÓN"),
+                  _col("CONDICIONES ACTIVADORAS"),
+                  _col("ESTADO"),
+                  _col("ACCIONES"),
+                ],
+                source: _RulesDataSource(
+                  rules: _rules,
+                  formData: _formData,
+                  onEdit: _showForm,
+                  onDelete: _deleteRule,
+                  context: context,
+                ),
+              ),
             ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+  DataColumn _col(String l) => DataColumn(
+    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
+  );
+
 
   Future<void> _deleteRule(int id) async {
     final confirm = await showDialog<bool>(
@@ -182,12 +208,12 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
     }
   }
 
-  void _showForm([Map<String, dynamic>? rule]) {
+  void _showForm([dynamic rule]) {
     showDialog(
       context: context,
       builder: (ctx) => _RuleFormDialog(
         formData: _formData,
-        initialRule: rule,
+        initialRule: rule as Map<String, dynamic>?,
         onSaved: () {
           Navigator.pop(ctx);
           _loadData();
@@ -195,6 +221,71 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
       ),
     );
   }
+}
+
+class _RulesDataSource extends DataTableSource {
+  final List<dynamic> rules;
+  final Map<String, List<dynamic>> formData;
+  final Function(dynamic) onEdit;
+  final Function(int) onDelete;
+  final BuildContext context;
+
+  _RulesDataSource({
+    required this.rules,
+    required this.formData,
+    required this.onEdit,
+    required this.onDelete,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= rules.length) return null;
+    final r = rules[index] as Map<String, dynamic>;
+    final condicionesIds = r["id_condiciones"] as List;
+    final nombresCondiciones = condicionesIds.map((id) {
+      final c = formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
+      return c != null ? c["nombre"] : "Condición $id";
+    }).join(", ");
+
+    return DataRow(cells: [
+      DataCell(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("${r['etiqueta_nombre']} ➔ ${r['accion_codigo']}", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700)),
+            if (r['mensaje_error'] != null)
+              Text(r['mensaje_error'], style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF64748B), fontStyle: FontStyle.italic)),
+          ],
+        ),
+      )),
+      DataCell(SizedBox(width: 300, child: Text(nombresCondiciones, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis))),
+      DataCell(NutriBadge(label: r['es_estricta'] == true ? "ESTRICTA" : "RECOMENDACIÓN", type: r['es_estricta'] == true ? 'danger' : 'info')),
+      DataCell(Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_note_rounded, color: AppTema.azulPrincipal, size: 22),
+            onPressed: () => onEdit(r),
+            tooltip: "Editar",
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+            onPressed: () => onDelete(r["id"]),
+            tooltip: "Eliminar",
+          ),
+        ],
+      )),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => rules.length;
+  @override
+  int get selectedRowCount => 0;
 }
 
 class _RuleFormDialog extends StatefulWidget {
@@ -229,7 +320,7 @@ class _RuleFormDialogState extends State<_RuleFormDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(widget.initialRule != null ? "Editar Regla Experta" : "Nueva Regla Experta", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+      title: Text(widget.initialRule != null ? "Editar Regla Experta" : "Nueva Regla Experta", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: 500,
         child: SingleChildScrollView(

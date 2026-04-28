@@ -51,9 +51,9 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Gestión de Cuentas y Vínculos", 
-          style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Registro de tutores, pacientes pediátricos y administración de parentescos.", 
-          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -72,7 +72,7 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
         indicatorWeight: 3,
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: Colors.transparent,
-        labelStyle: GoogleFonts.lexend(fontWeight: FontWeight.bold, fontSize: 13),
+        labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 13),
         tabs: const [
           Tab(icon: Icon(Icons.person_add_alt_1_rounded, size: 20), text: "REGISTRAR TUTOR"),
           Tab(icon: Icon(Icons.child_care_rounded, size: 20), text: "REGISTRAR PACIENTE"),
@@ -109,7 +109,7 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Nuevo Tutor", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+            Text("Nuevo Tutor", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
             const Text("Crea una cuenta de acceso para un representante legal.", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
             const SizedBox(height: 32),
             _buildField("Correo Electrónico", _emailController, Icons.alternate_email_rounded, "ejemplo@correo.com"),
@@ -122,7 +122,7 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
               child: ElevatedButton.icon(
                 onPressed: _loading ? null : _registrar,
                 icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_rounded),
-                label: Text("REGISTRAR TUTOR", style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                label: Text("REGISTRAR TUTOR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
             ),
@@ -209,7 +209,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Nuevo Paciente", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+            Text("Nuevo Paciente", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
             const Text("Registro base del paciente pediátrico para seguimiento clínico.", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
             const SizedBox(height: 32),
             _buildField("Nombre del Paciente", _nameController, Icons.child_care_rounded),
@@ -236,7 +236,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
               child: ElevatedButton.icon(
                 onPressed: _loading ? null : _registrar,
                 icon: const Icon(Icons.app_registration_rounded),
-                label: Text("REGISTRAR PACIENTE", style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                label: Text("REGISTRAR PACIENTE", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
             ),
@@ -377,7 +377,7 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Vinculación Familiar", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+            Text("Vinculación Familiar", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
             const Text("Conecta un tutor con un paciente para habilitar el seguimiento móvil.", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
             const SizedBox(height: 32),
             _buildSearchField("Buscar Tutor", _tutorSearch, true),
@@ -392,7 +392,7 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
               child: ElevatedButton.icon(
                 onPressed: _loading ? null : _vincular,
                 icon: const Icon(Icons.link_rounded),
-                label: Text("VINCULAR CUENTAS", style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                label: Text("VINCULAR CUENTAS", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTema.verdeSalud, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
             ),

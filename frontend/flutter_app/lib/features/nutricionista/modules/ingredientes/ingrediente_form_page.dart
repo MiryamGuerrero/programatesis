@@ -62,7 +62,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
             children: [
               IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back_rounded)),
               Text(widget.idIngrediente == null || widget.idIngrediente == 0 ? 'Nuevo Ingrediente' : 'Editar Ingrediente',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: GoogleFonts.lato(fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
         ),

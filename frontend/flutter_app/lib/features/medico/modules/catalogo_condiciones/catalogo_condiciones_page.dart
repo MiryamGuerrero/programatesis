@@ -86,9 +86,9 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Catálogo de Condiciones", 
-          style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Administración de patologías y estados clínicos pediátricos.", 
-          style: GoogleFonts.poppins(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -105,10 +105,10 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar por nombre de patología...",
-                hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 13),
+                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 15),
@@ -129,7 +129,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
             ),
             icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
             label: Text("NUEVA CONDICIÓN", 
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
           ),
         ),
       ],
@@ -139,7 +139,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
   Widget _buildChipsFilters() {
     return Row(
       children: [
-        Text("FILTRAR POR:", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+        Text("FILTRAR POR:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
         const SizedBox(width: 16),
         _filterChip("TODAS", _selectedTipos.isEmpty, () => setState(() => _selectedTipos.clear())),
         const SizedBox(width: 12),
@@ -167,60 +167,43 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
         ),
-        child: Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : Colors.grey.shade600)),
+        child: Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : Colors.grey.shade600)),
       ),
     );
   }
 
   Widget _buildTable() {
     return NutriTableContainer(
-      child: DataTable(
-        headingRowHeight: 56,
-        dataRowMaxHeight: 64,
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-        columns: [
-          _col("NOMBRE"),
-          _col("CLASIFICACIÓN"),
-          _col("ESTADO"),
-          _col("ACCIONES"),
-        ],
-        rows: _filtradas.map((c) {
-          final tipo = _tipos.firstWhere((t) => t["id"] == c["id_tipo_condicion"], orElse: () => {"nombre": "Médica"});
-          return DataRow(cells: [
-            DataCell(Text(c["nombre"], style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13, color: AppTema.azulOscuro))),
-            DataCell(_tipoBadge(tipo["nombre"].toString().toUpperCase(), c["id_tipo_condicion"] == 1)),
-            DataCell(_statusIcon(c["activa"] == true)),
-            DataCell(Row(
-              children: [
-                IconButton(tooltip: "Editar", icon: const Icon(Icons.edit_rounded, color: Colors.orange, size: 20), onPressed: () => _abrirFormulario(condicion: c)),
-                IconButton(tooltip: "Eliminar", icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _eliminar(c)),
-              ],
-            )),
-          ]);
-        }).toList(),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+        ),
+        child: PaginatedDataTable(
+          header: null,
+          rowsPerPage: 5,
+          showFirstLastButtons: true,
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+          columns: [
+            _col("NOMBRE"),
+            _col("CLASIFICACIÓN"),
+            _col("ESTADO"),
+            _col("ACCIONES"),
+          ],
+          source: _CondicionesDataSource(
+            condiciones: _filtradas,
+            tipos: _tipos,
+            onEdit: _abrirFormulario,
+            onDelete: _eliminar,
+            context: context,
+          ),
+        ),
       ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal, letterSpacing: 0.5)));
-
-  Widget _tipoBadge(String label, bool isCronica) {
-    final bg = isCronica ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7);
-    final tx = isCronica ? const Color(0xFF0369A1) : const Color(0xFF92400E);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
-    );
-  }
-
-  Widget _statusIcon(bool active) {
-    return Icon(
-      active ? Icons.check_circle_rounded : Icons.pause_circle_filled_rounded,
-      color: active ? const Color(0xFF10B981) : Colors.grey.shade400,
-      size: 20,
-    );
-  }
+  DataColumn _col(String l) => DataColumn(
+    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
+  );
 
   void _abrirFormulario({Map<String, dynamic>? condicion}) {
     showDialog(context: context, builder: (context) => _FormularioCondicion(condicion: condicion, tipos: _tipos, onSuccess: _fetchData));
@@ -231,8 +214,8 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("¿Eliminar registro?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: Text("Desea eliminar '${c["nombre"]}' del catálogo.", style: GoogleFonts.poppins(fontSize: 14)),
+        title: Text("¿Eliminar registro?", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+        content: Text("Desea eliminar '${c["nombre"]}' del catálogo.", style: GoogleFonts.montserrat(fontSize: 14)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCELAR")),
           FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => Navigator.pop(context, true), child: const Text("ELIMINAR")),
@@ -247,6 +230,66 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       } catch (e) {}
     }
   }
+}
+
+class _CondicionesDataSource extends DataTableSource {
+  final List<dynamic> condiciones;
+  final List<dynamic> tipos;
+  final Function({Map<String, dynamic>? condicion}) onEdit;
+  final Function(Map<String, dynamic>) onDelete;
+  final BuildContext context;
+
+  _CondicionesDataSource({
+    required this.condiciones,
+    required this.tipos,
+    required this.onEdit,
+    required this.onDelete,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= condiciones.length) return null;
+    final c = condiciones[index];
+    final tipo = tipos.firstWhere((t) => t["id"] == c["id_tipo_condicion"], orElse: () => {"nombre": "Médica"});
+    
+    return DataRow(cells: [
+      DataCell(Text(c["nombre"], style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700))),
+      DataCell(_tipoBadge(tipo["nombre"].toString().toUpperCase(), c["id_tipo_condicion"] == 1)),
+      DataCell(_statusIcon(c["activa"] == true)),
+      DataCell(Row(
+        children: [
+          IconButton(tooltip: "Editar", icon: const Icon(Icons.edit_rounded, color: Colors.orange, size: 20), onPressed: () => onEdit(condicion: c)),
+          IconButton(tooltip: "Eliminar", icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => onDelete(c)),
+        ],
+      )),
+    ]);
+  }
+
+  Widget _tipoBadge(String label, bool isCronica) {
+    final bg = isCronica ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7);
+    final tx = isCronica ? const Color(0xFF0369A1) : const Color(0xFF92400E);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
+    );
+  }
+
+  Widget _statusIcon(bool active) {
+    return Icon(
+      active ? Icons.check_circle_rounded : Icons.pause_circle_filled_rounded,
+      color: active ? const Color(0xFF10B981) : Colors.grey.shade400,
+      size: 20,
+    );
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => condiciones.length;
+  @override
+  int get selectedRowCount => 0;
 }
 
 class _FormularioCondicion extends ConsumerStatefulWidget {
@@ -288,7 +331,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
         child: Row(children: [
           const Icon(Icons.medical_services_outlined, color: Colors.white, size: 22),
           const SizedBox(width: 12),
-          Text(isEdit ? "EDITAR CONDICIÓN" : "NUEVA CONDICIÓN", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(isEdit ? "EDITAR CONDICIÓN" : "NUEVA CONDICIÓN", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
         ]),
       ),
       content: SizedBox(
@@ -303,22 +346,22 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             DropdownButtonFormField<int>(
               value: _idTipo,
               decoration: _modalInputDecor("Tipo de Condición*", Icons.category),
-              items: widget.tipos.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+              items: widget.tipos.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
               onChanged: (v) => setState(() => _idTipo = v),
             ),
             const SizedBox(height: 12),
-            SwitchListTile(title: Text("Estado Activo", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)), value: _activa, onChanged: (v) => setState(() => _activa = v)),
+            SwitchListTile(title: Text("Estado Activo", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600)), value: _activa, onChanged: (v) => setState(() => _activa = v)),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.grey))),
-        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? "..." : "GUARDAR", style: GoogleFonts.poppins(fontWeight: FontWeight.bold))),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey))),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? "..." : "GUARDAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold))),
       ],
     );
   }
 
-  Widget _modalField(TextEditingController c, String l, IconData i, {int maxLines = 1}) => TextFormField(controller: c, maxLines: maxLines, style: GoogleFonts.poppins(fontSize: 14), decoration: _modalInputDecor(l, i));
+  Widget _modalField(TextEditingController c, String l, IconData i, {int maxLines = 1}) => TextFormField(controller: c, maxLines: maxLines, style: GoogleFonts.montserrat(fontSize: 14), decoration: _modalInputDecor(l, i));
 
   InputDecoration _modalInputDecor(String l, IconData i) => InputDecoration(labelText: l, prefixIcon: Icon(i, size: 18), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none));
 

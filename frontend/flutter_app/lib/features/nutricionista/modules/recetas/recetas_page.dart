@@ -64,10 +64,45 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             const SizedBox(height: 32),
             _buildStatsRow(visible.length),
             const SizedBox(height: 32),
-            NutriTableToolbar(
-              actionLabel: "Nueva Receta",
-              onAction: () => NutriSnack.show(context, "Módulo de creación en desarrollo"),
-              onSearch: (v) => setState(() => _query = v),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 55,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        hintText: "Buscar por nombre de receta...",
+                        hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      onChanged: (v) => setState(() => _query = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                SizedBox(
+                  height: 55,
+                  child: FilledButton.icon(
+                    onPressed: () => NutriSnack.show(context, "Módulo de creación en desarrollo"),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.verdeSalud,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
+                    label: Text("NUEVA RECETA", 
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -92,9 +127,9 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Recetario Terapéutico", 
-                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
                 Text("Administración de preparaciones y composición nutricional por plato.", 
-                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                  style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
             IconButton(
@@ -114,7 +149,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         const SizedBox(width: 20),
         Expanded(child: NutriResumenCard(titulo: "FILTRADAS", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_list_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "ACTIVO", colorValor: AppTema.cianLimpio, icon: Icons.check_circle_outline)),
+        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "ACTIVO", colorValor: AppTema.azulOscuro, icon: Icons.check_circle_outline)),
       ],
     );
   }
@@ -125,32 +160,75 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Consultando recetario..."))
         : visible.isEmpty
           ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No se encontraron recetas.")))
-          : DataTable(
-              headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
-              columns: [
-                _col("RECETA"),
-                _col("CALORÍAS"),
-                _col("PROTEÍNAS"),
-                _col("TIPO"),
-                _col("ACCIONES"),
-              ],
-              rows: visible.map((r) => DataRow(
-                cells: [
-                  DataCell(Text(r["nombre"]?.toString() ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal))),
-                  DataCell(Text("${r["calorias_totales"] ?? 0} kcal", style: const TextStyle(fontSize: 12))),
-                  DataCell(Text("${r["proteinas_totales"] ?? 0} g", style: const TextStyle(fontSize: 12))),
-                  DataCell(NutriBadge(label: (r["tipo_comida"] ?? "PLATO").toString().toUpperCase(), type: "info")),
-                  DataCell(Row(
-                    children: [
-                      IconButton(icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), onPressed: () {}),
-                      IconButton(icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), onPressed: () {}),
-                    ],
-                  )),
+          : Theme(
+              data: Theme.of(context).copyWith(
+                cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+              ),
+              child: PaginatedDataTable(
+                header: null,
+                rowsPerPage: 5,
+                showFirstLastButtons: true,
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                columns: [
+                  _col("RECETA"),
+                  _col("CALORÍAS"),
+                  _col("PROTEÍNAS"),
+                  _col("TIPO"),
+                  _col("ACCIONES"),
                 ],
-              )).toList(),
+                source: _RecetasDataSource(
+                  recetas: visible,
+                  context: context,
+                ),
+              ),
             ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+  DataColumn _col(String l) => DataColumn(
+    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
+  );
+}
+
+class _RecetasDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> recetas;
+  final BuildContext context;
+
+  _RecetasDataSource({
+    required this.recetas,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= recetas.length) return null;
+    final r = recetas[index];
+    return DataRow(cells: [
+      DataCell(Text(r["nombre"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text("${r["calorias_totales"] ?? 0} kcal", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text("${r["proteinas_totales"] ?? 0} g", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(NutriBadge(label: (r["tipo_comida"] ?? "PLATO").toString().toUpperCase(), type: "info")),
+      DataCell(Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, size: 20, color: AppTema.azulPrincipal), 
+            onPressed: () {},
+            tooltip: "Ver detalles",
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF64748B)), 
+            onPressed: () {},
+            tooltip: "Editar",
+          ),
+        ],
+      )),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => recetas.length;
+  @override
+  int get selectedRowCount => 0;
 }

@@ -19,6 +19,9 @@ class AppTema {
   static const Color verdeLima = Color(0xFFD9F99D);
 
   static ThemeData get light {
+    final baseTextTheme = GoogleFonts.latoTextTheme();
+    final headlineTheme = GoogleFonts.montserratTextTheme();
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
@@ -29,18 +32,74 @@ class AppTema {
         surface: Colors.white,
       ),
       scaffoldBackgroundColor: grisLienzo,
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: headlineTheme.displayLarge,
+        displayMedium: headlineTheme.displayMedium,
+        displaySmall: headlineTheme.displaySmall,
+        headlineLarge: headlineTheme.headlineLarge,
+        headlineMedium: headlineTheme.headlineMedium,
+        headlineSmall: headlineTheme.headlineSmall,
+        titleLarge: headlineTheme.titleLarge,
+        titleMedium: headlineTheme.titleMedium,
+        titleSmall: headlineTheme.titleSmall,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: azulPrincipal,
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: azulPrincipal,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 16),
         ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: azulPrincipal, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+        headingTextStyle: GoogleFonts.montserrat(
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          color: const Color(0xFF64748B),
+          letterSpacing: 0.8,
+        ),
+        dataTextStyle: GoogleFonts.lato(
+          fontSize: 13,
+          color: const Color(0xFF1E293B),
+          fontWeight: FontWeight.w500,
+        ),
+        horizontalMargin: 20,
+        columnSpacing: 20,
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 60,
+        headingRowHeight: 44,
+        dividerThickness: 1,
       ),
     );
   }

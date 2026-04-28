@@ -136,15 +136,26 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
         _idPatologiaBase = diag['id_condicion'];
         _clinObservaciones.text = diag['observaciones'] ?? "";
-        _clinPeso.text = salud['peso_kg']?.toString() ?? "";
-        _clinTalla.text = salud['talla_cm']?.toString() ?? "";
-        _clinPCR.text = salud['inflamacion_pcr']?.toString() ?? "";
-        _clinRigidez.text = salud['minutos_rigidez_matutina']?.toString() ?? "";
-        _dolorEva = (salud['nivel_dolor_eva'] ?? 0).toDouble();
-        _inflamacion = (salud['nivel_inflamacion'] ?? 0).toDouble();
-        _fatiga = (salud['nivel_fatiga'] ?? 10).toDouble();
-        _broteActivo = salud['hay_brote_activo'] ?? false;
-        if (salud['fecha_proxima_cita'] != null) _proximaCita = DateTime.parse(salud['fecha_proxima_cita']);
+        
+        if (salud != null && salud.isNotEmpty) {
+          _clinPeso.text = salud['peso_kg']?.toString() ?? "";
+          _clinTalla.text = salud['talla_cm']?.toString() ?? "";
+          _clinPCR.text = salud['inflamacion_pcr']?.toString() ?? "";
+          _clinRigidez.text = salud['minutos_rigidez_matutina']?.toString() ?? "";
+          _dolorEva = (salud['nivel_dolor_eva'] ?? 0).toDouble();
+          _inflamacion = (salud['nivel_inflamacion'] ?? 0).toDouble();
+          _fatiga = (salud['nivel_fatiga'] ?? 10).toDouble();
+          _broteActivo = salud['hay_brote_activo'] ?? false;
+          if (salud['fecha_proxima_cita'] != null) _proximaCita = DateTime.parse(salud['fecha_proxima_cita']);
+        }
+
+        // Cargar condiciones temporales del último control
+        _condicionesTemporalesSeleccionadas.clear();
+        if (data['ultimo_control_condiciones'] != null) {
+          for (var c in data['ultimo_control_condiciones']) {
+            _condicionesTemporalesSeleccionadas[c['id']] = DateTime.now();
+          }
+        }
 
         final List subs = alergias['subgrupos'] ?? [];
         final List ings = alergias['ingredientes'] ?? [];
@@ -243,8 +254,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       }, icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18)),
       const SizedBox(width: 16),
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_isEditMode ? "Edición de Perfil Maestro" : "Registro de Expediente Pediátrico", style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
-        Text(_isEditMode ? "Actualizando expediente de ${_pacNombre.text}" : "Consistencia clínica estandarizada OMS.", style: const TextStyle(color: Colors.blueGrey)),
+        Text(_isEditMode ? "Edición de Perfil Maestro" : "Registro de Expediente Pediátrico", 
+          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        Text(_isEditMode ? "Actualizando expediente de ${_pacNombre.text}" : "Consistencia clínica estandarizada OMS.", 
+          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ]),
     ]);
   }
@@ -256,7 +269,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Step _stepTutor() => Step(
-    title: Text("Representante Legal", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+    title: Text("Representante Legal", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
     isActive: _currentStep >= 0,
     content: NutriTableContainer(child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
       _field(_tutorCedula, "Cédula del Tutor*", Icons.badge_outlined, onSubmitted: _buscarTutor),
@@ -271,7 +284,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   );
 
   Step _stepPaciente() => Step(
-    title: Text("Identidad del Paciente", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+    title: Text("Identidad del Paciente", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
     isActive: _currentStep >= 1,
     content: NutriTableContainer(child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
       _field(_pacCedula, "Cédula del Niño*", Icons.badge_rounded),
@@ -292,7 +305,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   );
 
   Step _stepClinico() => Step(
-    title: Text("Evaluación Clínica y Alergias", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+    title: Text("Evaluación Clínica y Alergias", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
     isActive: _currentStep >= 2,
     content: NutriTableContainer(child: Padding(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _dropdown("Patología Crónica Base*", _condicionesBase, _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v)),
@@ -353,7 +366,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _buildBroteActivoSeccion() => Container(
     padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _broteActivo ? Colors.red.shade50 : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _broteActivo ? Colors.redAccent : Colors.grey.shade200, width: 2)),
     child: Column(children: [
-      Text("¿EL PACIENTE PRESENTA BROTE ACTIVO?", style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 13, color: _broteActivo ? Colors.red.shade900 : Colors.black87)),
+      Text("¿EL PACIENTE PRESENTA BROTE ACTIVO?", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: _broteActivo ? Colors.red.shade900 : Colors.black87)),
       const SizedBox(height: 20),
       Row(children: [_botonAccion("SÍ, HAY BROTE", _broteActivo == true, Colors.red, () => setState(() => _broteActivo = true)), const SizedBox(width: 16), _botonAccion("NO, ESTABLE", _broteActivo == false, Colors.green, () => setState(() => _broteActivo = false))]),
     ]),
@@ -432,6 +445,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _buildControls(ControlsDetails d) => Padding(padding: const EdgeInsets.only(top: 32), child: Row(children: [if (_currentStep > 0) OutlinedButton(onPressed: d.onStepCancel, child: const Text("ANTERIOR")), const Spacer(), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20)), onPressed: _loading ? null : d.onStepContinue, child: Text(_currentStep == 2 ? (_isEditMode ? "GUARDAR CAMBIOS MAESTROS" : "REGISTRAR EXPEDIENTE") : "CONTINUAR"))]));
 
   Future<void> _finish() async {
+    if (_idPatologiaBase == null) {
+      NutriSnack.show(context, "Seleccione la Patología Base", isError: true, ref: ref);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
@@ -442,11 +459,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "id_patologia_base": _idPatologiaBase, 
           "enfermedad_nombre": _condicionesBase.firstWhere((c) => c['id'] == _idPatologiaBase)['nombre'],
           "peso_kg": _clinPeso.text, "talla_cm": _clinTalla.text, 
-          "edad_meses": (DateTime.now().difference(_pacFechaNac!).inDays / 30).floor(),
           "dolor_eva": _dolorEva.toInt(), "inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
           "pcr": double.tryParse(_clinPCR.text) ?? 0, "rigidez_min": int.tryParse(_clinRigidez.text) ?? 0, "brote_activo": _broteActivo,
           "observaciones": _clinObservaciones.text, "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first,
-          "condiciones_temporales": _condicionesTemporalesSeleccionadas.entries.map((e) => {"id": e.key, "fecha_inicio": e.value.toIso8601String().split("T").first}).toList(),
+          "condiciones_temporales": _condicionesTemporalesSeleccionadas.entries.map((e) => {"id": e.key}).toList(),
           "alergias_subgrupos": _alergiasSubIds, "alergias_ingredientes": _alergiasIngredientesObj.map((e) => e["id"]).toList(),
         }
       };
@@ -455,6 +471,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       ref.invalidate(patientsListProvider);
       ref.read(selectedPatientProvider.notifier).state = null;
       ref.read(medicoNavProvider.notifier).state = MedicoView.list;
+      if (mounted) NutriSnack.show(context, _isEditMode ? "Expediente actualizado" : "Paciente registrado", ref: ref);
     } catch (e) { NutriSnack.show(context, "Error: $e", isError: true, ref: ref); } 
     finally { if(mounted) setState(() => _loading = false); }
   }
@@ -468,11 +485,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   Widget _dateField() => TextFormField(readOnly: true, controller: TextEditingController(text: _pacFechaNac == null ? "" : DateFormat('dd/MM/yyyy').format(_pacFechaNac!)), decoration: InputDecoration(labelText: "Nacimiento*", prefixIcon: const Icon(Icons.calendar_today), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), onTap: () async { final d = await showDatePicker(context: context, initialDate: DateTime(2015), firstDate: DateTime(2000), lastDate: DateTime.now()); if (d != null) setState(() => _pacFechaNac = d); });
 
-  Widget _section(String t) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(t, style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 11, color: AppTema.azulPrincipal)));
+  Widget _section(String t) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(t, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 11, color: AppTema.azulPrincipal)));
 
   Widget _preguntaSiNo(String t, bool? v, Function(bool) onC) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), const SizedBox(height: 12), Row(children: [_botonAccion("SÍ", v == true, Colors.redAccent, () => onC(true)), const SizedBox(width: 16), _botonAccion("NO", v == false, Colors.green, () => onC(false))])]);
 
   Widget _botonAccion(String l, bool s, Color col, VoidCallback o) => Expanded(child: InkWell(onTap: o, child: Container(height: 45, alignment: Alignment.center, decoration: BoxDecoration(color: s ? col : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: s ? col : Colors.grey.shade300, width: 2)), child: Text(l, style: TextStyle(fontWeight: FontWeight.bold, color: s ? Colors.white : Colors.blueGrey)))));
 
-  Widget _buildRealtimeOMS() => Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: _omsColor.withOpacity(0.3))), child: Column(children: [const Text("ESTADO NUTRICIONAL ACTUAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(_omsStatus, style: GoogleFonts.lexend(fontSize: 20, fontWeight: FontWeight.w900, color: _omsColor))]));
+  Widget _buildRealtimeOMS() => Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: _omsColor.withOpacity(0.3))), child: Column(children: [const Text("ESTADO NUTRICIONAL ACTUAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(_omsStatus, style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: _omsColor))]));
 }

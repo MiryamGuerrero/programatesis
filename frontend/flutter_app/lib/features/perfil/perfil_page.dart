@@ -108,8 +108,10 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Mi Perfil", style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
-                Text("Gestiona tu información personal y profesional.", style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                Text("Mi Perfil", 
+                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text("Gestiona tu información personal y profesional.", 
+                  style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 32),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,12 +142,12 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
         children: [
           CircleAvatar(
             radius: 60, backgroundColor: AppTema.azulPrincipal.withOpacity(0.1),
-            child: Text((_nombresController.text.isNotEmpty ? _nombresController.text[0] : "") + (_apellidosController.text.isNotEmpty ? _apellidosController.text[0] : ""), style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+            child: Text((_nombresController.text.isNotEmpty ? _nombresController.text[0] : "") + (_apellidosController.text.isNotEmpty ? _apellidosController.text[0] : ""), style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
           ),
           const SizedBox(height: 20),
-          Text("${_nombresController.text} ${_apellidosController.text}", textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("${_nombresController.text} ${_apellidosController.text}", textAlign: TextAlign.center, style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: AppTema.verdeSalud.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(role.toUpperCase(), style: GoogleFonts.lexend(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.verdeSalud))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: AppTema.verdeSalud.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(role.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.verdeSalud))),
           const SizedBox(height: 24), const Divider(), const SizedBox(height: 16),
           _infoMiniItem(Icons.verified_user_outlined, "Estado", activo ? "Activo" : "Inactivo"),
           const SizedBox(height: 12), _infoMiniItem(Icons.calendar_today_outlined, "Sistema", "NutriReuma v1.0"),
@@ -172,14 +174,14 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
             onPressed: _saving ? null : _saveProfile,
             icon: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save_as_rounded),
-            label: Text("GUARDAR CAMBIOS", style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+            label: Text("GUARDAR CAMBIOS", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title) => Text(title.toUpperCase(), style: GoogleFonts.quicksand(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black87, letterSpacing: 1.2));
-  Widget _infoMiniItem(IconData icon, String label, String value) => Row(children: [Icon(icon, size: 16, color: Colors.blueGrey), const SizedBox(width: 8), Text("$label: ", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey)), Text(value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87))]);
-  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, int maxLines = 1}) => TextFormField(controller: controller, maxLines: maxLines, style: GoogleFonts.lexend(fontSize: 14), decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20, color: AppTema.azulPrincipal.withOpacity(0.6)), labelStyle: const TextStyle(fontSize: 13, color: Colors.black54), floatingLabelStyle: const TextStyle(color: AppTema.azulPrincipal, fontWeight: FontWeight.bold), filled: true, fillColor: AppTema.grisLienzo.withOpacity(0.5), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)));
+  Widget _sectionTitle(String title) => Text(title.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black87, letterSpacing: 1.2));
+  Widget _infoMiniItem(IconData icon, String label, String value) => Row(children: [Icon(icon, size: 16, color: Colors.blueGrey), const SizedBox(width: 8), Text("$label: ", style: GoogleFonts.lato(fontSize: 12, color: Colors.blueGrey)), Text(value, style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87))]);
+  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, int maxLines = 1}) => TextFormField(controller: controller, maxLines: maxLines, style: GoogleFonts.lato(fontSize: 14), decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20, color: AppTema.azulPrincipal.withOpacity(0.6)), labelStyle: const TextStyle(fontSize: 13, color: Colors.black54), floatingLabelStyle: const TextStyle(color: AppTema.azulPrincipal, fontWeight: FontWeight.bold), filled: true, fillColor: AppTema.grisLienzo.withOpacity(0.5), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)));
 }

@@ -79,9 +79,9 @@ class _CondicionesNutricionalesPageState extends ConsumerState<CondicionesNutric
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Catálogo de Condiciones Nutricionales", 
-                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
                 Text("Administración de estados clínicos y diagnósticos nutricionales del sistema.", 
-                  style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13)),
+                  style: GoogleFonts.lato(color: Colors.blueGrey, fontSize: 13)),
               ],
             ),
             IconButton(icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), onPressed: _loadData),
@@ -98,7 +98,7 @@ class _CondicionesNutricionalesPageState extends ConsumerState<CondicionesNutric
         const SizedBox(width: 20),
         Expanded(child: NutriResumenCard(titulo: "ACTIVAS", valor: "${_conditions.where((c) => c['activa'] == true).length}", colorValor: AppTema.verdeSalud, icon: Icons.check_circle_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "OPERATIVO", colorValor: AppTema.cianLimpio, icon: Icons.verified_user_rounded)),
+        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "OPERATIVO", colorValor: AppTema.azulOscuro, icon: Icons.verified_user_rounded)),
       ],
     );
   }
@@ -132,7 +132,7 @@ class _CondicionesNutricionalesPageState extends ConsumerState<CondicionesNutric
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, color: AppTema.azulPrincipal)));
+  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulPrincipal)));
 
   Future<void> _deleteCondition(int id) async {
     final confirm = await showDialog<bool>(
@@ -196,7 +196,7 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(widget.initialCondition != null ? "Editar Diagnóstico" : "Nuevo Diagnóstico", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+      title: Text(widget.initialCondition != null ? "Editar Diagnóstico" : "Nuevo Diagnóstico", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
