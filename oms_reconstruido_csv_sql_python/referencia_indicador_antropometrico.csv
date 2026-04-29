@@ -1,0 +1,3 @@
+﻿id,codigo,nombre,descripcion,unidad_medida,edad_min_meses,edad_max_meses,activo
+1,BMI,IMC para la edad,"Body Mass Index-for-age, referencia OMS 2007, 5 a 19 años",kg/m2,61,228,True
+2,HFA,Talla para la edad,"Height-for-age, referencia OMS 2007, 5 a 19 años",cm,61,228,True
