@@ -31,7 +31,7 @@ def provision_auth_user_with_password_setup(
     email: str,
     nombre_completo: str,
     role_code: str,
-) -> str:
+) -> tuple[str, str]:
     normalized_email = email.strip().lower()
     normalized_role = role_code.strip().lower()
     redirect_url = _resolve_redirect_url(normalized_role)
@@ -39,7 +39,7 @@ def provision_auth_user_with_password_setup(
     admin_client = get_supabase_admin_client()
     public_client = get_supabase_public_client()
 
-    temp_password = token_urlsafe(24)
+    temp_password = token_urlsafe(12) # Shorter for easier sharing if needed
     user_response = admin_client.auth.admin.create_user(
         {
             "email": normalized_email,
@@ -74,7 +74,7 @@ def provision_auth_user_with_password_setup(
             pass
         raise RuntimeError("No fue posible enviar el correo de configuracion de contrasena") from exc
 
-    return str(user_id)
+    return str(user_id), temp_password
 
 
 def delete_auth_user(auth_user_id: str) -> None:

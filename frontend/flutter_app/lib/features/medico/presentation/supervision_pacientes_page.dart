@@ -156,8 +156,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               columns: [
                 _col("IDENTIDAD Y PACIENTE"),
                 _col("CÉDULA"),
+                _col("ENFERMEDAD"),
+                _col("SEVERIDAD"),
+                _col("NUTRICIÓN (OMS)"),
                 _col("EDAD"),
-                _col("ESTADO NUTRICIONAL (OMS)"),
                 _col("ACCIONES"),
               ],
               source: _PatientsDataSource(filtered, ref, (p) => _confirmarEliminar(p)),
@@ -171,7 +173,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 
   DataColumn _col(String l) => DataColumn(
-    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
+    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 10, color: AppTema.azulOscuro))
   );
 
   Future<void> _confirmarEliminar(Map<String, dynamic> p) async {
@@ -213,34 +215,76 @@ class _PatientsDataSource extends DataTableSource {
     
     return DataRow(
       cells: [
-        DataCell(Row(
-          children: [
-            NutriAvatar(nombreCompleto: p["nombre_completo"] ?? "P", radio: 16),
-            const SizedBox(width: 12),
-            Text(p["nombre_completo"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600)),
-          ],
+        DataCell(SizedBox(
+          width: 160,
+          child: Row(
+            children: [
+              _getStatusIcon(p["severidad"]),
+              const SizedBox(width: 8),
+              NutriAvatar(nombreCompleto: p["nombre_completo"] ?? "P", radio: 14),
+              const SizedBox(width: 8),
+              Expanded(child: Text(p["nombre_completo"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+            ],
+          ),
         )),
-        DataCell(Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
-        DataCell(Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+        DataCell(Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B)))),
+        DataCell(SizedBox(width: 100, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis))),
         DataCell(NutriBadge(
-          label: (p["estado_nutricional"] ?? "PENDIENTE").toString().toUpperCase(), 
-          type: _getBadgeType(p["estado_nutricional"])
+          label: (p["severidad"] ?? "ESTABLE").toString().toUpperCase(), 
+          type: _getSeverityBadgeType(p["severidad"])
         )),
+        DataCell(NutriBadge(
+          label: (p["condicion_nutricional"] ?? "PENDIENTE").toString().toUpperCase(), 
+          type: _getBadgeType(p["condicion_nutricional"])
+        )),
+        DataCell(Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B)))),
         DataCell(Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(tooltip: "Analítica y Control", icon: const Icon(Icons.analytics_rounded, color: AppTema.azulPrincipal, size: 20), onPressed: () {
+            IconButton(tooltip: "Analítica", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.analytics_rounded, color: AppTema.azulPrincipal, size: 18), onPressed: () {
               ref.read(selectedPatientProvider.notifier).state = p;
               ref.read(medicoNavProvider.notifier).state = MedicoView.control;
             }),
-            IconButton(tooltip: "Editar Perfil Maestro", icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 22), onPressed: () {
+            const SizedBox(width: 4),
+            IconButton(tooltip: "Editar", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 20), onPressed: () {
               ref.read(selectedPatientProvider.notifier).state = p;
               ref.read(medicoNavProvider.notifier).state = MedicoView.register;
             }),
-            IconButton(tooltip: "Eliminar Expediente", icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => onDelete(p)),
+            const SizedBox(width: 4),
+            IconButton(tooltip: "Borrar", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18), onPressed: () => onDelete(p)),
           ],
         )),
       ],
     );
+  }
+
+  Widget _getStatusIcon(dynamic sev) {
+    final s = sev?.toString().toLowerCase() ?? "";
+    IconData icon = Icons.circle;
+    Color color = Colors.green;
+    
+    if (s.contains("alta") || s.contains("brote")) {
+      icon = Icons.warning_rounded;
+      color = Colors.red;
+    } else if (s.contains("moderada")) {
+      icon = Icons.pause_circle_filled_rounded;
+      color = Colors.orange;
+    } else if (s.contains("leve")) {
+      icon = Icons.info_rounded;
+      color = Colors.blue;
+    }
+    
+    return Icon(icon, size: 14, color: color);
+  }
+
+  String _getSeverityBadgeType(dynamic sev) {
+    if (sev == null) return "info";
+    final s = sev.toString().toLowerCase();
+    if (s.contains("estable")) return "success";
+    if (s.contains("leve")) return "info";
+    if (s.contains("moderada")) return "warning";
+    if (s.contains("alta") || s.contains("brote")) return "danger";
+    return "info";
   }
 
   String _getBadgeType(dynamic estado) {

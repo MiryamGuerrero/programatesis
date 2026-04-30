@@ -448,12 +448,15 @@ import "package:fl_chart/fl_chart.dart";
   }
 
   void _abrirFormularioControl(BuildContext context) {
+    final pac = _data!['paciente'];
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _FormularioControlMensual(
         idPaciente: widget.idPaciente,
+        fechaNacimiento: pac['fecha_nacimiento'],
+        idSexo: pac['id_sexo'],
         onSuccess: () {
           Navigator.pop(context);
           _loadExpedienteMaestro();
@@ -466,8 +469,10 @@ import "package:fl_chart/fl_chart.dart";
 
 class _FormularioControlMensual extends ConsumerStatefulWidget {
   final String idPaciente;
+  final String fechaNacimiento;
+  final int idSexo;
   final VoidCallback onSuccess;
-  const _FormularioControlMensual({required this.idPaciente, required this.onSuccess});
+  const _FormularioControlMensual({required this.idPaciente, required this.fechaNacimiento, required this.idSexo, required this.onSuccess});
 
   @override
   ConsumerState<_FormularioControlMensual> createState() => _FormularioControlMensualState();
@@ -488,6 +493,55 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   double _fatiga = 10;
   bool _brote = false;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
+
+  String _omsStatus = "PENDIENTE";
+  Color _omsColor = Colors.grey;
+  List<dynamic> _condicionesTemp = [];
+  final Map<int, DateTime> _condicionesTemporalesSeleccionadas = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCatalogs();
+  }
+
+  Future<void> _loadCatalogs() async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final results = await repo.fetchCatalog("heuristico", "condicion");
+      if (mounted) {
+        setState(() {
+          _condicionesTemp = results.where((c) => c["id_tipo_condicion"] == 2).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _calculateOMS() {
+    double p = double.tryParse(_pesoCtrl.text) ?? 0;
+    double t = double.tryParse(_tallaCtrl.text) ?? 0;
+    if (p > 0 && t > 0) {
+      double imc = p / ((t / 100) * (t / 100));
+      setState(() {
+        if (imc < 13) { _omsStatus = "DELGADEZ SEVERA"; _omsColor = Colors.red; }
+        else if (imc < 14.5) { _omsStatus = "DELGADEZ"; _omsColor = Colors.orange; }
+        else if (imc < 18.5) { _omsStatus = "RIESGO DESNUTRICIÓN"; _omsColor = Colors.amber; }
+        else if (imc < 25) { _omsStatus = "EUTRÓFICO (NORMAL)"; _omsColor = Colors.green; }
+        else if (imc < 30) { _omsStatus = "SOBREPESO"; _omsColor = Colors.orange; }
+        else { _omsStatus = "OBESIDAD"; _omsColor = Colors.red; }
+      });
+    }
+  }
+
+  Widget _buildRealtimeOMS() => Container(
+    width: double.infinity, padding: const EdgeInsets.all(20), 
+    decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: _omsColor.withOpacity(0.3))), 
+    child: Column(children: [
+      const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), 
+      const SizedBox(height: 8), 
+      Text(_omsStatus, style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: _omsColor))
+    ])
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -531,9 +585,11 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   Widget _stepMedidas() {
     return Column(
       children: [
-        _field(_pesoCtrl, "Peso Actual (kg)*", Icons.monitor_weight_outlined),
+        _field(_pesoCtrl, "Peso Actual (kg)*", Icons.monitor_weight_outlined, onChanged: (_) => _calculateOMS()),
         const SizedBox(height: 16),
-        _field(_tallaCtrl, "Talla Actual (cm)*", Icons.height_rounded),
+        _field(_tallaCtrl, "Talla Actual (cm)*", Icons.height_rounded, onChanged: (_) => _calculateOMS()),
+        const SizedBox(height: 32),
+        _buildRealtimeOMS(),
         const SizedBox(height: 32),
         Container(
           padding: const EdgeInsets.all(24),
@@ -551,6 +607,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   Widget _stepClinico() {
     return SingleChildScrollView(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildMetricSlider("ESCALA DE DOLOR", _dolor, (v) => setState(() => _dolor = v), "DOLOR"),
           const SizedBox(height: 16),
@@ -563,7 +620,55 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
             const SizedBox(width: 16),
             Expanded(child: _field(_rigidezCtrl, "Rigidez (min)", Icons.timer_outlined)),
           ]),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          const Text("CONDICIONES TEMPORALES ACTIVAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
+          const Text("Seleccione síntomas actuales y su fecha de inicio:", style: TextStyle(fontSize: 10, color: Colors.grey)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: _condicionesTemp.map((c) {
+            final id = c["id"] as int;
+            final isSelected = _condicionesTemporalesSeleccionadas.containsKey(id);
+            return FilterChip(
+              label: Text(c["nombre"]), 
+              selected: isSelected,
+              onSelected: (v) async {
+                if (v) {
+                  final f = await showDatePicker(
+                    context: context, 
+                    helpText: "FECHA DE INICIO DEL SÍNTOMA",
+                    initialDate: DateTime.now(), 
+                    firstDate: DateTime.now().subtract(const Duration(days: 30)), 
+                    lastDate: DateTime.now()
+                  );
+                  if (f != null) setState(() => _condicionesTemporalesSeleccionadas[id] = f);
+                } else { 
+                  setState(() => _condicionesTemporalesSeleccionadas.remove(id)); 
+                }
+              },
+            );
+          }).toList()),
+          if (_condicionesTemporalesSeleccionadas.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ..._condicionesTemporalesSeleccionadas.entries.map((e) {
+              final nombre = _condicionesTemp.firstWhere((c) => c["id"] == e.key)["nombre"];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  Expanded(child: Text(nombre, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                  const Text("Desde:", style: TextStyle(fontSize: 10)),
+                  TextButton(
+                    onPressed: () async {
+                      final d = await showDatePicker(context: context, initialDate: e.value, firstDate: DateTime.now().subtract(const Duration(days: 60)), lastDate: DateTime.now());
+                      if (d != null) setState(() => _condicionesTemporalesSeleccionadas[e.key] = d);
+                    },
+                    child: Text(DateFormat('dd/MM/yy').format(e.value), style: const TextStyle(fontSize: 11)),
+                  ),
+                ]),
+              );
+            }).toList(),
+          ],
+          const SizedBox(height: 24),
           _field(_notaCtrl, "Notas de evolución...", Icons.edit_note, maxLines: 2),
         ],
       ),
@@ -629,6 +734,10 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
         "brote_activo": _dolor > 7 || _inflamacion > 7, // Lógica automática de sugerencia de brote
         "nota_evolucion": _notaCtrl.text,
         "fecha_proxima_cita": _proximaCita.toIso8601String().split('T')[0],
+        "condiciones_temporales": _condicionesTemporalesSeleccionadas.entries.map((e) => {
+          "id": e.key,
+          "fecha_inicio": e.value.toIso8601String().split('T')[0]
+        }).toList(),
       };
       await dio.post("pacientes/${widget.idPaciente}/control-mensual", data: payload);
       widget.onSuccess();
@@ -638,10 +747,11 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   }
 
   // REUTILIZAR WIDGETS DE ESCALAS Y CAMPOS (Iguales a los del registro para consistencia)
-  Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1}) {
+  Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1, Function(String)? onChanged}) {
     bool n = l.contains("kg") || l.contains("cm") || l.contains("PCR") || l.contains("min");
     return TextFormField(
       controller: c, maxLines: maxLines,
+      onChanged: onChanged,
       keyboardType: n ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       inputFormatters: n ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))] : null,
       decoration: InputDecoration(labelText: l, prefixIcon: Icon(i), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))

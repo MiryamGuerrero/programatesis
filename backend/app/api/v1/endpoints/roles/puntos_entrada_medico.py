@@ -17,8 +17,8 @@ def pre_diagnostico_nutricional(
 ):
     """Calcula el estado nutricional al instante sin guardar nada."""
     try:
-        from app.services.shared.oms_service import calcular_edad_detallada
-        _, meses = calcular_edad_detallada(payload.fecha_nacimiento)
+        from app.domain.servicios.servicio_oms import ServicioOMS
+        _, meses = ServicioOMS.calcular_edad_detallada(payload.fecha_nacimiento)
         
         result = caso_uso.calcular_estado_nutricional(
             peso=payload.peso_kg,
@@ -88,7 +88,7 @@ def obtener_tutor_por_cedula(
     repo = RepositorioPerfilPostgres()
     res = repo.buscar_tutor_por_cedula(cedula)
     if not res:
-        return {"existe": false}
+        return {"existe": False}
 
     # Aseguramos que retorne el flag de existencia
     res["existe"] = True
@@ -140,8 +140,12 @@ def registro_paciente_integral(
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
     try:
-        id_paciente = repo.registrar_paciente_integral(payload, id_usuario_creador=user.user_id)
-        return {"id": id_paciente, "message": "Paciente registrado exitosamente"}
+        resultado = repo.registrar_paciente_integral(payload, id_usuario_creador=user.user_id)
+        return {
+            "id": resultado["id"], 
+            "message": "Paciente registrado exitosamente",
+            "temp_password": resultado.get("temp_password")
+        }
     except Exception as exc:
         print(f"DEBUG ERROR: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))

@@ -40,13 +40,18 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   final _clinPeso = TextEditingController();
   final _clinTalla = TextEditingController();
   final _clinPCR = TextEditingController();
+  final _clinVSG = TextEditingController();
+  final _clinArtInflamadas = TextEditingController(text: "0");
+  final _clinArtDolorosas = TextEditingController(text: "0");
   final _clinRigidez = TextEditingController();
   final _clinObservaciones = TextEditingController();
+  final _ingredienteSearchCtrl = TextEditingController();
   
   double _dolorEva = 0;
-  double _inflamacion = 0;
+  double _inflamacionEscala = 0; 
   double _fatiga = 10;
-  bool _broteActivo = false;
+  bool _enBrote = false;
+  String _estadoEnfermedad = "Estable";
   int? _idPatologiaBase;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
   final Map<int, DateTime> _condicionesTemporalesSeleccionadas = {};
@@ -73,6 +78,28 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   void initState() {
     super.initState();
     _inicializarTodo();
+    _ingredienteSearchCtrl.addListener(() {
+      setState(() => _ingredienteSearch = _ingredienteSearchCtrl.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tutorCedula.dispose();
+    _tutorNombre.dispose();
+    _tutorEmail.dispose();
+    _pacNombre.dispose();
+    _pacCedula.dispose();
+    _clinPeso.dispose();
+    _clinTalla.dispose();
+    _clinPCR.dispose();
+    _clinVSG.dispose();
+    _clinArtInflamadas.dispose();
+    _clinArtDolorosas.dispose();
+    _clinRigidez.dispose();
+    _clinObservaciones.dispose();
+    _ingredienteSearchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _inicializarTodo() async {
@@ -140,20 +167,23 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         if (salud != null && salud.isNotEmpty) {
           _clinPeso.text = salud['peso_kg']?.toString() ?? "";
           _clinTalla.text = salud['talla_cm']?.toString() ?? "";
-          _clinPCR.text = salud['inflamacion_pcr']?.toString() ?? "";
-          _clinRigidez.text = salud['minutos_rigidez_matutina']?.toString() ?? "";
-          _dolorEva = (salud['nivel_dolor_eva'] ?? 0).toDouble();
-          _inflamacion = (salud['nivel_inflamacion'] ?? 0).toDouble();
+          _clinPCR.text = salud['valor_pcr']?.toString() ?? "";
+          _clinVSG.text = salud['valor_vsg']?.toString() ?? "";
+          _clinArtInflamadas.text = salud['articulaciones_inflamadas']?.toString() ?? "0";
+          _clinArtDolorosas.text = salud['articulaciones_dolorosas']?.toString() ?? "0";
+          _clinRigidez.text = salud['minutos_rigidez']?.toString() ?? "";
+          _dolorEva = (salud['puntos_dolor'] ?? 0).toDouble();
+          _inflamacionEscala = (salud['escala_inflamacion'] ?? 0).toDouble();
           _fatiga = (salud['nivel_fatiga'] ?? 10).toDouble();
-          _broteActivo = salud['hay_brote_activo'] ?? false;
+          _enBrote = salud['en_brote'] ?? false;
+          _estadoEnfermedad = salud['estado_enfermedad'] ?? "Estable";
           if (salud['fecha_proxima_cita'] != null) _proximaCita = DateTime.parse(salud['fecha_proxima_cita']);
         }
 
-        // Cargar condiciones temporales del último control
         _condicionesTemporalesSeleccionadas.clear();
-        if (data['ultimo_control_condiciones'] != null) {
-          for (var c in data['ultimo_control_condiciones']) {
-            _condicionesTemporalesSeleccionadas[c['id']] = DateTime.now();
+        if (data['condiciones_vigentes'] != null) {
+          for (var c in data['condiciones_vigentes']) {
+            _condicionesTemporalesSeleccionadas[c['id_condicion']] = DateTime.now();
           }
         }
 
@@ -231,7 +261,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               type: StepperType.vertical, currentStep: _currentStep,
               onStepContinue: () {
                 if (_validateCurrentStep(_currentStep)) {
-                  setState(() => _currentStep < 2 ? _currentStep++ : _finish());
+                  if (_currentStep < 2) {
+                    setState(() => _currentStep++);
+                  } else {
+                    _finish();
+                  }
                 } else {
                   NutriSnack.show(context, "Complete campos obligatorios (*)", isError: true, ref: ref);
                 }
@@ -243,6 +277,168 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           ),
         ]),
       ),
+    );
+  }
+
+  Widget _buildControls(ControlsDetails details) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 32),
+      child: Row(
+        children: [
+          if (_currentStep > 0)
+            OutlinedButton(
+              onPressed: details.onStepCancel,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("ANTERIOR"),
+            ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: FilledButton(
+              onPressed: details.onStepContinue,
+              style: FilledButton.styleFrom(
+                backgroundColor: _currentStep == 2 ? AppTema.verdeSalud : AppTema.azulPrincipal,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(_currentStep == 2 ? (_isEditMode ? "GUARDAR CAMBIOS" : "FINALIZAR REGISTRO") : "SIGUIENTE PASO"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecuencialAlergias() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _preguntaSiNo(
+          "¿ES INTOLERANTE A LA LACTOSA?",
+          _esIntoleranteLactosa,
+          (v) {
+            setState(() {
+              _esIntoleranteLactosa = v;
+              if (v) _marcarLacteosAuto();
+              else _quitarLacteosAuto();
+            });
+          },
+        ),
+        const SizedBox(height: 24),
+        _preguntaSiNo(
+          "¿TIENE ALERGIAS A GRUPOS (MARISCOS, FRUTOS SECOS, ETC)?",
+          _tieneAlergiaGrupos,
+          (v) {
+            setState(() {
+              _tieneAlergiaGrupos = v;
+              if (!v) _alergiasSubIds.clear();
+              if (_esIntoleranteLactosa == true) _marcarLacteosAuto();
+            });
+          },
+        ),
+        if (_tieneAlergiaGrupos == true) ...[
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: _subgruposAlim.map((s) {
+                  final id = s["id"] as int;
+                  final isLacteo = s["nombre"].toString().toLowerCase().contains("lácteo");
+                  if (_esIntoleranteLactosa == true && isLacteo) return const SizedBox.shrink();
+                  
+                  return CheckboxListTile(
+                    title: Text(s["nombre"], style: const TextStyle(fontSize: 13)),
+                    value: _alergiasSubIds.contains(id),
+                    onChanged: (val) => setState(() => val! ? _alergiasSubIds.add(id) : _alergiasSubIds.remove(id)),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        _preguntaSiNo(
+          "¿ALERGIA A INGREDIENTES PUNTUALES?",
+          _tieneAlergiaIngredientes,
+          (v) => setState(() => _tieneAlergiaIngredientes = v),
+        ),
+        if (_tieneAlergiaIngredientes == true) ...[
+          const SizedBox(height: 16),
+          _field(_ingredienteSearchCtrl, "Buscar ingrediente...", Icons.search),
+          if (_ingredienteSearch.length > 2)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+              child: ListView(
+                shrinkWrap: true,
+                children: _ingredientes.where((i) {
+                  final n = i["nombre"].toString().toLowerCase();
+                  final search = _ingredienteSearch.toLowerCase();
+                  if (!n.contains(search)) return false;
+                  if (_esIntoleranteLactosa == true && (n.contains("leche") || n.contains("queso") || n.contains("yogurt"))) return false;
+                  if (_alergiasSubIds.contains(i["id_subgrupo_alimentario"])) return false;
+                  return true;
+                }).map((i) => ListTile(
+                  title: Text(i["nombre"], style: const TextStyle(fontSize: 13)),
+                  onTap: () {
+                    final searchName = i["nombre"].toString().toLowerCase();
+                    final relacionados = _ingredientes.where((ing) {
+                      final name = ing["nombre"].toString().toLowerCase();
+                      return name.contains(searchName);
+                    }).toList();
+
+                    setState(() {
+                      for (var rel in relacionados) {
+                        if (!_alergiasIngredientesObj.any((x) => x["id"] == rel["id"])) {
+                          _alergiasIngredientesObj.add(rel);
+                        }
+                      }
+                      _ingredienteSearchCtrl.clear();
+                      _ingredienteSearch = "";
+                    });
+                  },
+                )).toList(),
+              ),
+            ),
+          if (_alergiasIngredientesObj.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Wrap(spacing: 8, runSpacing: 8, children: _alergiasIngredientesObj.map((i) => _buildIngredienteChip(i)).toList()),
+            ),
+        ],
+      ],
+    );
+  }
+
+  void _marcarLacteosAuto() {
+    final lacteosIds = _subgruposAlim.where((s) => s["nombre"].toString().toLowerCase().contains("lácteo")).map((s) => s["id"] as int);
+    for (var id in lacteosIds) {
+      if (!_alergiasSubIds.contains(id)) _alergiasSubIds.add(id);
+    }
+  }
+
+  void _quitarLacteosAuto() {
+    final lacteosIds = _subgruposAlim.where((s) => s["nombre"].toString().toLowerCase().contains("lácteo")).map((s) => s["id"] as int).toSet();
+    _alergiasSubIds.removeWhere((id) => lacteosIds.contains(id));
+  }
+
+  Widget _buildIngredienteChip(Map<String, dynamic> i) {
+    return Chip(
+      label: Text(i["nombre"], style: const TextStyle(fontSize: 11)),
+      onDeleted: () => setState(() => _alergiasIngredientesObj.removeWhere((x) => x["id"] == i["id"])),
+      deleteIconColor: Colors.red,
+      backgroundColor: Colors.red.shade50,
+      side: BorderSide(color: Colors.red.shade100),
     );
   }
 
@@ -308,39 +504,116 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     title: Text("Evaluación Clínica y Alergias", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
     isActive: _currentStep >= 2,
     content: NutriTableContainer(child: Padding(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _dropdown("Patología Crónica Base*", _condicionesBase, _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v)),
+      const Text("SELECCIÓN DE ENFERMEDAD REUMÁTICA", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: AppTema.azulPrincipal, letterSpacing: 1)),
+      const SizedBox(height: 16),
+      _dropdown("Diagnóstico Reumatológico*", _condicionesBase, _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v)),
       const SizedBox(height: 32),
       _section("ESTADO NUTRICIONAL (OMS)"),
       _buildRealtimeOMS(),
       const SizedBox(height: 24),
       Row(children: [
-        Expanded(child: _field(_clinPeso, "Peso (kg)*", Icons.monitor_weight_outlined, onChanged: (_)=>_calculateOMS())),
+        Expanded(child: _field(_clinPeso, "Peso Actual (kg)*", Icons.monitor_weight_outlined, onChanged: (_)=>_calculateOMS())),
         const SizedBox(width: 24),
-        Expanded(child: _field(_clinTalla, "Talla (cm)*", Icons.height_rounded, onChanged: (_)=>_calculateOMS())),
+        Expanded(child: _field(_clinTalla, "Talla Actual (cm)*", Icons.height_rounded, onChanged: (_)=>_calculateOMS())),
       ]),
       const SizedBox(height: 32),
-      _section("MÉTRICAS CLÍNICAS (EVA)"),
-      _buildMetricSlider("DOLOR", _dolorEva, (v)=>setState(()=>_dolorEva=v), type: "DOLOR"),
+      _section("MÉTRICAS CLÍNICAS (EVA / ARTICULACIONES)"),
+      _buildMetricSlider("NIVEL DE DOLOR", _dolorEva, (v)=>setState(()=>_dolorEva=v), type: "DOLOR"),
       const SizedBox(height: 16),
-      _buildMetricSlider("INFLAMACIÓN", _inflamacion, (v)=>setState(()=>_inflamacion=v), type: "INFLAMACION"),
+      _buildMetricSlider("INFLAMACIÓN ARTICULAR (0-3)", _inflamacionEscala, (v)=>setState(()=>_inflamacionEscala=v), type: "INFLAMACION_REUMA"),
       const SizedBox(height: 16),
-      _buildMetricSlider("ENERGÍA", _fatiga, (v)=>setState(()=>_fatiga=v), type: "FATIGA"),
+      _buildMetricSlider("NIVEL DE ENERGÍA / FATIGA", _fatiga, (v)=>setState(()=>_fatiga=v), type: "FATIGA"),
       const SizedBox(height: 32),
-      Row(children: [Expanded(child: _field(_clinPCR, "PCR*", Icons.biotech)), const SizedBox(width: 24), Expanded(child: _field(_clinRigidez, "Rigidez (min)", Icons.timer))]),
+      Row(children: [
+        Expanded(child: _field(_clinArtInflamadas, "Artic. Inflamadas", Icons.settings_accessibility)),
+        const SizedBox(width: 16),
+        Expanded(child: _field(_clinArtDolorosas, "Artic. Dolorosas", Icons.front_hand_outlined)),
+      ]),
+      const SizedBox(height: 16),
+      Row(children: [
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _field(_clinPCR, "PCR (mg/L)*", Icons.biotech),
+            const Padding(
+              padding: EdgeInsets.only(left: 12, top: 4),
+              child: Text("Proteína C Reactiva: Mide inflamación aguda.", style: TextStyle(fontSize: 9, color: Colors.grey, fontStyle: FontStyle.italic)),
+            ),
+          ],
+        )), 
+        const SizedBox(width: 16), 
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _field(_clinVSG, "VSG (mm/h)", Icons.bloodtype_outlined),
+            const Padding(
+              padding: EdgeInsets.only(left: 12, top: 4),
+              child: Text("Velocidad Sedimentación: Inflamación crónica.", style: TextStyle(fontSize: 9, color: Colors.grey, fontStyle: FontStyle.italic)),
+            ),
+          ],
+        )),
+        const SizedBox(width: 16), 
+        Expanded(child: _field(_clinRigidez, "Rigidez (min)", Icons.timer))
+      ]),
+      const SizedBox(height: 32),
+      _section("ESTADO DE LA ENFERMEDAD"),
+      _dropdownString("Actividad actual*", ["Estable", "Actividad Leve", "Actividad Moderada", "Actividad Alta"], _estadoEnfermedad, (v)=>setState(()=>_estadoEnfermedad=v!)),
       const SizedBox(height: 32),
       _section("CONDICIONES TEMPORALES ACTIVAS"),
+      const Text("Seleccione síntomas o condiciones actuales y defina su periodo:", style: TextStyle(fontSize: 10, color: Colors.blueGrey)),
+      const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: _condicionesTemp.map((c) {
         final id = c["id"] as int;
+        final isSelected = _condicionesTemporalesSeleccionadas.containsKey(id);
         return FilterChip(
-          label: Text(c["nombre"]), selected: _condicionesTemporalesSeleccionadas.containsKey(id),
+          label: Text(c["nombre"]), 
+          selected: isSelected,
           onSelected: (v) async {
             if (v) {
-              final f = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now());
+              final f = await showDatePicker(
+                context: context, 
+                helpText: "FECHA DE INICIO DEL SÍNTOMA",
+                initialDate: DateTime.now(), 
+                firstDate: DateTime.now().subtract(const Duration(days: 30)), 
+                lastDate: DateTime.now()
+              );
               if (f != null) setState(() => _condicionesTemporalesSeleccionadas[id] = f);
-            } else { setState(() => _condicionesTemporalesSeleccionadas.remove(id)); }
+            } else { 
+              setState(() => _condicionesTemporalesSeleccionadas.remove(id)); 
+            }
           },
         );
       }).toList()),
+      if (_condicionesTemporalesSeleccionadas.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        const Text("PERIODOS DEFINIDOS:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ..._condicionesTemporalesSeleccionadas.entries.map((e) {
+          final nombre = _condicionesTemp.firstWhere((c) => c["id"] == e.key)["nombre"];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+            child: Row(
+              children: [
+                Expanded(child: Text(nombre, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                const Text("Inicio:", style: TextStyle(fontSize: 10)),
+                TextButton(
+                  onPressed: () async {
+                    final d = await showDatePicker(context: context, initialDate: e.value, firstDate: DateTime.now().subtract(const Duration(days: 60)), lastDate: DateTime.now());
+                    if (d != null) setState(() => _condicionesTemporalesSeleccionadas[e.key] = d);
+                  },
+                  child: Text(DateFormat('dd/MM/yy').format(e.value), style: const TextStyle(fontSize: 11)),
+                ),
+                const Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+                const SizedBox(width: 8),
+                const Text("Fin (est.):", style: TextStyle(fontSize: 10)),
+                Text(DateFormat('dd/MM/yy').format(e.value.add(const Duration(days: 7))), style: const TextStyle(fontSize: 11, color: Colors.blueGrey)),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
       const SizedBox(height: 32),
       _buildBroteActivoSeccion(),
       const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Divider()),
@@ -363,90 +636,52 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     ]))),
   );
 
+  Widget _dropdownString(String l, List<String> items, String val, Function(String?) onC) => DropdownButtonFormField<String>(value: val, items: items.map((e) => DropdownMenuItem<String>(value: e, child: Text(e))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
+
   Widget _buildBroteActivoSeccion() => Container(
-    padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _broteActivo ? Colors.red.shade50 : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _broteActivo ? Colors.redAccent : Colors.grey.shade200, width: 2)),
+    padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _enBrote ? Colors.red.shade50 : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _enBrote ? Colors.redAccent : Colors.grey.shade200, width: 2)),
     child: Column(children: [
-      Text("¿EL PACIENTE PRESENTA BROTE ACTIVO?", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: _broteActivo ? Colors.red.shade900 : Colors.black87)),
+      Text("¿EL PACIENTE PRESENTA BROTE ACTIVO?", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: _enBrote ? Colors.red.shade900 : Colors.black87)),
       const SizedBox(height: 20),
-      Row(children: [_botonAccion("SÍ, HAY BROTE", _broteActivo == true, Colors.red, () => setState(() => _broteActivo = true)), const SizedBox(width: 16), _botonAccion("NO, ESTABLE", _broteActivo == false, Colors.green, () => setState(() => _broteActivo = false))]),
+      Row(children: [_botonAccion("SÍ, HAY BROTE", _enBrote == true, Colors.red, () => setState(() => _enBrote = true)), const SizedBox(width: 16), _botonAccion("NO, ESTABLE", _enBrote == false, Colors.green, () => setState(() => _enBrote = false))]),
     ]),
   );
 
   Widget _buildMetricSlider(String title, double val, Function(double) onC, {required String type}) {
     String desc = ""; String emoji = ""; Color color = Colors.grey;
+    double maxV = 10; int divisions = 10;
     if (type == "DOLOR") {
       if (val == 0) { desc = "SIN DOLOR"; emoji = "😀"; color = Colors.green; }
       else if (val <= 4) { desc = "MODERADO"; emoji = "😐"; color = Colors.amber; }
       else { desc = "INTENSO"; emoji = "😫"; color = Colors.red; }
-    } else if (type == "INFLAMACION") {
-      if (val == 0) { desc = "NORMAL"; emoji = "💪"; color = Colors.green; }
-      else if (val <= 5) { desc = "MODERADA"; emoji = "🩹"; color = Colors.orange; }
-      else { desc = "CRÍTICA"; emoji = "🔥"; color = Colors.red; }
+    } else if (type == "INFLAMACION_REUMA") {
+      maxV = 3; divisions = 3;
+      if (val == 0) { desc = "SIN INFLAMACIÓN"; emoji = "💪"; color = Colors.green; }
+      else if (val == 1) { desc = "LEVE"; emoji = "🩹"; color = Colors.blue; }
+      else if (val == 2) { desc = "MODERADA"; emoji = "🟠"; color = Colors.orange; }
+      else { desc = "SEVERA"; emoji = "🔥"; color = Colors.red; }
     } else {
       if (val >= 8) { desc = "ENÉRGICO"; emoji = "⚡"; color = Colors.green; }
       else if (val >= 4) { desc = "REGULAR"; emoji = "🥱"; color = Colors.orange; }
       else { desc = "AGOTADO"; emoji = "🪫"; color = Colors.red; }
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text("${val.toInt()}/10", style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text("${val.toInt()}/${maxV.toInt()}", style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
       Container(
         margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.3))),
         child: Column(children: [
           Row(children: [Text(emoji, style: const TextStyle(fontSize: 28)), const SizedBox(width: 12), Text(desc, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))]),
-          SliderTheme(data: SliderThemeData(activeTrackColor: color, inactiveTrackColor: Colors.black12, thumbColor: color, trackHeight: 6), child: Slider(value: val, min: 0, max: 10, divisions: 10, onChanged: onC)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(11, (i) => Text("$i", style: TextStyle(fontSize: 9, color: val.toInt() == i ? color : Colors.grey))))),
+          SliderTheme(data: SliderThemeData(activeTrackColor: color, inactiveTrackColor: Colors.black12, thumbColor: color, trackHeight: 6), child: Slider(value: val, min: 0, max: maxV, divisions: divisions, onChanged: onC)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(maxV.toInt() + 1, (i) => Text("$i", style: TextStyle(fontSize: 9, color: val.toInt() == i ? color : Colors.grey))))),
         ]),
       ),
     ]);
   }
 
-  Widget _buildSecuencialAlergias() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _preguntaSiNo("¿EL PACIENTE ES INTOLERANTE A LA LACTOSA?", _esIntoleranteLactosa, (v) => setState(() { 
-      _esIntoleranteLactosa = v; 
-      if (v) _marcarLacteosAuto();
-      else _alergiasSubIds.removeWhere((id) => [20, 21, 22, 23, 66, 79, 39].contains(id));
-    })),
-    const SizedBox(height: 24),
-    _preguntaSiNo("¿TIENE ALERGIAS A GRUPOS ALIMENTARIOS?", _tieneAlergiaGrupos, (v) => setState(() => _tieneAlergiaGrupos = v)),
-    if (_tieneAlergiaGrupos == true) Padding(padding: const EdgeInsets.only(top: 12), child: _multiSelect("", _subgruposAlim.where((s) => !(_esIntoleranteLactosa == true && [20, 21, 22, 23, 66, 79, 39].contains(s['id']))).toList(), _alergiasSubIds)),
-    const SizedBox(height: 24),
-    _preguntaSiNo("¿TIENE ALERGIAS A INGREDIENTES PUNTUALES?", _tieneAlergiaIngredientes, (v) => setState(() => _tieneAlergiaIngredientes = v)),
-    if (_tieneAlergiaIngredientes == true) Padding(padding: const EdgeInsets.only(top: 12), child: _buildBuscadorIngredientesInteligente()),
-  ]);
-
-  void _marcarLacteosAuto() {
-    final ids = [20, 21, 22, 23, 66, 79, 39];
-    for (var id in ids) { if (!_alergiasSubIds.contains(id)) _alergiasSubIds.add(id); }
-  }
-
-  Widget _buildBuscadorIngredientesInteligente() {
-    final filtrados = _ingredientes.where((ing) {
-      final n = ing["nombre"].toString().toLowerCase();
-      if (_alergiasSubIds.contains(ing["id_subgrupo"])) return false;
-      if (_esIntoleranteLactosa == true && (n.contains("leche") || n.contains("queso") || n.contains("lactosa"))) return false;
-      return n.contains(_ingredienteSearch.toLowerCase());
-    }).take(8).toList();
-    return Column(children: [
-      TextField(decoration: const InputDecoration(hintText: "Buscar ingrediente...", prefixIcon: Icon(Icons.search)), onChanged: (v)=>setState(()=>_ingredienteSearch=v)),
-      if (_ingredienteSearch.isNotEmpty) Wrap(spacing: 8, children: filtrados.map((ing) => FilterChip(label: Text(ing["nombre"]), selected: _alergiasIngredientesObj.any((x) => x["id"] == ing["id"]), onSelected: (v) => setState(() { if(v) _alergiasIngredientesObj.add(ing); else _alergiasIngredientesObj.removeWhere((x) => x["id"] == ing["id"]); }))).toList()),
-    ]);
-  }
-
-  Widget _multiSelect(String l, List<dynamic> items, List<int> selected) => Wrap(spacing: 8, runSpacing: 8, children: items.map((e) {
-    final emoji = _getEmojiForGrupo(e["nombre"] ?? "");
-    return FilterChip(label: Text("$emoji ${e["nombre"]}"), selected: selected.contains(e["id"]), onSelected: (v) => setState(() => v ? selected.add(e["id"]) : selected.remove(e["id"])));
-  }).toList());
-
-  String _getEmojiForGrupo(String n) {
-    n = n.toLowerCase(); if (n.contains("lácteo")) return "🥛"; if (n.contains("carne")) return "🥩"; if (n.contains("ave")) return "🍗"; if (n.contains("vegetal")) return "🥦"; if (n.contains("fruta")) return "🍎"; if (n.contains("marisco")) return "🦐"; if (n.contains("cereal")) return "🌾"; if (n.contains("fruto seco")) return "🥜"; if (n.contains("legumbre")) return "🫘"; return "🍴";
-  }
-
-  Widget _buildControls(ControlsDetails d) => Padding(padding: const EdgeInsets.only(top: 32), child: Row(children: [if (_currentStep > 0) OutlinedButton(onPressed: d.onStepCancel, child: const Text("ANTERIOR")), const Spacer(), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20)), onPressed: _loading ? null : d.onStepContinue, child: Text(_currentStep == 2 ? (_isEditMode ? "GUARDAR CAMBIOS MAESTROS" : "REGISTRAR EXPEDIENTE") : "CONTINUAR"))]));
-
   Future<void> _finish() async {
     if (_idPatologiaBase == null) {
-      NutriSnack.show(context, "Seleccione la Patología Base", isError: true, ref: ref);
+      NutriSnack.show(context, "Seleccione el Diagnóstico Base", isError: true, ref: ref);
       return;
     }
     setState(() => _loading = true);
@@ -459,15 +694,73 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "id_patologia_base": _idPatologiaBase, 
           "enfermedad_nombre": _condicionesBase.firstWhere((c) => c['id'] == _idPatologiaBase)['nombre'],
           "peso_kg": _clinPeso.text, "talla_cm": _clinTalla.text, 
-          "dolor_eva": _dolorEva.toInt(), "inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
-          "pcr": double.tryParse(_clinPCR.text) ?? 0, "rigidez_min": int.tryParse(_clinRigidez.text) ?? 0, "brote_activo": _broteActivo,
+          "puntos_dolor": _dolorEva.toInt(), 
+          "escala_inflamacion": _inflamacionEscala.toInt(), 
+          "fatiga": _fatiga.toInt(),
+          "valor_pcr": double.tryParse(_clinPCR.text) ?? 0, 
+          "valor_vsg": double.tryParse(_clinVSG.text) ?? 0,
+          "articulaciones_inflamadas": int.tryParse(_clinArtInflamadas.text) ?? 0,
+          "articulaciones_dolorosas": int.tryParse(_clinArtDolorosas.text) ?? 0,
+          "estado_enfermedad": _estadoEnfermedad,
+          "minutos_rigidez": int.tryParse(_clinRigidez.text) ?? 0, 
+          "en_brote": _enBrote,
+          "es_intolerante_lactosa": _esIntoleranteLactosa ?? false,
           "observaciones": _clinObservaciones.text, "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first,
           "condiciones_temporales": _condicionesTemporalesSeleccionadas.entries.map((e) => {"id": e.key}).toList(),
           "alergias_subgrupos": _alergiasSubIds, "alergias_ingredientes": _alergiasIngredientesObj.map((e) => e["id"]).toList(),
         }
       };
       if (_isEditMode) await dio.put("pacientes/$_idPacienteEditando/expediente-maestro", data: payload);
-      else await dio.post("registro/paciente-integral", data: payload);
+      else {
+        final res = await dio.post("registro/paciente-integral", data: payload);
+        final tempPass = res.data['temp_password'];
+        if (tempPass != null && mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                  Icon(Icons.lock_person_rounded, color: AppTema.azulPrincipal, size: 28),
+                  const SizedBox(width: 12),
+                  Text("ACCESO PARA TUTOR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Se ha generado una cuenta de acceso. Por favor, entregue estas credenciales al representante para su primer ingreso en la App Móvil:"),
+                  const SizedBox(height: 24),
+                  _buildCredentialBox("USUARIO (EMAIL)", _tutorEmail.text, Icons.email_outlined),
+                  const SizedBox(height: 12),
+                  _buildCredentialBox("CONTRASEÑA TEMPORAL", tempPass, Icons.key_outlined, isPassword: true),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue.shade800, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("El tutor también recibirá un enlace en su correo para establecer su contraseña definitiva.", style: TextStyle(fontSize: 11, color: Colors.blue.shade900, fontWeight: FontWeight.w500))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  onPressed: () => Navigator.pop(ctx), 
+                  child: const Text("ENTENDIDO Y FINALIZAR")
+                )
+              ],
+            ),
+          );
+        }
+      }
       ref.invalidate(patientsListProvider);
       ref.read(selectedPatientProvider.notifier).state = null;
       ref.read(medicoNavProvider.notifier).state = MedicoView.list;
@@ -476,8 +769,37 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     finally { if(mounted) setState(() => _loading = false); }
   }
 
+  Widget _buildCredentialBox(String label, String value, IconData icon, {bool isPassword = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: AppTema.azulPrincipal),
+              const SizedBox(width: 12),
+              Expanded(child: Text(value, style: GoogleFonts.firaCode(fontWeight: FontWeight.bold, fontSize: 13, color: isPassword ? Colors.blue.shade700 : Colors.black87))),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: value));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Copiado: $value"), duration: const Duration(seconds: 1)));
+                },
+                tooltip: "Copiar",
+              )
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _field(TextEditingController c, String l, IconData i, {Function(String)? onChanged, Function(String)? onSubmitted, bool enabled = true, int maxLines = 1}) {
-    bool n = l.contains("kg") || l.contains("cm") || l.contains("PCR") || l.contains("min");
+    bool n = l.contains("kg") || l.contains("cm") || l.contains("PCR") || l.contains("VSG") || l.contains("min") || l.contains("Artic");
     return TextFormField(controller: c, enabled: enabled, onChanged: onChanged, onFieldSubmitted: onSubmitted, maxLines: maxLines, keyboardType: n ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, inputFormatters: n ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))] : null, decoration: InputDecoration(labelText: l, prefixIcon: Icon(i, color: AppTema.azulPrincipal), filled: true, fillColor: enabled ? Colors.white : Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
   }
 
