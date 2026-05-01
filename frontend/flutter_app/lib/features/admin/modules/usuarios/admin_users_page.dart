@@ -269,7 +269,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     Consumer(builder: (context, ref, _) {
                       final roles = ref.watch(rolesStaffProvider).valueOrNull ?? [];
                       return DropdownButtonFormField<int>(
-                        value: rolId, style: GoogleFonts.lato(color: Colors.black87, fontSize: 13),
+                        initialValue: rolId, style: GoogleFonts.lato(color: Colors.black87, fontSize: 13),
                         validator: (v) => v == null ? "Seleccione un rol" : null,
                         decoration: _modalInputDecoration("Rol Profesional *", Icons.admin_panel_settings_outlined),
                         items: roles.map((r) => DropdownMenuItem<int>(value: r["id"], child: Text(r["nombre"].toString().toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(),
@@ -309,8 +309,11 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     if (mounted) { Navigator.pop(context); NutriSnack.show(context, isEdit ? "Actualizado correctamente" : "Registrado correctamente", ref: ref); }
                   } catch (e) {
                     final err = e.toString().toLowerCase();
-                    if (err.contains("email")) setDialogState(() => serverErrors["email"] = "Este correo ya está en uso");
-                    else NutriSnack.show(context, "Error en la operación", isError: true, ref: ref);
+                    if (err.contains("email")) {
+                      setDialogState(() => serverErrors["email"] = "Este correo ya está en uso");
+                    } else {
+                      NutriSnack.show(context, "Error en la operación", isError: true, ref: ref);
+                    }
                   }
                 },
                 child: Text(isEdit ? "GUARDAR" : "CREAR", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold)),

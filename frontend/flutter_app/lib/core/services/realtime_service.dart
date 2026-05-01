@@ -30,8 +30,9 @@ class RealtimeService {
           final rolId = payload.newRecord['id_rol'];
           
           String rolDesc = "usuario";
-          if (rolId == 1) rolDesc = "Administrador";
-          else if (rolId == 2) rolDesc = "Médico";
+          if (rolId == 1) {
+            rolDesc = "Administrador";
+          } else if (rolId == 2) rolDesc = "Médico";
           else if (rolId == 3) rolDesc = "Nutricionista";
           else if (rolId == 4) rolDesc = "Tutor";
 

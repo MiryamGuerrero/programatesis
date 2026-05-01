@@ -397,9 +397,9 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
 
     // 3. CAPA AZUL (ENCIMA DE TODO - DIBUJADA AL FINAL)
     final paintBlue = Paint()
-      ..shader = LinearGradient(
+      ..shader = const LinearGradient(
         begin: Alignment.topCenter, end: Alignment.bottomCenter,
-        colors: [const Color(0xFF008BD2), const Color(0xFF0068B7), const Color(0xFF00579D)],
+        colors: [Color(0xFF008BD2), Color(0xFF0068B7), Color(0xFF00579D)],
       ).createShader(Rect.fromLTWH(size.width * 0.45, 0, size.width * 0.55, size.height));
 
     final pathBlue = Path()

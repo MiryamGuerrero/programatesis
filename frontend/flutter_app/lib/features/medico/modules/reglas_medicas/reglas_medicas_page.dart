@@ -167,7 +167,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             SizedBox(
               width: 320,
               child: DropdownButtonFormField<int>(
-                value: _filtroCondicion,
+                initialValue: _filtroCondicion,
                 style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
                 decoration: InputDecoration(
                   filled: true, fillColor: Colors.white,
@@ -360,8 +360,9 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
   Widget build(BuildContext context) {
     final isEdit = widget.initialRule != null;
     List<dynamic> targetList = [];
-    if (_idObjetivo == 1) targetList = widget.formData["ingredientes"]!;
-    else if (_idObjetivo == 2) targetList = widget.formData["grupos"]!;
+    if (_idObjetivo == 1) {
+      targetList = widget.formData["ingredientes"]!;
+    } else if (_idObjetivo == 2) targetList = widget.formData["grupos"]!;
     else if (_idObjetivo == 3) targetList = widget.formData["etiquetas"]!;
     else if (_idObjetivo == 4) targetList = widget.formData["subgroups"] ?? widget.formData["subgrupos"] ?? [];
 
@@ -385,7 +386,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
             children: [
               _buildFieldSection("OBJETIVO", [
                 DropdownButtonFormField<int>(
-                  value: _idObjetivo,
+                  initialValue: _idObjetivo,
                   decoration: _modalDecor("Tipo de Objetivo*", Icons.track_changes),
                   items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
@@ -393,7 +394,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                 if (_idObjetivo != null) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    value: _idTarget,
+                    initialValue: _idTarget,
                     decoration: _modalDecor("Seleccionar Item*", Icons.ads_click),
                     items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                     onChanged: (v) => setState(() => _idTarget = v),
@@ -403,7 +404,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
               const SizedBox(height: 16),
               _buildFieldSection("ACCIÓN", [
                 DropdownButtonFormField<int>(
-                  value: _idAccion,
+                  initialValue: _idAccion,
                   decoration: _modalDecor("Acción Médica*", Icons.gavel),
                   items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() => _idAccion = v),
@@ -414,7 +415,11 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
               _buildFieldSection("APLICABILIDAD", [
                 Container(
                   height: 120, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: ListView(children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(title: Text(c["nombre"], style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) _selectedCondiciones.add(c["id"]); else _selectedCondiciones.remove(c["id"]); }), dense: true)).toList()),
+                  child: ListView(children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(title: Text(c["nombre"], style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
+                    _selectedCondiciones.add(c["id"]);
+                  } else {
+                    _selectedCondiciones.remove(c["id"]);
+                  } }), dense: true)).toList()),
                 ),
               ]),
               const SizedBox(height: 16),
@@ -438,10 +443,13 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
     setState(() => _saving = true);
     try {
       final payload = {"id_accion": _idAccion, "id_tipo_objetivo": _idObjetivo, "mensaje_error": _mensajeController.text, "id_condiciones": _selectedCondiciones, "es_estricta": _esEstricta, "id_ingrediente": _idObjetivo == 1 ? _idTarget : null, "id_grupo_alimentario": _idObjetivo == 2 ? _idTarget : null, "id_etiqueta": _idObjetivo == 3 ? _idTarget : null, "id_subgrupo_alimentario": _idObjetivo == 4 ? _idTarget : null};
-      if (widget.initialRule != null) await ref.read(dioProvider).put("reglas-medicas/${widget.initialRule!['id']}", data: payload);
-      else await ref.read(dioProvider).post("reglas-medicas", data: payload);
+      if (widget.initialRule != null) {
+        await ref.read(dioProvider).put("reglas-medicas/${widget.initialRule!['id']}", data: payload);
+      } else {
+        await ref.read(dioProvider).post("reglas-medicas", data: payload);
+      }
       widget.onSaved();
       if (mounted) Navigator.pop(context);
-    } catch (e) {} finally { if (mounted) setState(() => _saving = false); }
+    } finally { if (mounted) setState(() => _saving = false); }
   }
 }

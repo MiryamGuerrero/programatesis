@@ -58,22 +58,22 @@ class Ingrediente {
 
   Ingrediente copyWith({String? nombre, bool? activo}) {
     return Ingrediente(
-      id: this.id,
+      id: id,
       nombre: nombre ?? this.nombre,
-      categoria: this.categoria,
-      idGrupoAlimentario: this.idGrupoAlimentario,
-      etiquetas: List.from(this.etiquetas),
-      energiaKcal: this.energiaKcal,
-      proteinasG: this.proteinasG,
-      carbohidratosG: this.carbohidratosG,
-      grasasG: this.grasasG,
-      fibraG: this.fibraG,
-      sodioMg: this.sodioMg,
-      calcioMg: this.calcioMg,
-      hierroMg: this.hierroMg,
-      descripcion: this.descripcion,
+      categoria: categoria,
+      idGrupoAlimentario: idGrupoAlimentario,
+      etiquetas: List.from(etiquetas),
+      energiaKcal: energiaKcal,
+      proteinasG: proteinasG,
+      carbohidratosG: carbohidratosG,
+      grasasG: grasasG,
+      fibraG: fibraG,
+      sodioMg: sodioMg,
+      calcioMg: calcioMg,
+      hierroMg: hierroMg,
+      descripcion: descripcion,
       activo: activo ?? this.activo,
-      usoEnRecetas: this.usoEnRecetas,
+      usoEnRecetas: usoEnRecetas,
     );
   }
 }

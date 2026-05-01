@@ -36,12 +36,12 @@ class DebugAuthPage extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("✅ Sesión activa"),
+                      const Text("✅ Sesión activa"),
                       const SizedBox(height: 8),
                       _KeyValue("User ID", session.user.id),
                       _KeyValue("Email", session.user.email ?? "N/A"),
                       _KeyValue("Proveedor", session.user.appMetadata["provider"] ?? "N/A"),
-                      _KeyValue("Creado", session.user.createdAt?.toString() ?? "N/A"),
+                      _KeyValue("Creado", session.user.createdAt.toString() ?? "N/A"),
                       _KeyValue("Expira", session.expiresAt?.toString() ?? "N/A"),
                       const SizedBox(height: 8),
                       const Text(
@@ -108,7 +108,7 @@ class DebugAuthPage extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Sección: Recomendaciones
-            _Section(
+            const _Section(
               title: "4. Recomendaciones",
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

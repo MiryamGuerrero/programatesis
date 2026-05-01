@@ -418,13 +418,13 @@ class _DayCard extends StatelessWidget {
           if (!has)
             InkWell(
               onTap: () => onAdd(idx),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
                 child: Column(
                   children: [
-                    const Icon(Icons.add_circle, color: Colors.orange, size: 28),
-                    const SizedBox(height: 4),
-                    const Text("Agregar receta", style: TextStyle(fontSize: 9, color: Colors.grey)),
+                    Icon(Icons.add_circle, color: Colors.orange, size: 28),
+                    SizedBox(height: 4),
+                    Text("Agregar receta", style: TextStyle(fontSize: 9, color: Colors.grey)),
                   ],
                 ),
               ),

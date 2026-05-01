@@ -4,7 +4,6 @@ import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
 import "../../../../shared/widgets/layout_components.dart";
 import "../../../../shared/widgets/nutri_avatar.dart";
-import "../../../../core/state/notification_provider.dart";
 
 import "package:google_fonts/google_fonts.dart";
 

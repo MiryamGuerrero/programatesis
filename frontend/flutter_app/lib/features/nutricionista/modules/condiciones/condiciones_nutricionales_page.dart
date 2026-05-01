@@ -219,8 +219,11 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
     setState(() => _saving = true);
     try {
       final payload = { "nombre": _nombreController.text, "descripcion": _descripcionController.text, "activa": _activa };
-      if (widget.initialCondition != null) await ref.read(dioProvider).put("condiciones-nutricionales/${widget.initialCondition!['id']}", data: payload);
-      else await ref.read(dioProvider).post("condiciones-nutricionales", data: payload);
+      if (widget.initialCondition != null) {
+        await ref.read(dioProvider).put("condiciones-nutricionales/${widget.initialCondition!['id']}", data: payload);
+      } else {
+        await ref.read(dioProvider).post("condiciones-nutricionales", data: payload);
+      }
       widget.onSaved();
     } catch (_) {}
   }

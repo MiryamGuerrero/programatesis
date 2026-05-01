@@ -58,7 +58,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_data == null) return Scaffold(body: Center(child: Text("Error al cargar expediente")));
+    if (_data == null) return const Scaffold(body: Center(child: Text("Error al cargar expediente")));
 
     final pac = _data!['paciente'];
     final tutor = _data!['tutor'];
@@ -344,7 +344,7 @@ import "package:fl_chart/fl_chart.dart";
           const SizedBox(height: 48),
           _sectionTitle("LISTADO DE CONSULTAS", Icons.list_alt_rounded),
           const SizedBox(height: 16),
-          ...historial.reversed.map((h) => _buildConsultaItem(h)).toList(),
+          ...historial.reversed.map((h) => _buildConsultaItem(h)),
         ],
       ),
     );
@@ -491,7 +491,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   double _dolor = 0;
   double _inflamacion = 0;
   double _fatiga = 10;
-  bool _brote = false;
+  final bool _brote = false;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
 
   String _omsStatus = "PENDIENTE";
@@ -666,7 +666,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
                   ),
                 ]),
               );
-            }).toList(),
+            }),
           ],
           const SizedBox(height: 24),
           _field(_notaCtrl, "Notas de evolución...", Icons.edit_note, maxLines: 2),
@@ -706,8 +706,11 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
         const Spacer(),
         FilledButton(
           onPressed: _saving ? null : () {
-            if (_step < 2) setState(() => _step++);
-            else _guardarControl();
+            if (_step < 2) {
+              setState(() => _step++);
+            } else {
+              _guardarControl();
+            }
           },
           child: Text(_saving ? "GUARDANDO..." : (_step < 2 ? "CONTINUAR" : "FINALIZAR CONSULTA")),
         ),

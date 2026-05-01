@@ -321,8 +321,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           (v) {
             setState(() {
               _esIntoleranteLactosa = v;
-              if (v) _marcarLacteosAuto();
-              else _quitarLacteosAuto();
+              if (v) {
+                _marcarLacteosAuto();
+              } else {
+                _quitarLacteosAuto();
+              }
             });
           },
         ),
@@ -494,7 +497,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   );
 
   Widget _dropdownSexo() => DropdownButtonFormField<int>(
-    value: _pacSexo, 
+    initialValue: _pacSexo, 
     items: _sexos.map((e) => DropdownMenuItem<int>(value: e["id"], child: Text(e["descripcion"]?.toString() ?? "-"))).toList(), 
     onChanged: (v) => setState(() => _pacSexo = v), 
     decoration: InputDecoration(labelText: "Sexo*", filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
@@ -612,7 +615,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
       const SizedBox(height: 32),
       _buildBroteActivoSeccion(),
@@ -636,7 +639,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     ]))),
   );
 
-  Widget _dropdownString(String l, List<String> items, String val, Function(String?) onC) => DropdownButtonFormField<String>(value: val, items: items.map((e) => DropdownMenuItem<String>(value: e, child: Text(e))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
+  Widget _dropdownString(String l, List<String> items, String val, Function(String?) onC) => DropdownButtonFormField<String>(initialValue: val, items: items.map((e) => DropdownMenuItem<String>(value: e, child: Text(e))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
 
   Widget _buildBroteActivoSeccion() => Container(
     padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _enBrote ? Colors.red.shade50 : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _enBrote ? Colors.redAccent : Colors.grey.shade200, width: 2)),
@@ -710,8 +713,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "alergias_subgrupos": _alergiasSubIds, "alergias_ingredientes": _alergiasIngredientesObj.map((e) => e["id"]).toList(),
         }
       };
-      if (_isEditMode) await dio.put("pacientes/$_idPacienteEditando/expediente-maestro", data: payload);
-      else {
+      if (_isEditMode) {
+        await dio.put("pacientes/$_idPacienteEditando/expediente-maestro", data: payload);
+      } else {
         final res = await dio.post("registro/paciente-integral", data: payload);
         final tempPass = res.data['temp_password'];
         if (tempPass != null && mounted) {
@@ -722,7 +726,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: Row(
                 children: [
-                  Icon(Icons.lock_person_rounded, color: AppTema.azulPrincipal, size: 28),
+                  const Icon(Icons.lock_person_rounded, color: AppTema.azulPrincipal, size: 28),
                   const SizedBox(width: 12),
                   Text("ACCESO PARA TUTOR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18)),
                 ],
@@ -803,7 +807,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     return TextFormField(controller: c, enabled: enabled, onChanged: onChanged, onFieldSubmitted: onSubmitted, maxLines: maxLines, keyboardType: n ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, inputFormatters: n ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))] : null, decoration: InputDecoration(labelText: l, prefixIcon: Icon(i, color: AppTema.azulPrincipal), filled: true, fillColor: enabled ? Colors.white : Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
   }
 
-  Widget _dropdown(String l, List<dynamic> items, int? val, Function(int?) onC) => DropdownButtonFormField<int>(value: val, items: items.map((e) => DropdownMenuItem<int>(value: e["id"], child: Text(e["nombre"]?.toString() ?? "-"))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
+  Widget _dropdown(String l, List<dynamic> items, int? val, Function(int?) onC) => DropdownButtonFormField<int>(initialValue: val, items: items.map((e) => DropdownMenuItem<int>(value: e["id"], child: Text(e["nombre"]?.toString() ?? "-"))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
 
   Widget _dateField() => TextFormField(readOnly: true, controller: TextEditingController(text: _pacFechaNac == null ? "" : DateFormat('dd/MM/yyyy').format(_pacFechaNac!)), decoration: InputDecoration(labelText: "Nacimiento*", prefixIcon: const Icon(Icons.calendar_today), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), onTap: () async { final d = await showDatePicker(context: context, initialDate: DateTime(2015), firstDate: DateTime(2000), lastDate: DateTime.now()); if (d != null) setState(() => _pacFechaNac = d); });
 

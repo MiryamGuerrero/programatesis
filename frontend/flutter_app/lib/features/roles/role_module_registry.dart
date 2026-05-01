@@ -4,7 +4,6 @@ import "../../shared/models/app_role.dart";
 // Páginas de Administración
 import "../admin/modules/usuarios/admin_users_page.dart";
 import "../admin/modules/usuarios/admin_tutors_page.dart";
-import "../admin/modules/catalogos/admin_catalogs_page.dart";
 
 // Páginas de Médico
 import "../medico/presentation/supervision_pacientes_page.dart";
