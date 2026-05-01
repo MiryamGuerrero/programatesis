@@ -15,7 +15,7 @@ class SelectorIngredienteDialog extends ConsumerStatefulWidget {
 class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteDialog> {
   String _query = "";
   List<Map<String, dynamic>> _resultados = [];
-  List<Map<String, dynamic>> _seleccionados = [];
+  final List<Map<String, dynamic>> _seleccionados = [];
   bool _buscando = false;
 
   // Estado para el ingrediente que se está configurando actualmente

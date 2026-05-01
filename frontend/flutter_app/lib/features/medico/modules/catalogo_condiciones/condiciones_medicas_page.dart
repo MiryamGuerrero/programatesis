@@ -231,7 +231,7 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                value: _idTipo,
+                initialValue: _idTipo,
                 decoration: const InputDecoration(labelText: "Tipo de Condición"),
                 items: const [
                   DropdownMenuItem(value: 1, child: Text("Clínica (Permanente)")),

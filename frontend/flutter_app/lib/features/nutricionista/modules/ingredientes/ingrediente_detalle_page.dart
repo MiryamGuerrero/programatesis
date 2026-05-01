@@ -152,7 +152,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '${energy.toStringAsFixed(0)}',
+                energy.toStringAsFixed(0),
                 style: GoogleFonts.lato(fontSize: 40, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -1),
               ),
               Text(

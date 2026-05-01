@@ -59,7 +59,7 @@ class EtiquetaCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(Icons.label_outline_rounded, color: AppTema.azulPrincipal, size: 20),
+                  const Icon(Icons.label_outline_rounded, color: AppTema.azulPrincipal, size: 20),
                 ],
               ),
               const SizedBox(height: 12),
@@ -99,8 +99,8 @@ class EtiquetaCard extends StatelessWidget {
                     child: InkWell(
                       onTap: onEdit,
                       borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
                         child: Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
                       ),
                     ),

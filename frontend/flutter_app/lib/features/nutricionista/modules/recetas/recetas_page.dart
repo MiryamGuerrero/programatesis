@@ -248,7 +248,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const int crossAxisCount = 3;
-        final double spacing = 24.0;
+        const double spacing = 24.0;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),

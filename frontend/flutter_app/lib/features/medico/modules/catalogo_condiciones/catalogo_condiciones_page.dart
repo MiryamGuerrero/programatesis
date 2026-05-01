@@ -344,7 +344,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             _modalField(_descCtrl, "Descripción", Icons.description, maxLines: 2),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              value: _idTipo,
+              initialValue: _idTipo,
               decoration: _modalInputDecor("Tipo de Condición*", Icons.category),
               items: widget.tipos.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
               onChanged: (v) => setState(() => _idTipo = v),
@@ -371,10 +371,13 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
     try {
       final dio = ref.read(dioProvider);
       final payload = {"nombre": _nombreCtrl.text, "descripcion": _descCtrl.text, "id_tipo_condicion": _idTipo, "activa": _activa};
-      if (widget.condicion != null) await dio.put("catalogos/condiciones/${widget.condicion!["id"]}", data: payload);
-      else await dio.post("catalogos/condiciones", data: payload);
+      if (widget.condicion != null) {
+        await dio.put("catalogos/condiciones/${widget.condicion!["id"]}", data: payload);
+      } else {
+        await dio.post("catalogos/condiciones", data: payload);
+      }
       widget.onSuccess();
       if (mounted) Navigator.pop(context);
-    } catch (e) {} finally { if (mounted) setState(() => _saving = false); }
+    } finally { if (mounted) setState(() => _saving = false); }
   }
 }

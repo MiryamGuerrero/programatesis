@@ -25,7 +25,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   String _query = '';
   int? _groupId;
   int? _subgroupId;
-  int _page = 0;
+  final int _page = 0;
   final int _limit = 1000; // Aumentado para PaginatedDataTable
 
   @override

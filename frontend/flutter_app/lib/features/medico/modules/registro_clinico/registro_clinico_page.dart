@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
 
-import "../../../tutor/presentation/gestion_tutores_pacientes_page.dart";
 
 class RegistroClinicoPage extends StatelessWidget {
   const RegistroClinicoPage({super.key});

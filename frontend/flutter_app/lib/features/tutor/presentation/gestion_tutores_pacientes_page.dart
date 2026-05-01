@@ -29,9 +29,9 @@ class _GestionTutoresPacientesPageState extends ConsumerState<GestionTutoresPaci
               const SizedBox(height: 32),
               _buildTabBar(),
               const SizedBox(height: 24),
-              SizedBox(
+              const SizedBox(
                 height: 800, // Altura fija para el contenido de las pestañas en el scroll
-                child: const TabBarView(
+                child: TabBarView(
                   children: [
                     _FormRegistroTutor(),
                     _FormRegistroPaciente(),
@@ -344,7 +344,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
         const Text("SEXO *", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: _selectedSexo,
+          initialValue: _selectedSexo,
           items: _sexos.map((s) => DropdownMenuItem(value: s["id"] as int, child: Text(s["descripcion"].toString()))).toList(),
           onChanged: (v) => setState(() => _selectedSexo = v),
           decoration: InputDecoration(
@@ -512,9 +512,13 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
         if (list.isNotEmpty) ...[
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             items: list.map((e) => DropdownMenuItem(value: e["id"].toString(), child: Text(e["nombre_completo"].toString()))).toList(),
-            onChanged: (v) => setState(() { if (isTutor) _idTutor = v; else _idPaciente = v; }),
+            onChanged: (v) => setState(() { if (isTutor) {
+              _idTutor = v;
+            } else {
+              _idPaciente = v;
+            } }),
             decoration: InputDecoration(
               filled: true, fillColor: AppTema.pastelCeleste.withOpacity(0.3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -532,7 +536,7 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
         const Text("PARENTESCO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: _idParentesco,
+          initialValue: _idParentesco,
           items: _parentescos.map((p) => DropdownMenuItem(value: p["id"] as int, child: Text(p["nombre"].toString().toUpperCase()))).toList(),
           onChanged: (v) => setState(() => _idParentesco = v),
           decoration: InputDecoration(

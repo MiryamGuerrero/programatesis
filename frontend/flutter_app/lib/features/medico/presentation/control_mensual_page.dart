@@ -442,22 +442,36 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
     );
   }
 
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(40, 40, 40, 0), color: Colors.white,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          IconButton.filledTonal(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16), onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.list),
-          const SizedBox(width: 16),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.paciente['nombre_completo']?.toString().toUpperCase() ?? "PACIENTE", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF0F172A))),
-            Text("Cédula: ${widget.paciente['cedula']} | Gestión Analítica Mensual", style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
-          ]),
-          const Spacer(),
-          if (_idControlEditando != null) TextButton.icon(onPressed: _limpiarForm, icon: const Icon(Icons.close, color: Colors.red), label: const Text("CANCELAR EDICIÓN", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
-        ]),
-        const SizedBox(height: 24),
-        TabBar(controller: _tabController, labelColor: greenBrand, unselectedLabelColor: Colors.grey, indicatorColor: greenBrand, indicatorWeight: 4, labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13), tabs: const [Tab(text: "NUEVA VALORACIÓN", icon: Icon(Icons.add_chart_rounded, size: 20)), Tab(text: "HISTORIAL Y ANALÍTICA", icon: Icon(Icons.history_edu_rounded, size: 20))]),
+  Widget _alertBadge(String text, IconData icon, Color color) => Container(width: double.infinity, margin: const EdgeInsets.only(bottom: 4), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))), child: Row(children: [Icon(icon, size: 14, color: color), const SizedBox(width: 10), Expanded(child: Text(text, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w900, color: color)))]));
+  
+  Widget _sidebarSection(String t) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(t, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF94A3B8), letterSpacing: 1.5)));
+  Widget _sidebarItem(IconData i, String l, String v) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)), child: Icon(i, size: 14, color: AppTema.azulPrincipal)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.w800)), Text(v, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF334155)))]))]));
+  
+  String _getInitials(String n) => n.split(" ").where((e)=>e.isNotEmpty).take(2).map((e)=>e[0]).join().toUpperCase();
+  String _calculateExactAge(String? birthStr) {
+    if (birthStr == null) return "N/A";
+    final birth = DateTime.parse(birthStr);
+    final now = DateTime.now();
+    int years = now.year - birth.year;
+    int months = now.month - birth.month;
+    if (months < 0) { years--; months += 12; }
+    if (years == 0) return "$months meses";
+    return "$years años, $months m.";
+  }
+
+  Widget _buildHeaderBar() => Container(padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28), decoration: BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Colors.grey.shade100))), child: Row(children: [IconButton.filledTonal(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16), onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.list), const SizedBox(width: 24), Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text("Consola de Valoración Clínica", style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: -0.5)), Text("Gestión integral de evolución pediátrica reumatológica.", style: GoogleFonts.montserrat(color: const Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500))])]));
+  Widget _buildTabBar() => Container(height: 60, color: Colors.white, child: TabBar(controller: _tabController, labelColor: AppTema.azulPrincipal, unselectedLabelColor: const Color(0xFF94A3B8), indicator: const UnderlineTabIndicator(borderSide: BorderSide(width: 4, color: AppTema.azulPrincipal), insets: EdgeInsets.symmetric(horizontal: 60)), labelStyle: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5), tabs: const [Tab(text: "REGISTRO CLÍNICO"), Tab(text: "MONITOR DE EVOLUCIÓN"), Tab(text: "BIOSEGURIDAD")]));
+
+  Widget _buildTabRegistroMensual() {
+    final catTemp = (_data?['catalogo_condiciones_temp'] as List? ?? []);
+    return SingleChildScrollView(padding: const EdgeInsets.all(40), child: Column(children: [
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        TextButton.icon(onPressed: _clearForm, icon: const Icon(Icons.refresh_rounded, size: 18), label: const Text("LIMPIAR REGISTRO", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+        const SizedBox(width: 16),
+        OutlinedButton.icon(onPressed: _cargarUltimasMetricas, icon: const Icon(Icons.history_rounded, size: 18), label: const Text("TRAER ÚLTIMO CONTROL", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+      ]),
+    ]);
+  }
       ]),
     );
   }
@@ -1550,4 +1564,5 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       )
     ]);
   }
+}
 }

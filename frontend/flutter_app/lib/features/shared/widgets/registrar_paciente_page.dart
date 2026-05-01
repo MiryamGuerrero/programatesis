@@ -33,6 +33,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   int? _idSexo;
   int? _idCanton;
   int? _idParroquia;
+  final int _idProvincia = 5; // Chimborazo (Bloqueado)
   String? _enfermedadBase;
 
   // --- ALERGIAS E INTOLERANCIAS ---
@@ -91,161 +92,120 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       
       final results = await Future.wait([
         repo.fetchCatalog("usuarios", "catalogo_sexo"),
-        repo.fetchCatalog("usuarios", "canton"),
-        repo.fetchCatalog("usuarios", "parroquia"),
+        repo.fetchCatalog("usuarios", "catalogo_canton"),
+        repo.fetchCatalog("usuarios", "catalogo_parroquia"),
         repo.fetchCatalog("usuarios", "parentesco"),
-        repo.fetchCatalog("heuristico", "condicion"),
-        repo.fetchCatalog("nutricion", "subgrupo_alimentario"),
-        repo.fetchIngredientes(),
+        repo.fetchCatalog("nutricion", "condiciones_clinicas"),
+        repo.fetchCatalog("nutricion", "subgrupos_alimentarios"),
+        repo.fetchCatalog("nutricion", "ingredientes"),
       ]);
-      
-      setState(() {
-        _sexos = results[0];
-        _cantones = results[1];
-        _parroquiasCat = results[2];
-        _parentescos = results[3];
-        _condicionesClinicas = results[4].where((c) => c['id_tipo_condicion'] == 1).toList();
-        _allSubgrupos = results[5];
-        _allIngredientes = results[6];
 
-        // Default Riobamba
-        _idCanton = 1;
-        _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == 1).toList();
-        
-        _loadingCatalogos = false;
-      });
+      if (mounted) {
+        setState(() {
+          _sexos = results[0];
+          _cantones = results[1];
+          _parroquiasCat = results[2];
+          _parentescos = results[3];
+          _condicionesClinicas = results[4];
+          _allSubgrupos = results[5];
+          _allIngredientes = results[6];
+          
+          _idCanton = 1; // Riobamba por defecto
+          _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == _idCanton).toList();
+          
+          _loadingCatalogos = false;
+        });
+      }
     } catch (e) {
-      setState(() => _loadingCatalogos = false);
-      _showMsg("Error cargando catálogos: $e", Colors.red);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error cargando catálogos: $e"), backgroundColor: Colors.red));
+      }
     }
   }
 
   Future<void> _verificarTutor() async {
-    if (_cedulaTutorCtrl.text.isEmpty) return _showMsg("Ingrese cédula del tutor", Colors.red);
+    if (_cedulaTutorCtrl.text.length < 10) return;
     setState(() => _buscandoTutor = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final tutor = await repo.findTutorByCedula(_cedulaTutorCtrl.text);
-      if (tutor != null && tutor['existe'] == true) {
+      final res = await repo.searchTutorByCedula(_cedulaTutorCtrl.text);
+      if (mounted) {
         setState(() {
-          _nombreTutorCtrl.text = tutor['nombre_completo'] ?? "";
-          _emailTutorCtrl.text = tutor['email'] ?? "";
-          _telTutorCtrl.text = tutor['telefono'] ?? "";
-          _dirTutorCtrl.text = tutor['direccion'] ?? "";
-          _tutorEncontrado = true;
+          if (res != null) {
+            _nombreTutorCtrl.text = res['nombre_completo'] ?? "";
+            _emailTutorCtrl.text = res['email'] ?? "";
+            _telTutorCtrl.text = res['telefono'] ?? "";
+            _dirTutorCtrl.text = res['direccion'] ?? "";
+            _tutorEncontrado = true;
+          } else {
+            _tutorEncontrado = false;
+          }
+          _buscandoTutor = false;
         });
-        _showMsg("✅ Tutor encontrado en el sistema", Colors.blue);
-      } else {
-        setState(() {
-          _nombreTutorCtrl.clear(); 
-          _emailTutorCtrl.clear();
-          _telTutorCtrl.clear();
-          _dirTutorCtrl.clear();
-          _tutorEncontrado = false;
-        });
-        _showMsg("ℹ️ Tutor no registrado. Por favor complete los campos.", Colors.orange);
       }
-    } catch (e) {
-      _showMsg("Error buscando tutor: $e", Colors.red);
-    } finally { setState(() => _buscandoTutor = false); }
+    } catch (_) {
+      setState(() => _buscandoTutor = false);
+    }
   }
 
-  void _showMsg(String m, Color c) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: c));
-
-  Future<void> _registrar() async {
-    if (_nombreCtrl.text.isEmpty || _fnac == null || _idSexo == null || _enfermedadBase == null || _tutorEncontrado == null || _idParentesco == null || _telTutorCtrl.text.isEmpty || _dirTutorCtrl.text.isEmpty) {
-      return _showMsg("⚠️ Faltan campos obligatorios para completar el expediente (*)", Colors.red);
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_fnac == null || _idSexo == null || _idParentesco == null || _enfermedadBase == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Por favor complete todos los campos obligatorios (*)"), backgroundColor: Colors.red));
+      return;
     }
 
     setState(() => _saving = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      
       final payload = {
         "paciente": {
           "nombre_completo": _nombreCtrl.text,
           "cedula": _cedulaPacCtrl.text,
-          "fecha_nacimiento": _fnac!.toIso8601String().split('T')[0],
+          "fecha_nacimiento": _fnac!.toIso8601String(),
           "id_sexo": _idSexo,
           "id_canton": _idCanton,
           "id_parroquia": _idParroquia,
+          "enfermedad_base": _enfermedadBase,
+        },
+        "clinico": {
+          "peso_kg": double.tryParse(_pesoCtrl.text) ?? 0,
+          "talla_cm": double.tryParse(_tallaCtrl.text) ?? 0,
+          "pcr": double.tryParse(_pcrCtrl.text) ?? 0,
+          "rigidez_matutina": int.tryParse(_rigidezCtrl.text) ?? 0,
+          "dolor_eva": _dolorEva,
+          "inflamacion": _inflamacion,
+          "brote": _brote,
+          "observaciones": _observacionesMedicoCtrl.text,
+        },
+        "alergias": {
+          "es_intolerante_lactosa": _esIntoleranteLactosa,
+          "subgrupos_ids": _selectedSubgrupos,
+          "ingredientes_ids": _selectedIngredientes.map((i) => i['id']).toList(),
         },
         "tutor": {
           "cedula": _cedulaTutorCtrl.text,
-          "nombre": _nombreTutorCtrl.text,
+          "nombre_completo": _nombreTutorCtrl.text,
           "email": _emailTutorCtrl.text,
           "telefono": _telTutorCtrl.text,
           "direccion": _dirTutorCtrl.text,
           "id_parentesco": _idParentesco,
-        },
-        "salud": {
-          "id_patologia_base": _condicionesClinicas.firstWhere((c) => c['nombre'] == _enfermedadBase)['id'],
-          "peso_kg": double.tryParse(_pesoCtrl.text) ?? 0,
-          "talla_cm": double.tryParse(_tallaCtrl.text) ?? 0,
-          "dolor_eva": _dolorEva,
-          "inflamacion": _inflamacion,
-          "fatiga": _fatiga,
-          "valor_pcr": _pcrCtrl.text,
-          "minutos_rigidez": _rigidezCtrl.text,
-          "en_brote": _brote,
-          "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
-          "alergias_subgrupos": _selectedSubgrupos,
-          "observaciones": _observacionesMedicoCtrl.text,
+          "es_nuevo": _tutorEncontrado == false,
         }
       };
 
-      final res = await repo.registerIntegral(payload);
-      
-      // Mostrar credenciales si es un tutor nuevo
-      if (res['tutor_creado'] == true && res['temp_password'] != null) {
-        if (mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Row(children: [Icon(Icons.vpn_key_rounded, color: Colors.blue), SizedBox(width: 12), Text("ACCESO DEL TUTOR")]),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Se ha creado una cuenta para el representante legal con los siguientes accesos:"),
-                  const SizedBox(height: 20),
-                  _credentialRow("USUARIO:", _emailTutorCtrl.text),
-                  _credentialRow("CLAVE TEMP:", res['temp_password']),
-                  const SizedBox(height: 20),
-                  const Text("⚠️ Por favor, comparta estos datos con el tutor. Se le pedirá cambiar la clave al primer ingreso.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
-                ],
-              ),
-              actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text("ENTENDIDO, FINALIZAR"))],
-            ),
-          );
-        }
+      await repo.createFullExpediente(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Expediente creado con éxito"), backgroundColor: Colors.green));
+        widget.onBack();
       }
-
-      _showMsg("✅ Expediente Maestro Creado Exitosamente", Colors.green);
-      widget.onBack();
-    } catch (e) { 
-      print("ERROR REGISTRO: $e");
-      _showMsg("❌ Error en el registro integral: $e", Colors.red); 
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    finally { setState(() => _saving = false); }
-  }
-
-  Widget _credentialRow(String label, String value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
-          const SizedBox(width: 12),
-          Expanded(child: SelectableText(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue))),
-          IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: value)), icon: const Icon(Icons.copy, size: 16)),
-        ],
-      ),
-    );
   }
 
   @override
@@ -253,109 +213,76 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
     if (_loadingCatalogos) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text("REGISTRO INTEGRAL DEL PACIENTE", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18)),
-        backgroundColor: const Color(0xFF0F172A),
-        leading: IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white)),
+        title: const Text("REGISTRO INTEGRAL DE PACIENTE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack),
+        backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 1300),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _buildSectionIdentidad()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildSectionClinica()),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _buildSectionAlergias()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildSectionTutor()),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _card(
-                    title: "OBSERVACIONES MÉDICAS DE INGRESO", icon: Icons.edit_note_rounded, color: Colors.blueGrey,
-                    child: TextFormField(controller: _observacionesMedicoCtrl, maxLines: 4, decoration: InputDecoration(filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)), hintText: "Notas clínicas adicionales relevantes para el expediente...")),
-                  ),
-                  const SizedBox(height: 48),
-                  SizedBox(
-                    width: double.infinity, height: 70,
-                    child: FilledButton.icon(
-                      onPressed: _saving ? null : _registrar,
-                      icon: const Icon(Icons.save_as_rounded),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0F172A), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                      label: Text(_saving ? "PROCESANDO EXPEDIENTE..." : "FINALIZAR Y CREAR EXPEDIENTE MAESTRO", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              _buildSectionPaciente(),
+              const SizedBox(height: 24),
+              _buildSectionClinica(),
+              const SizedBox(height: 24),
+              _buildSectionAlergias(),
+              const SizedBox(height: 24),
+              _buildSectionTutor(),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity, height: 56,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _guardar,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade900, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                  child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text("FINALIZAR REGISTRO E INICIAR EXPEDIENTE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
               ),
-            ),
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSectionIdentidad() {
-    return _card(title: "1. IDENTIDAD DEL PACIENTE", icon: Icons.badge_rounded, color: Colors.blue.shade800, child: Column(
+  Widget _buildSectionPaciente() {
+    return _card(title: "1. IDENTIDAD DEL PACIENTE", icon: Icons.person_rounded, color: Colors.blue.shade800, child: Column(
       children: [
-        TextFormField(controller: _nombreCtrl, decoration: const InputDecoration(labelText: "Nombres y Apellidos Completos *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
-
-        TextFormField(controller: _cedulaPacCtrl, decoration: const InputDecoration(labelText: "Número de Cédula / Identificación", border: OutlineInputBorder(), prefixIcon: Icon(Icons.fingerprint), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
+        TextFormField(controller: _nombreCtrl, decoration: const InputDecoration(labelText: "Nombres y Apellidos Completos *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade400)),
-            title: Text(_fnac == null ? "Fecha Nacimiento *" : DateFormat('dd/MM/yyyy').format(_fnac!), style: TextStyle(fontSize: 13, color: _fnac == null ? Colors.grey.shade600 : Colors.black, fontWeight: FontWeight.bold)),
-            trailing: const Icon(Icons.calendar_month, size: 20),
-            onTap: () async {
-              final d = await showDatePicker(context: context, initialDate: DateTime(2015), firstDate: DateTime(2005), lastDate: DateTime.now());
-              if (d != null) setState(() => _fnac = d);
-            },
-          )),
+          Expanded(child: TextFormField(controller: _cedulaPacCtrl, decoration: const InputDecoration(labelText: "Cédula / Pasaporte", border: OutlineInputBorder(), prefixIcon: Icon(Icons.badge_outlined), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
           const SizedBox(width: 16),
-          Expanded(child: DropdownButtonFormField<int>(
-            value: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['nombre']))).toList(),
-            onChanged: (v) => setState(() => _idSexo = v), decoration: const InputDecoration(labelText: "Sexo *", border: OutlineInputBorder()),
-          )),
+          Expanded(child: _buildDateField()),
         ]),
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: DropdownButtonFormField<int>(
-            value: _idCanton, 
-            items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre'], style: const TextStyle(fontSize: 12)))).toList(),
+            value: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['descripcion']))).toList(),
+            onChanged: (v) => setState(() => _idSexo = v), decoration: const InputDecoration(labelText: "Sexo Biológico *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.wc)),
+          )),
+          const SizedBox(width: 16),
+          Expanded(child: _field(TextEditingController(text: "CHIMBORAZO"), "Provincia (Fijo)", Icons.location_on, enabled: false)),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: DropdownButtonFormField<int>(
+            value: _idCanton, items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre']))).toList(),
             onChanged: (v) => setState(() {
               _idCanton = v;
               _idParroquia = null;
               _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == v).toList();
-            }), 
-            decoration: const InputDecoration(labelText: "Cantón *", border: OutlineInputBorder()),
+            }),
+            decoration: const InputDecoration(labelText: "Cantón *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.map_outlined)),
           )),
           const SizedBox(width: 16),
           Expanded(child: DropdownButtonFormField<int>(
-            value: _idParroquia, 
-            items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre'], style: const TextStyle(fontSize: 12)))).toList(),
-            onChanged: (v) => setState(() => _idParroquia = v), 
-            decoration: const InputDecoration(labelText: "Parroquia *", border: OutlineInputBorder()),
+            value: _idParroquia, items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+            onChanged: (v) => setState(() => _idParroquia = v),
+            decoration: const InputDecoration(labelText: "Parroquia *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
           )),
         ]),
         const SizedBox(height: 16),
@@ -372,13 +299,13 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       children: [
         Row(children: [
           Expanded(child: TextFormField(controller: _pesoCtrl, decoration: const InputDecoration(labelText: "Peso (kg) *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.monitor_weight), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
-
+          const SizedBox(width: 16),
           Expanded(child: TextFormField(controller: _tallaCtrl, decoration: const InputDecoration(labelText: "Talla (cm) *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.height), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
         ]),
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: TextFormField(controller: _pcrCtrl, decoration: const InputDecoration(labelText: "PCR (mg/L) *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.biotech), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
-
+          const SizedBox(width: 16),
           Expanded(child: TextFormField(controller: _rigidezCtrl, decoration: const InputDecoration(labelText: "Rigidez Matutina (min)", border: OutlineInputBorder(), prefixIcon: Icon(Icons.timer), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
         ]),
         const SizedBox(height: 16),
@@ -430,7 +357,6 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
             height: 180, margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
             child: ListView(children: _allSubgrupos.where((s) {
-              // No mostrar subgrupos de lactosa si es intolerante (redundante)
               final id = s['id'] as int;
               if (_esIntoleranteLactosa && _subgruposLactosa.contains(id)) return false;
               return true;
@@ -461,7 +387,6 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               optionsBuilder: (v) {
                 if (v.text.isEmpty) return const Iterable.empty();
                 return _allIngredientes.where((i) {
-                  // No mostrar ingredientes de subgrupos ya bloqueados
                   final idSub = (i['id_subgrupo_alimentario'] as num?)?.toInt();
                   final subBloqueados = <int>{};
                   if (_esIntoleranteLactosa) subBloqueados.addAll(_subgruposLactosa);
@@ -509,14 +434,9 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
 
   void _autoBloquearDerivados(String nombre) {
     final n = nombre.toLowerCase().trim();
-    // Lógica inteligente: Si es fresa, buscar mermelada de fresa, yogurt de fresa, etc.
     final derivados = _allIngredientes.where((i) {
       final iname = i['nombre'].toString().toLowerCase();
-      
-      // Caso base: el nombre contiene el término (ej. coco -> aceite de coco)
       bool matches = (iname.contains(n) && iname != n);
-      
-      // Casos especiales (fresa, coco, etc.)
       if (!matches) {
         if (n.contains("fresa") && (iname.contains("mermelada") || iname.contains("yogurt"))) {
           matches = iname.contains("fresa");
@@ -556,14 +476,10 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   }
 
   void _marcarLacteosAuto() {
-    // Ya no se marcan automáticamente porque los subgrupos de lactosa
-    // se ocultan al activar intolerancia (maneja el backend directamente)
     setState(() => _selectedSubgrupos.removeWhere((id) => _subgruposLactosa.contains(id)));
   }
 
   void _quitarLacteosAuto() {
-    // Al desactivar intolerancia, los subgrupos vuelven a estar visibles
-    // No hay que hacer nada especial, el usuario puede seleccionarlos manualmente
   }
 
   Widget _buildSectionTutor() {
@@ -592,7 +508,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: TextFormField(controller: _emailTutorCtrl, decoration: const InputDecoration(labelText: "Correo Electrónico", border: OutlineInputBorder(), prefixIcon: Icon(Icons.email), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
-
+          const SizedBox(width: 16),
           Expanded(child: TextFormField(controller: _telTutorCtrl, decoration: const InputDecoration(labelText: "Teléfono / Móvil", border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
         ]),
         const SizedBox(height: 16),
@@ -609,6 +525,30 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 32),
         child,
       ])),
+    );
+  }
+
+  Widget _field(TextEditingController ctrl, String label, IconData icon, {bool enabled = true}) {
+    return TextFormField(
+      controller: ctrl, enabled: enabled,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: Icon(icon), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 16)),
+    );
+  }
+
+  Widget _buildDateField() {
+    return TextFormField(
+      readOnly: true,
+      onTap: () async {
+        final d = await showDatePicker(context: context, initialDate: _fnac ?? DateTime.now().subtract(const Duration(days: 3650)), firstDate: DateTime(1900), lastDate: DateTime.now());
+        if (d != null) {
+          setState(() => _fnac = d);
+        }
+      },
+      decoration: InputDecoration(
+        labelText: "F. Nacimiento *", border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.cake),
+        floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        hintText: _fnac == null ? "Seleccione..." : _fnac!.toIso8601String().split("T").first,
+      ),
     );
   }
 }

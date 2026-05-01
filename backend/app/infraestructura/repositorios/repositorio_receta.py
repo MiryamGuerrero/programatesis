@@ -58,7 +58,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 4. Etiquetas de salud
             cur.execute("""
-                SELECT e.id, e.nombre_visible as titulo, e.codigo as explicacion 
+                SELECT e.id, e.nombre_visible as titulo, e.descripcion as explicacion 
                 FROM nutricion.receta_etiqueta re
                 JOIN nutricion.etiqueta_nutricional e ON e.id = re.id_etiqueta
                 WHERE re.id_receta = %s

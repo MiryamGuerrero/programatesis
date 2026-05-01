@@ -17,10 +17,10 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   final _observacionIngredienteController = TextEditingController();
   final _observacionGrupoController = TextEditingController();
 
-  List<Map<String, dynamic>> _pacientesEncontrados = [];
-  List<Map<String, dynamic>> _ingredientes = [];
-  List<Map<String, dynamic>> _grupos = [];
-  List<Map<String, dynamic>> _condicionesTemporalesCatalogo = [];
+  final List<Map<String, dynamic>> _pacientesEncontrados = [];
+  final List<Map<String, dynamic>> _ingredientes = [];
+  final List<Map<String, dynamic>> _grupos = [];
+  final List<Map<String, dynamic>> _condicionesTemporalesCatalogo = [];
 
   List<Map<String, dynamic>> _alergiasIngredientes = [];
   List<Map<String, dynamic>> _alergiasGrupos = [];
@@ -34,7 +34,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   int? _selectedIngredienteId;
   int? _selectedGrupoId;
 
-  bool _loading = false;
+  final bool _loading = false;
   String? _resultado;
   String? _error;
 
@@ -209,7 +209,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
                   isExpanded: true,
-                  value: _selectedIngredienteId,
+                  initialValue: _selectedIngredienteId,
                   decoration: const InputDecoration(
                     labelText: "Buscar e ingrediente a bloquear",
                     prefixIcon: Icon(Icons.search),
@@ -270,7 +270,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
                   isExpanded: true,
-                  value: _selectedGrupoId,
+                  initialValue: _selectedGrupoId,
                   decoration: const InputDecoration(
                     labelText: "Seleccionar subgrupo a eliminar",
                     prefixIcon: Icon(Icons.category),

@@ -116,7 +116,7 @@ class _SustitutoFormPageState extends ConsumerState<SustitutoFormPage> {
                     subtitle: const Text('Determina si el sistema sugerirá este cambio.'),
                     value: _activo,
                     onChanged: (v) => setState(() => _activo = v),
-                    activeColor: AppTema.azulPrincipal,
+                    activeThumbColor: AppTema.azulPrincipal,
                     contentPadding: EdgeInsets.zero,
                   ),
                 ],

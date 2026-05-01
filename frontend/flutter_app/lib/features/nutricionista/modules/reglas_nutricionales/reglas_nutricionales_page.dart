@@ -328,14 +328,14 @@ class _RuleFormDialogState extends State<_RuleFormDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                value: _idEtiqueta,
+                initialValue: _idEtiqueta,
                 decoration: const InputDecoration(labelText: "Etiqueta", filled: true),
                 items: widget.formData["etiquetas"]?.map((e) => DropdownMenuItem<int>(value: e["id"], child: Text(e["nombre"]))).toList(),
                 onChanged: (v) => setState(() => _idEtiqueta = v),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                value: _idAccion,
+                initialValue: _idAccion,
                 decoration: const InputDecoration(labelText: "Acción", filled: true),
                 items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]))).toList(),
                 onChanged: (v) => setState(() => _idAccion = v),
@@ -376,8 +376,11 @@ class _RuleFormDialogState extends State<_RuleFormDialog> {
     setState(() => _saving = true);
     try {
       final payload = { "id_etiqueta": _idEtiqueta, "id_accion": _idAccion, "id_tipo_objetivo": 3, "mensaje_error": _mensajeController.text, "id_condiciones": _selectedCondiciones, "es_estricta": _esEstricta };
-      if (widget.initialRule != null) await ref.read(dioProvider).put("reglas-nutricionales/${widget.initialRule!['id']}", data: payload);
-      else await ref.read(dioProvider).post("reglas-nutricionales", data: payload);
+      if (widget.initialRule != null) {
+        await ref.read(dioProvider).put("reglas-nutricionales/${widget.initialRule!['id']}", data: payload);
+      } else {
+        await ref.read(dioProvider).post("reglas-nutricionales", data: payload);
+      }
       widget.onSaved();
     } catch (_) {}
   }
