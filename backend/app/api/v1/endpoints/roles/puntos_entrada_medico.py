@@ -173,6 +173,20 @@ def registro_paciente_integral(
         print(f"DEBUG ERROR: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
+@router.post("/registro/tutor-solo")
+def registrar_tutor_solo(
+    payload: dict,
+    user: UserContext = Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    try:
+        id_t = repo.registrar_tutor_solo(payload)
+        return {"id": id_t, "message": "Tutor registrado exitosamente"}
+    except Exception as exc:
+        print(f"DEBUG ERROR: {str(exc)}")
+        raise HTTPException(status_code=400, detail=str(exc))
+
 # --- GESTIÓN DE REGLAS MÉDICAS ---
 
 @router.get("/reglas-medicas")

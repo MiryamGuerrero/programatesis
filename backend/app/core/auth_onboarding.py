@@ -31,6 +31,7 @@ def provision_auth_user_with_password_setup(
     email: str,
     nombre_completo: str,
     role_code: str,
+    password: str = None,
 ) -> tuple[str, str]:
     normalized_email = email.strip().lower()
     normalized_role = role_code.strip().lower()
@@ -39,7 +40,7 @@ def provision_auth_user_with_password_setup(
     admin_client = get_supabase_admin_client()
     public_client = get_supabase_public_client()
 
-    temp_password = token_urlsafe(12) # Shorter for easier sharing if needed
+    temp_password = password if password else token_urlsafe(12)
     user_response = admin_client.auth.admin.create_user(
         {
             "email": normalized_email,

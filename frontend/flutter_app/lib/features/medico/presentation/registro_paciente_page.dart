@@ -34,15 +34,21 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   final _tutNombre = TextEditingController();
   final _tutCedula = TextEditingController();
   final _tutEmail = TextEditingController();
+  final _tutTelefono = TextEditingController();
+  final _tutDireccion = TextEditingController();
+  final _tutUsuario = TextEditingController();
+  final _tutPassword = TextEditingController();
   int? _tutParentesco;
   bool _tutorExistente = false;
   bool _tutorNoEncontrado = false;
+  bool _buscandoTutor = false;
 
   // Paciente
   final _pacNombre = TextEditingController();
   final _pacCedula = TextEditingController();
   int? _pacSexo;
-  final int _pacProvincia = 5; // Chimborazo
+  int? _pacCanton;
+  int? _pacParroquia;
   DateTime? _pacFechaNac;
 
   // Clínico
@@ -61,7 +67,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     "Estable en remisión",
     "Estable con actividad baja",
     "Activa moderada",
-    "Activa grave (alta actividad)"
+    "Activa grave (alta actividad)",
+    "Seguimiento"
   ];
 
   double _dolor = 0;
@@ -84,6 +91,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   List<dynamic> _subgrupos = [];
   List<dynamic> _ingredientes = [];
   List<dynamic> _condicionesTemporalesCat = [];
+  List<dynamic> _cantones = [];
+  List<dynamic> _parroquiasCat = [];
+  List<dynamic> _parroquiasFiltradas = [];
 
   final Set<int> _idsLacteos = {98, 99, 100, 101, 102, 104, 105, 106, 107, 108, 111, 114, 117, 119, 122, 123, 124};
 
@@ -97,9 +107,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   @override
   void initState() {
     super.initState();
-    _loadCatalogos();
     _tutCedula.addListener(_onCedulaTutorChanged);
-    if (widget.initialData != null) _setupEdit(widget.initialData!);
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    await _loadCatalogos();
+    if (widget.initialData != null && mounted) {
+      _setupEdit(widget.initialData!);
+    }
   }
 
   @override
@@ -110,7 +126,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   void _onCedulaTutorChanged() {
-    if (_tutCedula.text.length == 10 && !_loading && widget.initialData == null) {
+    if (_tutCedula.text.length == 10 && !_loading && !_buscandoTutor && widget.initialData == null) {
       _buscarTutor(_tutCedula.text);
     }
   }
@@ -118,7 +134,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Future<void> _buscarTutor(String cedula) async {
     if (cedula.length < 10) return;
     setState(() {
-      _loading = true;
+      _buscandoTutor = true;
       _tutorNoEncontrado = false;
     });
     try {
@@ -128,21 +144,23 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         setState(() {
           _tutNombre.text = res.data['nombre_completo'] ?? "";
           _tutEmail.text = res.data['email'] ?? "";
+          _tutTelefono.text = res.data['telefono'] ?? "";
+          _tutDireccion.text = res.data['direccion'] ?? "";
           _tutParentesco = res.data['id_parentesco'];
           _tutorExistente = true;
-          _loading = false;
+          _buscandoTutor = false;
         });
         if (mounted) NutriSnack.show(context, "✅ Tutor encontrado y vinculado", ref: ref);
       } else {
         setState(() {
-          _loading = false;
+          _buscandoTutor = false;
           _tutorNoEncontrado = true;
           _tutorExistente = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() {
-        _loading = false;
+        _buscandoTutor = false;
         _tutorNoEncontrado = true;
       });
     }
@@ -158,6 +176,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       final rSg = await dio.get("nutricion/subgrupos");
       final rIn = await dio.get("nutricion/ingredientes");
       final rCt = await dio.get("crud/catalog?schema=heuristico&table=condicion");
+      final rCan = await dio.get("crud/catalog?schema=usuarios&table=canton");
+      final rPar = await dio.get("crud/catalog?schema=usuarios&table=parroquia");
+      
       setState(() {
         _parentescos = rP.data;
         _sexos = rS.data;
@@ -165,6 +186,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _subgrupos = rSg.data;
         _ingredientes = rIn.data;
         _condicionesTemporalesCat = (rCt.data as List).where((e) => e['id_tipo_condicion'] == 2).toList();
+        _cantones = rCan.data;
+        _parroquiasCat = rPar.data;
+        
+        // Default Chimborazo/Riobamba
+        if (_idPacienteEditando == null) {
+          _pacCanton = 1; // Riobamba
+          _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == 1).toList();
+        }
+        
         _loading = false;
       });
     } catch (e) {
@@ -191,11 +221,20 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           _tutNombre.text = t['nombre_completo'] ?? "";
           _tutCedula.text = t['cedula'] ?? "";
           _tutEmail.text = t['email'] ?? "";
+          _tutTelefono.text = t['telefono'] ?? "";
+          _tutDireccion.text = t['direccion'] ?? "";
           _tutParentesco = t['id_parentesco'];
           _tutorExistente = true;
           _pacNombre.text = p['nombre_completo'] ?? "";
           _pacCedula.text = p['cedula'] ?? "";
           _pacSexo = p['id_sexo'];
+          _pacCanton = int.tryParse(p['id_canton']?.toString() ?? '');
+          _pacParroquia = int.tryParse(p['id_parroquia']?.toString() ?? '');
+          if (_pacCanton != null) {
+            _parroquiasFiltradas = _parroquiasCat.where((x) => 
+              int.tryParse(x['id_canton']?.toString() ?? '') == _pacCanton
+            ).toList();
+          }
           _pacFechaNac = DateTime.tryParse(p['fecha_nacimiento'] ?? "");
           if (s.isNotEmpty) {
             _idPatologiaBase = s['id_condicion'];
@@ -358,7 +397,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             const CircularProgressIndicator(color: Colors.white, strokeWidth: 4),
             const SizedBox(height: 24),
             Text(
-              "CARGANDO DATOS DEL PACIENTE...",
+              "CARGANDO FORMULARIO...",
               style: GoogleFonts.montserrat(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1),
             ),
           ],
@@ -390,18 +429,125 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _buildHeader() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [IconButton.filledTonal(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16), onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.list), const SizedBox(width: 16), Text(_idPacienteEditando == null ? "REGISTRO INTEGRAL PEDIÁTRICO" : "ACTUALIZACIÓN DE EXPEDIENTE", style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]), const SizedBox(height: 8), const Text("Formulario clínico estandarizado bajo normativa OMS 2024.", style: TextStyle(color: Colors.blueGrey, fontSize: 14, fontWeight: FontWeight.w600))]);
 
   bool _validateCurrentStep(int step) {
-    if (step == 0) return _tutNombre.text.isNotEmpty && _tutCedula.text.isNotEmpty && _tutParentesco != null;
+    if (step == 0) {
+      bool base = _tutNombre.text.isNotEmpty && _tutCedula.text.isNotEmpty && _tutParentesco != null && _tutTelefono.text.isNotEmpty && _tutDireccion.text.isNotEmpty && _tutEmail.text.isNotEmpty;
+      if (!_tutorExistente) {
+        return base && _tutUsuario.text.isNotEmpty && _tutPassword.text.length >= 8;
+      }
+      return base;
+    }
     if (step == 1) return _pacNombre.text.isNotEmpty && _pacCedula.text.isNotEmpty && _pacSexo != null && _pacFechaNac != null;
     return (widget.fixedOnly || (_clinPeso.text.isNotEmpty && _clinTalla.text.isNotEmpty)) && _idPatologiaBase != null;
   }
 
   Future<void> _finish() async {
+    // Si es un registro nuevo (no edición) y el tutor es nuevo, mostramos el modal de credenciales
+    if (_idPacienteEditando == null && !_tutorExistente) {
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: Column(
+            children: [
+              const Icon(Icons.vpn_key_rounded, color: greenBrand, size: 48),
+              const SizedBox(height: 16),
+              Text("CREDENCIALES DEL TUTOR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF0F172A))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Se creará una nueva cuenta para el representante legal. Por favor, asegúrese de guardar o compartir estos datos:",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.blueGrey, height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: greenBrand.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: greenBrand.withOpacity(0.15)),
+                ),
+                child: Column(
+                  children: [
+                    _credRow("USUARIO (EMAIL)", _tutUsuario.text, Icons.alternate_email_rounded),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(),
+                    ),
+                    _credRow("CONTRASEÑA TEMPORAL", _tutPassword.text, Icons.password_rounded),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Expanded(child: Text("Al hacer clic en 'ACEPTAR', el expediente se enviará al sistema.", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange))),
+                ],
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("CANCELAR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: greenBrand,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("ACEPTAR Y ENVIAR", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        )
+      );
+      if (confirm != true) return;
+    }
+
     setState(() => _sending = true);
     try {
       final dio = ref.read(dioProvider);
       final payload = {
-        "tutor": {"nombre": _tutNombre.text, "cedula": _tutCedula.text, "email": _tutEmail.text, "id_parentesco": _tutParentesco},
-        "paciente": {"nombre_completo": _pacNombre.text, "cedula": _pacCedula.text, "id_sexo": _pacSexo, "id_provincia": _pacProvincia, "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first},
+        "tutor": {
+          "nombre": _tutNombre.text, 
+          "cedula": _tutCedula.text, 
+          "email": _tutEmail.text, 
+          "id_parentesco": _tutParentesco,
+          "telefono": _tutTelefono.text,
+          "direccion": _tutDireccion.text,
+          "usuario": _tutUsuario.text,
+          "password": _tutPassword.text
+        },
+        "paciente": {
+          "nombre_completo": _pacNombre.text, 
+          "cedula": _pacCedula.text, 
+          "id_sexo": _pacSexo, 
+          "id_canton": _pacCanton,
+          "id_parroquia": _pacParroquia,
+          "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first
+        },
         "salud": {
           "id_patologia_base": _idPatologiaBase, "peso_kg": _clinPeso.text, "talla_cm": _clinTalla.text,
           "puntos_dolor": _dolor.toInt(), "escala_inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
@@ -433,6 +579,26 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     }
   }
 
+  Widget _credRow(String l, String v, IconData i) => Row(children: [
+    Icon(i, size: 18, color: greenBrand), 
+    const SizedBox(width: 12), 
+    Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(l, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Text(v, style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+      ]),
+    ),
+    IconButton(
+      onPressed: () {
+        Clipboard.setData(ClipboardData(text: v));
+        NutriSnack.show(context, "✅ $l COPIADO", ref: ref);
+      },
+      icon: const Icon(Icons.copy_rounded, size: 18, color: greenBrand),
+      tooltip: "Copiar $l",
+    ),
+  ]);
+
   Step _stepTutor() => Step(
     title: const Text("Tutor / Responsable Legal"), 
     isActive: _currentStep >= 0,
@@ -445,7 +611,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           const SizedBox(width: 12),
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: SizedBox(height: 52, child: ElevatedButton.icon(onPressed: () => _buscarTutor(_tutCedula.text), style: ElevatedButton.styleFrom(backgroundColor: greenBrand, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: const Icon(Icons.search, size: 18), label: const Text("VALIDAR"))),
+            child: SizedBox(height: 52, child: ElevatedButton.icon(
+              onPressed: _buscandoTutor ? null : () => _buscarTutor(_tutCedula.text), 
+              style: ElevatedButton.styleFrom(backgroundColor: greenBrand, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), 
+              icon: _buscandoTutor ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.search, size: 18), 
+              label: Text(_buscandoTutor ? "BUSCANDO..." : "VALIDAR"))),
           ),
         ]),
         if (_tutorNoEncontrado) ...[
@@ -460,10 +630,38 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _field(_tutNombre, "Nombre Completo del Responsable*", Icons.person_outline),
         const SizedBox(height: 32),
         Row(children: [
+          Expanded(child: _field(_tutTelefono, "Teléfono / Celular*", Icons.phone_android_rounded)),
+          const SizedBox(width: 16),
+          Expanded(child: _field(_tutDireccion, "Dirección de Domicilio*", Icons.home_work_outlined)),
+        ]),
+        const SizedBox(height: 32),
+        Row(children: [
           Expanded(child: _dropdown("Grado de Parentesco*", _parentescos, _tutParentesco, (v) => setState(() => _tutParentesco = v))),
           const SizedBox(width: 16),
-          Expanded(child: _field(_tutEmail, "Correo Electrónico Principal", Icons.email_outlined)),
+          Expanded(child: _field(_tutEmail, "Correo Electrónico Principal*", Icons.email_outlined)),
         ]),
+        if (!_tutorExistente) ...[
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 24),
+          _sectionHeader("CREDENCIALES DE ACCESO PARA EL TUTOR", Icons.lock_person_rounded),
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(child: _field(_tutUsuario, "Usuario de Acceso (Email)*", Icons.alternate_email_rounded, helper: "Sugerido: usar el mismo correo")),
+            const SizedBox(width: 16),
+            Expanded(child: _field(_tutPassword, "Contraseña Temporal*", Icons.password_rounded, helper: "Mínimo 8 caracteres")),
+          ]),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.blue.shade200)),
+            child: const Row(children: [
+              Icon(Icons.info_outline_rounded, color: Colors.blue, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text("Estas credenciales permitirán al tutor acceder a la aplicación móvil para realizar el seguimiento nutricional.", style: TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold))),
+            ]),
+          )
+        ],
       ]),
     )
   );
@@ -485,7 +683,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           Expanded(child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))), child: ListTile(leading: const Icon(Icons.cake_outlined, color: greenBrand), title: const Text("Fecha de Nacimiento*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), subtitle: Text(_pacFechaNac == null ? "Seleccionar fecha..." : DateFormat('dd/MM/yyyy').format(_pacFechaNac!)), onTap: () async { final d = await showDatePicker(context: context, initialDate: _pacFechaNac ?? DateTime.now().subtract(const Duration(days: 3650)), firstDate: DateTime(2005), lastDate: DateTime.now()); if (d != null) { setState(() => _pacFechaNac = d); _debouncedOMS(); } }))),
         ]),
         const SizedBox(height: 32),
-        DropdownButtonFormField<int>(value: _pacProvincia, items: [const DropdownMenuItem(value: 5, child: Text("CHIMBORAZO (Sede Principal)"))], onChanged: null, decoration: InputDecoration(labelText: "Provincia de Residencia", floatingLabelBehavior: FloatingLabelBehavior.always, filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+        Row(children: [
+          Expanded(child: _dropdown("Cantón de Residencia*", _cantones, _pacCanton, (v) {
+            setState(() {
+              _pacCanton = v;
+              _pacParroquia = null;
+              _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == v).toList();
+            });
+          })),
+          const SizedBox(width: 16),
+          Expanded(child: _dropdown("Parroquia de Residencia*", _parroquiasFiltradas, _pacParroquia, (v) => setState(() => _pacParroquia = v))),
+        ]),
       ]),
     )
   );
@@ -701,14 +909,40 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   void _autoBloquearDerivados(String nombre) {
-    final n = nombre.toLowerCase();
+    final n = nombre.toLowerCase().trim();
     final derivados = _ingredientes.where((i) {
       final iname = i['nombre'].toString().toLowerCase();
+      final isyn = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      
       final subId = i['id_subgrupo_alimentario'];
       if ((_lactosa == true && _idsLacteos.contains(subId)) || _alergiasSub.contains(subId)) return false;
-      return (iname.contains(n) && iname != n);
+
+      // Caso base: el nombre contiene el término
+      bool matches = (iname.contains(n) && iname != n);
+      
+      // Caso 2: algún sinónimo contiene el término
+      if (!matches) {
+        matches = isyn.any((s) => s.contains(n) && s != n);
+      }
+
+      // Casos especiales (ej. fresa -> mermelada de fresa)
+      if (!matches) {
+        if (n.contains("fresa") && (iname.contains("mermelada") || iname.contains("yogurt"))) {
+          matches = iname.contains("fresa");
+        }
+        if (n.contains("coco") && (iname.contains("aceite") || iname.contains("leche") || iname.contains("rallado"))) {
+          matches = iname.contains("coco");
+        }
+      }
+
+      return matches;
     }).toList();
-    for (var d in derivados) { if (!_selectedIngredientes.any((x) => x['id'] == d['id'])) { _selectedIngredientes.add(d); } }
+
+    for (var d in derivados) {
+      if (!_selectedIngredientes.any((x) => x['id'] == d['id'])) {
+        _selectedIngredientes.add(d);
+      }
+    }
   }
 
   Widget _buildSintomasAgudosGrid() {

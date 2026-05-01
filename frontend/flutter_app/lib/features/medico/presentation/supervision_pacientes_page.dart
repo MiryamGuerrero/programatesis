@@ -27,9 +27,9 @@ class SupervisionPacientesPage extends ConsumerWidget {
   Widget _buildBody(MedicoView view, Map<String, dynamic>? patient) {
     switch (view) {
       case MedicoView.register:
-        return RegistroPacientePage(initialData: patient);
+        return RegistroPacientePage(key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
       case MedicoView.fixedEdit:
-        return RegistroPacientePage(initialData: patient, fixedOnly: true);
+        return RegistroPacientePage(key: ValueKey('fixed_${patient?['id']}'), initialData: patient, fixedOnly: true);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
         return ControlMensualPage(paciente: patient);
@@ -89,7 +89,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               SizedBox(
                 height: 55,
                 child: FilledButton.icon(
-                  onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.register,
+                  onPressed: () {
+                    ref.read(selectedPatientProvider.notifier).state = null;
+                    ref.read(medicoNavProvider.notifier).state = MedicoView.register;
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTema.verdeSalud,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -122,13 +125,25 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 
   Widget _buildStatsRow(List<Map<String, dynamic>> patients) {
+    final int total = patients.length;
+    final int brotes = patients.where((p) => p['severidad'].toString().toLowerCase().contains("brote") || p['severidad'].toString().toLowerCase().contains("alta")).length;
+    
+    // Contar patologías
+    final Map<String, int> counts = {};
+    for (var p in patients) {
+      final name = p['enfermedad_principal'] ?? "OTRA";
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final principal = sorted.isNotEmpty ? sorted.first.key : "N/A";
+
     return Row(
       children: [
-        Expanded(child: NutriResumenCard(titulo: "TOTAL PACIENTES", valor: "${patients.length}", icon: Icons.child_care_rounded)),
+        Expanded(child: NutriResumenCard(titulo: "TOTAL PACIENTES", valor: "$total", icon: Icons.child_care_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "REGIÓN", valor: "CHIMBORAZO", colorValor: AppTema.verdeSalud, icon: Icons.location_on_rounded)),
+        Expanded(child: NutriResumenCard(titulo: "EN BROTE / ALTA ACTIVIDAD", valor: "$brotes", colorValor: Colors.red, icon: Icons.warning_amber_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "NORMATIVA", valor: "OMS 2024", colorValor: AppTema.azulOscuro, icon: Icons.verified_user_rounded)),
+        Expanded(child: NutriResumenCard(titulo: "PATOLOGÍA PREDOMINANTE", valor: principal, colorValor: AppTema.azulOscuro, icon: Icons.medical_services_outlined)),
       ],
     );
   }
@@ -164,7 +179,6 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                         _col("CÉDULA"),
                         _col("ENFERMEDAD"),
                         _col("SEVERIDAD"),
-                        _col("NUTRICIÓN (OMS)"),
                         _col("EDAD"),
                         _col("ACCIONES"),
                       ],
@@ -239,10 +253,6 @@ class _PatientsDataSource extends DataTableSource {
         DataCell(NutriBadge(
           label: (p["severidad"] ?? "ESTABLE").toString().toUpperCase(), 
           type: _getSeverityBadgeType(p["severidad"])
-        )),
-        DataCell(NutriBadge(
-          label: (p["condicion_nutricional"] ?? "PENDIENTE").toString().toUpperCase(), 
-          type: _getBadgeType(p["condicion_nutricional"])
         )),
         DataCell(SizedBox(width: 60, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),
         DataCell(Row(

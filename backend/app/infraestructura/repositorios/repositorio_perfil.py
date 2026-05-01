@@ -99,6 +99,47 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                  datos.get("telefono"), datos.get("direccion"), auth_user_id)
         return str(self.ejecutar_comando(sql, params))
 
+    def registrar_tutor_solo(self, datos: dict) -> str:
+        from ...core.auth_onboarding import provision_auth_user_with_password_setup
+        
+        email = datos["email"].lower().strip()
+        nombre = datos["nombre_completo"].strip()
+        cedula = datos.get("cedula")
+        if cedula == "": cedula = None
+        
+        # --- Lógica de Upsert: Buscar si ya existe por email ---
+        existente = self.ejecutar_uno("select id from usuarios.usuario where email = %s limit 1", (email,))
+        if existente:
+            self.actualizar_usuario(str(existente["id"]), {
+                "nombre_completo": nombre,
+                "cedula": cedula,
+                "telefono": datos.get("telefono"),
+                "direccion": datos.get("direccion")
+            })
+            return str(existente["id"])
+        
+        # 1. Provisionar en Supabase Auth y enviar correo de bienvenida/contraseña
+        auth_user_id, _ = provision_auth_user_with_password_setup(
+            email=email,
+            nombre_completo=nombre,
+            role_code="tutor"
+        )
+        
+        # 2. Insertar en nuestra tabla de usuarios (id_rol = 4 para tutor)
+        sql = """
+            insert into usuarios.usuario (
+                email, nombre_completo, cedula, id_rol, 
+                telefono, direccion, activo, auth_user_id
+            )
+            values (%s, %s, %s, 4, %s, %s, true, %s)
+            returning id
+        """
+        params = (
+            email, nombre, cedula, 
+            datos.get("telefono"), datos.get("direccion"), auth_user_id
+        )
+        return str(self.ejecutar_comando(sql, params))
+
     def actualizar_usuario(self, user_id: str, datos: dict) -> bool:
         if not datos: return False
         campos_validos = {"nombre_completo", "cedula", "email", "id_rol", "activo", "telefono", "direccion"}

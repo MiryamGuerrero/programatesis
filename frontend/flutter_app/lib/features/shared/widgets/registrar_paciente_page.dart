@@ -18,7 +18,9 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
 
   // --- CATÁLOGOS ---
   List<dynamic> _sexos = [];
-  List<dynamic> _provincias = [];
+  List<dynamic> _cantones = [];
+  List<dynamic> _parroquiasCat = [];
+  List<dynamic> _parroquiasFiltradas = [];
   List<dynamic> _parentescos = [];
   List<dynamic> _condicionesClinicas = [];
   List<dynamic> _allSubgrupos = [];
@@ -29,7 +31,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   final _cedulaPacCtrl = TextEditingController();
   DateTime? _fnac;
   int? _idSexo;
-  final int _idProvincia = 5; // Chimborazo (Bloqueado)
+  int? _idCanton;
+  int? _idParroquia;
   String? _enfermedadBase;
 
   // --- ALERGIAS E INTOLERANCIAS ---
@@ -88,7 +91,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       
       final results = await Future.wait([
         repo.fetchCatalog("usuarios", "catalogo_sexo"),
-        repo.fetchCatalog("usuarios", "provincia"),
+        repo.fetchCatalog("usuarios", "canton"),
+        repo.fetchCatalog("usuarios", "parroquia"),
         repo.fetchCatalog("usuarios", "parentesco"),
         repo.fetchCatalog("heuristico", "condicion"),
         repo.fetchCatalog("nutricion", "subgrupo_alimentario"),
@@ -97,11 +101,17 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       
       setState(() {
         _sexos = results[0];
-        _provincias = results[1];
-        _parentescos = results[2];
-        _condicionesClinicas = results[3].where((c) => c['id_tipo_condicion'] == 1).toList();
-        _allSubgrupos = results[4];
-        _allIngredientes = results[5];
+        _cantones = results[1];
+        _parroquiasCat = results[2];
+        _parentescos = results[3];
+        _condicionesClinicas = results[4].where((c) => c['id_tipo_condicion'] == 1).toList();
+        _allSubgrupos = results[5];
+        _allIngredientes = results[6];
+
+        // Default Riobamba
+        _idCanton = 1;
+        _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == 1).toList();
+        
         _loadingCatalogos = false;
       });
     } catch (e) {
@@ -143,8 +153,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   void _showMsg(String m, Color c) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: c));
 
   Future<void> _registrar() async {
-    if (_nombreCtrl.text.isEmpty || _fnac == null || _idSexo == null || _enfermedadBase == null || _tutorEncontrado == null || _idParentesco == null) {
-      return _showMsg("⚠️ Faltan campos obligatorios para completar el expediente", Colors.red);
+    if (_nombreCtrl.text.isEmpty || _fnac == null || _idSexo == null || _enfermedadBase == null || _tutorEncontrado == null || _idParentesco == null || _telTutorCtrl.text.isEmpty || _dirTutorCtrl.text.isEmpty) {
+      return _showMsg("⚠️ Faltan campos obligatorios para completar el expediente (*)", Colors.red);
     }
 
     setState(() => _saving = true);
@@ -157,7 +167,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           "cedula": _cedulaPacCtrl.text,
           "fecha_nacimiento": _fnac!.toIso8601String().split('T')[0],
           "id_sexo": _idSexo,
-          "id_provincia": _idProvincia,
+          "id_canton": _idCanton,
+          "id_parroquia": _idParroquia,
         },
         "tutor": {
           "cedula": _cedulaTutorCtrl.text,
@@ -183,7 +194,35 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         }
       };
 
-      await repo.registerIntegral(payload);
+      final res = await repo.registerIntegral(payload);
+      
+      // Mostrar credenciales si es un tutor nuevo
+      if (res['tutor_creado'] == true && res['temp_password'] != null) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(children: [Icon(Icons.vpn_key_rounded, color: Colors.blue), SizedBox(width: 12), Text("ACCESO DEL TUTOR")]),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Se ha creado una cuenta para el representante legal con los siguientes accesos:"),
+                  const SizedBox(height: 20),
+                  _credentialRow("USUARIO:", _emailTutorCtrl.text),
+                  _credentialRow("CLAVE TEMP:", res['temp_password']),
+                  const SizedBox(height: 20),
+                  const Text("⚠️ Por favor, comparta estos datos con el tutor. Se le pedirá cambiar la clave al primer ingreso.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                ],
+              ),
+              actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text("ENTENDIDO, FINALIZAR"))],
+            ),
+          );
+        }
+      }
+
       _showMsg("✅ Expediente Maestro Creado Exitosamente", Colors.green);
       widget.onBack();
     } catch (e) { 
@@ -191,6 +230,22 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       _showMsg("❌ Error en el registro integral: $e", Colors.red); 
     }
     finally { setState(() => _saving = false); }
+  }
+
+  Widget _credentialRow(String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+          const SizedBox(width: 12),
+          Expanded(child: SelectableText(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue))),
+          IconButton(onPressed: () => Clipboard.setData(ClipboardData(text: value)), icon: const Icon(Icons.copy, size: 16)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -284,10 +339,25 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           )),
         ]),
         const SizedBox(height: 16),
-        DropdownButtonFormField<int>(
-          value: _idProvincia, items: [const DropdownMenuItem(value: 5, child: Text("CHIMBORAZO (Sede Principal)"))],
-          onChanged: null, decoration: const InputDecoration(labelText: "Provincia de Residencia", border: OutlineInputBorder(), filled: true, fillColor: Color(0xFFF1F5F9)),
-        ),
+        Row(children: [
+          Expanded(child: DropdownButtonFormField<int>(
+            value: _idCanton, 
+            items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre'], style: const TextStyle(fontSize: 12)))).toList(),
+            onChanged: (v) => setState(() {
+              _idCanton = v;
+              _idParroquia = null;
+              _parroquiasFiltradas = _parroquiasCat.where((p) => p['id_canton'] == v).toList();
+            }), 
+            decoration: const InputDecoration(labelText: "Cantón *", border: OutlineInputBorder()),
+          )),
+          const SizedBox(width: 16),
+          Expanded(child: DropdownButtonFormField<int>(
+            value: _idParroquia, 
+            items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre'], style: const TextStyle(fontSize: 12)))).toList(),
+            onChanged: (v) => setState(() => _idParroquia = v), 
+            decoration: const InputDecoration(labelText: "Parroquia *", border: OutlineInputBorder()),
+          )),
+        ]),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           value: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']))).toList(),
@@ -438,11 +508,24 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   }
 
   void _autoBloquearDerivados(String nombre) {
-    final n = nombre.toLowerCase();
+    final n = nombre.toLowerCase().trim();
     // Lógica inteligente: Si es fresa, buscar mermelada de fresa, yogurt de fresa, etc.
     final derivados = _allIngredientes.where((i) {
       final iname = i['nombre'].toString().toLowerCase();
-      return (iname.contains(n) && iname != n) || (n.contains("fresa") && iname.contains("mermelada") && iname.contains("fresa"));
+      
+      // Caso base: el nombre contiene el término (ej. coco -> aceite de coco)
+      bool matches = (iname.contains(n) && iname != n);
+      
+      // Casos especiales (fresa, coco, etc.)
+      if (!matches) {
+        if (n.contains("fresa") && (iname.contains("mermelada") || iname.contains("yogurt"))) {
+          matches = iname.contains("fresa");
+        }
+        if (n.contains("coco") && (iname.contains("aceite") || iname.contains("leche") || iname.contains("rallado"))) {
+          matches = iname.contains("coco");
+        }
+      }
+      return matches;
     }).toList();
     
     for (var d in derivados) {
@@ -512,6 +595,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
 
           Expanded(child: TextFormField(controller: _telTutorCtrl, decoration: const InputDecoration(labelText: "Teléfono / Móvil", border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16)))),
         ]),
+        const SizedBox(height: 16),
+        TextFormField(controller: _dirTutorCtrl, decoration: const InputDecoration(labelText: "Dirección de Domicilio del Representante", border: OutlineInputBorder(), prefixIcon: Icon(Icons.home_work), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
       ],
     ));
   }

@@ -92,12 +92,18 @@ class _FormRegistroTutor extends ConsumerStatefulWidget {
 class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
+  final _cedulaController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   bool _loading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
+    _cedulaController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -112,9 +118,19 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
             Text("Nuevo Tutor", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
             const Text("Crea una cuenta de acceso para un representante legal.", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
             const SizedBox(height: 32),
-            _buildField("Correo Electrónico", _emailController, Icons.alternate_email_rounded, "ejemplo@correo.com"),
+            _buildField("Correo Electrónico *", _emailController, Icons.alternate_email_rounded, "ejemplo@correo.com"),
             const SizedBox(height: 20),
-            _buildField("Nombre Completo", _nameController, Icons.person_outline_rounded, "Nombre y Apellidos"),
+            _buildField("Nombre Completo *", _nameController, Icons.person_outline_rounded, "Nombre y Apellidos"),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: _buildField("Cédula", _cedulaController, Icons.badge_outlined, "010... (opcional)")),
+                const SizedBox(width: 16),
+                Expanded(child: _buildField("Teléfono", _phoneController, Icons.phone_android_rounded, "099...")),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildField("Dirección", _addressController, Icons.home_work_outlined, "Calle principal y secundaria"),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -153,14 +169,21 @@ class _FormRegistroTutorState extends ConsumerState<_FormRegistroTutor> {
 
   Future<void> _registrar() async {
     if (_emailController.text.isEmpty || _nameController.text.isEmpty) {
-      NutriSnack.show(context, "Todos los campos son obligatorios", isError: true, ref: ref);
+      NutriSnack.show(context, "Correo y Nombre son obligatorios", isError: true, ref: ref);
       return;
     }
     setState(() => _loading = true);
     try {
-      await ref.read(supabaseCrudRepositoryProvider).registerTutorOnly(email: _emailController.text, nombreCompleto: _nameController.text);
+      await ref.read(supabaseCrudRepositoryProvider).registerTutorOnly(
+        email: _emailController.text, 
+        nombreCompleto: _nameController.text,
+        cedula: _cedulaController.text.isEmpty ? null : _cedulaController.text,
+        fono: _phoneController.text.isEmpty ? null : _phoneController.text,
+        direccion: _addressController.text.isEmpty ? null : _addressController.text,
+      );
       if (mounted) {
-        _emailController.clear(); _nameController.clear();
+        _emailController.clear(); _nameController.clear(); 
+        _cedulaController.clear(); _phoneController.clear(); _addressController.clear();
         NutriSnack.show(context, "Tutor registrado con éxito", ref: ref);
       }
     } catch (e) {
@@ -179,9 +202,12 @@ class _FormRegistroPaciente extends ConsumerStatefulWidget {
 
 class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   final _nameController = TextEditingController();
+  final _cedulaController = TextEditingController();
   final _fechaNacController = TextEditingController();
   final _pesoController = TextEditingController();
   final _tallaController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   
   int? _selectedSexo;
   DateTime? _fechaNac;
@@ -202,6 +228,18 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _cedulaController.dispose();
+    _fechaNacController.dispose();
+    _pesoController.dispose();
+    _tallaController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return NutriTableContainer(
       child: Padding(
@@ -212,15 +250,25 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
             Text("Nuevo Paciente", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
             const Text("Registro base del paciente pediátrico para seguimiento clínico.", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
             const SizedBox(height: 32),
-            _buildField("Nombre del Paciente", _nameController, Icons.child_care_rounded),
+            _buildField("Nombre del Paciente *", _nameController, Icons.child_care_rounded),
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: _buildDateField()),
+                Expanded(child: _buildField("Cédula (Opcional)", _cedulaController, Icons.badge_outlined)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildSexoField()),
+                Expanded(child: _buildDateField()),
               ],
             ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: _buildSexoField()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildField("Teléfono contacto", _phoneController, Icons.phone_android_rounded)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildField("Dirección", _addressController, Icons.home_work_outlined),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -235,7 +283,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
               height: 50,
               child: ElevatedButton.icon(
                 onPressed: _loading ? null : _registrar,
-                icon: const Icon(Icons.app_registration_rounded),
+                icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.app_registration_rounded),
                 label: Text("REGISTRAR PACIENTE", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
@@ -268,13 +316,13 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("FECHA DE NACIMIENTO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const Text("FECHA DE NACIMIENTO *", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
         const SizedBox(height: 8),
         TextField(
           controller: _fechaNacController,
           readOnly: true,
           onTap: () async {
-            final d = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime.now());
+            final d = await showDatePicker(context: context, initialDate: DateTime.now().subtract(const Duration(days: 3650)), firstDate: DateTime(1900), lastDate: DateTime.now());
             if (d != null) {
               setState(() { _fechaNac = d; _fechaNacController.text = d.toIso8601String().split("T").first; });
             }
@@ -293,7 +341,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("SEXO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const Text("SEXO *", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
           value: _selectedSexo,
@@ -311,7 +359,7 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
 
   Future<void> _registrar() async {
     if (_nameController.text.isEmpty || _fechaNac == null || _selectedSexo == null) {
-      NutriSnack.show(context, "Datos obligatorios faltantes", isError: true, ref: ref);
+      NutriSnack.show(context, "Datos obligatorios faltantes (*)", isError: true, ref: ref);
       return;
     }
     setState(() => _loading = true);
@@ -320,13 +368,18 @@ class _FormRegistroPacienteState extends ConsumerState<_FormRegistroPaciente> {
         nombreCompleto: _nameController.text,
         fechaNacimiento: _fechaNac!,
         idSexo: _selectedSexo!,
+        cedula: _cedulaController.text.isEmpty ? null : _cedulaController.text,
+        fono: _phoneController.text.isEmpty ? null : _phoneController.text,
+        direccion: _addressController.text.isEmpty ? null : _addressController.text,
         controlClinicoInicial: {
           "peso_kg": double.tryParse(_pesoController.text) ?? 0,
           "talla_cm": double.tryParse(_tallaController.text) ?? 0,
         }
       );
       if (mounted) {
-        _nameController.clear(); _fechaNacController.clear();
+        _nameController.clear(); _cedulaController.clear(); 
+        _fechaNacController.clear(); _pesoController.clear(); _tallaController.clear();
+        _phoneController.clear(); _addressController.clear();
         NutriSnack.show(context, "Paciente registrado con éxito", ref: ref);
       }
     } catch (e) {
@@ -355,6 +408,8 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
   String? _idPaciente;
   int? _idParentesco;
   bool _loading = false;
+  bool _searchingTutor = false;
+  bool _searchingPaciente = false;
 
   @override
   void initState() {
@@ -405,11 +460,21 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
   Widget _buildSearchField(String label, TextEditingController ctrl, bool isTutor) {
     final list = isTutor ? _tutores : _pacientes;
     final selected = isTutor ? _idTutor : _idPaciente;
+    final isSearching = isTutor ? _searchingTutor : _searchingPaciente;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+            if (isSearching)
+              Text("Buscando...", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.naranjaAlerta))
+            else if (list.isNotEmpty)
+              Text(isTutor ? "Tutor encontrado" : "Paciente encontrado", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.verdeSalud)),
+          ],
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -426,12 +491,21 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
             ),
             const SizedBox(width: 8),
             IconButton.filledTonal(
-              onPressed: () async {
-                final repo = ref.read(supabaseCrudRepositoryProvider);
-                final res = isTutor ? await repo.searchTutors(query: ctrl.text) : await repo.searchPatients(query: ctrl.text);
-                setState(() { if (isTutor) _tutores = res; else _pacientes = res; });
+              onPressed: isSearching ? null : () async {
+                setState(() { if (isTutor) _searchingTutor = true; else _searchingPaciente = true; });
+                try {
+                  final repo = ref.read(supabaseCrudRepositoryProvider);
+                  final res = isTutor ? await repo.searchTutors(query: ctrl.text) : await repo.searchPatients(query: ctrl.text);
+                  if (mounted) setState(() { if (isTutor) _tutores = res; else _pacientes = res; });
+                } catch (_) {
+                  // No mostramos alertas intrusivas en búsqueda
+                } finally {
+                  if (mounted) setState(() { if (isTutor) _searchingTutor = false; else _searchingPaciente = false; });
+                }
               },
-              icon: const Icon(Icons.search_rounded),
+              icon: isSearching 
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.search_rounded),
             ),
           ],
         ),

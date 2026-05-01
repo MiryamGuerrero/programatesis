@@ -148,7 +148,8 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
           const SizedBox(height: 24),
           _sidebarItem("PATOLOGÍA BASE", pac['enfermedad_principal'] ?? "No registrada", isHigh: true),
           _sidebarItem("SEXO", pac['sexo_nombre'] ?? "N/A"),
-          _sidebarItem("PROVINCIA", pac['provincia_nombre'] ?? "N/A"),
+          _sidebarItem("CANTÓN", pac['canton_nombre'] ?? "N/A"),
+          _sidebarItem("PARROQUIA", pac['parroquia_nombre'] ?? "N/A"),
           const Divider(height: 40),
           _sidebarItem("ESTADO OMS", ctrl['diagnostico_oms_texto'] ?? "PENDIENTE"),
           const Spacer(),
@@ -239,7 +240,15 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _editableField("Correo Electrónico", tutor['email']),
+                  Row(
+                    children: [
+                      Expanded(child: _editableField("Correo Electrónico", tutor['email'])),
+                      const SizedBox(width: 16),
+                      Expanded(child: _editableField("Teléfono / Celular", tutor['telefono'])),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _editableField("Dirección de Domicilio", tutor['direccion']),
                 ],
               ),
             ),
@@ -389,29 +398,120 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
 
   Widget _buildChartEVA(List historial) {
     return Container(
-      height: 250,
-      padding: const EdgeInsets.only(right: 20, top: 20, bottom: 10),
+      height: 300, padding: const EdgeInsets.fromLTRB(10, 32, 32, 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
       child: LineChart(
         LineChartData(
           minY: 0, maxY: 10,
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
-          titlesData: const FlTitlesData(rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false))),
-          borderData: FlBorderData(show: false),
+          gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (v) => FlLine(color: v == 0 ? Colors.green.withOpacity(0.3) : Colors.grey.shade100, strokeWidth: 1)),
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(axisNameWidget: const Text("ESCALA 0-10", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 40)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
+              if (v.toInt() >= historial.length) return const SizedBox.shrink();
+              final fecha = DateTime.parse(historial[v.toInt()]['fecha_control']);
+              return Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10, color: Colors.grey));
+            })),
+          ),
+          borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade200)),
           lineBarsData: [
-            _lineData(historial, 'nivel_dolor_eva', Colors.orange, "Dolor"),
-            _lineData(historial, 'nivel_inflamacion', Colors.red, "Inflamación"),
-            _lineData(historial, 'nivel_fatiga', Colors.green, "Energía"),
+            // DOLOR (EVA) - Rojo
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['puntos_dolor'] as num? ?? 0).toDouble())),
+              isCurved: true, color: Colors.red, barWidth: 3, dotData: const FlDotData(show: true),
+            ),
+            // INFLAMACIÓN - Morado
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['escala_inflamacion'] as num? ?? 0).toDouble())),
+              isCurved: true, color: Colors.purple, barWidth: 3, dotData: const FlDotData(show: true),
+            ),
+            // FATIGA - Verde (invertido: 10=energía máxima)
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['nivel_fatiga'] as num? ?? 10).toDouble())),
+              isCurved: true, color: Colors.green, barWidth: 3, dotData: const FlDotData(show: true),
+            ),
           ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (spot) => const Color(0xFF1E293B),
+              getTooltipItems: (spots) {
+                final data = historial[spots.first.x.toInt()];
+                return [
+                  LineTooltipItem(
+                    "ACTIVIDAD CLÍNICA\n",
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    children: [
+                      TextSpan(text: "🔴 Dolor (EVA): ${data['puntos_dolor'] ?? 0}/10\n", style: const TextStyle(color: Colors.redAccent, height: 1.5)),
+                      TextSpan(text: "🟣 Inflamación: ${data['escala_inflamacion'] ?? 0}/3\n", style: const TextStyle(color: Colors.purpleAccent, height: 1.5)),
+                      TextSpan(text: "🟢 Energía: ${data['nivel_fatiga'] ?? 10}/10", style: const TextStyle(color: Colors.greenAccent, height: 1.5)),
+                    ]
+                  )
+                ];
+              }
+            )
+          )
         ),
       ),
     );
   }
 
-  LineChartBarData _lineData(List hist, String key, Color color, String label) {
-    return LineChartBarData(
-      spots: List.generate(hist.length, (i) => FlSpot(i.toDouble(), (hist[i][key] as num? ?? 0).toDouble())),
-      isCurved: true, color: color, barWidth: 3, dotData: const FlDotData(show: false),
+  Widget _buildChartPeso(List historial) {
+    return Container(
+      height: 300, padding: const EdgeInsets.fromLTRB(10, 32, 32, 10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (v) => FlLine(color: v == 0 ? Colors.blue.withOpacity(0.3) : Colors.grey.shade100, strokeWidth: 1)),
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(axisNameWidget: const Text("PESO (kg)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 50)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
+              if (v.toInt() >= historial.length) return const SizedBox.shrink();
+              final fecha = DateTime.parse(historial[v.toInt()]['fecha_control']);
+              return Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10, color: Colors.grey));
+            })),
+          ),
+          borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade200)),
+          lineBarsData: [
+            // PESO ACTUAL
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['peso_kg'] as num).toDouble())),
+              isCurved: true, color: Colors.blue, barWidth: 4, dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
+            ),
+            // PESO IDEAL (línea punteada)
+            LineChartBarData(
+              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['peso_ideal'] as num? ?? 0).toDouble())),
+              isCurved: true, color: Colors.blue.shade200, barWidth: 2, dashArray: [5, 5], dotData: const FlDotData(show: false),
+            ),
+          ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (spot) => const Color(0xFF1E293B),
+              getTooltipItems: (spots) {
+                final data = historial[spots.first.x.toInt()];
+                final actual = (data['peso_kg'] as num).toDouble();
+                final ideal = (data['peso_ideal'] as num? ?? 0).toDouble();
+                final diff = actual - ideal;
+                String msg = diff.abs() < 0.5 ? "✅ Peso óptimo" : (diff > 0 ? "⬇️ Debe bajar ${diff.toStringAsFixed(1)}kg" : "⬆️ Debe subir ${diff.abs().toStringAsFixed(1)}kg");
+                return [
+                  LineTooltipItem(
+                    "EVOLUCIÓN DE PESO\n",
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    children: [
+                      TextSpan(text: "Actual: ${actual}kg\n", style: const TextStyle(color: Colors.lightBlueAccent, height: 1.5)),
+                      TextSpan(text: "Ideal OMS: ${ideal.toStringAsFixed(1)}kg\n", style: const TextStyle(color: Colors.blueAccent, height: 1.5)),
+                      TextSpan(text: msg, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, height: 1.5)),
+                    ]
+                  )
+                ];
+              }
+            )
+          )
+        ),
+      ),
     );
   }
 
@@ -730,7 +830,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
         "fatiga": _fatiga.toInt(),
         "pcr": double.tryParse(_pcrCtrl.text),
         "rigidez_min": int.tryParse(_rigidezCtrl.text),
-        "brote_activo": _dolor > 7 || _inflamacion > 7, // Lógica automática de sugerencia de brote
+        "brote_activo": _dolor > 7 || _inflamacion >= 2, // Lógica automática de sugerencia de brote (Inflamación >= 2 de 3)
         "nota_evolucion": _notaCtrl.text,
         "fecha_proxima_cita": _proximaCita.toIso8601String().split('T')[0],
         "condiciones_temporales": _condicionesTemporalesSeleccionadas.entries.map((e) => {
@@ -758,7 +858,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   }
 
   Widget _buildMetricSlider(String title, double val, Function(double) onC, String type) {
-    String desc = ""; String emoji = ""; Color color = Colors.grey;
+    String desc = ""; String emoji = ""; Color color = Colors.grey; double maxV = 10;
     if (type == "DOLOR") {
       if (val == 0) { desc = "SIN DOLOR: Sin molestias."; emoji = "😀"; color = Colors.green; }
       else if (val <= 2) { desc = "POCO DOLOR: Molestia leve."; emoji = "🙂"; color = Colors.lightGreen; }
@@ -767,9 +867,10 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
       else if (val <= 8) { desc = "MUY FUERTE: Limita movimiento."; emoji = "😫"; color = Colors.redAccent; }
       else { desc = "INSOPORTABLE: Urgencia clínica."; emoji = "😭"; color = Colors.red.shade900; }
     } else if (type == "INFLAMACION") {
+      maxV = 3;
       if (val == 0) { desc = "NORMAL: Sin signos."; emoji = "💪"; color = Colors.green; }
-      else if (val <= 3) { desc = "MÍNIMA: Hinchazón leve."; emoji = "🙂"; color = Colors.lightGreen; }
-      else if (val <= 6) { desc = "MODERADA: Visible y limitante."; emoji = "😟"; color = Colors.orange; }
+      else if (val == 1) { desc = "MÍNIMA: Hinchazón leve."; emoji = "🙂"; color = Colors.lightGreen; }
+      else if (val == 2) { desc = "MODERADA: Visible y limitante."; emoji = "😟"; color = Colors.orange; }
       else { desc = "CRÍTICA: Inflamación sistémica."; emoji = "🔥"; color = Colors.red; }
     } else {
       if (val == 10) { desc = "ENÉRGICO: Energía máxima."; emoji = "⚡"; color = Colors.green; }
@@ -778,14 +879,14 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
       else { desc = "AGOTADO: Sin energía basal."; emoji = "🪫"; color = Colors.red; }
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text("${val.toInt()}/10", style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text("${val.toInt()}/${maxV.toInt()}", style: TextStyle(fontWeight: FontWeight.bold, color: color))]),
       Container(
         margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.3))),
         child: Column(children: [
           Row(children: [Text(emoji, style: const TextStyle(fontSize: 24)), const SizedBox(width: 12), Expanded(child: Text(desc, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)))]),
-          SliderTheme(data: SliderThemeData(activeTrackColor: color, inactiveTrackColor: Colors.black12, thumbColor: color, trackHeight: 4), child: Slider(value: val, min: 0, max: 10, divisions: 10, onChanged: onC)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(11, (i) => Text("$i", style: TextStyle(fontSize: 8, color: val.toInt() == i ? color : Colors.grey))))),
+          SliderTheme(data: SliderThemeData(activeTrackColor: color, inactiveTrackColor: Colors.black12, thumbColor: color, trackHeight: 4), child: Slider(value: val, min: 0, max: maxV, divisions: maxV.toInt(), onChanged: onC)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(maxV.toInt() + 1, (i) => Text("$i", style: TextStyle(fontSize: 8, color: val.toInt() == i ? color : Colors.grey))))),
         ]),
       ),
     ]);

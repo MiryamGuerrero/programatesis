@@ -62,7 +62,16 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def obtener_expediente_completo(self, id_paciente: str) -> dict:
         with db_cursor() as cur:
-            cur.execute("select p.*, s.descripcion as sexo_nombre, prov.nombre as provincia_nombre from usuarios.paciente p left join usuarios.catalogo_sexo s on s.id = p.id_sexo left join usuarios.provincia prov on prov.id = p.id_provincia where p.id = %s", (id_paciente,))
+            cur.execute("""
+                select p.*, s.descripcion as sexo_nombre, 
+                       c.nombre as canton_nombre, 
+                       parr.nombre as parroquia_nombre 
+                from usuarios.paciente p 
+                left join usuarios.catalogo_sexo s on s.id = p.id_sexo 
+                left join usuarios.canton c on c.id = p.id_canton 
+                left join usuarios.parroquia parr on parr.id = p.id_parroquia 
+                where p.id = %s
+            """, (id_paciente,))
             pac_row = cur.fetchone()
             if not pac_row: return {"error": "No existe"}
             pac_cols = [d[0] for d in cur.description]
@@ -72,7 +81,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             res_enf = cur.fetchone()
             paciente["enfermedad_principal"] = res_enf[0] if res_enf else "AIJ"
             
-            cur.execute("select u.nombre_completo, u.email, u.cedula, tp.id_parentesco, par.nombre as parentesco_nombre from usuarios.tutor_paciente tp join usuarios.usuario u on u.id = tp.id_usuario_tutor join usuarios.parentesco par on par.id = tp.id_parentesco where tp.id_paciente = %s and tp.es_principal = true limit 1", (id_paciente,))
+            cur.execute("select u.nombre_completo, u.email, u.cedula, u.telefono, u.direccion, tp.id_parentesco, par.nombre as parentesco_nombre from usuarios.tutor_paciente tp join usuarios.usuario u on u.id = tp.id_usuario_tutor join usuarios.parentesco par on par.id = tp.id_parentesco where tp.id_paciente = %s and tp.es_principal = true limit 1", (id_paciente,))
             res_tutor = cur.fetchone()
             tutor = dict(zip([d[0] for d in cur.description], res_tutor)) if res_tutor else {}
             
@@ -144,16 +153,24 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             try:
                 cur.execute("BEGIN")
                 # Gestionar Tutor
-                cur.execute("select id, auth_user_id from usuarios.usuario where cedula = %s limit 1", (tutor.get("cedula"),))
+                cur.execute("select id, auth_user_id from usuarios.usuario where cedula = %s or email = %s limit 1", (tutor.get("cedula"), tutor.get("email")))
                 t_row = cur.fetchone()
                 tutor_id = t_row[0] if t_row else None
                 if not tutor_id:
-                    auth_user_id, temp_password = provision_auth_user_with_password_setup(email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor")
-                    cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id) values (%s, %s, %s, 4, true, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id))
+                    auth_user_id, temp_password = provision_auth_user_with_password_setup(
+                        email=tutor["email"], 
+                        nombre_completo=tutor["nombre"], 
+                        role_code="tutor",
+                        password=tutor.get("password")
+                    )
+                    cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) values (%s, %s, %s, 4, true, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
                     tutor_id = cur.fetchone()[0]
+                else:
+                    # Upsert: Actualizar datos del tutor existente si se proporcionan
+                    cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
                 
                 # Insertar Paciente
-                cur.execute("insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_provincia, cedula, activo) values (%s, %s, %s, %s, %s, true) returning id", (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_provincia", 5), paciente.get("cedula")))
+                cur.execute("insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_canton, id_parroquia, cedula, activo) values (%s, %s, %s, %s, %s, %s, true) returning id", (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), paciente.get("cedula")))
                 paciente_id = cur.fetchone()[0]
                 cur.execute("insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal) values (%s, %s, %s, true)", (tutor_id, paciente_id, tutor["id_parentesco"]))
                 
@@ -238,12 +255,12 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
-                cur.execute("update usuarios.paciente set nombre_completo = %s, fecha_nacimiento = %s, id_sexo = %s, cedula = %s where id = %s", (paciente.get("nombre_completo"), paciente.get("fecha_nacimiento"), paciente.get("id_sexo"), paciente.get("cedula"), id_paciente))
+                cur.execute("update usuarios.paciente set nombre_completo = %s, fecha_nacimiento = %s, id_sexo = %s, id_canton = %s, id_parroquia = %s, cedula = %s where id = %s", (paciente.get("nombre_completo"), paciente.get("fecha_nacimiento"), paciente.get("id_sexo"), paciente.get("id_canton"), paciente.get("id_parroquia"), paciente.get("cedula"), id_paciente))
                 
                 cur.execute("select id_usuario_tutor from usuarios.tutor_paciente where id_paciente = %s and es_principal = true", (id_paciente,))
                 t_row = cur.fetchone()
                 if t_row and tutor:
-                    cur.execute("update usuarios.usuario set nombre_completo = %s, email = %s, cedula = %s where id = %s", (tutor.get("nombre"), tutor.get("email"), tutor.get("cedula"), t_row[0]))
+                    cur.execute("update usuarios.usuario set nombre_completo = %s, email = %s, cedula = %s, telefono = %s, direccion = %s where id = %s", (tutor.get("nombre"), tutor.get("email"), tutor.get("cedula"), tutor.get("telefono"), tutor.get("direccion"), t_row[0]))
                     cur.execute("update usuarios.tutor_paciente set id_parentesco = %s where id_usuario_tutor = %s and id_paciente = %s", (tutor.get("id_parentesco"), t_row[0], id_paciente))
 
                 cur.execute("update clinico.diagnostico_paciente set id_condicion = %s, observaciones = %s where id_paciente = %s and esta_activo = true", (salud.get("id_patologia_base"), salud.get("observaciones"), id_paciente))

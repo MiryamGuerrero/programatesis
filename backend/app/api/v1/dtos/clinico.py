@@ -25,4 +25,6 @@ class PacienteRegistroCompleto(BaseModel):
     nombre_completo: str
     fecha_nacimiento: date
     id_sexo: int
-    id_provincia: Optional[int] = None
+    id_canton: Optional[int] = None
+    id_parroquia: Optional[int] = None
+    cedula: Optional[str] = None

@@ -117,8 +117,24 @@ class SupabaseCrudRepository {
   }
 
   // --- CLÍNICO: PACIENTES Y TUTORES ---
-  Future<void> registerTutor({required String email, required String nombreCompleto, String? cedula, String? fono}) async {
-    await _dio.post("registro/tutor-solo", data: {"email": email, "nombre_completo": nombreCompleto, "cedula": cedula, "telefono": fono}, options: _authorizedOptions());
+  Future<void> registerTutorOnly({
+    required String email,
+    required String nombreCompleto,
+    String? cedula,
+    String? fono,
+    String? direccion,
+  }) async {
+    await _dio.post(
+      "registro/tutor-solo",
+      data: {
+        "email": email,
+        "nombre_completo": nombreCompleto,
+        "cedula": cedula,
+        "telefono": fono,
+        "direccion": direccion,
+      },
+      options: _authorizedOptions(),
+    );
   }
 
   Future<void> rateRecipe({required int idReceta, required int calificacion, String? comentario}) async {
@@ -148,7 +164,11 @@ class SupabaseCrudRepository {
     required String nombreCompleto,
     required DateTime fechaNacimiento,
     required int idSexo,
-    int? idProvincia,
+    int? idCanton,
+    int? idParroquia,
+    String? cedula,
+    String? fono,
+    String? direccion,
     Map<String, dynamic>? controlClinicoInicial,
   }) async {
     await _dio.post(
@@ -157,7 +177,11 @@ class SupabaseCrudRepository {
         "nombre_completo": nombreCompleto,
         "fecha_nacimiento": fechaNacimiento.toIso8601String().split("T").first,
         "id_sexo": idSexo,
-        "id_provincia": idProvincia,
+        "id_canton": idCanton,
+        "id_parroquia": idParroquia,
+        "cedula": cedula,
+        "telefono": fono,
+        "direccion": direccion,
         "control_clinico_inicial": controlClinicoInicial,
       },
       options: _authorizedOptions(),
