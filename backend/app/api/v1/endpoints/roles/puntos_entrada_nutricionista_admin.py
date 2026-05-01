@@ -46,7 +46,7 @@ class VariableBulkUpsertRequest(BaseModel):
     items: list[VariableValueUpsertItem] = Field(default_factory=list)
 
 class LabelCreateRequest(BaseModel):
-    codigo: str
+    codigo: str | None = None
     nombre_visible: str
     descripcion: str | None = None
 
@@ -139,18 +139,30 @@ def upsert_label_catalog(
     user: UserContext = Depends(require_roles("admin", "nutricionista")),
 ) -> dict[str, Any]:
     with db_cursor() as cur:
-        cur.execute(
-            """
-            insert into nutricion.etiqueta_nutricional (
-                codigo, nombre_visible, descripcion, created_at
-            ) values (%s, %s, %s, now())
-            on conflict (codigo) do update set
-                nombre_visible = excluded.nombre_visible,
-                descripcion = excluded.descripcion
-            returning id
-            """,
-            (payload.codigo, payload.nombre_visible, payload.descripcion),
-        )
+        # Resolvemos si insertamos con código o solo nombre
+        if payload.codigo:
+            cur.execute(
+                """
+                insert into nutricion.etiqueta_nutricional (
+                    codigo, nombre_visible, descripcion, created_at
+                ) values (%s, %s, %s, now())
+                on conflict (codigo) do update set
+                    nombre_visible = excluded.nombre_visible,
+                    descripcion = excluded.descripcion
+                returning id
+                """,
+                (payload.codigo, payload.nombre_visible, payload.descripcion),
+            )
+        else:
+            cur.execute(
+                """
+                insert into nutricion.etiqueta_nutricional (
+                    nombre_visible, descripcion, updated_at
+                ) values (%s, %s, now())
+                returning id
+                """,
+                (payload.nombre_visible, payload.descripcion),
+            )
         return {"id": cur.fetchone()[0]}
 
 @router.post("/ingredientes/{id_ingrediente}/etiquetas/{id_etiqueta}")

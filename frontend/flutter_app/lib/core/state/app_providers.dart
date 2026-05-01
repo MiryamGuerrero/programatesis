@@ -315,7 +315,7 @@ final patientsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
 });
 
 // NAVEGACIÓN INTERNA MÉDICO
-enum MedicoView { list, register, control }
+enum MedicoView { list, register, control, fixedEdit }
 final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);
 final selectedPatientProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 

@@ -50,11 +50,17 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
 
+      // 1. Registrar tutor (Si ya existe, el backend lo manejará)
       await repo.registerTutor(
         email: email,
         nombreCompleto: name,
+      );
+      
+      // 2. Vincular con paciente
+      await repo.linkTutorToPatient(
+        idUsuarioTutor: email, // El backend suele usar email o cedula como lookup si no tiene UUID aun
         idPaciente: idPaciente,
-        idParentesco: idParentesco,
+        idParentesco: idParentesco ?? 1,
         esPrincipal: _esPrincipal,
       );
 
@@ -135,7 +141,9 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
       keyboardType: number ? TextInputType.number : (email ? TextInputType.emailAddress : TextInputType.text),
       decoration: InputDecoration(
         labelText: label,
+        contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
       ),
+      style: TextStyle(fontSize: 16),
     );
   }
 }

@@ -1,5 +1,0 @@
-﻿id,codigo,indicador_id,indicador_codigo,sexo_id,sexo_codigo,sexo_nombre,edad_min_meses,edad_max_meses,unidad_edad,fuente_zscore,fuente_percentil,activo
-1,BMI_M_WHO2007,1,BMI,1,M,Masculino,61,228,MESES,bmi-boys-z-who-2007-exp.xlsx,bmi-boys-perc-who2007-exp.xlsx,True
-2,BMI_F_WHO2007,1,BMI,2,F,Femenino,61,228,MESES,bmi-girls-z-who-2007-exp (2).xlsx,bmi-girls-perc-who2007-exp.xlsx,True
-3,HFA_M_WHO2007,2,HFA,1,M,Masculino,61,228,MESES,hfa-boys-z-who-2007-exp.xlsx,hfa-boys-perc-who2007-exp.xlsx,True
-4,HFA_F_WHO2007,2,HFA,2,F,Femenino,61,228,MESES,hfa-girls-z-who-2007-exp (2).xlsx,hfa-girls-perc-who2007-exp.xlsx,True

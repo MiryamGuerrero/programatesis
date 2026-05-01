@@ -2,6 +2,20 @@ from typing import List, Dict, Set
 from ...core.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioIngrediente
 
+# Subgrupos que contienen lactosa (para deteccion automatica de intolerancia)
+SUBGRUPOS_CON_LACTOSA: Set[int] = {
+    98,   # Leches animales (con lactosa)
+    100,  # Natas y cremas de leche (con lactosa)
+    101,  # Yogures animales (con lactosa)
+    104,  # Leches fermentadas animales (con lactosa)
+    105,  # Quesos frescos (con lactosa)
+    108,  # Quesos procesados y en lonchas (con lactosa)
+    111,  # Mantequillas (lacteo, con lactosa)
+    114,  # Salsas con lacteos (con lactosa)
+    117,  # Chocolates con leche (con lactosa)
+    119,  # Dulces con lacteos (con lactosa)
+}
+
 class RepositorioIngredientePostgres(IRepositorioIngrediente):
     def listar_todos_activos(self) -> List[dict]:
         with db_cursor() as cur:
@@ -92,61 +106,58 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
     def buscar_ingredientes_filtrados(self, id_paciente: str, consulta: str = None, limite: int = 50) -> List[dict]:
         """
         Busca ingredientes aplicando filtros de alergias del paciente.
-        Implementa búsqueda inteligente: bloquea derivados por nombre y subgrupos.
-        Incluye lógica especial para intolerancia a la lactosa.
+        
+        Logica de bloqueo:
+        1. Ingredientes individuales prohibidos (alergia_paciente_ingrediente)
+        2. Subgrupos prohibidos (alergia_paciente_subgrupo)
+        3. Si el paciente tiene algun subgrupo con lactosa prohibido -> intolerante
+           -> se bloquean TODOS los subgrupos con lactosa automaticamente
         """
         with db_cursor() as cur:
             # 1. Obtener IDs de ingredientes y subgrupos prohibidos
-            cur.execute("select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true", (id_paciente,))
+            cur.execute(
+                "select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true",
+                (id_paciente,)
+            )
             ing_prohibidos = {r[0] for r in cur.fetchall()}
-            
-            cur.execute("select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true", (id_paciente,))
+
+            cur.execute(
+                "select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true",
+                (id_paciente,)
+            )
             sub_prohibidos = {r[0] for r in cur.fetchall()}
 
-            # 2. Verificar si hay intolerancia a la lactosa registrada en condiciones o alergias
-            # Buscamos si el grupo 'Lácteos' está en sub_prohibidos
-            cur.execute("select id from nutricion.grupo_alimentario where nombre ilike '%%lácteo%%'")
-            res_lacteos = cur.fetchall()
-            id_lacteos = [r[0] for r in res_lacteos]
-            
-            es_intolerante_lactosa = any(idx in sub_prohibidos for idx in id_lacteos)
+            # 2. Detectar intolerancia a la lactosa:
+            # Si el paciente tiene prohibido CUALQUIER subgrupo con lactosa,
+            # consideramos que es intolerante y bloqueamos TODOS los subgrupos con lactosa
+            es_intolerante_lactosa = bool(sub_prohibidos & SUBGRUPOS_CON_LACTOSA)
 
-            # 3. Obtener nombres de ingredientes prohibidos para expansión inteligente
-            nombres_prohibidos = []
-            if ing_prohibidos:
-                cur.execute("select nombre from nutricion.ingrediente where id = any(%s)", (list(ing_prohibidos),))
-                nombres_prohibidos = [r[0].lower().strip() for r in cur.fetchall()]
-
-            # Si es intolerante a la lactosa, añadimos palabras clave de advertencia
             if es_intolerante_lactosa:
-                nombres_prohibidos.extend(["leche", "queso", "yogurt", "lactosa", "mantequilla", "crema de leche"])
+                # Ampliar prohibicion a todos los subgrupos con lactosa
+                sub_prohibidos |= SUBGRUPOS_CON_LACTOSA
 
+            # 3. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
             term = f"%{consulta}%" if consulta else "%"
-            
-            # 4. Consulta principal con exclusión
+            safe_ing = list(ing_prohibidos) if ing_prohibidos else [0]
+            safe_sub = list(sub_prohibidos) if sub_prohibidos else [0]
+
             sql = """
                 select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
                 from nutricion.ingrediente i
                 left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
-                where i.activo = true 
-                  and i.nombre ilike %s
+                where i.activo = true
+                  and (
+                    i.nombre ilike %s 
+                    or exists (
+                        select 1 from unnest(i.sinonimos) s where s ilike %s
+                    )
+                  )
                   and i.id != all(%s)
                   and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))
+                order by i.nombre
+                limit %s
             """
-            
-            # Exclusión adicional por nombre (búsqueda inteligente y preventiva)
-            # Eliminamos duplicados en nombres_prohibidos
-            nombres_unicos = list(set(nombres_prohibidos))
-            for nombre in nombres_unicos:
-                # Usamos marcadores para evitar inyección aunque sean nombres controlados
-                sql += f" and i.nombre not ilike '%%{nombre}%%'"
 
-            # Si es intolerante a la lactosa, también bloqueamos ingredientes del grupo lácteo directamente
-            if id_lacteos:
-                sql += f" and (i.id_grupo_alimentario is null or i.id_grupo_alimentario != all(array{id_lacteos}))"
-
-            sql += " order by i.nombre limit %s"
-            
-            cur.execute(sql, (term, list(ing_prohibidos) if ing_prohibidos else [0], list(sub_prohibidos) if sub_prohibidos else [0], limite))
+            cur.execute(sql, (term, term, safe_ing, safe_sub, limite))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
