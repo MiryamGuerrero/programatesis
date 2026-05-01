@@ -43,3 +43,7 @@ frontend/flutter_app/windows/flutter/ephemeral/
 
 # Logs
 *.log
+
+#folders
+backup_bd/
+start_web.ps1

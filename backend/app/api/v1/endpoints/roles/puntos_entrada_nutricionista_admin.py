@@ -46,21 +46,19 @@ class VariableBulkUpsertRequest(BaseModel):
     items: list[VariableValueUpsertItem] = Field(default_factory=list)
 
 class LabelCreateRequest(BaseModel):
+    codigo: str | None = None
     nombre_visible: str
     descripcion: str | None = None
 
-# --- ENDPOINTS INGREDIENTES ---
+class SubstituteCreateRequest(BaseModel):
+    id: int | None = None
+    id_ingrediente_original: int
+    id_ingrediente_reemplazo: int
+    ratio_conversion: float = 1.0
+    mensaje_aviso: str | None = None
+    activo: bool = True
 
-@router.get("/ingredientes")
-def list_ingredients_admin(
-    q: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    include_inactive: bool = Query(default=False),
-    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> list[dict[str, Any]]:
-    return caso_uso.listar_ingredientes(q, limit, offset, include_inactive)
+# --- ENDPOINTS INGREDIENTES ---
 
 @router.post("/ingredientes")
 def create_ingredient_admin(
@@ -118,16 +116,20 @@ def list_labels_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> list[dict[str, Any]]:
     with db_cursor() as cur:
-        cur.execute(
-            """
-            select id, nombre_visible, descripcion
+        sql = """
+            select id, codigo, nombre_visible, descripcion, created_at
             from nutricion.etiqueta_nutricional
-            where (%s is null or nombre_visible ilike ('%' || %s || '%') or descripcion ilike ('%' || %s || '%'))
-            order by nombre_visible
-            limit %s
-            """,
-            (q, q, q, limit),
-        )
+        """
+        params: list[Any] = []
+        if q and q.strip():
+            sql += " where (codigo ilike %s or nombre_visible ilike %s)"
+            search_pattern = f"%{q.strip()}%"
+            params.extend([search_pattern, search_pattern])
+        
+        sql += " order by created_at desc, nombre_visible limit %s"
+        params.append(limit)
+        
+        cur.execute(sql, tuple(params))
         columns = [desc[0] for desc in cur.description]
         return [dict(zip(columns, row)) for row in cur.fetchall()]
 
@@ -137,15 +139,30 @@ def upsert_label_catalog(
     user: UserContext = Depends(require_roles("admin", "nutricionista")),
 ) -> dict[str, Any]:
     with db_cursor() as cur:
-        cur.execute(
-            """
-            insert into nutricion.etiqueta_nutricional (
-                nombre_visible, descripcion, updated_at
-            ) values (%s, %s, now())
-            returning id
-            """,
-            (payload.nombre_visible, payload.descripcion),
-        )
+        # Resolvemos si insertamos con código o solo nombre
+        if payload.codigo:
+            cur.execute(
+                """
+                insert into nutricion.etiqueta_nutricional (
+                    codigo, nombre_visible, descripcion, created_at
+                ) values (%s, %s, %s, now())
+                on conflict (codigo) do update set
+                    nombre_visible = excluded.nombre_visible,
+                    descripcion = excluded.descripcion
+                returning id
+                """,
+                (payload.codigo, payload.nombre_visible, payload.descripcion),
+            )
+        else:
+            cur.execute(
+                """
+                insert into nutricion.etiqueta_nutricional (
+                    nombre_visible, descripcion, updated_at
+                ) values (%s, %s, now())
+                returning id
+                """,
+                (payload.nombre_visible, payload.descripcion),
+            )
         return {"id": cur.fetchone()[0]}
 
 @router.post("/ingredientes/{id_ingrediente}/etiquetas/{id_etiqueta}")
@@ -174,4 +191,80 @@ def remove_label_from_ingredient(
             "delete from nutricion.ingrediente_etiqueta where id_ingrediente = %s and id_etiqueta = %s",
             (id_ingrediente, id_etiqueta)
         )
+        return {"success": True}
+
+# --- ENDPOINTS SUSTITUTOS ---
+
+@router.get("/sustitutos")
+def list_substitutes(
+    q: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> list[dict[str, Any]]:
+    with db_cursor() as cur:
+        sql = """
+            select 
+                s.id, s.id_ingrediente_original, s.id_ingrediente_reemplazo,
+                s.ratio_conversion, s.mensaje_aviso, s.activo,
+                i1.nombre as nombre_original,
+                i2.nombre as nombre_reemplazo
+            from nutricion.sustituto_ingrediente s
+            join nutricion.ingrediente i1 on i1.id = s.id_ingrediente_original
+            join nutricion.ingrediente i2 on i2.id = s.id_ingrediente_reemplazo
+        """
+        params: list[Any] = []
+        if q and q.strip():
+            sql += " where (i1.nombre ilike %s or i2.nombre ilike %s)"
+            search_pattern = f"%{q.strip()}%"
+            params.extend([search_pattern, search_pattern])
+        
+        sql += " order by i1.nombre, i2.nombre limit %s"
+        params.append(limit)
+        
+        cur.execute(sql, tuple(params))
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+@router.post("/sustitutos")
+def upsert_substitute(
+    payload: SubstituteCreateRequest,
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    with db_cursor() as cur:
+        if payload.id:
+            cur.execute(
+                """
+                update nutricion.sustituto_ingrediente set
+                    id_ingrediente_original = %s,
+                    id_ingrediente_reemplazo = %s,
+                    ratio_conversion = %s,
+                    mensaje_aviso = %s,
+                    activo = %s
+                where id = %s
+                """,
+                (payload.id_ingrediente_original, payload.id_ingrediente_reemplazo,
+                 payload.ratio_conversion, payload.mensaje_aviso, payload.activo, payload.id)
+            )
+            return {"id": payload.id, "message": "Sustituto actualizado"}
+        else:
+            cur.execute(
+                """
+                insert into nutricion.sustituto_ingrediente (
+                    id_ingrediente_original, id_ingrediente_reemplazo,
+                    ratio_conversion, mensaje_aviso, activo
+                ) values (%s, %s, %s, %s, %s)
+                returning id
+                """,
+                (payload.id_ingrediente_original, payload.id_ingrediente_reemplazo,
+                 payload.ratio_conversion, payload.mensaje_aviso, payload.activo)
+            )
+            return {"id": cur.fetchone()[0], "message": "Sustituto creado"}
+
+@router.delete("/sustitutos/{id_sustituto}")
+def delete_substitute(
+    id_sustituto: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    with db_cursor() as cur:
+        cur.execute("delete from nutricion.sustituto_ingrediente where id = %s", (id_sustituto,))
         return {"success": True}

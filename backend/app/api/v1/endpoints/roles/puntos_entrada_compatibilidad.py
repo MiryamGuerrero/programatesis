@@ -124,8 +124,76 @@ def guardar_plan_manual(
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat():
     repo = RepositorioPerfilPostgres()
-    return repo.obtener_catalogo("nutricion", "condicion_nutricional")
+    sql = "select * from heuristico.condicion where id_tipo_condicion = 3 and activa = true"
+    return repo.ejecutar_consulta(sql)
+
+@router.get("/ingredientes")
+def listar_ingredientes_compat(
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    """Endpoint unificado para el selector de ingredientes de recetas."""
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    # Obtenemos el catálogo básico con nombre y categoría
+    return repo.obtener_catalogo("nutricion", "ingrediente")
+
+@router.get("/etiquetas")
+def listar_etiquetas_compat(
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    """Endpoint unificado para el catálogo de etiquetas."""
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
 
 @router.get("/crud/recetas")
-def crud_recetas_compat():
-    return []
+def crud_recetas_compat(
+    q: str = Query(default=""),
+    limit: int = Query(default=100)
+):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.listar_recetas(consulta=q, limite=limit)
+
+@router.get("/crud/recetas/{id_receta}")
+def obtener_receta_detalle_completo(id_receta: int):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    res = repo.obtener_detalle_completo(id_receta)
+    if not res:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Receta no encontrada")
+    return res
+
+@router.post("/crud/recetas")
+def guardar_receta_completa(payload: dict):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    try:
+        id_receta = repo.guardar_receta(payload)
+        return {"success": True, "id": id_receta}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/crud/recetas/{id_receta}/etiquetas/{id_etiqueta}")
+def asignar_etiqueta_receta(id_receta: int, id_etiqueta: int):
+    """Vincula una etiqueta nutricional a una receta."""
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (id_receta, id_etiqueta)
+        )
+        return {"success": True}
+
+@router.delete("/crud/recetas/{id_receta}/etiquetas/{id_etiqueta}")
+def desvincular_etiqueta_receta(id_receta: int, id_etiqueta: int):
+    """Desvincula una etiqueta nutricional de una receta."""
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            "DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s AND id_etiqueta = %s",
+            (id_receta, id_etiqueta)
+        )
+        return {"success": True}

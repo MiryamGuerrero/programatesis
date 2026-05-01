@@ -221,24 +221,6 @@ def eliminar_regla_medica(
     repo.eliminar_regla(id_regla)
     return {"success": True}
 
-# --- ACCESO A CATÁLOGOS NUTRICIONALES PARA MÉDICO ---
-
-@router.get("/ingredientes")
-def listar_ingredientes_medico(
-    _=Depends(require_roles("admin", "medico"))
-):
-    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    repo = RepositorioPerfilPostgres()
-    return repo.obtener_catalogo("nutricion", "ingrediente")
-
-@router.get("/etiquetas")
-def listar_etiquetas_medico(
-    _=Depends(require_roles("admin", "medico"))
-):
-    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    repo = RepositorioPerfilPostgres()
-    return repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
-
 # --- CRUD CATÁLOGO DE CONDICIONES ---
 
 @router.get("/catalogos/condiciones")

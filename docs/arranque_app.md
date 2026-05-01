@@ -59,7 +59,7 @@ En otra terminal:
 ```powershell
 cd frontend/flutter_app
 flutter pub get
-flutter run -d chrome -t lib/main_web.dart --dart-define=SUPABASE_URL=https://<project-id>.supabase.co --dart-define=SUPABASE_ANON_KEY=<publishable-key> --dart-define=FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
+flutter run -d chrome -t lib/main_web.dart --dart-define=SUPABASE_URL=https://yuasobxhctmukvozmrta.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1YXNvYnhoY3RtdWt2b3ptcnRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MzQ0NzksImV4cCI6MjA5MDMxMDQ3OX0.QW34PK5m-rS2espHECskp_izmocAZl_5CKN0tDtT1YM --dart-define=FASTAPI_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
 ## 5. Levantar app tutor mobile
