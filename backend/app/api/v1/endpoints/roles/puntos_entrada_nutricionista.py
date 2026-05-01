@@ -74,3 +74,19 @@ def registrar_paciente_nutri(
         return {"id": id_p, "success": True}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+@router.get("/nutricion/subgrupos")
+def listar_subgrupos_nutricion(
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("nutricion", "subgrupo_alimentario")
+
+@router.get("/nutricion/ingredientes")
+def listar_ingredientes_nutricion(
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("nutricion", "ingrediente")

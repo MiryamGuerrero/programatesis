@@ -100,9 +100,8 @@ class _TutorCalificacionPageState extends ConsumerState<TutorCalificacionPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       await repo.rateRecipe(
-        idPaciente: idPaciente,
         idReceta: recetaId,
-        estrellas: _stars,
+        calificacion: _stars,
         comentario: _comentarioController.text.trim().isEmpty
             ? null
             : _comentarioController.text.trim(),

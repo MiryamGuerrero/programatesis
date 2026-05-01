@@ -1,5 +1,0 @@
-﻿id,codigo,id_indicador,id_sexo,tipo_curva,unidad_edad,fuente_archivo,descripcion,activo
-1,BMI_M_WHO2007,1,1,WHO2007,MESES,bmi-boys-z-who-2007-exp.xlsx; bmi-boys-perc-who2007-exp.xlsx,"Curva OMS 2007 BMI Masculino, 61-228 meses",True
-2,BMI_F_WHO2007,1,2,WHO2007,MESES,bmi-girls-z-who-2007-exp (2).xlsx; bmi-girls-perc-who2007-exp.xlsx,"Curva OMS 2007 BMI Femenino, 61-228 meses",True
-3,HFA_M_WHO2007,2,1,WHO2007,MESES,hfa-boys-z-who-2007-exp.xlsx; hfa-boys-perc-who2007-exp.xlsx,"Curva OMS 2007 HFA Masculino, 61-228 meses",True
-4,HFA_F_WHO2007,2,2,WHO2007,MESES,hfa-girls-z-who-2007-exp (2).xlsx; hfa-girls-perc-who2007-exp.xlsx,"Curva OMS 2007 HFA Femenino, 61-228 meses",True

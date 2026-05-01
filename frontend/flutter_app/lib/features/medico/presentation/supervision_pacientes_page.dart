@@ -27,7 +27,9 @@ class SupervisionPacientesPage extends ConsumerWidget {
   Widget _buildBody(MedicoView view, Map<String, dynamic>? patient) {
     switch (view) {
       case MedicoView.register:
-        return const RegistroPacientePage();
+        return RegistroPacientePage(initialData: patient);
+      case MedicoView.fixedEdit:
+        return RegistroPacientePage(initialData: patient, fixedOnly: true);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
         return ControlMensualPage(paciente: patient);
@@ -142,29 +144,37 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
         if (filtered.isEmpty) return const NutriTableContainer(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron registros pediátricos."))));
 
-        return NutriTableContainer(
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-            ),
-            child: PaginatedDataTable(
-              header: null,
-              rowsPerPage: 5,
-              showFirstLastButtons: true,
-              availableRowsPerPage: const [5],
-              headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-              columns: [
-                _col("IDENTIDAD Y PACIENTE"),
-                _col("CÉDULA"),
-                _col("ENFERMEDAD"),
-                _col("SEVERIDAD"),
-                _col("NUTRICIÓN (OMS)"),
-                _col("EDAD"),
-                _col("ACCIONES"),
-              ],
-              source: _PatientsDataSource(filtered, ref, (p) => _confirmarEliminar(p)),
-            ),
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return NutriTableContainer(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                      columnSpacing: 20,
+                      horizontalMargin: 16,
+                      columns: [
+                        _col("IDENTIDAD Y PACIENTE"),
+                        _col("CÉDULA"),
+                        _col("ENFERMEDAD"),
+                        _col("SEVERIDAD"),
+                        _col("NUTRICIÓN (OMS)"),
+                        _col("EDAD"),
+                        _col("ACCIONES"),
+                      ],
+                      rows: filtered.map((p) => _PatientsDataSource(context, filtered, ref, (p) => _confirmarEliminar(p)).getRowFromData(p)).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
         );
       },
       loading: () => const NutriLoading(mensaje: "Sincronizando expedientes..."),
@@ -202,21 +212,18 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 }
 
 class _PatientsDataSource extends DataTableSource {
+  final BuildContext context;
   final List<Map<String, dynamic>> patients;
   final WidgetRef ref;
   final Function(Map<String, dynamic>) onDelete;
 
-  _PatientsDataSource(this.patients, this.ref, this.onDelete);
+  _PatientsDataSource(this.context, this.patients, this.ref, this.onDelete);
 
-  @override
-  DataRow? getRow(int index) {
-    if (index >= patients.length) return null;
-    final p = patients[index];
-    
+  DataRow getRowFromData(Map<String, dynamic> p) {
     return DataRow(
       cells: [
         DataCell(SizedBox(
-          width: 160,
+          width: 180,
           child: Row(
             children: [
               _getStatusIcon(p["severidad"]),
@@ -227,8 +234,8 @@ class _PatientsDataSource extends DataTableSource {
             ],
           ),
         )),
-        DataCell(Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B)))),
-        DataCell(SizedBox(width: 100, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: 100, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),
+        DataCell(SizedBox(width: 120, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis))),
         DataCell(NutriBadge(
           label: (p["severidad"] ?? "ESTABLE").toString().toUpperCase(), 
           type: _getSeverityBadgeType(p["severidad"])
@@ -237,7 +244,7 @@ class _PatientsDataSource extends DataTableSource {
           label: (p["condicion_nutricional"] ?? "PENDIENTE").toString().toUpperCase(), 
           type: _getBadgeType(p["condicion_nutricional"])
         )),
-        DataCell(Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B)))),
+        DataCell(SizedBox(width: 60, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -245,17 +252,23 @@ class _PatientsDataSource extends DataTableSource {
               ref.read(selectedPatientProvider.notifier).state = p;
               ref.read(medicoNavProvider.notifier).state = MedicoView.control;
             }),
-            const SizedBox(width: 4),
-            IconButton(tooltip: "Editar", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 20), onPressed: () {
+            const SizedBox(width: 8),
+            IconButton(tooltip: "Editar Datos Fijos", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 20), onPressed: () {
               ref.read(selectedPatientProvider.notifier).state = p;
-              ref.read(medicoNavProvider.notifier).state = MedicoView.register;
+              ref.read(medicoNavProvider.notifier).state = MedicoView.fixedEdit;
             }),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             IconButton(tooltip: "Borrar", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18), onPressed: () => onDelete(p)),
           ],
         )),
       ],
     );
+  }
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= patients.length) return null;
+    return getRowFromData(patients[index]);
   }
 
   Widget _getStatusIcon(dynamic sev) {

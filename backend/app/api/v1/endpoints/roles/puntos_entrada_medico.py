@@ -18,18 +18,25 @@ def pre_diagnostico_nutricional(
     """Calcula el estado nutricional al instante sin guardar nada."""
     try:
         from app.domain.servicios.servicio_oms import ServicioOMS
-        _, meses = ServicioOMS.calcular_edad_detallada(payload.fecha_nacimiento)
+        anios, meses = ServicioOMS.calcular_edad_detallada(payload.fecha_nacimiento)
         
-        result = caso_uso.calcular_estado_nutricional(
-            peso=payload.peso_kg,
-            talla=payload.talla_cm,
-            edad_meses=meses,
-            id_sexo=payload.id_sexo
+        result = ServicioOMS.evaluar_paciente_integral(
+            payload.peso_kg, 
+            payload.talla_cm, 
+            payload.id_sexo, 
+            meses
         )
         
         return {
-            **result,
-            "anios": meses // 12,
+            "imc": result["imc"],
+            "z_score": result["bmi_edad"]["z_score"] or 0.0,
+            "id_condicion_nutricional": result["bmi_edad"]["id_condicion"] or 0,
+            "diagnostico_nutri_texto": result["diagnostico_nutri_texto"],
+            "diagnostico_talla_texto": result["diagnostico_talla_texto"],
+            "z_score_talla": result["talla_edad"]["z_score"] or 0.0,
+            "peso_ideal": result["peso_ideal"],
+            "talla_ideal": result["talla_ideal"],
+            "anios": anios,
             "meses": meses % 12
         }
     except Exception as exc:
@@ -114,6 +121,22 @@ def registrar_control_mensual(
         id_control = repo.registrar_control_mensual(id_paciente, payload, id_medico=user.user_id)
         return {"id": id_control, "message": "Control mensual registrado"}
     except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.put("/pacientes/control-mensual/{id_control}")
+def actualizar_control_mensual(
+    id_control: int,
+    payload: dict,
+    user: UserContext = Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    repo = RepositorioPacientePostgres()
+    try:
+        print(f"DEBUG PUT control {id_control}: payload={payload}")
+        exito = repo.actualizar_control_mensual_especifico(id_control, payload)
+        return {"success": exito, "message": "Control actualizado correctamente"}
+    except Exception as exc:
+        print(f"DEBUG ERROR PUT control: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/pacientes/{id_paciente}/expediente-maestro")

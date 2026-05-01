@@ -28,6 +28,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   bool? _tieneAlergias;
   bool _esIntoleranteLactosa = false;
+  static const Set<int> _subgruposLactosa = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119};
 
   String? _selectedPacienteId;
   int? _selectedIngredienteId;
@@ -36,6 +37,21 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   bool _loading = false;
   String? _resultado;
   String? _error;
+
+  String _emojiSubgrupo(int id) {
+    return {
+      8: "🍄", 9: "🍄", 10: "🥔", 11: "🥦", 12: "🥫", 13: "🥬", 14: "🥤", 15: "🍓",
+      16: "🍇", 17: "🍎", 18: "🥜", 19: "🍊", 24: "🥚", 25: "🍗", 26: "🐖", 27: "🐑",
+      29: "🥩", 30: "🐄", 31: "🫀", 32: "🦐", 33: "🐟", 34: "🐠", 35: "🐟", 36: "🥫",
+      37: "🧂", 38: "🫒", 41: "🧄", 43: "🍬", 47: "🍭", 48: "🍿", 49: "🥤", 50: "💧",
+      51: "☕", 53: "🧃", 88: "🌾", 89: "🌾", 90: "🍞", 91: "🍞", 92: "🍝", 93: "🫘",
+      94: "🌱", 95: "🫘", 96: "🥫", 97: "🥜", 98: "🥛", 99: "🥛", 100: "🍶", 101: "🥛",
+      102: "🥛", 103: "🥥", 104: "🥛", 105: "🧀", 106: "🧀", 107: "🧀", 108: "🧀",
+      109: "🥓", 110: "🌭", 111: "🧈", 112: "🧈", 113: "🥓", 114: "🥣", 115: "🥣",
+      116: "🥢", 117: "🍫", 118: "🍫", 119: "🍮", 120: "🍬", 121: "🍪", 122: "🥛",
+      123: "🥛", 124: "🥛",
+    }[id] ?? "🍽️";
+  }
 
   @override
   void initState() {
@@ -57,11 +73,23 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     final query = _ingredienteSearchController.text.trim().toLowerCase();
     final seleccionados = _alergiasIngredientes.map((a) => a["id_ingrediente"] as int).toSet();
     
+    // Subgrupos bloqueados por intolerancia a lactosa o selección manual
+    final subBloqueados = <int>{};
+    if (_esIntoleranteLactosa) subBloqueados.addAll(_subgruposLactosa);
+    subBloqueados.addAll(_alergiasGrupos.map((g) => g["id_grupo_alimentario"] as int));
+
     return _ingredientes.where((item) {
       final id = (item["id"] as num).toInt();
       if (seleccionados.contains(id)) return false;
+      
+      // No mostrar ingredientes de subgrupos bloqueados
+      final idSub = (item["id_subgrupo_alimentario"] as num?)?.toInt();
+      if (idSub != null && subBloqueados.contains(idSub)) return false;
+      
       if (query.isEmpty) return true;
-      return (item["nombre"]?.toString().toLowerCase() ?? "").contains(query);
+      final nombre = item["nombre"]?.toString().toLowerCase() ?? "";
+      final sinonimos = (item["sinonimos"] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      return nombre.contains(query) || sinonimos.any((s) => s.contains(query));
     }).toList();
   }
 
@@ -72,6 +100,8 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     return _grupos.where((item) {
       final id = (item["id"] as num).toInt();
       if (seleccionados.contains(id)) return false;
+      // No mostrar subgrupos de lactosa si es intolerante (redundante)
+      if (_esIntoleranteLactosa && _subgruposLactosa.contains(id)) return false;
       if (query.isEmpty) return true;
       return (item["nombre"]?.toString().toLowerCase() ?? "").contains(query);
     }).toList();
@@ -121,32 +151,18 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   Widget _buildIntoleranciaLactosa() {
     return SwitchListTile(
       title: const Text("Intolerancia a la Lactosa", style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: const Text("Bloquea automáticamente todos los subgrupos de lácteos"),
+      subtitle: const Text("Oculta automáticamente lácteos y sus derivados (sin redundancia)"),
       value: _esIntoleranteLactosa,
       onChanged: (val) {
         setState(() => _esIntoleranteLactosa = val);
-        if (val) {
-          // Lógica para bloquear lácteos automáticamente si el backend lo requiere o marcar grupo
-          _marcarLacteosComoAlergia();
-        }
       },
     );
   }
 
   void _marcarLacteosComoAlergia() {
-    // Buscar grupo de lácteos en el catálogo
-    final lacteos = _grupos.firstWhere(
-      (g) => (g["nombre"]?.toString().toLowerCase().contains("lácteo") ?? false),
-      orElse: () => {},
-    );
-    if (lacteos.isNotEmpty) {
-      final idLacteos = (lacteos["id"] as num).toInt();
-      if (!_alergiasGrupos.any((a) => a["id_grupo_alimentario"] == idLacteos)) {
-        _selectedGrupoId = idLacteos;
-        _observacionGrupoController.text = "Bloqueo automático por intolerancia a la lactosa";
-        _agregarAlergiaGrupo();
-      }
-    }
+    // Ya no se auto-marcan subgrupos de lacteos porque la intolerancia
+    // los maneja directamente. El backend bloquea automaticamente todos
+    // los subgrupos con lactosa cuando es_intolerante_lactosa = true.
   }
 
   Widget _buildAlergiasTab() {
@@ -263,7 +279,14 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                       .map(
                         (g) => DropdownMenuItem<int>(
                           value: (g["id"] as num).toInt(),
-                          child: Text(g["nombre"]?.toString() ?? "Grupo"),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_emojiSubgrupo((g["id"] as num).toInt()), style: const TextStyle(fontSize: 16)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(g["nombre"]?.toString() ?? "Grupo")),
+                            ],
+                          ),
                         ),
                       )
                       .toList(),
@@ -289,7 +312,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                   ..._alergiasGrupos.map(
                     (item) => ListTile(
                       dense: true,
-                      leading: const Icon(Icons.warning, color: Colors.orange),
+                      leading: Text(_emojiSubgrupo((item["id_grupo_alimentario"] as num).toInt()), style: const TextStyle(fontSize: 20)),
                       title: Text(item["nombre_grupo"]?.toString() ?? "Grupo"),
                       subtitle: Text(item["observacion"]?.toString() ?? ""),
                       trailing: IconButton(

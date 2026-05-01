@@ -46,12 +46,8 @@ class VariableBulkUpsertRequest(BaseModel):
     items: list[VariableValueUpsertItem] = Field(default_factory=list)
 
 class LabelCreateRequest(BaseModel):
-    codigo: str
     nombre_visible: str
-    categoria: str | None = None
     descripcion: str | None = None
-    color_hex: str | None = None
-    activa: bool = True
 
 # --- ENDPOINTS INGREDIENTES ---
 
@@ -124,10 +120,10 @@ def list_labels_catalog(
     with db_cursor() as cur:
         cur.execute(
             """
-            select id, codigo, nombre_visible, categoria, descripcion, color_hex, activa
+            select id, nombre_visible, descripcion
             from nutricion.etiqueta_nutricional
-            where (%s is null or codigo ilike ('%' || %s || '%') or nombre_visible ilike ('%' || %s || '%'))
-            order by categoria, nombre_visible
+            where (%s is null or nombre_visible ilike ('%' || %s || '%') or descripcion ilike ('%' || %s || '%'))
+            order by nombre_visible
             limit %s
             """,
             (q, q, q, limit),
@@ -144,18 +140,11 @@ def upsert_label_catalog(
         cur.execute(
             """
             insert into nutricion.etiqueta_nutricional (
-                codigo, nombre_visible, categoria, descripcion, color_hex, activa, updated_at
-            ) values (%s, %s, %s, %s, %s, %s, now())
-            on conflict (codigo) do update set
-                nombre_visible = excluded.nombre_visible,
-                categoria = excluded.categoria,
-                descripcion = excluded.descripcion,
-                color_hex = excluded.color_hex,
-                activa = excluded.activa,
-                updated_at = now()
+                nombre_visible, descripcion, updated_at
+            ) values (%s, %s, now())
             returning id
             """,
-            (payload.codigo, payload.nombre_visible, payload.categoria, payload.descripcion, payload.color_hex, payload.activa),
+            (payload.nombre_visible, payload.descripcion),
         )
         return {"id": cur.fetchone()[0]}
 

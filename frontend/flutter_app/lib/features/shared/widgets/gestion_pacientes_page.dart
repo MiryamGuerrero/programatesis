@@ -33,9 +33,10 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
   Future<void> _buscar(String q) async {
     setState(() => _loading = true);
     try {
-      final res = await _dio.get("gestion-pacientes/buscar", queryParameters: {"q": q});
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final results = await repo.searchPatients(query: q);
       setState(() {
-        _pacientes = res.data as List;
+        _pacientes = results;
         _loading = false;
       });
     } catch (e) {
@@ -56,8 +57,17 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
       ),
     );
     if (confirm == true) {
-      await _dio.delete("gestion-pacientes/$id");
-      _buscar("");
+      setState(() => _loading = true);
+      try {
+        final repo = ref.read(supabaseCrudRepositoryProvider);
+        await repo.deletePatient(id);
+        _buscar("");
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+        }
+      }
     }
   }
 

@@ -117,8 +117,22 @@ class SupabaseCrudRepository {
   }
 
   // --- CLÍNICO: PACIENTES Y TUTORES ---
-  Future<void> registerTutorOnly({required String email, required String nombreCompleto, String? cedula, String? fono}) async {
+  Future<void> registerTutor({required String email, required String nombreCompleto, String? cedula, String? fono}) async {
     await _dio.post("registro/tutor-solo", data: {"email": email, "nombre_completo": nombreCompleto, "cedula": cedula, "telefono": fono}, options: _authorizedOptions());
+  }
+
+  Future<void> rateRecipe({required int idReceta, required int calificacion, String? comentario}) async {
+    await _dio.post("recetas/$idReceta/calificar", data: {"calificacion": calificacion, "comentario": comentario}, options: _authorizedOptions());
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPlanItemsByPaciente(String idPaciente, {DateTime? fecha}) async {
+    final f = (fecha ?? DateTime.now()).toIso8601String().split("T").first;
+    final response = await _dio.get("plan-diario/$idPaciente", queryParameters: {"fecha": f}, options: _authorizedOptions());
+    return _toRows(response.data);
+  }
+
+  Future<void> registerConsumption({required int idPlanItem, required int idEstadoConsumo, String? observacion}) async {
+    await _dio.post("registrar-consumo", data: {"id_plan_item": idPlanItem, "id_estado_consumo": idEstadoConsumo, "observacion": observacion}, options: _authorizedOptions());
   }
 
   Future<List<Map<String, dynamic>>> fetchPatients() async {

@@ -2,6 +2,7 @@ import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:fl_chart/fl_chart.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:intl/intl.dart";
 
@@ -320,8 +321,6 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
       ),
     );
   }
-
-import "package:fl_chart/fl_chart.dart";
 
   Widget _buildTabHistorial() {
     final historial = (_data!['historial_controles'] as List? ?? []);
