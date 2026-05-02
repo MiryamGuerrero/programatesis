@@ -1,9 +1,10 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
+import "package:intl/intl.dart";
 import "../../../core/theme/app_theme.dart";
 import "../data/seguimiento_provider.dart";
 import "plan_diario_page.dart";
-import "package:intl/intl.dart";
 
 class TutorHomePage extends ConsumerWidget {
   final String idPaciente;
@@ -18,87 +19,90 @@ class TutorHomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final adherenciaAsync = ref.watch(adherenciaProvider((idPaciente: idPaciente, dias: 7)));
-    final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final hoyStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     return Scaffold(
-      backgroundColor: AppTema.grisFondo,
-      appBar: AppBar(
-        title: const Text("ReumaNutri • Tutor"),
-        actions: [
-          IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBienvenida(),
-            const SizedBox(height: 25),
-            
-            // Sección de Adherencia (Resumen con Gráfico)
-            adherenciaAsync.when(
-              data: (stats) => _buildAdherenciaCard(stats),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => const Card(child: Text("Error al cargar estadísticas")),
-            ),
-            
-            const SizedBox(height: 30),
-            const Text(
-              "Acciones de Hoy",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 15),
-            
-            _buildMenuButton(
-              context,
-              title: "Plan de Alimentación",
-              subtitle: "Ver qué debe comer el paciente hoy",
-              icon: Icons.restaurant_menu,
-              color: AppTema.azulClinico,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => PlanDiarioPage(idPaciente: idPaciente, fecha: hoy)),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(context),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAdherenciaSection(adherenciaAsync),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader("Panel de Control"),
+                  const SizedBox(height: 16),
+                  _buildActionGrid(context, hoyStr),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader("Resumen de Salud"),
+                  const SizedBox(height: 16),
+                  _buildHealthSummary(),
+                ],
               ),
             ),
-            
-            const SizedBox(height: 15),
-            
-            _buildMenuButton(
-              context,
-              title: "Restricciones Médicas",
-              subtitle: "Alimentos prohibidos por salud",
-              icon: Icons.security,
-              color: AppTema.rojoProhibido,
-              onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: AppTema.azulPrincipal,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+        title: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Hola, Tutor",
+              style: GoogleFonts.montserrat(fontSize: 12, color: Colors.white70),
             ),
-            
-            const SizedBox(height: 15),
-            
-            _buildMenuButton(
-              context,
-              title: "Evolución Clínica",
-              subtitle: "Ver reportes y diagnósticos OMS",
-              icon: Icons.show_chart,
-              color: AppTema.verdeSalud,
-              onTap: () {},
+            Text(
+              nombrePaciente,
+              style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
+        ),
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [AppTema.azulPrincipal, AppTema.azulOscuro],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBienvenida() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Bienvenido,", style: TextStyle(fontSize: 16, color: Colors.grey)),
-        Text(
-          nombrePaciente,
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTema.azulClinico),
-        ),
-      ],
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.montserrat(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: const Color(0xFF1E293B),
+        letterSpacing: -0.5,
+      ),
+    );
+  }
+
+  Widget _buildAdherenciaSection(AsyncValue<Map<String, dynamic>> asyncStats) {
+    return asyncStats.when(
+      data: (stats) => _buildAdherenciaCard(stats),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
@@ -108,14 +112,10 @@ class TutorHomePage extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTema.azulClinico, AppTema.azulClinico.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: AppTema.azulClinico.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))
         ],
       ),
       child: Row(
@@ -124,63 +124,136 @@ class TutorHomePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Cumplimiento", style: TextStyle(color: Colors.white70, fontSize: 16)),
-                const SizedBox(height: 5),
-                const Text("Semana Actual", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                Text(
-                  "${stats["total_consumido"]} de ${stats["total_planificado"]} comidas",
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
+                Text("Adherencia Semanal", 
+                  style: GoogleFonts.montserrat(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 8),
+                Text("${porcentaje.toInt()}%", 
+                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+                const SizedBox(height: 4),
+                Text("${stats["total_consumido"]} de ${stats["total_planificado"]} comidas cumplidas",
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               ],
             ),
           ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 70,
-                height: 70,
-                child: CircularProgressIndicator(
-                  value: porcentaje / 100,
-                  strokeWidth: 8,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              Text("${porcentaje.toInt()}%", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          )
+          _buildProgressCircle(porcentaje),
         ],
       ),
     );
   }
 
-  Widget _buildMenuButton(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+  Widget _buildProgressCircle(double percentage) {
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: percentage / 100,
+            strokeWidth: 10,
+            backgroundColor: AppTema.azulPrincipal.withOpacity(0.1),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
+            strokeCap: StrokeCap.round,
+          ),
+          Icon(Icons.auto_awesome_rounded, color: AppTema.azulPrincipal, size: 30),
+        ],
       ),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 28),
+    );
+  }
+
+  Widget _buildActionGrid(BuildContext context, String fecha) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 1.1,
+      children: [
+        _buildActionCard(
+          "Plan del Día",
+          Icons.restaurant_menu_rounded,
+          AppTema.azulPrincipal,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlanDiarioPage(idPaciente: idPaciente, fecha: fecha))),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 13)),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        _buildActionCard(
+          "Restricciones",
+          Icons.no_food_rounded,
+          Colors.orange,
+          () {},
+        ),
+        _buildActionCard(
+          "Evolución",
+          Icons.insights_rounded,
+          AppTema.verdeSalud,
+          () {},
+        ),
+        _buildActionCard(
+          "Reemplazos",
+          Icons.swap_horiz_rounded,
+          Colors.purple,
+          () {},
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard(String title, IconData icon, Color color, VoidCallback onTap) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.black.withOpacity(0.03)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF1E293B)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHealthSummary() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A), // Dark slate
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 40),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Estado Actual", style: GoogleFonts.montserrat(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text("Estable y en Seguimiento", style: GoogleFonts.montserrat(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 16),
+        ],
       ),
     );
   }

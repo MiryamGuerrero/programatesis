@@ -492,15 +492,31 @@ class _FormVincularTutorPacienteState extends ConsumerState<_FormVincularTutorPa
             const SizedBox(width: 8),
             IconButton.filledTonal(
               onPressed: isSearching ? null : () async {
-                setState(() { if (isTutor) _searchingTutor = true; else _searchingPaciente = true; });
+                setState(() { if (isTutor) {
+                  _searchingTutor = true;
+                } else {
+                  _searchingPaciente = true;
+                } });
                 try {
                   final repo = ref.read(supabaseCrudRepositoryProvider);
                   final res = isTutor ? await repo.searchTutors(query: ctrl.text) : await repo.searchPatients(query: ctrl.text);
-                  if (mounted) setState(() { if (isTutor) _tutores = res; else _pacientes = res; });
+                  if (mounted) {
+                    setState(() { if (isTutor) {
+                    _tutores = res;
+                  } else {
+                    _pacientes = res;
+                  } });
+                  }
                 } catch (_) {
                   // No mostramos alertas intrusivas en búsqueda
                 } finally {
-                  if (mounted) setState(() { if (isTutor) _searchingTutor = false; else _searchingPaciente = false; });
+                  if (mounted) {
+                    setState(() { if (isTutor) {
+                    _searchingTutor = false;
+                  } else {
+                    _searchingPaciente = false;
+                  } });
+                  }
                 }
               },
               icon: isSearching 

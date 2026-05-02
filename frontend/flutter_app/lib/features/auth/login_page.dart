@@ -4,9 +4,6 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
-import "../../core/state/app_providers.dart";
-import "../../core/theme/app_theme.dart";
-import "../../shared/widgets/layout_components.dart";
 
 // Ruta de los logos
 const String kLogoConNombre = "assets/images/logo 1.png";

@@ -6,7 +6,7 @@ import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
 import "shared/models/app_role.dart";
-import "shared/widgets/role_shell.dart";
+import "shared/widgets/tutor_mobile_shell.dart";
 
 class TutorMobileApp extends ConsumerWidget {
   const TutorMobileApp({super.key});
@@ -39,7 +39,7 @@ class TutorMobileApp extends ConsumerWidget {
             return const _TutorOnlyScreen();
           }
 
-          return const RoleShell(role: AppRole.tutor);
+          return const TutorMobileShell();
         },
         error: (error, stackTrace) => Scaffold(
           body: Center(child: Text("Error de autenticacion: $error")),

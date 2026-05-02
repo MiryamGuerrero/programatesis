@@ -8,6 +8,7 @@ import "../../../shared/widgets/nutri_avatar.dart";
 import "../../../core/state/app_providers.dart";
 import "registro_paciente_page.dart";
 import "control_mensual_page.dart";
+import "patient_detail_modal.dart";
 
 class SupervisionPacientesPage extends ConsumerWidget {
   const SupervisionPacientesPage({super.key});
@@ -237,14 +238,26 @@ class _PatientsDataSource extends DataTableSource {
       cells: [
         DataCell(SizedBox(
           width: 180,
-          child: Row(
-            children: [
-              _getStatusIcon(p["severidad"]),
-              const SizedBox(width: 8),
-              NutriAvatar(nombreCompleto: p["nombre_completo"] ?? "P", radio: 14),
-              const SizedBox(width: 8),
-              Expanded(child: Text(p["nombre_completo"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-            ],
+          child: InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => PatientDetailModal(idPaciente: p["id"].toString()),
+              );
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Row(
+                children: [
+                  _getStatusIcon(p["severidad"]),
+                  const SizedBox(width: 8),
+                  NutriAvatar(nombreCompleto: p["nombre_completo"] ?? "P", radio: 14),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(p["nombre_completo"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
           ),
         )),
         DataCell(SizedBox(width: 100, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),

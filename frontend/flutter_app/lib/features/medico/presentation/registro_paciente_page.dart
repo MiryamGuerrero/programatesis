@@ -1,5 +1,4 @@
 import "dart:async";
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -7,7 +6,6 @@ import "package:google_fonts/google_fonts.dart";
 import "package:intl/intl.dart";
 
 import "../../../core/state/app_providers.dart";
-import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 
 class RegistroPacientePage extends ConsumerStatefulWidget {
@@ -159,10 +157,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _buscandoTutor = false;
         _tutorNoEncontrado = true;
       });
+      }
     }
   }
 
@@ -304,7 +304,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
             _pesoMediana = (res.data['peso_ideal'] ?? 0).toDouble();
             _tallaMediana = (res.data['talla_ideal'] ?? 0).toDouble();
-            final combined = "${_omsStatusPeso} ${_omsStatusTalla}";
+            final combined = "$_omsStatusPeso $_omsStatusTalla";
             if (combined.contains("Severa") || combined.contains("Obesidad") || combined.contains("Bajo peso")) {
               _omsColor = Colors.red;
             } else if (combined.contains("Sobrepeso") || combined.contains("Baja") || combined.contains("Delgadez")) {
@@ -721,7 +721,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           if (!widget.fixedOnly) ...[
             const SizedBox(width: 16),
             Expanded(child: DropdownButtonFormField<String>(
-              value: _estadoEnfermedad,
+              initialValue: _estadoEnfermedad,
               decoration: const InputDecoration(labelText: "Nivel de Actividad*", floatingLabelBehavior: FloatingLabelBehavior.always),
               items: _estadosClinicos.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
               onChanged: (v) => setState(() => _estadoEnfermedad = v!),
@@ -756,7 +756,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child: SwitchListTile(
               title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)),
               subtitle: const Text("Indique si existe una crisis articular hoy"),
-              value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red,
+              value: _brote, onChanged: (v) => setState(() => _brote = v), activeThumbColor: Colors.red,
             ),
           ),
         ],
@@ -803,13 +803,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     double pActual = double.tryParse(_clinPeso.text) ?? 0;
     double tActual = double.tryParse(_clinTalla.text) ?? 0;
     String weightMsg = "";
-    if (pActual > _pesoMediana + 0.5) weightMsg = "PESO NORMAL: Debe disminuir ${(pActual - _pesoMediana).toStringAsFixed(1)} kg";
-    else if (pActual < _pesoMediana - 0.5) weightMsg = "PESO NORMAL: Debe aumentar ${(_pesoMediana - pActual).toStringAsFixed(1)} kg";
+    if (pActual > _pesoMediana + 0.5) {
+      weightMsg = "PESO NORMAL: Debe disminuir ${(pActual - _pesoMediana).toStringAsFixed(1)} kg";
+    } else if (pActual < _pesoMediana - 0.5) weightMsg = "PESO NORMAL: Debe aumentar ${(_pesoMediana - pActual).toStringAsFixed(1)} kg";
     else weightMsg = "PESO DENTRO DEL RANGO NORMAL";
 
     String heightMsg = "";
-    if (tActual < _tallaMediana - 0.5) heightMsg = "ESTATURA IDEAL: ${_tallaMediana.toStringAsFixed(1)} cm (Debe crecer ${(_tallaMediana - tActual).toStringAsFixed(1)} cm)";
-    else heightMsg = "ESTATURA ADECUADA PARA LA EDAD";
+    if (tActual < _tallaMediana - 0.5) {
+      heightMsg = "ESTATURA IDEAL: ${_tallaMediana.toStringAsFixed(1)} cm (Debe crecer ${(_tallaMediana - tActual).toStringAsFixed(1)} cm)";
+    } else {
+      heightMsg = "ESTATURA ADECUADA PARA LA EDAD";
+    }
 
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(24),
@@ -964,7 +968,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     );
   }
 
-  Widget _dropdown(String l, List<dynamic> items, int? val, Function(int?) onC) => DropdownButtonFormField<int>(value: val, items: items.map((e) => DropdownMenuItem<int>(value: e['id'], child: Text(e['nombre'] ?? e['descripcion'], style: const TextStyle(fontSize: 12)))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, floatingLabelBehavior: FloatingLabelBehavior.always, border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)));
+  Widget _dropdown(String l, List<dynamic> items, int? val, Function(int?) onC) => DropdownButtonFormField<int>(initialValue: val, items: items.map((e) => DropdownMenuItem<int>(value: e['id'], child: Text(e['nombre'] ?? e['descripcion'], style: const TextStyle(fontSize: 12)))).toList(), onChanged: onC, decoration: InputDecoration(labelText: l, floatingLabelBehavior: FloatingLabelBehavior.always, border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)));
 
   Widget _buildControls(ControlsDetails d) => Padding(padding: const EdgeInsets.only(top: 48), child: Row(children: [Expanded(child: FilledButton(onPressed: d.onStepContinue, style: FilledButton.styleFrom(backgroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 20)), child: Text(widget.fixedOnly || _currentStep == 2 ? (_idPacienteEditando == null ? "REGISTRAR PACIENTE" : "GUARDAR CAMBIOS") : "CONTINUAR"))), if (!widget.fixedOnly && _currentStep > 0) ...[const SizedBox(width: 16), Expanded(child: OutlinedButton(onPressed: d.onStepCancel, style: OutlinedButton.styleFrom(side: const BorderSide(color: greenBrand), foregroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 20)), child: const Text("REGRESAR")))]]));
 
@@ -1040,5 +1044,5 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _buildRealtimeOMS() => _buildProfessionalPrediagnosis();
   Widget _buildSecuencialAlergias() => _buildAlergiasCheckboxes();
   Widget _botonAccion(String l, bool sel, Color c, VoidCallback onTap) => _yesNoBtn(l, true, sel, (_) => onTap());
-  Widget _buildCredentialBox(String l, String v, IconData i, {bool isPassword = false}) => _credRow(l, v, i);
+  Widget _buildCredentialBox(String l, String v, IconData i) => _credRow(l, v, i);
 }

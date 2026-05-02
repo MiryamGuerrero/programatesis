@@ -314,6 +314,15 @@ final patientsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
   return ref.watch(supabaseCrudRepositoryProvider).fetchPatients();
 });
 
+final misPacientesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(supabaseCrudRepositoryProvider).fetchMyPatients();
+});
+
+final patientExpedienteProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, idPaciente) async {
+  final repo = ref.watch(supabaseCrudRepositoryProvider);
+  return await repo.fetchExpedienteCompleto(idPaciente);
+});
+
 // NAVEGACIÓN INTERNA MÉDICO
 enum MedicoView { list, register, control, fixedEdit }
 final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);

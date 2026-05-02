@@ -11,6 +11,8 @@ import "../medico/modules/catalogo_condiciones/catalogo_condiciones_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
 
 // Páginas de Tutor
+import "../tutor/presentation/mis_pacientes_page.dart";
+import "../tutor/presentation/tutor_perfil_page.dart";
 import "../tutor/presentation/tutor_home_page.dart";
 import "../tutor/presentation/plan_diario_page.dart";
 
@@ -95,15 +97,14 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "inicio",
           title: "Mi Paciente",
           icon: Icons.dashboard_rounded,
-          builder: () => const TutorHomePage(idPaciente: "ID_PENDIENTE", nombrePaciente: "Paciente"),
+          builder: () => const MisPacientesPage(),
         ),
         RoleModule(
-          key: "plan",
-          title: "Plan del Día",
-          icon: Icons.restaurant_menu_rounded,
-          builder: () => const PlanDiarioPage(idPaciente: "ID_PENDIENTE", fecha: "2026-04-22"),
+          key: "perfil",
+          title: "Mi Perfil",
+          icon: Icons.account_circle_outlined,
+          builder: () => const TutorPerfilPage(),
         ),
-        perfilItem,
       ];
 
     case AppRole.nutricionista:

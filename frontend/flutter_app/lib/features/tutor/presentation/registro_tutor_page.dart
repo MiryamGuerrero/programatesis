@@ -141,9 +141,9 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
       keyboardType: number ? TextInputType.number : (email ? TextInputType.emailAddress : TextInputType.text),
       decoration: InputDecoration(
         labelText: label,
-        contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
       ),
-      style: TextStyle(fontSize: 16),
+      style: const TextStyle(fontSize: 16),
     );
   }
 }

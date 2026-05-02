@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -407,7 +406,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
           titlesData: FlTitlesData(
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(axisNameWidget: const Text("ESCALA 0-10", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 40)),
+            leftTitles: const AxisTitles(axisNameWidget: Text("ESCALA 0-10", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
               if (v.toInt() >= historial.length) return const SizedBox.shrink();
               final fecha = DateTime.parse(historial[v.toInt()]['fecha_control']);
@@ -466,7 +465,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
           titlesData: FlTitlesData(
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(axisNameWidget: const Text("PESO (kg)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 50)),
+            leftTitles: const AxisTitles(axisNameWidget: Text("PESO (kg)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 50)),
             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
               if (v.toInt() >= historial.length) return const SizedBox.shrink();
               final fecha = DateTime.parse(historial[v.toInt()]['fecha_control']);

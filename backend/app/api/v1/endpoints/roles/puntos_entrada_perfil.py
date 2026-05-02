@@ -5,7 +5,7 @@ from app.api.v1.use_cases import obtener_caso_uso_obtener_perfil
 from app.aplicacion.clinica.gestionar_perfil_usuario import CasoUsoObtenerPerfilUsuario
 from app.domain.modelos.usuario import PerfilUsuario
 
-router = APIRouter(tags=["Perfil"])
+router = APIRouter(prefix="/perfil", tags=["Perfil"])
 
 @router.get("/mi-perfil", response_model=PerfilUsuario)
 def obtener_mi_perfil(

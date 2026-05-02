@@ -60,6 +60,22 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def listar_pacientes_por_tutor(self, id_tutor: str) -> List[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select v.*, p.id_sexo, tp.id_parentesco, par.nombre as parentesco
+                from usuarios.vista_gestion_pacientes v
+                join usuarios.paciente p on p.id = v.id
+                join usuarios.tutor_paciente tp on tp.id_paciente = v.id
+                join usuarios.parentesco par on par.id = tp.id_parentesco
+                join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                where u.auth_user_id::text = %s or u.id::text = %s
+                order by v.nombre_completo
+            """
+            cur.execute(sql, (id_tutor, id_tutor))
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     def obtener_expediente_completo(self, id_paciente: str) -> dict:
         with db_cursor() as cur:
             cur.execute("""

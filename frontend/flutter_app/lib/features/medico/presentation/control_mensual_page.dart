@@ -1,5 +1,4 @@
 ﻿import "dart:async";
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -43,7 +42,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
   double _fatiga = 10;
   bool _brote = false;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
-  List<Map<String, dynamic>> _condicionesTemp = [];
+  final List<Map<String, dynamic>> _condicionesTemp = [];
   
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
@@ -115,7 +114,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
         setState(() {
           _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
           _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
-          final combined = "${_omsStatusPeso} ${_omsStatusTalla}";
+          final combined = "$_omsStatusPeso $_omsStatusTalla";
           if (combined.contains("Severa") || combined.contains("Obesidad") || combined.contains("Bajo peso")) {
             _omsColor = Colors.red;
           } else if (combined.contains("Normal")) {
@@ -578,7 +577,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(color: _brote ? Colors.red.shade50 : Colors.green.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: _brote ? Colors.red : greenBrand)),
-          child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)), subtitle: const Text("Indique si el paciente presenta crisis hoy"), value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red),
+          child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)), subtitle: const Text("Indique si el paciente presenta crisis hoy"), value: _brote, onChanged: (v) => setState(() => _brote = v), activeThumbColor: Colors.red),
         ),
         const SizedBox(height: 48),
         _sectionHeader("4. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
@@ -600,7 +599,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.3))),
       child: Row(children: [
         Icon(Icons.analytics_rounded, color: _omsColor, size: 32), const SizedBox(width: 20),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueGrey)), Text("${_omsStatusPeso} | ${_omsStatusTalla}".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]))
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueGrey)), Text("$_omsStatusPeso | $_omsStatusTalla".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]))
       ]),
     );
   }
@@ -984,7 +983,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
           titlesData: FlTitlesData(
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(axisNameWidget: const Text("ESCALA 0-10", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 40)),
+            leftTitles: const AxisTitles(axisNameWidget: Text("ESCALA 0-10", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
               if (v.toInt() >= 0 && v.toInt() < history.length) {
                 final d = DateTime.parse(history[v.toInt()]['fecha_control']);
@@ -1093,7 +1092,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
           titlesData: FlTitlesData(
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(axisNameWidget: const Text("CANTIDAD", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: const SideTitles(showTitles: true, reservedSize: 40)),
+            leftTitles: const AxisTitles(axisNameWidget: Text("CANTIDAD", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
               if (v.toInt() >= 0 && v.toInt() < history.length) {
                 final d = DateTime.parse(history[v.toInt()]['fecha_control']);
@@ -1141,10 +1140,10 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                     const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     children: [
                       TextSpan(text: "🔴 INFLAMADAS: $inf articulaciones\n", style: const TextStyle(color: Colors.redAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
-                      TextSpan(text: "   👉 Signos visibles: calor, rubor, edema\n", style: const TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
+                      const TextSpan(text: "   👉 Signos visibles: calor, rubor, edema\n", style: TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
                       
                       TextSpan(text: "🟠 DOLOROSAS: $dor articulaciones\n", style: const TextStyle(color: Colors.orangeAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
-                      TextSpan(text: "   👉 Dolor al movimiento (puede no estar inflamada)\n", style: const TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
+                      const TextSpan(text: "   👉 Dolor al movimiento (puede no estar inflamada)\n", style: TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
                       
                       TextSpan(text: "📋 $diagnosis\n", style: const TextStyle(color: Colors.white, height: 1.5)),
                       TextSpan(text: "   ${brote ? '⚠️ BROTE ACTIVO DETECTADO' : '✅ Sin brote activo'}", style: TextStyle(color: brote ? Colors.redAccent : Colors.greenAccent, height: 1.5)),
@@ -1217,14 +1216,16 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                 final vsg = (data['valor_vsg'] ?? 0);
                 
                 String pcrMsg = "";
-                if ((pcr as num) < 3) pcrMsg = "Remisión biológica";
-                else if (pcr < 5) pcrMsg = "Normal";
+                if ((pcr as num) < 3) {
+                  pcrMsg = "Remisión biológica";
+                } else if (pcr < 5) pcrMsg = "Normal";
                 else if (pcr < 10) pcrMsg = "Elevada - Monitoreo";
                 else pcrMsg = "Muy alta - Brote activo";
                 
                 String vsgMsg = "";
-                if ((vsg as num) < 10) vsgMsg = "✅ Normal";
-                else if (vsg < 20) vsgMsg = "⚠️ Elevada";
+                if ((vsg as num) < 10) {
+                  vsgMsg = "✅ Normal";
+                } else if (vsg < 20) vsgMsg = "⚠️ Elevada";
                 else vsgMsg = "🔴 Muy alta - Inflamación sistémica";
                 
                 return [
@@ -1232,11 +1233,11 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                     "MARCADORES DE LABORATORIO - $fecha\n",
                     const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     children: [
-                      TextSpan(text: "🔵 PCR (Proteína C-Reactiva): ${pcr} mg/L\n", style: const TextStyle(color: Colors.lightBlueAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
+                      TextSpan(text: "🔵 PCR (Proteína C-Reactiva): $pcr mg/L\n", style: const TextStyle(color: Colors.lightBlueAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
                       TextSpan(text: "   $pcrMsg\n", style: const TextStyle(color: Colors.white, height: 1.5)),
                       const TextSpan(text: "📋 Normal < 5 mg/L | Línea punteada azul\n", style: TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
                       
-                      TextSpan(text: "🟣 VSG (Velocidad Sedimentación): ${vsg} mm/h\n", style: const TextStyle(color: Colors.purpleAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
+                      TextSpan(text: "🟣 VSG (Velocidad Sedimentación): $vsg mm/h\n", style: const TextStyle(color: Colors.purpleAccent, height: 1.5, fontWeight: FontWeight.w900, fontSize: 14)),
                       TextSpan(text: "   $vsgMsg\n", style: const TextStyle(color: Colors.white, height: 1.5)),
                       const TextSpan(text: "📋 Normal < 15 mm/h | Línea punteada morada\n", style: TextStyle(color: Colors.white70, fontSize: 9, fontStyle: FontStyle.italic)),
                       

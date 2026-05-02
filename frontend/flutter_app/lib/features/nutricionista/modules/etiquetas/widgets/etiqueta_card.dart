@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../../../core/theme/app_theme.dart';
-import '../../../../../shared/widgets/layout_components.dart';
 
 class EtiquetaCard extends StatelessWidget {
   final Map<String, dynamic> etiqueta;

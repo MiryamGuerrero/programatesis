@@ -2,16 +2,27 @@ from datetime import date
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles
+from app.core.security import UserContext
 from app.api.v1.use_cases import obtener_caso_uso_gestionar_seguimiento
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
 from pydantic import BaseModel
 
-router = APIRouter(tags=["Tutor"])
+router = APIRouter(prefix="/tutor", tags=["Tutor"])
 
 class RegistroConsumoRequest(BaseModel):
     id_plan_item: int
     id_estado_consumo: int
     observacion: str | None = None
+
+@router.get("/mis-pacientes")
+def obtener_mis_pacientes(
+    user: UserContext = Depends(require_roles("tutor", "admin")),
+    caso_uso: CasoUsoGestionarSeguimiento = Depends(obtener_caso_uso_gestionar_seguimiento)
+):
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    repo = RepositorioPacientePostgres()
+    # Obtenemos el ID interno del usuario tutor desde el contexto
+    return repo.listar_pacientes_por_tutor(user.user_id)
 
 @router.get("/plan-diario/{id_paciente}")
 def obtener_plan_diario(

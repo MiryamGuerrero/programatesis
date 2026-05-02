@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../core/state/app_providers.dart";
@@ -67,7 +66,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   final _observacionesMedicoCtrl = TextEditingController();
   int _dolorEva = 0;
   int _inflamacion = 0;
-  int _fatiga = 0;
+  final int _fatiga = 0;
   bool _brote = false;
 
   // --- TUTOR ---
@@ -261,7 +260,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: DropdownButtonFormField<int>(
-            value: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['descripcion']))).toList(),
+            initialValue: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['descripcion']))).toList(),
             onChanged: (v) => setState(() => _idSexo = v), decoration: const InputDecoration(labelText: "Sexo Biológico *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.wc)),
           )),
           const SizedBox(width: 16),
@@ -270,7 +269,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: DropdownButtonFormField<int>(
-            value: _idCanton, items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre']))).toList(),
+            initialValue: _idCanton, items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre']))).toList(),
             onChanged: (v) => setState(() {
               _idCanton = v;
               _idParroquia = null;
@@ -280,14 +279,14 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           )),
           const SizedBox(width: 16),
           Expanded(child: DropdownButtonFormField<int>(
-            value: _idParroquia, items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+            initialValue: _idParroquia, items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
             onChanged: (v) => setState(() => _idParroquia = v),
             decoration: const InputDecoration(labelText: "Parroquia *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
           )),
         ]),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']))).toList(),
+          initialValue: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']))).toList(),
           onChanged: (v) => setState(() => _enfermedadBase = v), decoration: const InputDecoration(labelText: "Diagnóstico Reumatológico Base *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.medication)),
         ),
       ],
@@ -319,7 +318,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           child: SwitchListTile(
             title: Text(_brote ? "EL PACIENTE SE ENCUENTRA EN BROTE ACTIVO" : "PACIENTE SIN BROTE DETECTADO", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: _brote ? Colors.red.shade900 : Colors.green.shade900)),
             subtitle: const Text("Marque si presenta inflamación sistémica o crisis aguda"),
-            value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red.shade700,
+            value: _brote, onChanged: (v) => setState(() => _brote = v), activeThumbColor: Colors.red.shade700,
           ),
         ),
       ],
@@ -342,8 +341,11 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           valor: _esIntoleranteLactosa,
           onChanged: (v) => setState(() {
             _esIntoleranteLactosa = v;
-            if (v) _marcarLacteosAuto();
-            else _quitarLacteosAuto();
+            if (v) {
+              _marcarLacteosAuto();
+            } else {
+              _quitarLacteosAuto();
+            }
           }),
         ),
         const SizedBox(height: 20),
@@ -370,7 +372,11 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
                 ],
               ),
               value: _selectedSubgrupos.contains(s['id']),
-              onChanged: (v) => setState(() { if(v!) _selectedSubgrupos.add(s['id']); else _selectedSubgrupos.remove(s['id']); }),
+              onChanged: (v) => setState(() { if(v!) {
+                _selectedSubgrupos.add(s['id']);
+              } else {
+                _selectedSubgrupos.remove(s['id']);
+              } }),
             )).toList()),
           ),
         const SizedBox(height: 20),
@@ -502,7 +508,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         TextFormField(controller: _nombreTutorCtrl, decoration: const InputDecoration(labelText: "Nombre Completo del Tutor *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
-          value: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+          initialValue: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
           onChanged: (v) => setState(() => _idParentesco = v), decoration: const InputDecoration(labelText: "Parentesco con el Paciente *", border: OutlineInputBorder()),
         ),
         const SizedBox(height: 16),
