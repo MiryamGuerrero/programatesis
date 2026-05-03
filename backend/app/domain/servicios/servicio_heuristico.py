@@ -15,6 +15,7 @@ class ServicioMotorHeuristico:
         
         ingredientes_prohibidos: Set[int] = set()
         subgrupos_prohibidos: Set[int] = set()
+        grupos_prohibidos: Set[int] = set()
         etiquetas_prohibidas: Set[int] = set()
         recetas_prohibidas: Set[int] = set()
         
@@ -26,6 +27,7 @@ class ServicioMotorHeuristico:
             if regla.accion == TipoAccion.ELIMINAR:
                 if regla.tipo_objetivo == TipoObjetivo.INGREDIENTE: ingredientes_prohibidos.add(regla.id_objetivo)
                 elif regla.tipo_objetivo == TipoObjetivo.SUBGRUPO: subgrupos_prohibidos.add(regla.id_objetivo)
+                elif regla.tipo_objetivo == TipoObjetivo.GRUPO: grupos_prohibidos.add(regla.id_objetivo)
                 elif regla.tipo_objetivo == TipoObjetivo.ETIQUETA: etiquetas_prohibidas.add(regla.id_objetivo)
                 elif regla.tipo_objetivo == TipoObjetivo.RECETA: recetas_prohibidas.add(regla.id_objetivo)
             elif regla.accion in [TipoAccion.PRIORIZAR, TipoAccion.DISMINUIR]:
@@ -34,14 +36,19 @@ class ServicioMotorHeuristico:
                 elif regla.tipo_objetivo == TipoObjetivo.ETIQUETA:
                     recomendaciones_etiquetas[regla.id_objetivo] = regla.accion.value
 
-        # 2. Expansión: Subgrupos y Etiquetas -> Ingredientes
+        # 2. Expansión: Grupos, Subgrupos y Etiquetas -> Ingredientes
         todos_ingredientes = self.repo_ingrediente.listar_todos_activos()
         mapa_etiquetas = self.repo_ingrediente.obtener_mapa_etiquetas_ingrediente()
         
         for ing in todos_ingredientes:
             ing_id = int(ing["id"])
+            # Bloqueo por Grupo
+            if ing.get("id_grupo_alimentario") in grupos_prohibidos:
+                ingredientes_prohibidos.add(ing_id)
+            # Bloqueo por Subgrupo
             if ing.get("id_subgrupo_alimentario") in subgrupos_prohibidos:
                 ingredientes_prohibidos.add(ing_id)
+            # Bloqueo por Etiqueta
             if mapa_etiquetas.get(ing_id, set()) & etiquetas_prohibidas:
                 ingredientes_prohibidos.add(ing_id)
 

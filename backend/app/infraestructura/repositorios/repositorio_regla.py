@@ -8,11 +8,13 @@ class RepositorioReglaPostgres(IRepositorioRegla):
         if not ids_condiciones: return []
         with db_cursor() as cur:
             sql = """
-                select r.id, cr.id_condicion, r.origen_regla, r.id_accion, r.id_tipo_objetivo, 
+                select r.id, cr.id_condicion, r.origen_regla, a.codigo as accion_codigo, t.codigo as objetivo_codigo, 
                        r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta, r.id_receta,
                        r.mensaje_error
                 from heuristico.regla r
                 join heuristico.condicion_regla cr on cr.id_regla = r.id
+                join heuristico.catalogo_accion a on a.id = r.id_accion
+                join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
                 where cr.id_condicion = any(%s)
             """
             cur.execute(sql, (ids_condiciones,))
@@ -21,9 +23,16 @@ class RepositorioReglaPostgres(IRepositorioRegla):
     def obtener_alergias_por_paciente(self, id_paciente: str) -> List[Regla]:
         with db_cursor() as cur:
             reglas = []
+            # 1. Alergias por ingrediente
             cur.execute("select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true", (id_paciente,))
             for r in cur.fetchall():
                 reglas.append(Regla(fuente=FuenteRegla.ALERGIA, accion=TipoAccion.ELIMINAR, tipo_objetivo=TipoObjetivo.INGREDIENTE, id_objetivo=r[0], prioridad=1000))
+            
+            # 2. Alergias por subgrupo
+            cur.execute("select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true", (id_paciente,))
+            for r in cur.fetchall():
+                reglas.append(Regla(fuente=FuenteRegla.ALERGIA, accion=TipoAccion.ELIMINAR, tipo_objetivo=TipoObjetivo.SUBGRUPO, id_objetivo=r[0], prioridad=1000))
+            
             return reglas
 
     def listar_reglas_detalladas(self) -> List[dict]:
@@ -88,13 +97,13 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             return cur.rowcount > 0
 
     def _mapear_fila_a_regla(self, fila: tuple) -> Regla:
-        # Fila: id, id_condicion, origen, id_accion, id_tipo_obj, id_ing, id_grp, id_sub, id_etq, id_rec, msg
+        # Fila: id, id_condicion, origen, accion_codigo, objetivo_codigo, id_ing, id_grp, id_sub, id_etq, id_rec, msg
         id_objetivo = fila[5] or fila[6] or fila[7] or fila[8] or fila[9]
         return Regla(
             id_regla=fila[0],
-            fuente=FuenteRegla.CLINICA,
-            accion=TipoAccion.ELIMINAR, # Por simplificar, el motor real debería mapear id_accion
-            tipo_objetivo=TipoObjetivo.INGREDIENTE,
+            fuente=fila[2],
+            accion=fila[3],
+            tipo_objetivo=fila[4],
             id_objetivo=id_objetivo,
             mensaje=fila[10]
         )

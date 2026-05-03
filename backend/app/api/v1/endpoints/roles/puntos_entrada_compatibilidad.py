@@ -99,18 +99,42 @@ def listar_recetas_seguras(
     payload: dict,
     _=Depends(require_roles("admin", "nutricionista"))
 ):
-    """Filtra recetas del catálogo que NO contengan alérgenos del paciente."""
-    # id_paciente = payload.get("id_paciente")
-    # id_momento = payload.get("id_momento")
+    """
+    Motor de Inferencia KBRS - Heurística de Exclusión.
+    Filtra recetas que NO cumplen con las restricciones de salud del paciente.
+    """
+    id_paciente = payload.get("id_paciente")
+    id_momento = payload.get("id_momento")
     
-    # Por ahora retornamos un catálogo base para la prueba
-    return {
-        "recetas": [
-            {"id": 1, "nombre": "Sopa de Vegetales", "recomendacion": "Alta en fibra - Segura"},
-            {"id": 2, "nombre": "Pollo a la Plancha", "recomendacion": "Proteína magra - Segura"},
-            {"id": 3, "nombre": "Fruta Picada", "recomendacion": "Vitaminas - Segura"}
-        ]
-    }
+    if not id_paciente:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="ID de paciente requerido")
+
+    # 1. Ejecutar Motor de Inferencia (Heurística de Exclusión)
+    from app.api.v1.use_cases import obtener_caso_uso_evaluar_reglas
+    caso_evaluacion = obtener_caso_uso_evaluar_reglas()
+    analisis = caso_evaluacion.ejecutar(id_paciente)
+    
+    recetas_prohibidas = analisis.get("recetas_prohibidas", set())
+    
+    # 2. Obtener catálogo de recetas para el momento solicitado
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo_receta = RepositorioRecetaPostgres()
+    
+    if id_momento:
+        todas = repo_receta.obtener_recetas_por_momento(int(id_momento))
+    else:
+        todas = repo_receta.listar_recetas(limite=500)
+    
+    # 3. Filtrar y formatear respuesta
+    permitidas = []
+    for r in todas:
+        if r["id"] not in recetas_prohibidas:
+            # Enriquecemos con un mensaje de recomendación (Heurística de Clasificación básica por ahora)
+            r["recomendacion"] = "Segura para el paciente"
+            permitidas.append(r)
+            
+    return {"recetas": permitidas}
 
 @router.post("/plan-manual")
 def guardar_plan_manual(
