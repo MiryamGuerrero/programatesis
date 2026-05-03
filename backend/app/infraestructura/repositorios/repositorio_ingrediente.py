@@ -31,28 +31,21 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 from nutricion.ingrediente_etiqueta ie
                 join nutricion.etiqueta_nutricional en on en.id = ie.id_etiqueta
                 group by ie.id_ingrediente
-            ),
-            valores_nutri as (
-                select 
-                    inut.id_ingrediente,
-                    max(inut.valor_por_100g) filter (where n.codigo = 'ENERGIA_KCAL') as energia_kcal,
-                    max(inut.valor_por_100g) filter (where n.codigo = 'PROTEINAS_G') as proteinas_g
-                from nutricion.ingrediente_nutriente inut
-                join nutricion.nutriente n on n.id = inut.id_nutriente
-                group by inut.id_ingrediente
             )
             select 
                 i.*, 
                 g.nombre as categoria, 
                 sg.nombre as subgrupo,
                 coalesce(ea.etiquetas, '{}') as etiquetas,
-                coalesce(vn.energia_kcal, 0) as energia_kcal,
-                coalesce(vn.proteinas_g, 0) as proteinas_g
+                coalesce(c.energia_kcal, 0) as energia_kcal,
+                coalesce(c.proteinas_g, 0) as proteinas_g,
+                coalesce(c.grasa_total_g, 0) as grasa_total_g,
+                coalesce(c.hidratos_carbono_g, 0) as hidratos_carbono_g
             from nutricion.ingrediente i
             left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
             left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
             left join etiquetas_agg ea on ea.id_ingrediente = i.id
-            left join valores_nutri vn on vn.id_ingrediente = i.id
+            left join nutricion.ingrediente_composicion c on c.id_ingrediente = i.id
             where (%s or i.activo = true) and (i.nombre ilike %s)
             order by i.nombre limit %s offset %s
         """
@@ -82,6 +75,29 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
         with db_cursor() as cur:
             cur.execute(sql, list(datos.values()))
             return cur.fetchone()[0]
+
+    def obtener_ingrediente(self, id_ingrediente: int) -> dict | None:
+        sql = """
+            select 
+                i.*, 
+                g.nombre as grupo_nombre, 
+                sg.nombre as subgrupo_nombre,
+                coalesce(c.energia_kcal, 0) as energia_kcal,
+                coalesce(c.proteinas_g, 0) as proteinas_g,
+                coalesce(c.grasa_total_g, 0) as grasa_total_g,
+                coalesce(c.hidratos_carbono_g, 0) as hidratos_carbono_g
+            from nutricion.ingrediente i
+            left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+            left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
+            left join nutricion.ingrediente_composicion c on c.id_ingrediente = i.id
+            where i.id = %s
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (id_ingrediente,))
+            row = cur.fetchone()
+            if not row: return None
+            columnas = [desc[0] for desc in cur.description]
+            return dict(zip(columnas, row))
 
     def obtener_mapa_etiquetas_ingrediente(self) -> Dict[int, Set[int]]:
         with db_cursor() as cur:

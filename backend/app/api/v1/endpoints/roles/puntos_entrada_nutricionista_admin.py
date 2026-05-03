@@ -72,6 +72,18 @@ def create_ingredient_admin(
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+@router.get("/ingredientes/{id_ingrediente}")
+def get_ingredient_detail(
+    id_ingrediente: int,
+    _=Depends(require_roles("admin", "nutricionista", "medico")),
+) -> dict[str, Any]:
+    from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+    repo = RepositorioIngredientePostgres()
+    detalle = repo.obtener_ingrediente(id_ingrediente)
+    if not detalle:
+        raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
+    return detalle
+
 # --- ENDPOINTS VARIABLES ---
 
 @router.get("/variables")

@@ -65,52 +65,57 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     }
   }
 
+  void _showDetail(int id) {
+    showDialog(
+      context: context,
+      builder: (context) => IngredienteDetallePage(
+        idIngrediente: id,
+        onBack: () => Navigator.pop(context),
+        onEdit: () {
+          Navigator.pop(context);
+          _showForm(id);
+        },
+      ),
+    );
+  }
+
+  void _showForm([int? id]) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 900),
+          child: IngredienteFormPage(
+            idIngrediente: id,
+            onBack: () {
+              Navigator.pop(context);
+              _fetch();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
-      body: Row(
-        children: [
-          Expanded(
-            flex: _selectedId != null ? 3 : 5,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 32),
-                  _buildStatsRow(),
-                  const SizedBox(height: 32),
-                  _buildToolbar(),
-                  const SizedBox(height: 24),
-                  _buildTableContainer(),
-                ],
-              ),
-            ),
-          ),
-          if (_selectedId != null)
-            Expanded(
-              flex: 2,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white, 
-                  border: Border(left: BorderSide(color: Color(0xFFEEEEEE))),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(-5, 0))],
-                ),
-                child: _isEditing
-                    ? IngredienteFormPage(
-                        idIngrediente: _selectedId == 0 ? null : _selectedId,
-                        onBack: () { setState(() => _isEditing = false); _fetch(); },
-                      )
-                    : IngredienteDetallePage(
-                        idIngrediente: _selectedId!,
-                        onBack: () => setState(() { _selectedId = null; }),
-                        onEdit: () => setState(() => _isEditing = true),
-                      ),
-              ),
-            ),
-        ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(),
+            const SizedBox(height: 32),
+            _buildToolbar(),
+            const SizedBox(height: 24),
+            _buildTableContainer(),
+          ],
+        ),
       ),
     );
   }
@@ -172,14 +177,14 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               SizedBox(
                 height: 55,
                 child: FilledButton.icon(
-                  onPressed: () => setState(() { _selectedId = 0; _isEditing = true; }),
+                  onPressed: () => _showForm(),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTema.verdeSalud,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                   ),
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-                  label: Text("NUEVO ALIMENTO", 
+                  label: Text("NUEVO INGREDIENTE", 
                     style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
                 ),
               ),
@@ -243,7 +248,8 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               ],
               source: _IngredientesDataSource(
                 items: _items,
-                onAction: (id, edit) => setState(() { _selectedId = id; _isEditing = edit; }),
+                onView: (id) => _showDetail(id),
+                onEdit: (id) => _showForm(id),
                 context: context,
               ),
             ),
@@ -258,12 +264,14 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
 
 class _IngredientesDataSource extends DataTableSource {
   final List<dynamic> items;
-  final Function(int, bool) onAction;
+  final Function(int) onView;
+  final Function(int) onEdit;
   final BuildContext context;
 
   _IngredientesDataSource({
     required this.items,
-    required this.onAction,
+    required this.onView,
+    required this.onEdit,
     required this.context,
   });
 
@@ -295,11 +303,11 @@ class _IngredientesDataSource extends DataTableSource {
         children: [
           IconButton(
             icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), 
-            onPressed: () => onAction(ing['id'], false)
+            onPressed: () => onView(ing['id'])
           ),
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), 
-            onPressed: () => onAction(ing['id'], true)
+            onPressed: () => onEdit(ing['id'])
           ),
         ],
       )),
@@ -310,8 +318,8 @@ class _IngredientesDataSource extends DataTableSource {
     if (text == '-') return const Text('-', style: TextStyle(color: Colors.grey));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: AppTema.cianLimpio.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-      child: Text(_capitalize(text), style: const TextStyle(color: AppTema.cianLimpio, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: AppTema.azulOscuro.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(_capitalize(text), style: const TextStyle(color: AppTema.azulOscuro, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 

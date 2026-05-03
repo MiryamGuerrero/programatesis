@@ -77,12 +77,12 @@ class InteligenciaApiRepository {
   }
 
   Future<Map<String, dynamic>> obtenerIngredienteDetalle(int id) async {
-    final response = await _dio.get("ingredientes/$id");
+    final response = await _dio.get("nutricionista/ingredientes/$id");
     return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<void> guardarIngrediente(int id, Map<String, dynamic> data) async {
-    await _dio.put("ingredientes/$id", data: data);
+    await _dio.put("nutricionista/ingredientes/$id", data: data);
   }
 
   Future<Map<String, dynamic>> guardarPlanManual({required String idPaciente, required Map<String, dynamic> plan, bool replicate = true}) {
