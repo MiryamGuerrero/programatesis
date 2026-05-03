@@ -49,4 +49,4 @@ backup_bd/
 start_web.ps1
 
 #docs
-docs\peticion.md
+docs/peticion.md
