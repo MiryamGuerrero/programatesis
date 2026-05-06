@@ -45,15 +45,19 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     a.codigo as accion_codigo, t.codigo as objetivo_codigo,
                     i.nombre as ingrediente_nombre, g.nombre as grupo_nombre, 
                     s.nombre as subgrupo_nombre, e.nombre_visible as etiqueta_nombre,
-                    array_agg(cr.id_condicion) as id_condiciones
+                    array_agg(DISTINCT cr.id_condicion) as id_condiciones,
+                    array_agg(DISTINCT tc.nombre) as tipos_condicion
                 from heuristico.regla r
                 join heuristico.catalogo_accion a on a.id = r.id_accion
                 join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
-                left join heuristico.condicion_regla cr on cr.id_regla = r.id
+                join heuristico.condicion_regla cr on cr.id_regla = r.id
+                join heuristico.condicion c on c.id = cr.id_condicion
+                join heuristico.catalogo_tipo_condicion tc on tc.id = c.id_tipo_condicion
                 left join nutricion.ingrediente i on i.id = r.id_ingrediente
                 left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
                 left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
                 left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
+                where c.id_tipo_condicion in (1, 2)
                 group by r.id, a.codigo, t.codigo, i.nombre, g.nombre, s.nombre, e.nombre_visible
             """
             try:
@@ -95,6 +99,29 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             cur.execute("delete from heuristico.condicion_regla where id_regla = %s", (id_regla,))
             cur.execute("delete from heuristico.regla where id = %s", (id_regla,))
             return cur.rowcount > 0
+
+    def actualizar_regla(self, id_regla: int, data: dict) -> bool:
+        with db_cursor() as cur:
+            # 1. Actualizar datos base
+            sql = """
+                update heuristico.regla set
+                    id_accion = %s, id_tipo_objetivo = %s, mensaje_error = %s, es_estricta = %s,
+                    id_ingrediente = %s, id_grupo_alimentario = %s, id_subgrupo_alimentario = %s, id_etiqueta = %s
+                where id = %s
+            """
+            cur.execute(sql, (
+                data["id_accion"], data["id_tipo_objetivo"], data.get("mensaje_error"), data.get("es_estricta", False),
+                data.get("id_ingrediente"), data.get("id_grupo_alimentario"), data.get("id_subgrupo_alimentario"), data.get("id_etiqueta"),
+                id_regla
+            ))
+
+            # 2. Refrescar condiciones vinculadas
+            if "id_condiciones" in data:
+                cur.execute("delete from heuristico.condicion_regla where id_regla = %s", (id_regla,))
+                for id_cond in data["id_condiciones"]:
+                    cur.execute("insert into heuristico.condicion_regla (id_regla, id_condicion) values (%s, %s)", (id_regla, id_cond))
+            
+            return True
 
     def _mapear_fila_a_regla(self, fila: tuple) -> Regla:
         # Fila: id, id_condicion, origen, accion_codigo, objetivo_codigo, id_ing, id_grp, id_sub, id_etq, id_rec, msg

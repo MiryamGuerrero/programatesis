@@ -43,6 +43,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
   bool _brote = false;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
   final List<Map<String, dynamic>> _condicionesTemp = [];
+  List<dynamic> _condicionesTemporalesCat = [];
   
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
@@ -53,6 +54,21 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _cargarExpediente();
+    _loadCatalogos();
+  }
+
+  Future<void> _loadCatalogos() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("catalogos/condiciones");
+      if (mounted) {
+        setState(() {
+          _condicionesTemporalesCat = (res.data as List).where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Error cargando catálogo: $e");
+    }
   }
 
   @override
@@ -370,6 +386,12 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                       _expItem("Inflamación Actual", "${c['escala_inflamacion'] ?? 0}/3"),
                       _expItem("Brote Activo", (c['en_brote'] == true) ? "SÍ (ACTIVO)" : "NO", isAlert: c['en_brote'] == true),
                       const SizedBox(height: 16),
+                      const Text("SÍNTOMAS TEMPORALES ACTIVOS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
+                      const SizedBox(height: 8),
+                      ...(_expediente!['condiciones_temporales'] as List? ?? []).map((ct) => _expItem(ct['nombre'], "Hasta: ${ct['fecha_fin']}", isHighlight: true)),
+                      if ((_expediente!['condiciones_temporales'] as List? ?? []).isEmpty)
+                        Text("Ninguno reportado", style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 16),
                       const Text("SEGUIMIENTO", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
                       const SizedBox(height: 8),
                       _expItem("Fecha de Último Control", c['fecha_control']),
@@ -580,7 +602,11 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
           child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)), subtitle: const Text("Indique si el paciente presenta crisis hoy"), value: _brote, onChanged: (v) => setState(() => _brote = v), activeThumbColor: Colors.red),
         ),
         const SizedBox(height: 48),
-        _sectionHeader("4. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
+        _sectionHeader("4. SÍNTOMAS AGUDOS TEMPORALES", Icons.event_note_rounded),
+        const SizedBox(height: 24),
+        _buildSintomasTemporalesGrid(),
+        const SizedBox(height: 48),
+        _sectionHeader("5. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
         const SizedBox(height: 24),
         Container(
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
@@ -593,6 +619,119 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       ]),
     );
   }
+
+  Widget _buildSintomasTemporalesGrid() {
+    if (_condicionesTemporalesCat.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+        child: const Center(child: Text("Cargando catálogo de síntomas...", style: TextStyle(fontSize: 12, color: Colors.grey))),
+      );
+    }
+
+    return Column(
+      children: _condicionesTemporalesCat.map<Widget>((c) {
+        final id = c['id'] as int;
+        final index = _condicionesTemp.indexWhere((s) => s['id'] == id);
+        final sel = index != -1;
+        final duracionSugerida = c['duracion_dias_sugerida'] ?? 7;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: sel ? greenBrand.withOpacity(0.02) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: sel ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0)),
+          ),
+          child: ExpansionTile(
+            key: Key("temp_ctrl_$id"),
+            initiallyExpanded: sel,
+            shape: const Border(),
+            leading: Checkbox(
+              activeColor: greenBrand,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              value: sel,
+              onChanged: (v) {
+                if (v == true) {
+                  final ini = DateTime.now();
+                  setState(() {
+                    _condicionesTemp.add({
+                      "id": id,
+                      "nombre": c['nombre'],
+                      "fecha_inicio": ini.toIso8601String().split('T')[0],
+                      "fecha_fin": ini.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0]
+                    });
+                  });
+                } else {
+                  setState(() => _condicionesTemp.removeAt(index));
+                }
+              },
+            ),
+            title: Text(
+              c['nombre'],
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
+                color: sel ? greenBrand : const Color(0xFF1E293B),
+              ),
+            ),
+            subtitle: Text(
+              sel ? "Activa por $duracionSugerida días sugeridos" : "Sugerencia: $duracionSugerida días",
+              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+            ),
+            children: sel
+                ? [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _datePickerSmall("DESDE", _condicionesTemp[index]['fecha_inicio'], (d) {
+                              setState(() {
+                                _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0];
+                                _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0];
+                              });
+                            }),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _datePickerSmall("HASTA (ESTIMADO)", _condicionesTemp[index]['fecha_fin'], (d) {
+                              setState(() {
+                                _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0];
+                              });
+                            }),
+                          ),
+                        ],
+                      ),
+                    )
+                  ]
+                : [],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _datePickerSmall(String l, String v, Function(DateTime) onP) => InkWell(
+    onTap: () async { 
+      final d = await showDatePicker(
+        context: context, 
+        initialDate: DateTime.parse(v), 
+        firstDate: DateTime.now().subtract(const Duration(days: 30)), 
+        lastDate: DateTime.now().add(const Duration(days: 90))
+      ); 
+      if (d != null) onP(d); 
+    }, 
+    child: Container(
+      padding: const EdgeInsets.all(12), 
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))), 
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(l, style: const TextStyle(fontSize: 9, color: Colors.blueGrey, fontWeight: FontWeight.bold)), 
+        const SizedBox(height: 4),
+        Text(v, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: greenBrand))
+      ])
+    )
+  );
 
   Widget _buildOMSStatusCard() {
     return Container(

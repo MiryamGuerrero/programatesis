@@ -104,7 +104,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
         children: [
           // SECCIÓN DE MARCA ESTÁTICA (ESTILO LOGIN)
           Container(
-            width: isWide ? 280 : null,
+            width: isWide ? 280 : 200,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [

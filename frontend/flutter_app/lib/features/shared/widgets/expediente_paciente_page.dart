@@ -365,36 +365,6 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
     ]);
   }
 
-  Widget _buildChartPeso(List historial) {
-    return Container(
-      height: 250,
-      padding: const EdgeInsets.only(right: 20, top: 20, bottom: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
-          titlesData: FlTitlesData(
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (val, meta) {
-              if (val.toInt() >= historial.length) return const SizedBox.shrink();
-              final fecha = DateTime.parse(historial[val.toInt()]['fecha_control']);
-              return Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10, color: Colors.grey));
-            })),
-          ),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]['peso_kg'] as num).toDouble())),
-              isCurved: true, color: Colors.blue, barWidth: 4, dotData: const FlDotData(show: true),
-              belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildChartEVA(List historial) {
     return Container(
       height: 300, padding: const EdgeInsets.fromLTRB(10, 32, 32, 10),
@@ -609,7 +579,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
       final results = await repo.fetchCatalog("heuristico", "condicion");
       if (mounted) {
         setState(() {
-          _condicionesTemp = results.where((c) => c["id_tipo_condicion"] == 2).toList();
+          _condicionesTemp = results.where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 2).toList();
         });
       }
     } catch (_) {}

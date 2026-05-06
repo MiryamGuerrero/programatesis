@@ -205,8 +205,9 @@ def obtener_form_data_reglas(
     print("DEBUG: Endpoint /reglas-medicas/form-data invocado")
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
+    # Filtramos para que el médico solo vea condiciones Clínicas (1) y Temporales (2)
     return {
-        "condiciones": repo.obtener_catalogo("heuristico", "condicion"),
+        "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2]),
         "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
         "objetivos": repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla"),
         "ingredientes": repo.obtener_catalogo("nutricion", "ingrediente"),
@@ -224,6 +225,17 @@ def guardar_nueva_regla(
     repo = RepositorioReglaPostgres()
     id_regla = repo.guardar_regla(payload)
     return {"id": id_regla, "success": True}
+
+@router.put("/reglas-medicas/{id_regla}")
+def actualizar_regla_medica(
+    id_regla: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    exito = repo.actualizar_regla(id_regla, payload)
+    return {"success": exito}
 
 @router.delete("/reglas-medicas/{id_regla}")
 def eliminar_regla_medica(
@@ -243,7 +255,8 @@ def listar_condiciones_catalogo(
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    return repo.obtener_catalogo("heuristico", "condicion")
+    # Solo traemos Clínicas (1) y Temporales (2) para el Médico
+    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2])
 
 @router.get("/catalogos/tipos-condicion")
 def listar_tipos_condicion(
@@ -264,6 +277,7 @@ def crear_nueva_condicion(
         id_c = repo.crear_condicion(payload)
         return {"id": id_c, "success": True}
     except Exception as exc:
+        # Exponemos el detalle del error para depuración
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/catalogos/condiciones/{id_condicion}")
@@ -278,6 +292,7 @@ def actualizar_condicion_catalogo(
         exito = repo.actualizar_condicion(id_condicion, payload)
         return {"success": exito}
     except Exception as exc:
+        # Exponemos el detalle del error para depuración
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.delete("/catalogos/condiciones/{id_condicion}")

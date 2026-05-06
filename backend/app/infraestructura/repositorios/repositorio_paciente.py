@@ -107,6 +107,17 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("select sg.id, sg.nombre from clinico.alergia_paciente_subgrupo aps join nutricion.subgrupo_alimentario sg on sg.id = aps.id_subgrupo_alimentario where aps.id_paciente = %s and aps.activa = true", (id_paciente,))
             alergias_sub = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+
+            # SÍNTOMAS TEMPORALES ACTIVOS (Basado en el último control)
+            cur.execute("""
+                select c.nombre, cca.fecha_inicio, cca.fecha_fin 
+                from clinico.control_condicion_activa cca 
+                join heuristico.condicion c on c.id = cca.id_condicion 
+                where cca.id_control = (select id from clinico.control_paciente where id_paciente = %s order by fecha_control desc limit 1)
+                and c.id_tipo_condicion = 2
+                and (cca.fecha_fin >= current_date or cca.fecha_fin is null)
+            """, (id_paciente,))
+            condiciones_temporales = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
             
             # Detectar intolerancia a lactosa basada en subgrupos de lacteos
             SUBGRUPOS_CON_LACTOSA = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119}
@@ -155,7 +166,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "es_intolerante_lactosa": es_intolerante_lactosa,
                 "ultimo_control": ultimo_control, "historial_controles": controles, 
                 "condiciones_vigentes": condiciones_vigentes, "restricciones_temporales": restricciones_temporales,
-                "catalogo_condiciones_temp": catalogo_temp
+                "catalogo_condiciones_temp": catalogo_temp,
+                "condiciones_temporales": condiciones_temporales
             }
 
     def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
@@ -309,7 +321,12 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
                     for ct in cond_temporales:
                         cid = ct.get("id"); f_ini = ct.get("fecha_inicio") or date.today().isoformat()
-                        f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=7)).isoformat()
+                        # Buscamos la duración sugerida en la DB para esta condición
+                        cur.execute("select dias_duracion_estandar from heuristico.condicion where id = %s", (cid,))
+                        row_dur = cur.fetchone()
+                        dias_sug = row_dur[0] if row_dur and row_dur[0] else 7
+                        
+                        f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=dias_sug)).isoformat()
                         cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, fecha_fin) values (%s, %s, %s, %s)", (control_id, cid, f_ini, f_fin))
 
                 cur.execute("delete from clinico.alergia_paciente_subgrupo where id_paciente = %s", (id_paciente,))
@@ -363,7 +380,12 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
                 for ct in datos.get("condiciones_temporales", []):
                     f_ini = ct.get("fecha_inicio") or date.today().isoformat()
-                    f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=7)).isoformat()
+                    # Buscamos la duración sugerida en la DB para esta condición
+                    cur.execute("select dias_duracion_estandar from heuristico.condicion where id = %s", (ct["id"],))
+                    row_dur = cur.fetchone()
+                    dias_sug = row_dur[0] if row_dur and row_dur[0] else 7
+                    
+                    f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=dias_sug)).isoformat()
                     cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, fecha_fin) values (%s, %s, %s, %s)", (cid, ct["id"], f_ini, f_fin))
                 
                 cur.execute("COMMIT")
@@ -443,7 +465,12 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("delete from clinico.control_condicion_activa where id_control = %s and fecha_fin is not null", (id_control,))
                 for ct in datos.get("condiciones_temporales", []):
                     f_ini = ct.get("fecha_inicio") or fecha_control.isoformat()
-                    f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=7)).isoformat()
+                    # Buscamos la duración sugerida en la DB para esta condición
+                    cur.execute("select dias_duracion_estandar from heuristico.condicion where id = %s", (ct["id"],))
+                    row_dur = cur.fetchone()
+                    dias_sug = row_dur[0] if row_dur and row_dur[0] else 7
+                    
+                    f_fin = ct.get("fecha_fin") or (date.fromisoformat(f_ini) + timedelta(days=dias_sug)).isoformat()
                     cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, fecha_fin) values (%s, %s, %s, %s)", (id_control, ct["id"], f_ini, f_fin))
                 
                 cur.execute("COMMIT")

@@ -17,6 +17,10 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
   static const _catalogs = [
     ("usuarios", "rol"),
     ("usuarios", "catalogo_sexo"),
+    ("usuarios", "catalogo_canton"),
+    ("usuarios", "catalogo_parroquia"),
+    ("nutricion", "condiciones_clinicas"),
+    ("heuristico", "condicion"),
     ("heuristico", "catalogo_accion"),
     ("heuristico", "catalogo_objetivo_regla"),
     ("interaccion", "catalogo_estado_plan"),

@@ -13,7 +13,8 @@ class ReglasMedicasPage extends ConsumerStatefulWidget {
   ConsumerState<ReglasMedicasPage> createState() => _ReglasMedicasPageState();
 }
 
-class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
+class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   bool _loading = true;
   List<dynamic> _rules = [];
   Map<String, List<dynamic>> _formData = {
@@ -24,11 +25,26 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   String _searchQuery = "";
   final Set<String> _selectedObjetivos = {};
   int? _filtroCondicion;
+  int? _filtroAccion;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _filtroCondicion = null;
+        _filtroAccion = null;
+        _selectedObjetivos.clear();
+      });
+    });
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -52,13 +68,24 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   }
 
   List<dynamic> get _filtradas {
+    final bool showingClinicas = _tabController.index == 0;
+    
     return _rules.where((r) {
+      final tipos = (r['tipos_condicion'] as List? ?? []);
+      final esClinica = tipos.contains("Clínica");
+      final esTemporal = tipos.contains("Temporal");
+
+      if (showingClinicas && !esClinica) return false;
+      if (!showingClinicas && !esTemporal) return false;
+
       final targetName = _getTargetName(r).toLowerCase();
       final matchesSearch = targetName.contains(_searchQuery.toLowerCase());
       final matchesTipo = _selectedObjetivos.isEmpty || _selectedObjetivos.contains(r["objetivo_codigo"]);
       final condicionesIds = (r["id_condiciones"] as List).cast<int>();
       final matchesCondicion = _filtroCondicion == null || condicionesIds.contains(_filtroCondicion);
-      return matchesSearch && matchesTipo && matchesCondicion;
+      final matchesAccion = _filtroAccion == null || r["id_accion"] == _filtroAccion;
+      
+      return matchesSearch && matchesTipo && matchesCondicion && matchesAccion;
     }).toList();
   }
 
@@ -68,81 +95,116 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       backgroundColor: AppTema.grisLienzo,
       body: _loading 
         ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 32),
-                _buildToolbar(),
-                const SizedBox(height: 24),
-                _buildFilterBar(),
-                const SizedBox(height: 24),
-                _buildTable(),
-              ],
-            ),
+        : Column(
+            children: [
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(40, 32, 40, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTopBar(),
+                    const SizedBox(height: 24),
+                    _buildTabBar(),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFilterBar(),
+                      const SizedBox(height: 24),
+                      _buildTable(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildTopBar() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Reglas Clínicas Inteligentes", 
+        Text("Gestión de Reglas Médicas", 
           style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Configuración de restricciones nutricionales basadas en diagnóstico.", 
+        Text("Configuración de restricciones nutricionales según diagnóstico médico.", 
           style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 55,
+                decoration: BoxDecoration(
+                  color: AppTema.grisLienzo,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por alimento o ingrediente objetivo...",
+                    hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            SizedBox(
+              height: 55,
+              child: FilledButton.icon(
+                onPressed: () => _showForm(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+                icon: const Icon(Icons.add_moderator_rounded, size: 20, color: Colors.white),
+                label: Text("NUEVA REGLA", 
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _buildToolbar() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 55,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                hintText: "Buscar regla por alimento o ingrediente objetivo...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
-          ),
-        ),
-        const SizedBox(width: 20),
-        SizedBox(
-          height: 55,
-          child: FilledButton.icon(
-            onPressed: () => _showForm(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-            ),
-            icon: const Icon(Icons.add_moderator_rounded, size: 20, color: Colors.white),
-            label: Text("NUEVA REGLA", 
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
-          ),
-        ),
+  Widget _buildTabBar() {
+    return TabBar(
+      controller: _tabController,
+      labelColor: AppTema.azulPrincipal,
+      unselectedLabelColor: Colors.blueGrey,
+      indicatorColor: AppTema.verdeSalud,
+      indicatorWeight: 4,
+      labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+      unselectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 13),
+      tabs: const [
+        Tab(text: "REGLAS CLÍNICAS"),
+        Tab(text: "SÍNTOMAS TEMPORALES"),
       ],
     );
   }
 
   Widget _buildFilterBar() {
     final tipos = ["INGREDIENTE", "GRUPO", "SUBGRUPO", "ETIQUETA"];
+    
+    // Filtrar condiciones según el Tab activo
+    final int tipoEsperado = _tabController.index == 0 ? 1 : 2;
+    final condicionesFiltradas = (_formData["condiciones"] ?? [])
+        .where((c) => (c['id_tipo_condicion'] ?? c['id_tipo']) == tipoEsperado)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -161,23 +223,54 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
         const SizedBox(height: 16),
         Row(
           children: [
-            Text("DIAGNÓSTICO:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
-            const SizedBox(width: 16),
-            SizedBox(
-              width: 320,
-              child: DropdownButtonFormField<int>(
-                initialValue: _filtroCondicion,
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
-                decoration: InputDecoration(
-                  filled: true, fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text("TODAS LAS CONDICIONES")),
-                  ...(_formData["condiciones"] ?? []).map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"].toString().toUpperCase()))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("DIAGNÓSTICO:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    key: ValueKey("tab_${_tabController.index}"),
+                    isExpanded: true,
+                    initialValue: _filtroCondicion,
+                    style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                    decoration: InputDecoration(
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text("TODOS LOS DIAGNÓSTICOS")),
+                      ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"].toString().toUpperCase(), overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (v) => setState(() => _filtroCondicion = v),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _filtroCondicion = v),
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("ACCIÓN MÉDICA:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: _filtroAccion,
+                    style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                    decoration: InputDecoration(
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text("TODAS LAS ACCIONES")),
+                      ...(_formData["acciones"] ?? []).map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"].toString().toUpperCase(), overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (v) => setState(() => _filtroAccion = v),
+                  ),
+                ],
               ),
             ),
           ],
@@ -217,6 +310,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
           headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
           columns: [
             _col("ACCIÓN"),
+            _col("TIPO"),
             _col("OBJETIVO"),
             _col("DIAGNÓSTICOS"),
             _col("ESTRICTA"),
@@ -292,8 +386,12 @@ class _ReglasMedicasDataSource extends DataTableSource {
       return c != null ? c["nombre"] : "C-$id";
     }).join(", ");
 
+    final tipos = (r['tipos_condicion'] as List? ?? []);
+    final tipoPrincipal = tipos.contains("Clínica") ? "Clínica" : (tipos.isNotEmpty ? tipos.first : "Clínica");
+
     return DataRow(cells: [
       DataCell(_accionBadge(r['accion_codigo'])),
+      DataCell(_tipoBadge(tipoPrincipal)),
       DataCell(Text(_getTargetName(r), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700))),
       DataCell(SizedBox(width: 250, child: Text(nombresCondiciones, style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey), overflow: TextOverflow.ellipsis))),
       DataCell(Icon(r["es_estricta"] == true ? Icons.lock_rounded : Icons.lock_open_rounded, color: r["es_estricta"] == true ? Colors.redAccent : Colors.grey.shade400, size: 18)),
@@ -304,6 +402,16 @@ class _ReglasMedicasDataSource extends DataTableSource {
         ],
       )),
     ]);
+  }
+
+  Widget _tipoBadge(String label) {
+    Color bg = const Color(0xFFE0F2FE); Color tx = const Color(0xFF0369A1);
+    if (label == 'Temporal') { bg = const Color(0xFFF3E8FF); tx = const Color(0xFF7E22CE); }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
+    );
   }
 
   Widget _accionBadge(String label) {
