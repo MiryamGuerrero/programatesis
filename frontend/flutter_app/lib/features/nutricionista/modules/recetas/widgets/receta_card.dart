@@ -132,22 +132,24 @@ class RecetaCard extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return Container(
-      height: 160,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: receta['imagen_url'] != null
-            ? Image.network(
-                receta['imagen_url'],
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-              )
-            : _buildPlaceholder(),
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: (receta['imagen_url'] != null && receta['imagen_url'].toString().isNotEmpty)
+              ? Image.network(
+                  receta['imagen_url'],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                )
+              : _buildPlaceholder(),
+        ),
       ),
     );
   }

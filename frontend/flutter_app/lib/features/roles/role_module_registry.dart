@@ -18,7 +18,6 @@ import "../tutor/presentation/plan_diario_page.dart";
 
 // Páginas de Nutricionista
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";
-import "../nutricionista/modules/sustitutos/sustitutos_page.dart";
 import "../nutricionista/modules/recetas/recetas_page.dart";
 import "../nutricionista/modules/etiquetas/etiquetas_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
@@ -114,12 +113,6 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Ingredientes",
           icon: Icons.egg_alt_rounded,
           builder: () => const IngredientesPage(),
-        ),
-        RoleModule(
-          key: "sustitutos",
-          title: "Sustitutos",
-          icon: Icons.swap_horiz_rounded,
-          builder: () => const SustitutosPage(),
         ),
         RoleModule(
           key: "recetas",

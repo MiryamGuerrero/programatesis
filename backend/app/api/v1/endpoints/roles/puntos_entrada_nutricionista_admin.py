@@ -210,6 +210,7 @@ def remove_label_from_ingredient(
 @router.get("/sustitutos")
 def list_substitutes(
     q: str | None = Query(default=None),
+    id_original: int | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
     _=Depends(require_roles("admin", "nutricionista")),
 ) -> list[dict[str, Any]]:
@@ -225,10 +226,18 @@ def list_substitutes(
             join nutricion.ingrediente i2 on i2.id = s.id_ingrediente_reemplazo
         """
         params: list[Any] = []
+        where_clauses = []
         if q and q.strip():
-            sql += " where (i1.nombre ilike %s or i2.nombre ilike %s)"
+            where_clauses.append("(i1.nombre ilike %s or i2.nombre ilike %s)")
             search_pattern = f"%{q.strip()}%"
             params.extend([search_pattern, search_pattern])
+        
+        if id_original:
+            where_clauses.append("s.id_ingrediente_original = %s")
+            params.append(id_original)
+
+        if where_clauses:
+            sql += " where " + " and ".join(where_clauses)
         
         sql += " order by i1.nombre, i2.nombre limit %s"
         params.append(limit)

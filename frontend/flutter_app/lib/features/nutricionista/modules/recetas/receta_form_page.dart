@@ -4,7 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import '../../../../core/services/recipe_image_service.dart';
 import 'widgets/selector_ingrediente_dialog.dart';
+import '../sustitutos/widgets/gestion_sustitutos_dialog.dart';
 
 class RecetaFormPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? recetaInicial;
@@ -23,6 +28,9 @@ class RecetaFormPage extends ConsumerStatefulWidget {
 class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  XFile? _imageFile;
+  Uint8List? _imagePreviewBytes;
+  bool _uploadingImage = false;
 
   // Controladores Básicos
   late TextEditingController _ctrlNombre;
@@ -72,6 +80,17 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     }
   }
 
+  Future<void> _seleccionarImagen() async {
+    final XFile? picked = await RecipeImageService.pickImage(ImageSource.gallery);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _imageFile = picked;
+        _imagePreviewBytes = bytes;
+      });
+    }
+  }
+
   Future<void> _buscarEtiquetas(String q) async {
     if (q.isEmpty) {
       setState(() => _etiquetasDisponibles = []);
@@ -97,6 +116,23 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     
     setState(() => _loading = true);
     try {
+      String? finalImageUrl = _ctrlImagen.text;
+
+      // 1. Subir imagen si se seleccionó una nueva
+      if (_imageFile != null) {
+        setState(() => _uploadingImage = true);
+        try {
+          finalImageUrl = await RecipeImageService.uploadRecipeImage(
+            imageFile: _imageFile!,
+            fileName: 'receta_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          );
+        } catch (e) {
+          NutriSnack.show(context, 'Error al subir imagen, se usará la URL previa', isError: true);
+        } finally {
+          setState(() => _uploadingImage = false);
+        }
+      }
+
       final payload = {
         if (widget.recetaInicial != null) 'id': widget.recetaInicial!['id'],
         'nombre': _ctrlNombre.text,
@@ -107,7 +143,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         'porciones': int.tryParse(_ctrlPorciones.text) ?? 1,
         'tiempo_preparacion': int.tryParse(_ctrlTPrep.text) ?? 0,
         'tiempo_coccion': int.tryParse(_ctrlTCoccion.text) ?? 0,
-        'imagen_url': _ctrlImagen.text.isEmpty ? null : _ctrlImagen.text,
+        'imagen_url': (finalImageUrl == null || finalImageUrl.isEmpty) ? null : finalImageUrl,
         'activa': _activa,
         'ingredientes': _ingredientes,
         'preparacion': _pasos,
@@ -115,7 +151,16 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       };
 
       final dio = ref.read(dioProvider);
-      await dio.post('crud/recetas', data: payload);
+      final response = await dio.post('crud/recetas', data: payload);
+      
+      // 2. Si subimos imagen, registrarla en la tabla de imágenes
+      if (response.data != null && response.data['id'] != null && _imageFile != null) {
+        final idReceta = response.data['id'];
+        await RecipeImageService.registerImageInDb(
+          idReceta: idReceta,
+          url: finalImageUrl!,
+        );
+      }
       
       if (!mounted) return;
       NutriSnack.show(context, 'Receta guardada con éxito');
@@ -179,9 +224,22 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         children: [
           _buildTituloSeccion('Información Básica'),
           const SizedBox(height: 24),
-          _buildInputField('Nombre de la receta *', _ctrlNombre, true),
-          const SizedBox(height: 20),
-          _buildInputField('Descripción corta (para la tarjeta) *', _ctrlDescCorta, true),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildImagePicker(),
+              const SizedBox(width: 32),
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildInputField('Nombre de la receta *', _ctrlNombre, true),
+                    const SizedBox(height: 20),
+                    _buildInputField('Descripción corta (para la tarjeta) *', _ctrlDescCorta, true),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           _buildInputField('Descripción detallada (terapéutica)', _ctrlDescLarga, true, maxLines: 3),
           const SizedBox(height: 24),
@@ -203,7 +261,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildInputField('URL Imagen de referencia', _ctrlImagen, true, hint: 'https://ejemplo.com/imagen.jpg'),
+          _buildInputField('URL Imagen manual (opcional)', _ctrlImagen, true, hint: 'https://ejemplo.com/imagen.jpg'),
           const SizedBox(height: 24),
           CheckboxListTile(
             value: _activa,
@@ -215,6 +273,119 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _eliminarImagen() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar imagen?'),
+        content: const Text('La imagen se borrará permanentemente del servidor.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('ELIMINAR', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (_ctrlImagen.text.isNotEmpty) {
+        await RecipeImageService.deleteImageByUrl(_ctrlImagen.text);
+      }
+      setState(() {
+        _imageFile = null;
+        _imagePreviewBytes = null;
+        _ctrlImagen.clear();
+      });
+      NutriSnack.show(context, 'Imagen eliminada');
+    }
+  }
+
+  Widget _buildImagePicker() {
+    final tieneImagen = _imagePreviewBytes != null || _ctrlImagen.text.isNotEmpty;
+
+    return Column(
+      children: [
+        Container(
+          width: 240,
+          height: 180,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: _imagePreviewBytes != null 
+              ? Image.memory(_imagePreviewBytes!, fit: BoxFit.cover, width: 240, height: 180)
+              : (_ctrlImagen.text.isNotEmpty 
+                  ? Image.network(
+                      _ctrlImagen.text, 
+                      fit: BoxFit.cover, 
+                      width: 240, 
+                      height: 180,
+                      errorBuilder: (context, error, stackTrace) => _buildPlaceholderContent(),
+                    )
+                  : _buildPlaceholderContent()),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _seleccionarImagen,
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: Text(tieneImagen ? 'CAMBIAR' : 'SUBIR IMAGEN'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTema.azulPrincipal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            if (tieneImagen) ...[
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _eliminarImagen,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                label: const Text('BORRAR', style: TextStyle(color: Colors.redAccent)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (_uploadingImage)
+          const Padding(
+            padding: EdgeInsets.only(top: 8.0),
+            child: SizedBox(width: 240, child: LinearProgressIndicator()),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholderContent() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.image_not_supported_outlined, color: Colors.grey.shade300, size: 48),
+        const SizedBox(height: 12),
+        Text(
+          'Sin imagen seleccionada', 
+          style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500)
+        ),
+      ],
     );
   }
 
@@ -390,22 +561,119 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
               child: Text('No hay ingredientes. Agrega al menos uno para calcular la nutrición.', style: TextStyle(color: Colors.grey.shade400, fontStyle: FontStyle.italic)),
             )
           else
-            Table(
-              columnWidths: const {
-                0: IntrinsicColumnWidth(),
-                1: FlexColumnWidth(4),
-                2: FlexColumnWidth(2),
-                3: FlexColumnWidth(2),
-                4: FlexColumnWidth(2),
-                5: IntrinsicColumnWidth(),
-              },
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            Column(
               children: [
-                _buildTableHeaderIngrediente(),
-                ...List.generate(_ingredientes.length, (index) => _buildRowIngrediente(index)),
+                _buildTableHeaderIngredienteRow(),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                SizedBox(
+                  height: _ingredientes.length * 75.0, // Altura estimada para los items
+                  child: ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _ingredientes.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final item = _ingredientes.removeAt(oldIndex);
+                        _ingredientes.insert(newIndex, item);
+                      });
+                    },
+                    itemBuilder: (context, index) => _buildRowIngredienteItem(index),
+                  ),
+                ),
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderIngredienteRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Row(
+        children: [
+          const SizedBox(width: 40), // Espacio para el drag handle
+          Expanded(flex: 4, child: Text('Ingrediente', style: _headerStyle())),
+          Expanded(flex: 2, child: Text('Cantidad', style: _headerStyle())),
+          Expanded(flex: 2, child: Text('Unidad', style: _headerStyle())),
+          Expanded(flex: 2, child: Text('Gramos', style: _headerStyle())),
+          SizedBox(width: 80, child: Center(child: Text('Acciones', style: _headerStyle()))),
+        ],
+      ),
+    );
+  }
+
+  TextStyle _headerStyle() => GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey);
+
+  Widget _buildRowIngredienteItem(int index) {
+    final ing = _ingredientes[index];
+    final key = ValueKey('ing_${ing['id_ingrediente'] ?? ing['id']}_$index');
+
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+      ),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: const SizedBox(
+              width: 40,
+              child: Icon(Icons.drag_indicator_rounded, color: Colors.grey, size: 20),
+            ),
+          ),
+          Expanded(flex: 4, child: Text(ing['nombre'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: _buildRowInput(index, 'cantidad')),
+          Expanded(flex: 2, child: _buildRowInput(index, 'unidad')),
+          Expanded(flex: 2, child: _buildRowInput(index, 'gramos', isNumber: true)),
+          SizedBox(
+            width: 80,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.swap_horiz_rounded, color: AppTema.azulPrincipal, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => GestionSustitutosDialog(
+                        idIngredienteOriginal: ing['id_ingrediente'] ?? ing['id'],
+                        nombreIngredienteOriginal: ing['nombre'] ?? '-',
+                      ),
+                    );
+                  },
+                  tooltip: 'Gestionar Sustitutos',
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => setState(() => _ingredientes.removeAt(index)),
+                  tooltip: 'Quitar ingrediente',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRowInput(int index, String key, {bool isNumber = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: TextFormField(
+        initialValue: _ingredientes[index][key]?.toString(),
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        decoration: _inputStyle(''),
+        onChanged: (v) => _ingredientes[index][key] = isNumber ? (double.tryParse(v) ?? 0) : v,
       ),
     );
   }
@@ -427,14 +695,36 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           ],
         ),
         const SizedBox(height: 20),
-        ...List.generate(_pasos.length, (index) => _buildCardPaso(index)),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: _pasos.length,
+          onReorder: (oldIndex, newIndex) {
+            setState(() {
+              if (newIndex > oldIndex) newIndex -= 1;
+              final item = _pasos.removeAt(oldIndex);
+              _pasos.insert(newIndex, item);
+              
+              // Actualizar el número de paso en la data interna
+              for (int i = 0; i < _pasos.length; i++) {
+                _pasos[i]['paso'] = i + 1;
+              }
+            });
+          },
+          itemBuilder: (context, index) => _buildCardPaso(index),
+        ),
       ],
     );
   }
 
   Widget _buildCardPaso(int index) {
     final p = _pasos[index];
+    // Key estable basada en contenido inicial o un identificador único si existiera
+    final key = ValueKey('paso_${p['paso']}_$index');
+
     return Container(
+      key: key,
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -445,10 +735,20 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32, height: 32,
-            decoration: const BoxDecoration(color: AppTema.azulPrincipal, shape: BoxShape.circle),
-            child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          // Drag Handle e Índice
+          Column(
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                child: const Icon(Icons.drag_indicator_rounded, color: Colors.grey, size: 24),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: 32, height: 32,
+                decoration: const BoxDecoration(color: AppTema.azulPrincipal, shape: BoxShape.circle),
+                child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              ),
+            ],
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -476,7 +776,13 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                     )),
                     IconButton(
                       icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                      onPressed: () => setState(() => _pasos.removeAt(index)),
+                      onPressed: () => setState(() {
+                        _pasos.removeAt(index);
+                        // Re-indexar tras eliminar
+                        for (int i = 0; i < _pasos.length; i++) {
+                          _pasos[i]['paso'] = i + 1;
+                        }
+                      }),
                     ),
                   ],
                 ),
@@ -585,42 +891,6 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       fillColor: const Color(0xFFF8FAFC),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       contentPadding: const EdgeInsets.all(16),
-    );
-  }
-
-  TableRow _buildTableHeaderIngrediente() {
-    return TableRow(
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
-      children: [' ', 'Ingrediente', 'Cant.', 'Unidad', 'Gramos', ' '].map((c) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Text(c, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey)),
-      )).toList(),
-    );
-  }
-
-  TableRow _buildRowIngrediente(int index) {
-    final ing = _ingredientes[index];
-    return TableRow(
-      children: [
-        const Icon(Icons.drag_indicator_rounded, color: Colors.grey, size: 20),
-        Padding(padding: const EdgeInsets.all(8), child: Text(ing['nombre'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
-        _buildTableInput(index, 'cantidad'),
-        _buildTableInput(index, 'unidad'),
-        _buildTableInput(index, 'gramos', isNumber: true),
-        IconButton(icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18), onPressed: () => setState(() => _ingredientes.removeAt(index))),
-      ],
-    );
-  }
-
-  Widget _buildTableInput(int index, String key, {bool isNumber = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: TextFormField(
-        initialValue: _ingredientes[index][key]?.toString(),
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: _inputStyle(''),
-        onChanged: (v) => _ingredientes[index][key] = isNumber ? (double.tryParse(v) ?? 0) : v,
-      ),
     );
   }
 

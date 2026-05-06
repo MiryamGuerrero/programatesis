@@ -90,7 +90,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
       final dio = ref.read(dioProvider);
       await dio.delete('crud/recetas/${_recetaData['id']}/etiquetas/$idEtiqueta');
       await _cargarDetalleActualizado();
-      if (mounted) NutriSnack.show(context, 'Etiqueta eliminada');
+      if (mounted) { NutriSnack.show(context, 'Etiqueta eliminada'); }
     } catch (e) {
       if (mounted) NutriSnack.show(context, 'Error al desvincular etiqueta', isError: true);
     }
@@ -129,7 +129,8 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTopSummaryCards(r),
+            // Sección de Cabecera: Imagen + Resumen de Datos
+            _buildHeaderSection(r),
             const SizedBox(height: 32),
             _buildDescriptionBlock(r),
             const SizedBox(height: 32),
@@ -167,35 +168,111 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     );
   }
 
-  Widget _buildTopSummaryCards(Map<String, dynamic> r) {
+  Widget _buildHeaderSection(Map<String, dynamic> r) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSummaryCard(Icons.people_outline_rounded, '${r['porciones'] ?? 0}', 'Porciones'),
-        const SizedBox(width: 16),
-        _buildSummaryCard(Icons.access_time_rounded, '${r['tiempo_total'] ?? r['tiempo_preparacion'] ?? 0} min', 'Tiempo Total'),
-        const SizedBox(width: 16),
-        _buildSummaryCard(Icons.bar_chart_rounded, '${r['dificultad'] ?? 'Media'}', 'Dificultad'),
-        const SizedBox(width: 16),
-        _buildSummaryCard(Icons.local_fire_department_rounded, '${r['calorias_por_porcion'] ?? 0} kcal', 'Cal / Porción'),
+        // Lado Izquierdo: Imagen de la receta
+        Expanded(
+          flex: 4,
+          child: Container(
+            height: 280,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: (r['imagen_url'] != null && r['imagen_url'].toString().isNotEmpty)
+                  ? Image.network(
+                      r['imagen_url'],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                    )
+                  : _buildImagePlaceholder(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 32),
+        // Lado Derecho: Datos clave en recuadros
+        Expanded(
+          flex: 5,
+          child: Container(
+            height: 280,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Row(
+                  children: [
+                    _buildCompactStat(Icons.people_outline_rounded, '${r['porciones'] ?? 0}', 'Porciones'),
+                    _buildCompactStat(Icons.access_time_rounded, '${r['tiempo_total'] ?? r['tiempo_preparacion'] ?? 0} min', 'Tiempo Total'),
+                  ],
+                ),
+                const Divider(height: 32, color: Color(0xFFF1F5F9)),
+                Row(
+                  children: [
+                    _buildCompactStat(Icons.bar_chart_rounded, '${r['dificultad'] ?? 'Media'}', 'Dificultad'),
+                    _buildCompactStat(Icons.local_fire_department_rounded, '${r['calorias_por_porcion'] ?? 0} kcal', 'Cal / Porción'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(IconData icon, String valor, String label) {
+  Widget _buildCompactStat(IconData icon, String valor, String label) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-        ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTema.pastelCeleste.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppTema.azulPrincipal, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(valor, style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18, color: AppTema.azulOscuro)),
+                Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.blueGrey)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: const Color(0xFFF8FAFC),
+      child: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppTema.azulPrincipal, size: 20),
-            const SizedBox(height: 8),
-            Text(valor, style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 15, color: AppTema.azulOscuro)),
-            Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w500, fontSize: 10, color: Colors.blueGrey)),
+            Icon(Icons.restaurant_menu_rounded, size: 64, color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+            Text('Sin imagen de referencia', style: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
