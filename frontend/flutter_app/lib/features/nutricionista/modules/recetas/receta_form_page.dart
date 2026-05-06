@@ -869,13 +869,16 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Widget _buildDropdown(String label, List<String> options, String value, Function(String?) onChanged) {
+    // Asegurar que value esté en options para evitar error de Dropdown
+    final effectiveValue = options.contains(value) ? value : options.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: effectiveValue,
           items: options.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: onChanged,
           decoration: _inputStyle(''),

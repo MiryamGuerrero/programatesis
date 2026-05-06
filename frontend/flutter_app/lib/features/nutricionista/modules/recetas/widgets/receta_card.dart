@@ -39,7 +39,7 @@ class RecetaCard extends StatelessWidget {
           // Sección 2: Cuerpo de Información
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -65,7 +65,7 @@ class RecetaCard extends StatelessWidget {
                   ),
                   
                   // Fila 2: Categoría
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     (receta['categoria'] ?? 'General').toString().toUpperCase(),
                     style: GoogleFonts.montserrat(
@@ -76,7 +76,7 @@ class RecetaCard extends StatelessWidget {
                   ),
                   
                   // Fila 3: Descripción
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     receta['descripcion'] ?? 'Sin descripción disponible.',
                     style: GoogleFonts.montserrat(
@@ -100,7 +100,7 @@ class RecetaCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   
                   // Fila 4: Metadatos de Preparación
                   Row(
@@ -117,7 +117,7 @@ class RecetaCard extends StatelessWidget {
                     ],
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 ],
               ),
