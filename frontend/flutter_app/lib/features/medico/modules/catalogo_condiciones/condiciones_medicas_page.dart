@@ -28,7 +28,7 @@ class _CondicionesMedicasPageState
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final response = await _dio.get("condiciones-medicas");
+      final response = await _dio.get("catalogos/condiciones");
       setState(() {
         _conditions = response.data as List;
         _loading = false;
@@ -59,7 +59,7 @@ class _CondicionesMedicasPageState
     if (confirm != true) return;
 
     try {
-      await _dio.delete("condiciones-medicas/$id");
+      await _dio.delete("catalogos/condiciones/$id");
       _loadData();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al eliminar")));
@@ -187,7 +187,7 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
     final c = widget.initialCondition;
     _nombreController = TextEditingController(text: c?["nombre"]);
     _descripcionController = TextEditingController(text: c?["descripcion"]);
-    _idTipo = c?["id_tipo_condicion"] ?? 1; // 1: CLINICA por defecto
+    _idTipo = c?["id_tipo"] ?? c?["id_tipo_condicion"] ?? 1; // 1: CLINICA por defecto
     _activa = c?["activa"] ?? true;
   }
 
@@ -196,18 +196,24 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
     
     setState(() => _saving = true);
     try {
-      final dio = ref.read(dioProvider);
-      final payload = {
-        "nombre": _nombreController.text,
-        "descripcion": _descripcionController.text,
-        "id_tipo_condicion": _idTipo,
-        "activa": _activa,
-      };
-
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      
       if (widget.initialCondition != null) {
-        await dio.put("condiciones-medicas/${widget.initialCondition!['id']}", data: payload);
+        await repo.updateCondition(
+          idCondicion: widget.initialCondition!['id'],
+          nombre: _nombreController.text,
+          idTipoCondicion: _idTipo,
+          activa: _activa,
+          descripcion: _descripcionController.text,
+          codigo: widget.initialCondition!['codigo'],
+        );
       } else {
-        await dio.post("condiciones-medicas", data: payload);
+        await repo.createCondition(
+          nombre: _nombreController.text,
+          idTipoCondicion: _idTipo,
+          activa: _activa,
+          descripcion: _descripcionController.text,
+        );
       }
       widget.onSaved();
     } catch (e) {

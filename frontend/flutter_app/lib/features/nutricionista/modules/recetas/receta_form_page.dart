@@ -245,7 +245,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _buildDropdown('Categoría *', ['Almuerzo', 'Desayuno', 'Cena', 'Snack', 'Bebida'], _categoria, (v) => setState(() => _categoria = v!))),
+              Expanded(child: _buildDropdown('Categoría *', ['Desayuno', 'Media mañana', 'Almuerzo', 'Media tarde', 'Merienda', 'Cena', 'Snack', 'Bebida'], _categoria, (v) => setState(() => _categoria = v!))),
               const SizedBox(width: 20),
               Expanded(child: _buildDropdown('Dificultad *', ['Fácil', 'Media', 'Difícil'], _dificultad, (v) => setState(() => _dificultad = v!))),
             ],

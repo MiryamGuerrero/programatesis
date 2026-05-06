@@ -182,10 +182,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       setState(() {
         _parentescos = rP.data;
         _sexos = rS.data;
-        _patologias = (rPa.data as List).where((e) => e['id_tipo_condicion'] == 1).toList();
+        _patologias = (rPa.data as List).where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1).toList();
         _subgrupos = rSg.data;
         _ingredientes = rIn.data;
-        _condicionesTemporalesCat = (rCt.data as List).where((e) => e['id_tipo_condicion'] == 2).toList();
+        _condicionesTemporalesCat = (rCt.data as List).where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2).toList();
         _cantones = rCan.data;
         _parroquiasCat = rPar.data;
         
@@ -944,17 +944,111 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Widget _buildSintomasAgudosGrid() {
-    return Column(children: _condicionesTemporalesCat.map<Widget>((c) {
-      final id = c['id'] as int; final index = _condicionesTemp.indexWhere((s) => s['id'] == id); final sel = index != -1;
-      return Container(margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: sel ? greenBrand.withOpacity(0.03) : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: sel ? greenBrand.withOpacity(0.2) : Colors.grey.shade100)), 
-        child: ExpansionTile(key: Key("temp_$id"), initiallyExpanded: sel, shape: const Border(), leading: Checkbox(activeColor: greenBrand, value: sel, onChanged: (v) async { if (v!) { final ini = DateTime.now(); final dur = c['dias_duracion_estandar'] ?? 7; setState(() { _condicionesTemp.add({"id": id, "nombre": c['nombre'], "fecha_inicio": ini.toIso8601String().split('T')[0], "fecha_fin": ini.add(Duration(days: dur)).toIso8601String().split('T')[0]}); }); _pickTempDate(index == -1 ? _condicionesTemp.length - 1 : index, true); } else { setState(() => _condicionesTemp.removeAt(index)); } }), title: Text(c['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), children: sel ? [Padding(padding: const EdgeInsets.all(12), child: Row(children: [Expanded(child: _datePickerSmall("Desde", _condicionesTemp[index]['fecha_inicio'], (d) { setState(() { _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0]; final dur = c['dias_duracion_estandar'] ?? 7; _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: dur)).toIso8601String().split('T')[0]; }); })), const SizedBox(width: 12), Expanded(child: _datePickerSmall("Hasta", _condicionesTemp[index]['fecha_fin'], (d) => setState(() => _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0])))]))] : []));
-    }).toList());
+    if (_condicionesTemporalesCat.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: _condicionesTemporalesCat.map<Widget>((c) {
+        final id = c['id'] as int;
+        final index = _condicionesTemp.indexWhere((s) => s['id'] == id);
+        final sel = index != -1;
+        final duracionSugerida = c['duracion_dias_sugerida'] ?? 7;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: sel ? greenBrand.withOpacity(0.02) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: sel ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0)),
+          ),
+          child: ExpansionTile(
+            key: Key("temp_$id"),
+            initiallyExpanded: sel,
+            shape: const Border(),
+            leading: Checkbox(
+              activeColor: greenBrand,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              value: sel,
+              onChanged: (v) {
+                if (v == true) {
+                  final ini = DateTime.now();
+                  setState(() {
+                    _condicionesTemp.add({
+                      "id": id,
+                      "nombre": c['nombre'],
+                      "fecha_inicio": ini.toIso8601String().split('T')[0],
+                      "fecha_fin": ini.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0]
+                    });
+                  });
+                } else {
+                  setState(() => _condicionesTemp.removeAt(index));
+                }
+              },
+            ),
+            title: Text(
+              c['nombre'],
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
+                color: sel ? greenBrand : const Color(0xFF1E293B),
+              ),
+            ),
+            subtitle: Text(
+              sel ? "Activa por $duracionSugerida días sugeridos" : "Sugerencia: $duracionSugerida días",
+              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+            ),
+            children: sel
+                ? [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _datePickerSmall("FECHA INICIO", _condicionesTemp[index]['fecha_inicio'], (d) {
+                              setState(() {
+                                _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0];
+                                _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0];
+                              });
+                            }),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _datePickerSmall("FECHA FIN ESTIMADA", _condicionesTemp[index]['fecha_fin'], (d) {
+                              setState(() {
+                                _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0];
+                              });
+                            }),
+                          ),
+                        ],
+                      ),
+                    )
+                  ]
+                : [],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Future<void> _pickTempDate(int index, bool isStart) async {
     final current = DateTime.parse(isStart ? _condicionesTemp[index]['fecha_inicio'] : _condicionesTemp[index]['fecha_fin']);
-    final d = await showDatePicker(context: context, initialDate: current, firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now().add(const Duration(days: 60)));
-    if (d != null) { setState(() { if (isStart) { _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0]; final dur = _condicionesTemporalesCat.firstWhere((e) => e['id'] == _condicionesTemp[index]['id'])['dias_duracion_estandar'] ?? 7; _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: dur)).toIso8601String().split('T')[0]; } else { _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0]; } }); }
+    final d = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 60)),
+    );
+    if (d != null) {
+      final c = _condicionesTemporalesCat.firstWhere((e) => e['id'] == _condicionesTemp[index]['id']);
+      final dur = c['duracion_dias_sugerida'] ?? 7;
+      setState(() {
+        if (isStart) {
+          _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0];
+          _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: dur)).toIso8601String().split('T')[0];
+        } else {
+          _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0];
+        }
+      });
+    }
   }
 
   Widget _datePickerSmall(String l, String v, Function(DateTime) onP) => InkWell(onTap: () async { final d = await showDatePicker(context: context, initialDate: DateTime.parse(v), firstDate: DateTime.now().subtract(const Duration(days: 60)), lastDate: DateTime.now().add(const Duration(days: 60))); if (d != null) onP(d); }, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade200)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 8, color: Colors.grey)), Text(v, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))])));

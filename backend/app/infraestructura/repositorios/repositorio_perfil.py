@@ -1,4 +1,6 @@
 from typing import Optional, Dict, Any, List
+import re
+import time
 from .base import RepositorioBasePostgres
 from ...domain.repositorios.interfaces import IRepositorioPerfil
 from ...domain.modelos.usuario import PerfilUsuario
@@ -158,23 +160,142 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             cur.execute(sql, list(items.values()) + [user_id, user_id])
             return cur.rowcount > 0
 
-    def obtener_catalogo(self, esquema: str, tabla: str) -> List[dict]:
+    def obtener_catalogo(self, esquema: str, tabla: str, filtro_tipos: List[int] = None) -> List[dict]:
         esquemas_permitidos = {"usuarios", "nutricion", "clinico", "seguridad", "heuristico"}
         if esquema not in esquemas_permitidos: raise ValueError(f"Esquema {esquema} no permitido")
-        sql = f"select * from {esquema}.{tabla}"
-        return self.ejecutar_consulta(sql)
+        
+        # Especial para tabla condicion: asegurar que el frontend reciba el nombre de campo que espera
+        if esquema == "heuristico" and tabla == "condicion":
+            sql = "select *, dias_duracion_estandar as duracion_dias_sugerida from heuristico.condicion"
+        else:
+            sql = f"select * from {esquema}.{tabla}"
+            
+        params = []
+        
+        if filtro_tipos and tabla == "condicion":
+            sql += " where id_tipo_condicion = any(%s)"
+            params.append(filtro_tipos)
+            
+        return self.ejecutar_consulta(sql, params)
 
     # --- GESTIÓN DE CONDICIONES (PATOLOGÍAS/TEMPORALES) ---
     def crear_condicion(self, datos: dict) -> int:
+        nombre = datos.get("nombre")
+        if not nombre:
+            raise ValueError("El nombre de la condición es requerido")
+            
+        descripcion = datos.get("descripcion", "")
+        
+        # Obtener id_tipo de forma segura
+        id_tipo_raw = datos.get("id_tipo_condicion") or datos.get("id_tipo")
+        try:
+            id_tipo = int(id_tipo_raw) if id_tipo_raw is not None and str(id_tipo_raw).strip() != "" else None
+        except (ValueError, TypeError):
+            id_tipo = None
+            
+        if not id_tipo:
+            raise ValueError("El tipo de condición es requerido y debe ser un número")
+            
+        # Priorizar duracion_dias_sugerida (usado por el frontend)
+        duracion_raw = datos.get("duracion_dias_sugerida")
+        if duracion_raw is None or str(duracion_raw).strip() == "":
+            duracion_raw = datos.get("dias_duracion_estandar")
+            
+        # Convertir duracion a int o None de forma segura
+        try:
+            duracion = int(duracion_raw) if duracion_raw is not None and str(duracion_raw).strip() != "" else None
+        except (ValueError, TypeError):
+            duracion = None
+            
+        # Si no es temporal (id=2), forzar duración a null
+        if id_tipo != 2:
+            duracion = None
+            
+        activa = datos.get("activa")
+        if activa is None:
+            activa = True
+        else:
+            activa = str(activa).lower() == 'true' or activa is True
+
+        # Generar indicador_codigo automáticamente (ej: "diarrea_aguda")
+        indicador = re.sub(r'[^a-z0-9_]', '', nombre.lower().replace(" ", "_"))
+        if not indicador:
+            indicador = f"condicion_{int(time.time())}"
+        
+        # Limitar longitud para seguridad (BD tiene 100 ahora)
+        indicador = indicador[:90]
+        
+        # Verificar si ya existe el indicador para evitar conflicto
+        existente = self.ejecutar_uno("select id from heuristico.condicion where indicador_codigo = %s", (indicador,))
+        if existente:
+            indicador = f"{indicador[:80]}_{int(time.time())}"
+
         sql = """
-            insert into heuristico.condicion (nombre, descripcion, id_tipo_condicion, activa)
-            values (%s, %s, %s, true) returning id
+            insert into heuristico.condicion (nombre, descripcion, id_tipo_condicion, activa, dias_duracion_estandar, indicador_codigo)
+            values (%s, %s, %s, %s, %s, %s) returning id
         """
-        return self.ejecutar_comando(sql, (datos["nombre"], datos["descripcion"], datos["id_tipo_condicion"]))
+        try:
+            return self.ejecutar_comando(sql, (
+                nombre, 
+                descripcion, 
+                id_tipo,
+                activa,
+                duracion,
+                indicador
+            ))
+        except Exception as e:
+            # Si hay un error de base de datos, lo relanzamos con un mensaje más claro
+            raise ValueError(f"Error de base de datos al crear condición: {str(e)}")
 
     def actualizar_condicion(self, id_condicion: int, datos: dict) -> bool:
-        sql = "update heuristico.condicion set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s where id = %s"
-        return self.ejecutar_comando(sql, (datos["nombre"], datos["descripcion"], datos["id_tipo_condicion"], datos.get("activa", True), id_condicion))
+        nombre = datos.get("nombre")
+        
+        id_tipo_raw = datos.get("id_tipo_condicion") or datos.get("id_tipo")
+        try:
+            id_tipo = int(id_tipo_raw) if id_tipo_raw is not None and str(id_tipo_raw).strip() != "" else None
+        except (ValueError, TypeError):
+            id_tipo = None
+            
+        if not nombre or not id_tipo:
+            raise ValueError("Nombre e id_tipo_condicion son requeridos")
+
+        duracion_raw = datos.get("duracion_dias_sugerida")
+        if duracion_raw is None or str(duracion_raw).strip() == "":
+            duracion_raw = datos.get("dias_duracion_estandar")
+            
+        try:
+            duracion = int(duracion_raw) if duracion_raw is not None and str(duracion_raw).strip() != "" else None
+        except (ValueError, TypeError):
+            duracion = None
+            
+        # Si no es temporal (id=2), forzar duración a null
+        if id_tipo != 2:
+            duracion = None
+
+        activa = datos.get("activa")
+        if activa is None:
+            activa = True
+        else:
+            activa = str(activa).lower() == 'true' or activa is True
+
+        sql = """
+            update heuristico.condicion 
+            set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s, dias_duracion_estandar = %s 
+            where id = %s
+            returning id
+        """
+        try:
+            res = self.ejecutar_comando(sql, (
+                nombre, 
+                datos.get("descripcion", ""), 
+                id_tipo, 
+                activa, 
+                duracion,
+                id_condicion
+            ))
+            return res is not None
+        except Exception as e:
+            raise ValueError(f"Error de base de datos al actualizar condición: {str(e)}")
 
     def eliminar_condicion(self, id_condicion: int) -> bool:
         sql = "delete from heuristico.condicion where id = %s"

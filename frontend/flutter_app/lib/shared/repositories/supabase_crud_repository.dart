@@ -102,18 +102,52 @@ class SupabaseCrudRepository {
     await _dio.put("crud/condition-types/$idTipoCondicion", data: data, options: _authorizedOptions());
   }
 
-  Future<void> createCondition({String? codigo, required String nombre, required int idTipoCondicion, String? descripcion, bool activa = true}) async {
-    await _dio.post("crud/conditions", data: {"codigo": codigo, "nombre": nombre, "id_tipo": idTipoCondicion, "descripcion": descripcion, "activa": activa}, options: _authorizedOptions());
+  Future<void> createCondition({
+    String? codigo, 
+    required String nombre, 
+    required int idTipoCondicion, 
+    String? descripcion, 
+    bool activa = true,
+    int? duracionDiasSugerida,
+  }) async {
+    final Map<String, dynamic> data = {
+      "nombre": nombre, 
+      "id_tipo": idTipoCondicion, 
+      "id_tipo_condicion": idTipoCondicion, 
+      "descripcion": descripcion, 
+      "activa": activa,
+      "duracion_dias_sugerida": idTipoCondicion == 2 ? duracionDiasSugerida : null,
+    };
+    if (codigo != null) data["codigo"] = codigo;
+    
+    await _dio.post("catalogos/condiciones", data: data, options: _authorizedOptions());
   }
 
-  Future<void> updateCondition({required int idCondicion, String? codigo, String? nombre, int? idTipoCondicion, bool? activa, String? descripcion}) async {
-    final data = <String, dynamic>{};
+  Future<void> updateCondition({
+    required int idCondicion, 
+    String? codigo, 
+    required String nombre, 
+    required int idTipoCondicion, 
+    required bool activa, 
+    String? descripcion,
+    int? duracionDiasSugerida,
+  }) async {
+    final Map<String, dynamic> data = {
+      "nombre": nombre,
+      "id_tipo": idTipoCondicion,
+      "id_tipo_condicion": idTipoCondicion,
+      "activa": activa,
+      "descripcion": descripcion,
+    };
+    
     if (codigo != null) data["codigo"] = codigo;
-    if (nombre != null) data["nombre"] = nombre;
-    if (idTipoCondicion != null) data["id_tipo"] = idTipoCondicion;
-    if (activa != null) data["activa"] = activa;
-    if (descripcion != null) data["descripcion"] = descripcion;
-    await _dio.put("crud/conditions/$idCondicion", data: data, options: _authorizedOptions());
+    if (idTipoCondicion == 2) {
+      data["duracion_dias_sugerida"] = duracionDiasSugerida;
+    } else {
+      data["duracion_dias_sugerida"] = null;
+    }
+    
+    await _dio.put("catalogos/condiciones/$idCondicion", data: data, options: _authorizedOptions());
   }
 
   // --- CLÍNICO: PACIENTES Y TUTORES ---
