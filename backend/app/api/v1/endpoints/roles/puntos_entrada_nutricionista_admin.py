@@ -50,14 +50,6 @@ class LabelCreateRequest(BaseModel):
     nombre_visible: str
     descripcion: str | None = None
 
-class SubstituteCreateRequest(BaseModel):
-    id: int | None = None
-    id_ingrediente_original: int
-    id_ingrediente_reemplazo: int
-    ratio_conversion: float = 1.0
-    mensaje_aviso: str | None = None
-    activo: bool = True
-
 # --- ENDPOINTS INGREDIENTES ---
 
 @router.post("/ingredientes")
@@ -203,89 +195,4 @@ def remove_label_from_ingredient(
             "delete from nutricion.ingrediente_etiqueta where id_ingrediente = %s and id_etiqueta = %s",
             (id_ingrediente, id_etiqueta)
         )
-        return {"success": True}
-
-# --- ENDPOINTS SUSTITUTOS ---
-
-@router.get("/sustitutos")
-def list_substitutes(
-    q: str | None = Query(default=None),
-    id_original: int | None = Query(default=None),
-    limit: int = Query(default=200, ge=1, le=500),
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> list[dict[str, Any]]:
-    with db_cursor() as cur:
-        sql = """
-            select 
-                s.id, s.id_ingrediente_original, s.id_ingrediente_reemplazo,
-                s.ratio_conversion, s.mensaje_aviso, s.activo,
-                i1.nombre as nombre_original,
-                i2.nombre as nombre_reemplazo
-            from nutricion.sustituto_ingrediente s
-            join nutricion.ingrediente i1 on i1.id = s.id_ingrediente_original
-            join nutricion.ingrediente i2 on i2.id = s.id_ingrediente_reemplazo
-        """
-        params: list[Any] = []
-        where_clauses = []
-        if q and q.strip():
-            where_clauses.append("(i1.nombre ilike %s or i2.nombre ilike %s)")
-            search_pattern = f"%{q.strip()}%"
-            params.extend([search_pattern, search_pattern])
-        
-        if id_original:
-            where_clauses.append("s.id_ingrediente_original = %s")
-            params.append(id_original)
-
-        if where_clauses:
-            sql += " where " + " and ".join(where_clauses)
-        
-        sql += " order by i1.nombre, i2.nombre limit %s"
-        params.append(limit)
-        
-        cur.execute(sql, tuple(params))
-        columns = [desc[0] for desc in cur.description]
-        return [dict(zip(columns, row)) for row in cur.fetchall()]
-
-@router.post("/sustitutos")
-def upsert_substitute(
-    payload: SubstituteCreateRequest,
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    with db_cursor() as cur:
-        if payload.id:
-            cur.execute(
-                """
-                update nutricion.sustituto_ingrediente set
-                    id_ingrediente_original = %s,
-                    id_ingrediente_reemplazo = %s,
-                    ratio_conversion = %s,
-                    mensaje_aviso = %s,
-                    activo = %s
-                where id = %s
-                """,
-                (payload.id_ingrediente_original, payload.id_ingrediente_reemplazo,
-                 payload.ratio_conversion, payload.mensaje_aviso, payload.activo, payload.id)
-            )
-            return {"id": payload.id, "message": "Sustituto actualizado"}
-        else:
-            cur.execute(
-                """
-                insert into nutricion.sustituto_ingrediente (
-                    id_ingrediente_original, id_ingrediente_reemplazo,
-                    ratio_conversion, mensaje_aviso, activo
-                ) values (%s, %s, %s, %s, %s)
-                returning id
-                """,
-                (payload.id_ingrediente_original, payload.id_ingrediente_reemplazo,
-                 payload.ratio_conversion, payload.mensaje_aviso, payload.activo)
-            )
-            return {"id": cur.fetchone()[0], "message": "Sustituto creado"}
-
-@router.delete("/sustitutos/{id_sustituto}")
-def delete_substitute(
-    id_sustituto: int,
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    with db_cursor() as cur:
-        cur.execute("delete from nutricion.sustituto_ingrediente where id = %s", (id_sustituto,))
         return {"success": True}

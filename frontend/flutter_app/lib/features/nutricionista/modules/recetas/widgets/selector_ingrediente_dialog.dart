@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/state/app_providers.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/layout_components.dart';
-import '../../sustitutos/widgets/gestion_sustitutos_dialog.dart';
 
 class SelectorIngredienteDialog extends ConsumerStatefulWidget {
   const SelectorIngredienteDialog({super.key});
@@ -206,26 +205,6 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
               ),
               const SizedBox(height: 16),
               _buildConfigInput('Peso Técnico en Gramos (g)', _ctrlGramos, true),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => GestionSustitutosDialog(
-                      idIngredienteOriginal: _ingredienteEnConfig!['id'],
-                      nombreIngredienteOriginal: _ingredienteEnConfig!['nombre'],
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: const Text('GESTIONAR SUSTITUTOS'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTema.azulPrincipal,
-                  side: const BorderSide(color: AppTema.azulPrincipal),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,

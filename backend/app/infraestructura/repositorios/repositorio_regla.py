@@ -35,7 +35,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             
             return reglas
 
-    def listar_reglas_detalladas(self) -> List[dict]:
+    def listar_reglas_detalladas(self, tipos_condicion: List[int] = [1, 2]) -> List[dict]:
         with db_cursor() as cur:
             sql = """
                 select 
@@ -57,11 +57,11 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
                 left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
                 left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
-                where c.id_tipo_condicion in (1, 2)
+                where c.id_tipo_condicion = ANY(%s)
                 group by r.id, a.codigo, t.codigo, i.nombre, g.nombre, s.nombre, e.nombre_visible
             """
             try:
-                cur.execute(sql)
+                cur.execute(sql, (tipos_condicion,))
                 columnas = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
                 return [dict(zip(columnas, row)) for row in rows]
@@ -71,18 +71,22 @@ class RepositorioReglaPostgres(IRepositorioRegla):
 
     def guardar_regla(self, data: dict) -> int:
         with db_cursor() as cur:
+            # Determinar origen basado en el tipo de condiciones enviadas (opcional) o por parámetro
+            origen = data.get("origen_regla", "CLINICA")
+            
             # 1. Insertar la regla base
             sql_regla = """
                 insert into heuristico.regla (
                     id_accion, id_tipo_objetivo, mensaje_error, es_estricta,
                     id_ingrediente, id_grupo_alimentario, id_subgrupo_alimentario, id_etiqueta,
                     origen_regla
-                ) values (%s, %s, %s, %s, %s, %s, %s, %s, 'CLINICA')
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning id
             """
             cur.execute(sql_regla, (
                 data["id_accion"], data["id_tipo_objetivo"], data.get("mensaje_error"), data.get("es_estricta", False),
-                data.get("id_ingrediente"), data.get("id_grupo_alimentario"), data.get("id_subgrupo_alimentario"), data.get("id_etiqueta")
+                data.get("id_ingrediente"), data.get("id_grupo_alimentario"), data.get("id_subgrupo_alimentario"), data.get("id_etiqueta"),
+                origen
             ))
             id_regla = cur.fetchone()[0]
 
@@ -106,12 +110,14 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             sql = """
                 update heuristico.regla set
                     id_accion = %s, id_tipo_objetivo = %s, mensaje_error = %s, es_estricta = %s,
-                    id_ingrediente = %s, id_grupo_alimentario = %s, id_subgrupo_alimentario = %s, id_etiqueta = %s
+                    id_ingrediente = %s, id_grupo_alimentario = %s, id_subgrupo_alimentario = %s, id_etiqueta = %s,
+                    origen_regla = COALESCE(%s, origen_regla)
                 where id = %s
             """
             cur.execute(sql, (
                 data["id_accion"], data["id_tipo_objetivo"], data.get("mensaje_error"), data.get("es_estricta", False),
                 data.get("id_ingrediente"), data.get("id_grupo_alimentario"), data.get("id_subgrupo_alimentario"), data.get("id_etiqueta"),
+                data.get("origen_regla"),
                 id_regla
             ))
 

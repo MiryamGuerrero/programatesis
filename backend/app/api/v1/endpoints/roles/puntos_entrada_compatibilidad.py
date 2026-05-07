@@ -37,16 +37,62 @@ def gestion_pacientes_buscar_compat(q: str = Query(default="")):
 def reglas_nutricionales_compat(
     _=Depends(require_roles("admin", "nutricionista"))
 ):
-    return []
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    # Filtramos para que el nutricionista solo vea condiciones Nutricionales (3)
+    return repo.listar_reglas_detalladas(tipos_condicion=[3])
 
 @router.get("/reglas-nutricionales/form-data")
-def reglas_form_data_compat():
+def reglas_form_data_compat(
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
+    # Solo Nutricionales (3)
     return {
-        "condiciones": [],
-        "acciones": [{"id": "ELIMINAR", "nombre": "Eliminar"}],
-        "objetivos": [{"id": "INGREDIENTE", "nombre": "Ingrediente"}]
+        "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3]),
+        "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
+        "objetivos": repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla"),
+        "ingredientes": repo.obtener_catalogo("nutricion", "ingrediente"),
+        "grupos": repo.obtener_catalogo("nutricion", "grupo_alimentario"),
+        "subgrupos": repo.obtener_catalogo("nutricion", "subgrupo_alimentario"),
+        "etiquetas": repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
     }
+
+@router.post("/reglas-nutricionales")
+def guardar_nueva_regla_nutri(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    # Forzamos el origen como NUTRICIONAL
+    payload["origen_regla"] = "NUTRICIONAL"
+    id_regla = repo.guardar_regla(payload)
+    return {"id": id_regla, "success": True}
+
+@router.put("/reglas-nutricionales/{id_regla}")
+def actualizar_regla_nutri(
+    id_regla: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    # Mantenemos el origen como NUTRICIONAL en las actualizaciones
+    payload["origen_regla"] = "NUTRICIONAL"
+    exito = repo.actualizar_regla(id_regla, payload)
+    return {"success": exito}
+
+@router.delete("/reglas-nutricionales/{id_regla}")
+def eliminar_regla_nutri(
+    id_regla: int,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    repo.eliminar_regla(id_regla)
+    return {"success": True}
 
 @router.get("/ingredientes-lista")
 def ingredientes_lista_compat(
@@ -146,10 +192,46 @@ def guardar_plan_manual(
     return {"success": True, "message": "Plan activado"}
 
 @router.get("/condiciones-nutricionales")
-def condiciones_nutricionales_compat():
+def condiciones_nutricionales_compat(
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    sql = "select * from heuristico.condicion where id_tipo_condicion = 3 and activa = true"
-    return repo.ejecutar_consulta(sql)
+    # Traemos las condiciones nutricionales (tipo 3)
+    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+
+@router.post("/condiciones-nutricionales")
+def crear_condicion_nutri(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    # Forzar id_tipo_condicion = 3 para nutricionistas
+    payload["id_tipo_condicion"] = 3
+    id_c = repo.crear_condicion(payload)
+    return {"id": id_c, "success": True}
+
+@router.put("/condiciones-nutricionales/{id_condicion}")
+def actualizar_condicion_nutri(
+    id_condicion: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    exito = repo.actualizar_condicion(id_condicion, payload)
+    return {"success": exito}
+
+@router.delete("/condiciones-nutricionales/{id_condicion}")
+def eliminar_condicion_nutri(
+    id_condicion: int,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    exito = repo.eliminar_condicion(id_condicion)
+    return {"success": exito}
 
 @router.get("/ingredientes")
 def listar_ingredientes_compat(

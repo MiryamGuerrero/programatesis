@@ -9,7 +9,6 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/services/recipe_image_service.dart';
 import 'widgets/selector_ingrediente_dialog.dart';
-import '../sustitutos/widgets/gestion_sustitutos_dialog.dart';
 
 class RecetaFormPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? recetaInicial;
@@ -595,10 +594,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       child: Row(
         children: [
           const SizedBox(width: 40), // Espacio para el drag handle
-          Expanded(flex: 4, child: Text('Ingrediente', style: _headerStyle())),
+          Expanded(flex: 3, child: Text('Ingrediente', style: _headerStyle())),
           Expanded(flex: 2, child: Text('Cantidad', style: _headerStyle())),
           Expanded(flex: 2, child: Text('Unidad', style: _headerStyle())),
           Expanded(flex: 2, child: Text('Gramos', style: _headerStyle())),
+          Expanded(flex: 2, child: Center(child: Text('Principal', style: _headerStyle()))),
           SizedBox(width: 80, child: Center(child: Text('Acciones', style: _headerStyle()))),
         ],
       ),
@@ -626,31 +626,29 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
               child: Icon(Icons.drag_indicator_rounded, color: Colors.grey, size: 20),
             ),
           ),
-          Expanded(flex: 4, child: Text(ing['nombre'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text(ing['nombre'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
           Expanded(flex: 2, child: _buildRowInput(index, 'cantidad')),
           Expanded(flex: 2, child: _buildRowInput(index, 'unidad')),
           Expanded(flex: 2, child: _buildRowInput(index, 'gramos', isNumber: true)),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Switch(
+                value: ing['es_principal'] == true,
+                activeColor: AppTema.verdeSalud,
+                onChanged: (v) {
+                  setState(() {
+                    _ingredientes[index]['es_principal'] = v;
+                  });
+                },
+              ),
+            ),
+          ),
           SizedBox(
             width: 80,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.swap_horiz_rounded, color: AppTema.azulPrincipal, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => GestionSustitutosDialog(
-                        idIngredienteOriginal: ing['id_ingrediente'] ?? ing['id'],
-                        nombreIngredienteOriginal: ing['nombre'] ?? '-',
-                      ),
-                    );
-                  },
-                  tooltip: 'Gestionar Sustitutos',
-                ),
-                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18),
                   padding: EdgeInsets.zero,
