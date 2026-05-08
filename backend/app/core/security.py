@@ -52,7 +52,7 @@ def _normalize_role(raw_role: str | None) -> str | None:
 
 def _get_role_from_user_table(user_id: str, email: str | None) -> str | None:
     sql_by_id = """
-        select upper(r.codigo::text)
+        select r.nombre
         from usuarios.usuario u
         inner join usuarios.rol r on r.id = u.id_rol
         where u.id::text = %s
@@ -60,7 +60,7 @@ def _get_role_from_user_table(user_id: str, email: str | None) -> str | None:
         limit 1
     """
     sql_by_email = """
-        select upper(r.codigo::text)
+        select r.nombre
         from usuarios.usuario u
         inner join usuarios.rol r on r.id = u.id_rol
         where lower(u.email) = lower(%s)

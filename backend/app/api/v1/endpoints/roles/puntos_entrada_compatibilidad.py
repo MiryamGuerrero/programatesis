@@ -13,7 +13,7 @@ router = APIRouter(tags=["Compatibilidad"])
 @router.get("/etiquetas-lista")
 def etiquetas_lista_compat(
     caso_uso: CasoUsoGestionarCatalogos = Depends(obtener_caso_uso_gestionar_catalogos),
-    _=Depends(require_roles("admin", "nutricionista"))
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     return caso_uso.obtener_maestro("nutricion", "etiqueta_nutricional")
 

@@ -9,7 +9,7 @@ from ...core.supabase_client import get_supabase_admin_client
 class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
     def obtener_por_auth_id(self, auth_id: str) -> Optional[PerfilUsuario]:
         sql = """
-            select u.id, u.email, u.nombre_completo, r.nombre as rol_nombre, r.codigo as rol_codigo,
+            select u.id, u.email, u.nombre_completo, u.username, r.nombre as rol_nombre,
                    u.cedula, u.telefono, u.direccion
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
@@ -23,9 +23,10 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         return PerfilUsuario(
             id=str(datos["id"]),
             nombre_completo=datos["nombre_completo"],
+            username=datos.get("username"),
             email=datos["email"],
             rol_nombre=datos["rol_nombre"],
-            rol_codigo=datos["rol_codigo"],
+            rol_codigo="", # Eliminado de DB
             cedula=datos.get("cedula"),
             telefono=datos.get("telefono"),
             direccion=datos.get("direccion")
@@ -47,7 +48,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
     # --- Métodos de compatibilidad (Legacy) ---
     def obtener_perfil_usuario(self, user_id: str) -> Optional[Dict[str, Any]]:
         sql = """
-            select u.id, u.email, u.nombre_completo, u.cedula, r.nombre as rol_nombre, r.codigo as rol_codigo, u.id_rol, u.telefono, u.direccion
+            select u.id, u.email, u.nombre_completo, u.username, u.cedula, r.nombre as rol_nombre, u.id_rol, u.telefono, u.direccion, u.activo
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
             where u.auth_user_id::text = %s or u.id::text = %s
@@ -62,8 +63,8 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
     def listar_usuarios(self) -> List[dict]:
         sql = """
             select 
-                u.id, u.cedula, u.email, u.nombre_completo, 
-                r.nombre as rol_nombre, r.codigo as rol_codigo,
+                u.id, u.cedula, u.email, u.nombre_completo, u.username,
+                r.nombre as rol_nombre,
                 u.id_rol, u.activo, u.telefono, u.direccion
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
@@ -75,18 +76,19 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         email = datos["email"].lower().strip()
         password = datos["password"]
         
-        res_rol = self.ejecutar_uno("select codigo from usuarios.rol where id = %s", (datos["id_rol"],))
-        rol_code = res_rol["codigo"] if res_rol else "tutor"
+        res_rol = self.ejecutar_uno("select nombre from usuarios.rol where id = %s", (datos["id_rol"],))
+        rol_name = res_rol["nombre"].lower() if res_rol else "tutor"
 
         admin_client = get_supabase_admin_client()
         auth_response = admin_client.auth.admin.create_user({
             "email": email,
             "password": password,
             "email_confirm": True,
-            "user_metadata": {"full_name": datos["nombre_completo"], "role": rol_code},
-            "app_metadata": {"role": rol_code}
+            "user_metadata": {"full_name": datos["nombre_completo"], "role": rol_name},
+            "app_metadata": {"role": rol_name}
         })
         auth_user_id = auth_response.user.id
+
 
         # Manejo de cédula vacía para evitar UniqueViolation
         cedula = datos.get("cedula")
@@ -144,7 +146,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
 
     def actualizar_usuario(self, user_id: str, datos: dict) -> bool:
         if not datos: return False
-        campos_validos = {"nombre_completo", "cedula", "email", "id_rol", "activo", "telefono", "direccion"}
+        campos_validos = {"nombre_completo", "cedula", "email", "id_rol", "activo", "telefono", "direccion", "username"}
         items = {k: v for k, v in datos.items() if k in campos_validos}
         if not items: return False
         

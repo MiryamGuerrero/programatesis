@@ -6,7 +6,7 @@ class TipoAccion(str, Enum):
     ELIMINAR = "ELIMINAR"
     DISMINUIR = "DISMINUIR"
     PRIORIZAR = "PRIORIZAR"
-    AUMENTAR = "AUMENTAR"
+
 
 class TipoObjetivo(str, Enum):
     INGREDIENTE = "INGREDIENTE"

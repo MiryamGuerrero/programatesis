@@ -148,35 +148,42 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 ))
                 id_receta = cur.fetchone()[0]
 
-            # 2. Sincronizar Ingredientes (Limpiar y Reinsertar es más seguro para prototipos)
+            # 2. Sincronizar Ingredientes (Batch Insert)
             cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,))
-            for ing in datos.get("ingredientes", []):
-                cur.execute("""
+            ingredientes = datos.get("ingredientes", [])
+            if ingredientes:
+                ing_values = [
+                    (id_receta, ing["id_ingrediente"], ing.get("cantidad"), ing.get("unidad"), 
+                     ing.get("gramos", 0), ing.get("es_principal", False), ing.get("observaciones"))
+                    for ing in ingredientes
+                ]
+                cur.executemany("""
                     INSERT INTO nutricion.receta_ingrediente (
                         id_receta, id_ingrediente, cantidad_visual, unidad_visual, 
                         peso_en_gramos, es_principal, observaciones
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    id_receta, ing["id_ingrediente"], ing.get("cantidad"), ing.get("unidad"),
-                    ing.get("gramos", 0), ing.get("es_principal", False), ing.get("observaciones")
-                ))
+                """, ing_values)
 
-            # 3. Sincronizar Pasos
+            # 3. Sincronizar Pasos (Batch Insert)
             cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))
-            for index, paso in enumerate(datos.get("preparacion", []), 1):
-                cur.execute("""
+            pasos = datos.get("preparacion", [])
+            if pasos:
+                paso_values = [
+                    (id_receta, i, p["descripcion"], p.get("tiempo"), p.get("nota"))
+                    for i, p in enumerate(pasos, 1)
+                ]
+                cur.executemany("""
                     INSERT INTO nutricion.receta_paso (
                         id_receta, numero_paso, descripcion, tiempo_estimado, nota_adicional
                     ) VALUES (%s, %s, %s, %s, %s)
-                """, (id_receta, index, paso["descripcion"], paso.get("tiempo"), paso.get("nota")))
+                """, paso_values)
 
-            # 4. Sincronizar Etiquetas
+            # 4. Sincronizar Etiquetas (Batch Insert)
             cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))
-            for etq in datos.get("etiquetas_salud", []):
-                id_etiqueta = etq.get("id")
-                if id_etiqueta:
-                    cur.execute("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s)", 
-                               (id_receta, id_etiqueta))
+            etiquetas = [etq.get("id") for etq in datos.get("etiquetas_salud", []) if etq.get("id")]
+            if etiquetas:
+                etq_values = [(id_receta, eid) for eid in etiquetas]
+                cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s)", etq_values)
 
             return id_receta
 

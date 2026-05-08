@@ -15,14 +15,15 @@ class CasoUsoEvaluarReglasPaciente:
         self.servicio_heuristico = ServicioMotorHeuristico(repo_ingrediente)
 
     def ejecutar(self, id_paciente: str) -> Dict:
-        perfil = self.repo_paciente.obtener_por_id(id_paciente)
-        if not perfil:
-            raise ValueError(f"Paciente {id_paciente} no encontrado")
-
-        reglas_condicion = self.repo_regla.obtener_reglas_por_condiciones(perfil.condiciones_activas)
-        alergias = self.repo_regla.obtener_alergias_por_paciente(id_paciente)
+        # Usamos la nueva función optimizada de base de datos
+        with db_cursor() as cur:
+            cur.execute("SELECT heuristico.evaluar_reglas_completas_paciente(%s)", (id_paciente,))
+            resultado = cur.fetchone()[0]
         
-        todas_reglas = reglas_condicion + alergias
-        perfil.reglas_aplicables = ServicioResolutorConflictos.resolver(todas_reglas)
+        # Obtenemos las reglas originales para trazabilidad (opcional)
+        perfil = self.repo_paciente.obtener_por_id(id_paciente)
+        if perfil:
+            todas_reglas = self.repo_regla.obtener_reglas_por_condiciones(perfil.condiciones_activas)
+            resultado['reglas'] = todas_reglas
 
-        return self.servicio_heuristico.expandir_reglas(perfil)
+        return resultado

@@ -14,6 +14,7 @@ class CreateUserRequest(BaseModel):
     nombre_completo: str
     id_rol: int = Field(gt=0)
     password: str
+    username: Optional[str] = None
     cedula: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
@@ -21,6 +22,7 @@ class CreateUserRequest(BaseModel):
 class UpdateUserRequest(BaseModel):
     email: Optional[str] = None
     nombre_completo: Optional[str] = None
+    username: Optional[str] = None
     id_rol: Optional[int] = None
     activo: Optional[bool] = None
     cedula: Optional[str] = None
@@ -45,22 +47,79 @@ def registrar_usuario(
         return {"id": id_usuario, "message": "Usuario registrado con éxito"}
     except Exception as exc:
         print(f"DEBUG: Error al registrar usuario: {str(exc)}")
-        # Devolvemos el error real para diagnóstico
         raise HTTPException(status_code=400, detail=f"No se pudo crear el usuario: {str(exc)}")
 
 @router.put("/usuarios/{user_id}")
-@router.put("/crud/users/{user_id}") # Alias para compatibilidad con frontend antiguo
+@router.put("/crud/users/{user_id}")
 def actualizar_usuario(
     user_id: str,
     payload: UpdateUserRequest,
     _=Depends(require_roles("admin"))
 ):
-    """Actualiza un usuario (Resuelve el 404 del PUT)."""
     repo = RepositorioPerfilPostgres()
     exito = repo.actualizar_usuario(user_id, payload.model_dump(exclude_none=True))
     if not exito:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"id": user_id, "updated": True}
+
+# --- ENDPOINTS GESTIÓN DE ROLES (ADMIN) ---
+
+@router.get("/roles")
+def listar_roles_admin(
+    _=Depends(require_roles("admin"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute("SELECT id, nombre, descripcion, activo FROM usuarios.rol ORDER BY id")
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+@router.post("/roles")
+def crear_rol_admin(
+    payload: dict,
+    _=Depends(require_roles("admin"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO usuarios.rol (nombre, descripcion, activo) VALUES (%s, %s, %s) RETURNING id",
+            (payload["nombre"], payload.get("descripcion"), payload.get("activo", True))
+        )
+        return {"id": cur.fetchone()[0], "success": True}
+
+
+@router.put("/roles/{rid}")
+def actualizar_rol_admin(
+    rid: int,
+    payload: dict,
+    _=Depends(require_roles("admin"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            "UPDATE usuarios.rol SET nombre = %s, descripcion = %s, activo = %s WHERE id = %s",
+            (payload["nombre"], payload.get("descripcion"), payload.get("activo", True), rid)
+        )
+        return {"success": cur.rowcount > 0}
+
+@router.delete("/roles/{rid}")
+def eliminar_rol_admin(
+    rid: int,
+    _=Depends(require_roles("admin"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM usuarios.rol WHERE id = %s", (rid,))
+        return {"success": cur.rowcount > 0}
+
+@router.get("/maintenance/clean-neutro")
+def clean_neutro_action(
+    _=Depends(require_roles("admin"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM heuristico.catalogo_accion WHERE nombre ILIKE 'neutro'")
+        return {"deleted_rows": cur.rowcount, "success": True}
 
 @router.get("/crud/catalog")
 def obtener_catalogo_maestro(

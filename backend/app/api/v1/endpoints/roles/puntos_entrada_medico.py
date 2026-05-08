@@ -6,6 +6,8 @@ from app.aplicacion.clinica.gestionar_control_clinico import CasoUsoGestionarCon
 from app.aplicacion.clinica.supervisar_adherencia import CasoUsoSupervisarAdherenciaPacientes
 from app.aplicacion.clinica.gestionar_pacientes import CasoUsoGestionarPacientes
 from app.api.v1.dtos.clinico import PreDiagnosticoRequest, PreDiagnosticoResponse
+from app.infraestructura.repositorios.repositorio_clinico import RepositorioClinicoPostgres
+from app.domain.servicios.servicio_oms import ServicioOMS
 
 router = APIRouter(tags=["Medico"])
 
@@ -17,7 +19,6 @@ def pre_diagnostico_nutricional(
 ):
     """Calcula el estado nutricional al instante sin guardar nada."""
     try:
-        from app.domain.servicios.servicio_oms import ServicioOMS
         anios, meses = ServicioOMS.calcular_edad_detallada(payload.fecha_nacimiento)
         
         result = ServicioOMS.evaluar_paciente_integral(
@@ -41,6 +42,29 @@ def pre_diagnostico_nutricional(
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+@router.post("/diagnostico-oms")
+def diagnostico_oms(
+    payload: dict,
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
+):
+    repo = RepositorioClinicoPostgres()
+    res = repo.obtener_datos_referencia_oms(
+        payload["id_sexo"], 
+        payload["edad_meses"], 
+        payload.get("indicador_id", 1)
+    )
+    if not res: return {"error": "No hay referencia"}
+    
+    valor = float(payload["valor"])
+    z_score = ServicioOMS.calcular_z_score(valor, res["l"], res["m"], res["s"])
+    clasif = ServicioOMS.clasificar_zscore(payload.get("indicador_id", 1), z_score)
+    
+    return {
+        "z_score": z_score,
+        "id_condicion": clasif["id"],
+        "diagnostico": clasif["nombre"]
+    }
 
 @router.get("/supervisar-adherencia-pacientes")
 def supervisar_adherencia(
@@ -71,7 +95,6 @@ def evolucion_paciente(
 def listar_todos_los_pacientes(
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    print("DEBUG: Endpoint /pacientes invocado")
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
     return repo.listar_todos_pacientes()
@@ -82,7 +105,6 @@ def eliminar_paciente_clinico(
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico"))
 ):
-    """Elimina un paciente y sus datos clínicos. Limpia tutores huérfanos."""
     exito = caso_uso.eliminar(id_paciente)
     return {"success": exito}
 
@@ -94,12 +116,10 @@ def obtener_tutor_por_cedula(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     res = repo.buscar_tutor_por_cedula(cedula)
-    if not res:
-        return {"existe": False}
-
-    # Aseguramos que retorne el flag de existencia
+    if not res: return {"existe": False}
     res["existe"] = True
     return res
+
 @router.get("/pacientes/{id_paciente}/expediente-completo")
 def obtener_expediente_completo(
     id_paciente: str,
@@ -132,11 +152,9 @@ def actualizar_control_mensual(
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
     try:
-        print(f"DEBUG PUT control {id_control}: payload={payload}")
         exito = repo.actualizar_control_mensual_especifico(id_control, payload)
         return {"success": exito, "message": "Control actualizado correctamente"}
     except Exception as exc:
-        print(f"DEBUG ERROR PUT control: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/pacientes/{id_paciente}/expediente-maestro")
@@ -151,7 +169,6 @@ def actualizar_expediente_maestro(
         exito = repo.actualizar_paciente_integral(id_paciente, payload)
         return {"success": exito, "message": "Expediente actualizado correctamente"}
     except Exception as exc:
-        print(f"DEBUG ERROR ACTUALIZAR: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.post("/registro/paciente-integral")
@@ -159,7 +176,6 @@ def registro_paciente_integral(
     payload: dict,
     user: UserContext = Depends(require_roles("admin", "medico"))
 ):
-    print(f"DEBUG: Endpoint /registro/paciente-integral invocado por {user.user_id}")
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
     try:
@@ -170,7 +186,6 @@ def registro_paciente_integral(
             "temp_password": resultado.get("temp_password")
         }
     except Exception as exc:
-        print(f"DEBUG ERROR: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.post("/registro/tutor-solo")
@@ -184,7 +199,6 @@ def registrar_tutor_solo(
         id_t = repo.registrar_tutor_solo(payload)
         return {"id": id_t, "message": "Tutor registrado exitosamente"}
     except Exception as exc:
-        print(f"DEBUG ERROR: {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
 
 # --- GESTIÓN DE REGLAS MÉDICAS ---
@@ -193,7 +207,6 @@ def registrar_tutor_solo(
 def listar_reglas_medicas(
     _=Depends(require_roles("admin", "medico"))
 ):
-    print("DEBUG: Endpoint /reglas-medicas invocado")
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
     return repo.listar_reglas_detalladas()
@@ -202,10 +215,8 @@ def listar_reglas_medicas(
 def obtener_form_data_reglas(
     _=Depends(require_roles("admin", "medico"))
 ):
-    print("DEBUG: Endpoint /reglas-medicas/form-data invocado")
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    # Filtramos para que el médico solo vea condiciones Clínicas (1) y Temporales (2)
     return {
         "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2]),
         "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
@@ -223,8 +234,7 @@ def guardar_nueva_regla(
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
-    id_regla = repo.guardar_regla(payload)
-    return {"id": id_regla, "success": True}
+    return {"id": repo.guardar_regla(payload), "success": True}
 
 @router.put("/reglas-medicas/{id_regla}")
 def actualizar_regla_medica(
@@ -234,8 +244,7 @@ def actualizar_regla_medica(
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
-    exito = repo.actualizar_regla(id_regla, payload)
-    return {"success": exito}
+    return {"success": repo.actualizar_regla(id_regla, payload)}
 
 @router.delete("/reglas-medicas/{id_regla}")
 def eliminar_regla_medica(
@@ -255,7 +264,6 @@ def listar_condiciones_catalogo(
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    # Solo traemos Clínicas (1) y Temporales (2) para el Médico
     return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2])
 
 @router.get("/catalogos/tipos-condicion")
@@ -274,10 +282,9 @@ def crear_nueva_condicion(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     try:
-        id_c = repo.crear_condicion(payload)
-        return {"id": id_c, "success": True}
+        payload["id_tipo_condicion"] = payload.get("id_tipo") or payload.get("id_tipo_condicion")
+        return {"id": repo.crear_condicion(payload), "success": True}
     except Exception as exc:
-        # Exponemos el detalle del error para depuración
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/catalogos/condiciones/{id_condicion}")
@@ -289,10 +296,8 @@ def actualizar_condicion_catalogo(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     try:
-        exito = repo.actualizar_condicion(id_condicion, payload)
-        return {"success": exito}
+        return {"success": repo.actualizar_condicion(id_condicion, payload)}
     except Exception as exc:
-        # Exponemos el detalle del error para depuración
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.delete("/catalogos/condiciones/{id_condicion}")
@@ -303,7 +308,6 @@ def eliminar_condicion_catalogo(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     try:
-        exito = repo.eliminar_condicion(id_condicion)
-        return {"success": exito}
+        return {"success": repo.eliminar_condicion(id_condicion)}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))

@@ -60,7 +60,7 @@ class IRepositorioNutricion(ABC):
         pass
 
     @abstractmethod
-    def obtener_variable_por_codigo(self, codigo: str) -> Optional[dict]:
+    def obtener_variable_por_id(self, variable_id: int) -> Optional[dict]:
         pass
 
     @abstractmethod

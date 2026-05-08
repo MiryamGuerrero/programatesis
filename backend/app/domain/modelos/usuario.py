@@ -7,12 +7,14 @@ class PerfilUsuario(BaseModel):
     
     id: str
     nombre_completo: str
+    username: Optional[str] = None
     email: str
     rol_nombre: str  # Ahora usamos el nombre descriptivo
     rol_codigo: str
     cedula: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+
 
     @computed_field
     @property

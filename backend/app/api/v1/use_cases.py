@@ -9,8 +9,14 @@ from ...infraestructura.repositorios.repositorio_clinico import RepositorioClini
 from ...infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
 from ...infraestructura.repositorios.repositorio_seguimiento import RepositorioSeguimientoPostgres
 from ...infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+from ...infraestructura.repositorios.repositorio_composicion import RepositorioComposicionPostgres
 
 # Casos de Uso
+# ... (rest of imports)
+
+def obtener_repo_composicion() -> RepositorioComposicionPostgres:
+    return RepositorioComposicionPostgres()
+
 from ...aplicacion.nutricion.evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
 from ...aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngredientes
 from ...aplicacion.nutricion.gestionar_variables import CasoUsoGestionarVariables

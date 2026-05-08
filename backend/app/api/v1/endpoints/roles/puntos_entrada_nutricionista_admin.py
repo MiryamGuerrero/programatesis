@@ -16,11 +16,8 @@ router = APIRouter(prefix="/nutricionista", tags=["Nutricionista Admin"])
 
 class IngredientCreateRequest(BaseModel):
     nombre: str
-    codigo_externo: str | None = None
     id_grupo_alimentario: int | None = Field(default=None, gt=0)
-    grupo_nombre: str | None = None
     id_subgrupo_alimentario: int | None = Field(default=None, gt=0)
-    subgrupo_nombre: str | None = None
     unidad_base: str | None = None
     parte_comestible_factor: float | None = Field(default=None, ge=0, le=1)
     precio_referencia: float | None = Field(default=None, ge=0)
@@ -28,7 +25,6 @@ class IngredientCreateRequest(BaseModel):
     sinonimos: list[str] = Field(default_factory=list)
 
 class VariableCreateRequest(BaseModel):
-    codigo: str
     nombre_visible: str
     tipo_dato: str = "numeric"
     categoria_funcional: str | None = None
@@ -37,16 +33,12 @@ class VariableCreateRequest(BaseModel):
 
 class VariableValueUpsertItem(BaseModel):
     id_ingrediente: int = Field(gt=0)
-    variable_codigo: str
+    variable_id: int
     valor_numerico: float | None = None
     valor_texto: str | None = None
     valor_booleano: bool | None = None
 
-class VariableBulkUpsertRequest(BaseModel):
-    items: list[VariableValueUpsertItem] = Field(default_factory=list)
-
 class LabelCreateRequest(BaseModel):
-    codigo: str | None = None
     nombre_visible: str
     descripcion: str | None = None
 
@@ -87,31 +79,7 @@ def list_variables_catalog(
 ) -> list[dict[str, Any]]:
     return caso_uso.listar_variables(q, limit)
 
-@router.post("/variables")
-def create_or_update_variable_catalog(
-    payload: VariableCreateRequest,
-    caso_uso: CasoUsoGestionarVariables = Depends(obtener_caso_uso_gestionar_variables),
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    try:
-        var_id = caso_uso.upsert_catalogo_variable(payload.model_dump())
-        return {"id": var_id}
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-@router.post("/variables/valor-unitario")
-def upsert_variable_value_unit(
-    payload: VariableValueUpsertItem,
-    caso_uso: CasoUsoGestionarVariables = Depends(obtener_caso_uso_gestionar_variables),
-    user: UserContext = Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    try:
-        caso_uso.upsert_valor(payload.model_dump(), user.user_id)
-        return {"ok": True}
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-# --- ENDPOINTS ETIQUETAS (MANUALES) ---
+# --- ENDPOINTS ETIQUETAS ---
 
 @router.get("/etiquetas")
 def list_labels_catalog(
@@ -120,79 +88,132 @@ def list_labels_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> list[dict[str, Any]]:
     with db_cursor() as cur:
-        sql = """
-            select id, codigo, nombre_visible, descripcion, created_at
-            from nutricion.etiqueta_nutricional
-        """
+        sql = "select id, nombre_visible, descripcion, created_at from nutricion.etiqueta_nutricional"
         params: list[Any] = []
         if q and q.strip():
-            sql += " where (codigo ilike %s or nombre_visible ilike %s)"
-            search_pattern = f"%{q.strip()}%"
-            params.extend([search_pattern, search_pattern])
-        
-        sql += " order by created_at desc, nombre_visible limit %s"
+            sql += " where nombre_visible ilike %s"
+            params.append(f"%{q.strip()}%")
+        sql += " order by created_at desc limit %s"
         params.append(limit)
-        
         cur.execute(sql, tuple(params))
-        columns = [desc[0] for desc in cur.description]
-        return [dict(zip(columns, row)) for row in cur.fetchall()]
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 @router.post("/etiquetas")
 def upsert_label_catalog(
     payload: LabelCreateRequest,
-    user: UserContext = Depends(require_roles("admin", "nutricionista")),
+    user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> dict[str, Any]:
     with db_cursor() as cur:
-        # Resolvemos si insertamos con código o solo nombre
-        if payload.codigo:
-            cur.execute(
-                """
-                insert into nutricion.etiqueta_nutricional (
-                    codigo, nombre_visible, descripcion, created_at
-                ) values (%s, %s, %s, now())
-                on conflict (codigo) do update set
-                    nombre_visible = excluded.nombre_visible,
-                    descripcion = excluded.descripcion
-                returning id
-                """,
-                (payload.codigo, payload.nombre_visible, payload.descripcion),
-            )
-        else:
-            cur.execute(
-                """
-                insert into nutricion.etiqueta_nutricional (
-                    nombre_visible, descripcion, updated_at
-                ) values (%s, %s, now())
-                returning id
-                """,
-                (payload.nombre_visible, payload.descripcion),
-            )
+        cur.execute(
+            """
+            insert into nutricion.etiqueta_nutricional (nombre_visible, descripcion, updated_at) 
+            values (%s, %s, now())
+            on conflict (nombre_visible) do update set descripcion = excluded.descripcion, updated_at = now()
+            returning id
+            """,
+            (payload.nombre_visible, payload.descripcion),
+        )
         return {"id": cur.fetchone()[0]}
 
-@router.post("/ingredientes/{id_ingrediente}/etiquetas/{id_etiqueta}")
-def assign_label_to_ingredient(
-    id_ingrediente: int,
-    id_etiqueta: int,
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    """Asignación MANUAL de etiqueta a ingrediente."""
-    with db_cursor() as cur:
-        cur.execute(
-            "insert into nutricion.ingrediente_etiqueta (id_ingrediente, id_etiqueta) values (%s, %s) on conflict do nothing",
-            (id_ingrediente, id_etiqueta)
-        )
-        return {"success": True}
+# --- ENDPOINTS GESTIÓN DE COMPOSICIÓN (MOMENTOS Y TIPOS) ---
 
-@router.delete("/ingredientes/{id_ingrediente}/etiquetas/{id_etiqueta}")
-def remove_label_from_ingredient(
-    id_ingrediente: int,
-    id_etiqueta: int,
+from app.infraestructura.repositorios.repositorio_composicion import RepositorioComposicionPostgres
+
+@router.get("/momentos-comida")
+def list_meal_moments(
     _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    """Eliminación MANUAL de etiqueta de ingrediente."""
-    with db_cursor() as cur:
-        cur.execute(
-            "delete from nutricion.ingrediente_etiqueta where id_ingrediente = %s and id_etiqueta = %s",
-            (id_ingrediente, id_etiqueta)
-        )
-        return {"success": True}
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_momentos()
+
+@router.post("/momentos-comida")
+def create_meal_moment(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    mid = repo.crear_momento(payload)
+    return {"id": mid, "success": True}
+
+@router.put("/momentos-comida/{mid}")
+def update_meal_moment(
+    mid: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    exito = repo.actualizar_momento(mid, payload)
+    return {"success": exito}
+
+@router.delete("/momentos-comida/{mid}")
+def delete_meal_moment(
+    mid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    exito = repo.eliminar_momento(mid)
+    return {"success": exito}
+
+@router.get("/tipos-plato")
+def list_dish_types(
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_tipos_plato()
+
+@router.post("/tipos-plato")
+def create_dish_type(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    tid = repo.crear_tipo_plato(payload["nombre"])
+    return {"id": tid, "success": True}
+
+# --- ENDPOINTS REGLAS DE COMPOSICIÓN ---
+
+@router.get("/reglas-generales")
+def list_general_composition_rules(
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_reglas_generales()
+
+@router.get("/reglas-generales/por-momento/{mid}")
+def get_full_rule_by_moment(
+    mid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    res = repo.obtener_regla_completa_por_momento(mid)
+    if not res:
+        raise HTTPException(status_code=404, detail="No hay regla definida para este momento")
+    return res
+
+@router.post("/reglas-generales")
+def upsert_general_rule(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    rid = repo.crear_regla_general(payload)
+    return {"id": rid, "success": True}
+
+@router.post("/reglas-generales/detalle")
+def save_rule_detail(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    did = repo.crear_tipo_permitido(payload)
+    return {"id": did, "success": True}
+
+@router.delete("/reglas-generales/detalle/{did}")
+def delete_rule_detail(
+    did: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    exito = repo.eliminar_tipo_permitido(did)
+    return {"success": exito}
