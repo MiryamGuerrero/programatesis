@@ -7,7 +7,7 @@ import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
 import "../../../core/state/app_providers.dart";
 import "registro_paciente_page.dart";
-import "control_mensual_page.dart";
+import "registro_mensual_page.dart";
 import "patient_detail_modal.dart";
 
 class SupervisionPacientesPage extends ConsumerWidget {
@@ -32,7 +32,7 @@ class SupervisionPacientesPage extends ConsumerWidget {
         return RegistroPacientePage(key: ValueKey('fixed_${patient?['id']}'), initialData: patient, fixedOnly: true);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
-        return ControlMensualPage(paciente: patient);
+        return RegistroMensualPage(paciente: patient);
       case MedicoView.list:
       default:
         return const _ListaPacientesView();

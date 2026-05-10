@@ -1,4 +1,5 @@
 from secrets import token_urlsafe
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.supabase_client import get_supabase_admin_client, get_supabase_public_client
@@ -69,15 +70,16 @@ def provision_auth_user_with_password_setup(
             },
         )
     except Exception as exc:
-        try:
-            admin_client.auth.admin.delete_user(user_id)
-        except Exception:
-            pass
-        raise RuntimeError("No fue posible enviar el correo de configuracion de contrasena") from exc
+        # El usuario ya fue creado arriba. Si el envío de correo de recuperación falla
+        # (ej. por límites de Supabase o email inválido), NO borramos al usuario ni bloqueamos
+        # el flujo integral, ya que el paciente depende de este registro.
+        import logging
+        logging.warning(f"Advertencia: No se pudo enviar el correo de recuperacion a {normalized_email}: {exc}")
 
     return str(user_id), temp_password
 
 
-def delete_auth_user(auth_user_id: str) -> None:
+def delete_auth_user(auth_user_id: Any) -> None:
     admin_client = get_supabase_admin_client()
-    admin_client.auth.admin.delete_user(auth_user_id)
+    # Aseguramos que sea string para evitar fallos en la librería GoTrue
+    admin_client.auth.admin.delete_user(str(auth_user_id))

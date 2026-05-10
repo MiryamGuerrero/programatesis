@@ -59,15 +59,19 @@ class ServicioOMS:
             return {"l": float(row[0]), "m": float(row[1]), "s": float(row[2])} if row else None
 
     @staticmethod
-    def clasificar_zscore(indicador: str, z_score: float) -> Dict[str, Any]:
+    def clasificar_zscore(indicador: str, z_score: float, edad_meses: int) -> Dict[str, Any]:
         """
-        BUSCA DIRECTAMENTE EN LA TABLA MAESTRA DE CONDICIONES
+        Busca la clasificación en la tabla maestra de condiciones filtrando por indicador,
+        rango de edad y límites de Z-score. Solo considera condiciones activas.
         """
         with db_cursor() as cur:
             sql = """
                 SELECT id, nombre
                 FROM heuristico.condicion
                 WHERE indicador_codigo = %s AND id_tipo_condicion = 3
+                AND activa = true
+                AND (edad_min_meses IS NULL OR %s >= edad_min_meses)
+                AND (edad_max_meses IS NULL OR %s <= edad_max_meses)
                 AND (
                     (z_min IS NULL OR (incluye_min AND %s >= z_min) OR (NOT incluye_min AND %s > z_min))
                     AND
@@ -75,7 +79,7 @@ class ServicioOMS:
                 )
                 ORDER BY orden_oms LIMIT 1
             """
-            cur.execute(sql, (indicador, z_score, z_score, z_score, z_score))
+            cur.execute(sql, (indicador, edad_meses, edad_meses, z_score, z_score, z_score, z_score))
             row = cur.fetchone()
             return {"id": row[0], "nombre": row[1]} if row else {"id": None, "nombre": "Sin clasificación"}
 
@@ -83,39 +87,39 @@ class ServicioOMS:
     def evaluar_paciente_integral(cls, peso_kg: float, talla_cm: float, id_sexo: int, edad_meses: int) -> Dict[str, Any]:
         imc = cls.calcular_imc(peso_kg, talla_cm)
         
-        # Evaluación BMI
+        # Evaluación BMI (Principal para todas las edades)
         params_bmi = cls.obtener_parametros_lms(id_sexo, edad_meses, 'BMI')
         res_bmi = {"z_score": None, "id_condicion": None, "diagnostico": "Sin referencia", "ideal": 0.0}
         if params_bmi:
             z_bmi = cls.calcular_z_score(imc, params_bmi["l"], params_bmi["m"], params_bmi["s"])
-            clasif = cls.clasificar_zscore('BMI', z_bmi)
+            clasif = cls.clasificar_zscore('BMI', z_bmi, edad_meses)
             res_bmi = {
                 "z_score": z_bmi, 
                 "id_condicion": clasif["id"], 
                 "diagnostico": clasif["nombre"],
-                "ideal": round(params_bmi["m"], 2) # El valor M es el IMC ideal
+                "ideal": round(params_bmi["m"], 2)
             }
 
-        # Evaluación Talla
+        # Evaluación Talla (HFA)
         params_hfa = cls.obtener_parametros_lms(id_sexo, edad_meses, 'HFA')
         res_hfa = {"z_score": None, "id_condicion": None, "diagnostico": "Sin referencia", "ideal": 0.0}
         if params_hfa:
             z_hfa = cls.calcular_z_score(talla_cm, params_hfa["l"], params_hfa["m"], params_hfa["s"])
-            clasif = cls.clasificar_zscore('HFA', z_hfa)
+            clasif = cls.clasificar_zscore('HFA', z_hfa, edad_meses)
             res_hfa = {
                 "z_score": z_hfa, 
                 "id_condicion": clasif["id"], 
                 "diagnostico": clasif["nombre"],
-                "ideal": round(params_hfa["m"], 2) # El valor M es la talla ideal
+                "ideal": round(params_hfa["m"], 2)
             }
             
-        # Evaluación Peso para la edad (WFA) - Importante para menores de 5 años
-        res_wfa = {"z_score": None, "id_condicion": None, "diagnostico": "Sin referencia", "ideal": 0.0}
+        # Evaluación Peso para la edad (WFA) - Solo hasta los 60 meses
+        res_wfa = {"z_score": None, "id_condicion": None, "diagnostico": "No aplica para mayores de 60 meses", "ideal": 0.0}
         if edad_meses <= 60:
             params_wfa = cls.obtener_parametros_lms(id_sexo, edad_meses, 'WFA')
             if params_wfa:
                 z_wfa = cls.calcular_z_score(peso_kg, params_wfa["l"], params_wfa["m"], params_wfa["s"])
-                clasif = cls.clasificar_zscore('WFA', z_wfa)
+                clasif = cls.clasificar_zscore('WFA', z_wfa, edad_meses)
                 res_wfa = {
                     "z_score": z_wfa, 
                     "id_condicion": clasif["id"], 
@@ -123,8 +127,7 @@ class ServicioOMS:
                     "ideal": round(params_wfa["m"], 2)
                 }
 
-        # Calcular el peso ideal aproximado
-        # Si tiene < 5 años, usamos la mediana de WFA. Si tiene > 5 años, usamos BMI ideal * talla^2
+        # Calcular el peso ideal estimado
         peso_ideal = 0.0
         if edad_meses <= 60 and res_wfa["ideal"] > 0:
             peso_ideal = res_wfa["ideal"]
@@ -138,9 +141,12 @@ class ServicioOMS:
             "talla_edad": res_hfa,
             "peso_edad": res_wfa,
             "peso_ideal_estimado": peso_ideal,
-            # Para retrocompatibilidad visual en banners que solo esperan un texto
-            "diagnostico_nutri_texto": res_bmi["diagnostico"] if edad_meses > 60 else res_wfa["diagnostico"],
+            # Diagnósticos principales según requerimiento
+            "diagnostico_nutri_texto": res_bmi["diagnostico"],
             "diagnostico_talla_texto": res_hfa["diagnostico"],
+            "diagnostico_peso_complementario": res_wfa["diagnostico"],
+            "diagnostico_combinado": f"{res_bmi['diagnostico']} / {res_hfa['diagnostico']}",
             "peso_ideal": peso_ideal,
             "talla_ideal": res_hfa["ideal"]
         }
+

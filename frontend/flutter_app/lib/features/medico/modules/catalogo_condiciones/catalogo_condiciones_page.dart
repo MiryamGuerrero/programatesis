@@ -23,7 +23,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -41,6 +41,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
+      // Filtramos tipos 1, 2 y 3 (clínicas, temporales y nutricionales)
       final res = await dio.get("catalogos/condiciones");
       if (mounted) {
         setState(() {
@@ -59,6 +60,10 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
 
   List<dynamic> get _temporales => _condiciones
       .where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 2 && c["nombre"].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+      .toList();
+
+  List<dynamic> get _nutricionales => _condiciones
+      .where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 3 && c["nombre"].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
       .toList();
 
   @override
@@ -94,6 +99,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
                     children: [
                       _buildClinicalList(_clinicas),
                       _buildTemporalGrid(_temporales),
+                      _buildNutritionalGrid(_nutricionales),
                     ],
                   ),
                 ),
@@ -178,7 +184,80 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       tabs: const [
         Tab(text: "DIAGNÓSTICOS CLÍNICOS"),
         Tab(text: "SÍNTOMAS TEMPORALES"),
+        Tab(text: "ESTÁNDARES OMS"),
       ],
+    );
+  }
+
+  Widget _buildNutritionalGrid(List<dynamic> items) {
+    if (items.isEmpty) return _buildEmptyState();
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 24,
+        childAspectRatio: 1.45,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final bool active = item["activa"] == true;
+        final String range = "${item['edad_min_meses'] ?? 0}-${item['edad_max_meses'] ?? 228}m";
+        final String indicator = item['indicador_codigo'] ?? "OMS";
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: active ? AppTema.azulPrincipal.withOpacity(0.2) : Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 6)),
+            ],
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.analytics_outlined, color: AppTema.azulPrincipal, size: 20),
+                  ),
+                  _statusBadge(active),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                item["nombre"],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w800, color: AppTema.azulOscuro),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Indicador: $indicator | Rango: $range",
+                style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Text(
+                  item["descripcion"] ?? "Condición nutricional basada en percentiles OMS.",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.montserrat(fontSize: 11, color: Colors.blueGrey, height: 1.4, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

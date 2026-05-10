@@ -17,6 +17,7 @@ class AppTema {
   static const Color pastelCeleste = Color(0xFFE0F2FE);
   static const Color cianLimpio = Color(0xFFCFFAFE);
   static const Color verdeLima = Color(0xFFD9F99D);
+  static const Color naranjaAlerta = Color(0xFFF59E0B);
 
   static ThemeData get light {
     final baseTextTheme = GoogleFonts.latoTextTheme();

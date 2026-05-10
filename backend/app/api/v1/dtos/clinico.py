@@ -15,6 +15,7 @@ class PreDiagnosticoResponse(BaseModel):
     id_condicion_nutricional: Optional[int] = None
     diagnostico_nutri_texto: str
     diagnostico_talla_texto: Optional[str] = "Sin referencia"
+    diagnostico_combinado: Optional[str] = "Sin clasificación"
     z_score_talla: Optional[float] = None
     peso_ideal: Optional[float] = 0.0
     talla_ideal: Optional[float] = 0.0

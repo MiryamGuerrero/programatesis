@@ -17,3 +17,12 @@ class RegistroClinicoPage extends StatelessWidget {
   }
 }
 
+class FormEditarControlClinicoPaciente extends StatelessWidget {
+  const FormEditarControlClinicoPaciente({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text("Formulario de Control Clínico (En desarrollo)"));
+  }
+}
+

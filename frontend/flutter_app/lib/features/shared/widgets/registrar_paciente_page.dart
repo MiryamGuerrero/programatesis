@@ -127,7 +127,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
     setState(() => _buscandoTutor = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final res = await repo.searchTutorByCedula(_cedulaTutorCtrl.text);
+      final res = await repo.findTutorByCedula(_cedulaTutorCtrl.text);
       if (mounted) {
         setState(() {
           if (res != null) {
@@ -193,7 +193,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         }
       };
 
-      await repo.createFullExpediente(payload);
+      await repo.registerIntegral(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Expediente creado con éxito"), backgroundColor: Colors.green));
         widget.onBack();

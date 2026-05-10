@@ -145,18 +145,17 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
         children: [
           const CircleAvatar(radius: 50, backgroundColor: Color(0xFFF1F5F9), child: Icon(Icons.person, size: 50, color: Colors.blueGrey)),
           const SizedBox(height: 24),
-          _sidebarItem("PATOLOGÍA BASE", pac['enfermedad_principal'] ?? "No registrada", isHigh: true),
+          _sidebarItem("PATOLOGÍA BASE", _data!['diagnostico']?['condicion_nombre'] ?? "No registrada", isHigh: true),
           _sidebarItem("SEXO", pac['sexo_nombre'] ?? "N/A"),
-          _sidebarItem("CANTÓN", pac['canton_nombre'] ?? "N/A"),
-          _sidebarItem("PARROQUIA", pac['parroquia_nombre'] ?? "N/A"),
+          _sidebarItem("UBICACIÓN", "${pac['canton_nombre'] ?? ''}, ${pac['parroquia_nombre'] ?? ''}"),
           const Divider(height: 40),
-          _sidebarItem("ESTADO OMS", ctrl['diagnostico_oms_texto'] ?? "PENDIENTE"),
+          _sidebarItem("ESTADO OMS ACTUAL", ctrl?['estado_nutricional'] ?? "PENDIENTE"),
           const Spacer(),
           if (!_puedeRegistrarControl)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
-              child: const Text("⚠️ El control mensual se habilitará automáticamente al cumplirse la fecha de cita.", style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              child: const Text("⚠️ El registro mensual se habilitará automáticamente al cumplirse la fecha de cita.", style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
             )
         ],
       ),
@@ -493,7 +492,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
       child: ListTile(
         leading: CircleAvatar(backgroundColor: AppTema.azulPrincipal.withOpacity(0.1), child: Text(DateFormat('dd').format(fecha), style: const TextStyle(color: AppTema.azulPrincipal, fontWeight: FontWeight.bold))),
         title: Text(DateFormat('MMMM yyyy', 'es').format(fecha).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text("Peso: ${h['peso_kg']}kg | PCR: ${h['inflamacion_pcr'] ?? '-'} | Status: ${h['diagnostico_oms_texto']}"),
+        subtitle: Text("Peso: ${h['peso_kg']}kg | PCR: ${h['valor_pcr'] ?? '-'} | Status: ${h['estado_nutricional'] ?? 'Sin Diagnóstico'}"),
         trailing: const Icon(Icons.chevron_right),
       ),
     );

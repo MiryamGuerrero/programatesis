@@ -37,13 +37,18 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         return self.actualizar_usuario(auth_id, datos)
 
     def buscar_tutor_por_cedula(self, cedula: str) -> Optional[dict]:
+        # Limpiamos la cédula de espacios para la búsqueda robusta en Python
+        cedula_limpia = str(cedula).strip()
         sql = """
             select id, nombre_completo, email, cedula, id_rol, telefono, direccion
             from usuarios.usuario
-            where cedula = %s and id_rol = 4
+            where trim(cedula) = %s and id_rol = 4
             limit 1
         """
-        return self.ejecutar_uno(sql, (cedula,))
+        res = self.ejecutar_uno(sql, (cedula_limpia,))
+        if res and 'id' in res:
+            res['id'] = str(res['id']) # Convertir UUID a string para serialización segura
+        return res
 
     # --- Métodos de compatibilidad (Legacy) ---
     def obtener_perfil_usuario(self, user_id: str) -> Optional[Dict[str, Any]]:

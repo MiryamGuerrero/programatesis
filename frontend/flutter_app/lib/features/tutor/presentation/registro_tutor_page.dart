@@ -51,7 +51,7 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
       final repo = ref.read(supabaseCrudRepositoryProvider);
 
       // 1. Registrar tutor (Si ya existe, el backend lo manejará)
-      await repo.registerTutor(
+      await repo.registerTutorOnly(
         email: email,
         nombreCompleto: name,
       );

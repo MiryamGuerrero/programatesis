@@ -320,6 +320,11 @@ class SupabaseCrudRepository {
     return _toRows(resp.data);
   }
 
+  Future<List<Map<String, dynamic>>> fetchPatientEvolutionSummary(String idPaciente) async {
+    final resp = await _dio.get("pacientes/$idPaciente/evolucion-resumen", options: _authorizedOptions());
+    return _toRows(resp.data);
+  }
+
   Future<Map<String, dynamic>> fetchExpedienteCompleto(String idPaciente) async {
     final resp = await _dio.get("pacientes/$idPaciente/expediente-completo", options: _authorizedOptions());
     return Map<String, dynamic>.from(resp.data);

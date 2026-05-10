@@ -1,0 +1,15 @@
+id,codigo,nombre,id_tipo_condicion,indicador_codigo,edad_min_meses,edad_max_meses,z_min,z_max,incluye_min,incluye_max,orden_oms,nivel_alerta,color_alerta,activo,descripcion
+1,BMI_DELGADEZ_SEVERA_0_5,Delgadez severa,3,BMI,0,60,,-3,false,false,1,CRITICO,ROJO,true,IMC/edad con Z-score menor a -3 DE; indica delgadez severa en menores de 5 años.
+2,BMI_DELGADEZ_0_5,Delgadez,3,BMI,0,60,-3,-2,true,false,2,CRITICO,ROJO,true,IMC/edad con Z-score desde -3 hasta menor que -2 DE; indica delgadez.
+3,BMI_NORMAL_0_5,Normal o eutrófico,3,BMI,0,60,-2,1,true,true,3,NORMAL,VERDE,true,IMC/edad entre -2 y +1 DE; rango saludable para menores de 5 años.
+4,BMI_RIESGO_SOBREPESO_0_5,Riesgo de sobrepeso,3,BMI,0,60,1,2,false,true,4,ADVERTENCIA,NARANJA,true,IMC/edad mayor a +1 y hasta +2 DE; riesgo de sobrepeso en menores de 5 años.
+5,BMI_SOBREPESO_0_5,Sobrepeso,3,BMI,0,60,2,3,false,true,5,ADVERTENCIA,NARANJA,true,IMC/edad mayor a +2 y hasta +3 DE; sobrepeso en menores de 5 años.
+6,BMI_OBESIDAD_0_5,Obesidad,3,BMI,0,60,3,,false,false,6,CRITICO,ROJO,true,IMC/edad mayor a +3 DE; obesidad en menores de 5 años.
+7,HFA_TALLA_BAJA_SEVERA_0_5,Talla baja severa,3,HFA,0,60,,-3,false,false,1,CRITICO,ROJO,true,Talla/edad con Z-score menor a -3 DE; retraso severo del crecimiento.
+8,HFA_TALLA_BAJA_0_5,Talla baja,3,HFA,0,60,-3,-2,true,false,2,CRITICO,ROJO,true,Talla/edad desde -3 hasta menor que -2 DE; talla baja o retraso del crecimiento.
+9,HFA_TALLA_NORMAL_0_5,Talla normal,3,HFA,0,60,-2,2,true,true,3,NORMAL,VERDE,true,Talla/edad entre -2 y +2 DE; crecimiento lineal esperado.
+10,HFA_TALLA_ALTA_0_5,Talla alta,3,HFA,0,60,2,,false,false,4,ADVERTENCIA,NARANJA,true,"Talla/edad mayor a +2 DE; no suele ser desnutrición, pero puede requerir revisión clínica según contexto."
+11,WFA_BAJO_PESO_SEVERO_0_5,Bajo peso severo,3,WFA,0,60,,-3,false,false,1,CRITICO,ROJO,true,Peso/edad con Z-score menor a -3 DE; bajo peso severo en menores de 5 años.
+12,WFA_BAJO_PESO_0_5,Bajo peso,3,WFA,0,60,-3,-2,true,false,2,CRITICO,ROJO,true,Peso/edad desde -3 hasta menor que -2 DE; bajo peso en menores de 5 años.
+13,WFA_PESO_NORMAL_0_5,Peso normal para la edad,3,WFA,0,60,-2,2,true,true,3,NORMAL,VERDE,true,Peso/edad entre -2 y +2 DE; rango esperado para la edad.
+14,WFA_PESO_ELEVADO_0_5,Peso elevado para la edad,3,WFA,0,60,2,,false,false,4,ADVERTENCIA,NARANJA,true,Peso/edad mayor a +2 DE; requiere revisar IMC/edad o peso/talla porque peso/edad no diagnostica obesidad por sí solo.

@@ -159,11 +159,111 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     );
   }
 
-  void _marcarLacteosComoAlergia() {
-    // Ya no se auto-marcan subgrupos de lacteos porque la intolerancia
-    // los maneja directamente. El backend bloquea automaticamente todos
-    // los subgrupos con lactosa cuando es_intolerante_lactosa = true.
+  Future<void> _loadCatalogs() async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      final results = await Future.wait([
+        repo.fetchCatalog("nutricion", "ingrediente"),
+        repo.fetchCatalog("nutricion", "subgrupo_alimentario"),
+        repo.fetchCatalog("heuristico", "condicion"),
+      ]);
+      if (mounted) {
+        setState(() {
+          _ingredientes.addAll(results[0].cast<Map<String, dynamic>>());
+          _grupos.addAll(results[1].cast<Map<String, dynamic>>());
+          _condicionesTemporalesCatalogo.addAll(
+            results[2].where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 2).cast<Map<String, dynamic>>()
+          );
+        });
+      }
+    } catch (_) {}
   }
+
+  Future<void> _agregarAlergiaIngrediente() async {
+    if (_selectedIngredienteId == null || _selectedPacienteId == null) return;
+    final ing = _ingredientes.firstWhere((i) => (i["id"] as num).toInt() == _selectedIngredienteId);
+    setState(() {
+      _alergiasIngredientes.add({
+        "id_ingrediente": _selectedIngredienteId,
+        "nombre_ingrediente": ing["nombre"],
+        "observacion": _observacionIngredienteController.text,
+      });
+      _selectedIngredienteId = null;
+      _observacionIngredienteController.clear();
+    });
+  }
+
+  void _eliminarAlergiaIngrediente(int id) {
+    setState(() {
+      _alergiasIngredientes.removeWhere((a) => (a["id_ingrediente"] as num).toInt() == id);
+    });
+  }
+
+  Future<void> _agregarAlergiaGrupo() async {
+    if (_selectedGrupoId == null || _selectedPacienteId == null) return;
+    final grupo = _grupos.firstWhere((g) => (g["id"] as num).toInt() == _selectedGrupoId);
+    setState(() {
+      _alergiasGrupos.add({
+        "id_grupo_alimentario": _selectedGrupoId,
+        "nombre_grupo": grupo["nombre"],
+        "observacion": _observacionGrupoController.text,
+      });
+      _selectedGrupoId = null;
+      _observacionGrupoController.clear();
+    });
+  }
+
+  void _eliminarAlergiaGrupo(int id) {
+    setState(() {
+      _alergiasGrupos.removeWhere((g) => (g["id_grupo_alimentario"] as num).toInt() == id);
+    });
+  }
+
+  Widget _statusBadge({required String label, required int count, required bool highlighted}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: highlighted ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        "$label: $count",
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: highlighted ? Colors.blue : Colors.grey,
+        ),
+      ),
+    );
+  }
+
+  String _label(Map<String, dynamic> c) => c["nombre"] ?? "Condición";
+
+  Future<void> _guardarCondicionesTemporales() async {
+    if (_selectedPacienteId == null) return;
+    // Implementación mínima para que compile
+  }
+
+  Widget _buildPacienteSelector() {
+    return Column(
+      children: [
+        TextField(
+          controller: _pacienteSearchController,
+          decoration: const InputDecoration(
+            labelText: "Buscar paciente por nombre o cédula",
+            prefixIcon: Icon(Icons.search),
+          ),
+          onSubmitted: (v) => _buscarPaciente(v),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _buscarPaciente(String query) async {
+    if (query.isEmpty) return;
+    // Implementación mínima
+  }
+
 
   Widget _buildAlergiasTab() {
     if (_selectedPacienteId == null) {

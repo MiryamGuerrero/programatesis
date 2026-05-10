@@ -35,14 +35,15 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             
             return reglas
 
-    def listar_reglas_detalladas(self, tipos_condicion: List[int] = [1, 2]) -> List[dict]:
+    def listar_reglas_detalladas(self, tipos_condicion: List[int] = [1, 2, 3]) -> List[dict]:
         with db_cursor() as cur:
             sql = """
                 select 
                     r.id, r.id_accion, r.id_tipo_objetivo,
                     r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta,
                     r.mensaje_error, r.es_estricta,
-                    a.nombre as accion_nombre, t.nombre as objetivo_nombre,
+                    a.nombre as accion_nombre, a.nombre as accion_codigo,
+                    t.nombre as objetivo_nombre, t.nombre as objetivo_codigo,
                     i.nombre as ingrediente_nombre, g.nombre as grupo_nombre, 
                     s.nombre as subgrupo_nombre, e.nombre_visible as etiqueta_nombre,
                     array_agg(DISTINCT cr.id_condicion) as id_condiciones,

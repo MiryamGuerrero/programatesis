@@ -34,6 +34,7 @@ def pre_diagnostico_nutricional(
             "id_condicion_nutricional": result["bmi_edad"]["id_condicion"] or 0,
             "diagnostico_nutri_texto": result["diagnostico_nutri_texto"],
             "diagnostico_talla_texto": result["diagnostico_talla_texto"],
+            "diagnostico_combinado": result["diagnostico_combinado"],
             "z_score_talla": result["talla_edad"]["z_score"] or 0.0,
             "peso_ideal": result["peso_ideal"],
             "talla_ideal": result["talla_ideal"],
@@ -116,9 +117,9 @@ def obtener_tutor_por_cedula(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     res = repo.buscar_tutor_por_cedula(cedula)
+    print(f"DEBUG: Búsqueda de tutor {cedula} -> {res}")
     if not res: return {"existe": False}
-    res["existe"] = True
-    return res
+    return {"existe": True, "tutor": res}
 
 @router.get("/pacientes/{id_paciente}/expediente-completo")
 def obtener_expediente_completo(

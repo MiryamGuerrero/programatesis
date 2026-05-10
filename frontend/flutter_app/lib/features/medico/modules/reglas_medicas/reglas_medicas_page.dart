@@ -30,7 +30,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _filtroCondicion = null;
@@ -68,15 +68,16 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   }
 
   List<dynamic> get _filtradas {
-    final bool showingClinicas = _tabController.index == 0;
+    final int selectedTab = _tabController.index;
     
     return _rules.where((r) {
       final tipos = (r['tipos_condicion'] as List? ?? []);
-      final esClinica = tipos.contains("Clínica");
-      final esTemporal = tipos.contains("Temporal");
+      bool matchType = false;
+      if (selectedTab == 0) matchType = tipos.contains("Clínica");
+      else if (selectedTab == 1) matchType = tipos.contains("Temporal");
+      else matchType = tipos.contains("Nutricional");
 
-      if (showingClinicas && !esClinica) return false;
-      if (!showingClinicas && !esTemporal) return false;
+      if (!matchType) return false;
 
       final targetName = _getTargetName(r).toLowerCase();
       final matchesSearch = targetName.contains(_searchQuery.toLowerCase());
@@ -192,6 +193,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
       tabs: const [
         Tab(text: "REGLAS CLÍNICAS"),
         Tab(text: "SÍNTOMAS TEMPORALES"),
+        Tab(text: "REGLAS NUTRICIONALES"),
       ],
     );
   }
@@ -200,7 +202,9 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     final tipos = ["INGREDIENTE", "GRUPO", "SUBGRUPO", "ETIQUETA"];
     
     // Filtrar condiciones según el Tab activo
-    final int tipoEsperado = _tabController.index == 0 ? 1 : 2;
+    final int selectedIdx = _tabController.index;
+    final int tipoEsperado = selectedIdx == 0 ? 1 : (selectedIdx == 1 ? 2 : 3);
+    
     final condicionesFiltradas = (_formData["condiciones"] ?? [])
         .where((c) => (c['id_tipo_condicion'] ?? c['id_tipo']) == tipoEsperado)
         .toList();
@@ -407,6 +411,7 @@ class _ReglasMedicasDataSource extends DataTableSource {
   Widget _tipoBadge(String label) {
     Color bg = const Color(0xFFE0F2FE); Color tx = const Color(0xFF0369A1);
     if (label == 'Temporal') { bg = const Color(0xFFF3E8FF); tx = const Color(0xFF7E22CE); }
+    if (label == 'Nutricional') { bg = const Color(0xFFDCFCE7); tx = const Color(0xFF15803D); }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),

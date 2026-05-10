@@ -10,15 +10,15 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
 
-class ControlMensualPage extends ConsumerStatefulWidget {
+class RegistroMensualPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> paciente;
-  const ControlMensualPage({super.key, required this.paciente});
+  const RegistroMensualPage({super.key, required this.paciente});
 
   @override
-  ConsumerState<ControlMensualPage> createState() => _ControlMensualPageState();
+  ConsumerState<RegistroMensualPage> createState() => _RegistroMensualPageState();
 }
 
-class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with SingleTickerProviderStateMixin {
+class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _loading = false;
   bool _yaEvaluadoHoy = false;
@@ -101,7 +101,9 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
 
   void _debouncedOMS() {
     _debounceOMS?.cancel();
-    _debounceOMS = Timer(const Duration(milliseconds: 500), () => _calculateOMS());
+    _debounceOMS = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) _calculateOMS();
+    });
   }
 
   Future<void> _calculateOMS() async {
@@ -130,13 +132,15 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
         setState(() {
           _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
           _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
-          final combined = "$_omsStatusPeso $_omsStatusTalla";
-          if (combined.contains("Severa") || combined.contains("Obesidad") || combined.contains("Bajo peso")) {
+          
+          final String combined = (res.data['diagnostico_combinado'] ?? "$_omsStatusPeso / $_omsStatusTalla").toString().toLowerCase();
+          
+          if (combined.contains("severa") || combined.contains("obesidad") || combined.contains("bajo peso severo")) {
             _omsColor = Colors.red;
-          } else if (combined.contains("Normal")) {
-            _omsColor = greenBrand;
-          } else {
+          } else if (combined.contains("sobrepeso") || combined.contains("baja") || combined.contains("delgadez") || combined.contains("bajo peso") || combined.contains("riesgo")) {
             _omsColor = Colors.orange;
+          } else {
+            _omsColor = greenBrand;
           }
         });
       }
@@ -324,13 +328,17 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
     final d = _expediente!['diagnostico'] ?? {};
     final c = _expediente!['ultimo_control'] ?? {};
     final al = _expediente!['alergias'] ?? {};
+    
+    // Detectamos si es intolerante basándonos en si tiene subgrupos lácteos bloqueados
+    final idsLacteos = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119};
+    final bool esIntolerante = (al['subgrupos'] as List? ?? []).any((a) => idsLacteos.contains(a['id']));
      
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: Container(
-          width: 900,
+          width: 1000,
           padding: const EdgeInsets.all(40),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -340,7 +348,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("EXPEDIENTE MAESTRO INTEGRAL", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 20)),
-                  Text("Registro oficial del paciente en el sistema ReumaNutri", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Text("Registro oficial del paciente y soporte legal en el sistema ReumaNutri", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                 ],
               ),
               const Spacer(),
@@ -365,37 +373,34 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
                       _expItem("Parroquia", p['parroquia_nombre']),
                     ])),
                     const SizedBox(width: 40),
-                    // 2. TUTOR
+                    // 2. REPRESENTANTE LEGAL (TUTOR)
                     Expanded(child: _buildExpSection("2. REPRESENTANTE LEGAL", [
-                      _expItem("Nombre del Tutor", t['nombre_completo']),
+                      _expItem("Nombre Completo", t['nombre_completo']),
                       _expItem("Cédula del Tutor", t['cedula']),
-                      _expItem("Parentesco", t['parentesco_nombre']),
+                      _expItem("Relación / Parentesco", t['parentesco_nombre'], isBold: true),
                       const SizedBox(height: 16),
-                      const Text("CONTACTO", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
+                      const Text("DATOS DE CONTACTO", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
                       const SizedBox(height: 8),
                       _expItem("Correo Electrónico", t['email']),
                       _expItem("Teléfono / Móvil", t['telefono']),
-                      _expItem("Dirección de Domicilio", t['direccion']),
+                      _expItem("Dirección Domiciliaria", t['direccion']),
                     ])),
                     const SizedBox(width: 40),
-                    // 3. ESTADO ACTUAL
+                    // 3. ESTADO CLÍNICO Y NUTRICIONAL
                     Expanded(child: _buildExpSection("3. ESTADO CLÍNICO ACTUAL", [
-                      _expItem("Diagnóstico Principal", d['condicion_nombre'] ?? "AIJ"),
+                      _expItem("Enfermedad Autoinmune", d['condicion_nombre'] ?? "No registrada", isHighlight: true),
                       _expItem("Estado Nutricional (OMS)", c['estado_nutricional'], isBold: true),
-                      _expItem("Peso / Talla", "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm"),
-                      _expItem("Inflamación Actual", "${c['escala_inflamacion'] ?? 0}/3"),
-                      _expItem("Brote Activo", (c['en_brote'] == true) ? "SÍ (ACTIVO)" : "NO", isAlert: c['en_brote'] == true),
+                      _expItem("Relación Peso / Talla", "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm"),
                       const SizedBox(height: 16),
-                      const Text("SÍNTOMAS TEMPORALES ACTIVOS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
+                      const Text("SEGURIDAD ALIMENTARIA", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange, letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      ...(_expediente!['condiciones_temporales'] as List? ?? []).map((ct) => _expItem(ct['nombre'], "Hasta: ${ct['fecha_fin']}", isHighlight: true)),
-                      if ((_expediente!['condiciones_temporales'] as List? ?? []).isEmpty)
-                        Text("Ninguno reportado", style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+                      _expItem("Intolerancia a Lactosa", esIntolerante ? "SÍ (RESTRICCIÓN ACTIVA)" : "NO DETECTADA", isAlert: esIntolerante),
+                      _expItem("Alergias Detectadas", (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ").isEmpty ? "Ninguna" : (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ")),
                       const SizedBox(height: 16),
-                      const Text("SEGUIMIENTO", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
+                      const Text("PRÓXIMOS EVENTOS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      _expItem("Fecha de Último Control", c['fecha_control']),
-                      _expItem("Próxima Cita Programada", c['fecha_proxima_cita']),
+                      _expItem("Último Registro", c['fecha_control']),
+                      _expItem("Cita Programada", c['fecha_proxima_cita'], isHighlight: true),
                     ])),
                   ],
                 ),
@@ -403,7 +408,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
             ),
             const SizedBox(height: 40),
             Row(children: [
-              Expanded(child: FilledButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.check_circle_outline), label: const Text("ENTENDIDO, VOLVER A ANALÍTICA"), style: FilledButton.styleFrom(backgroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 20)))),
+              Expanded(child: FilledButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.check_circle_outline), label: const Text("CERRAR EXPEDIENTE MAESTRO"), style: FilledButton.styleFrom(backgroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 20)))),
             ])
           ]),
         ),
@@ -516,53 +521,22 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
   );
 
   Widget _buildFormTab() {
-    if (_yaEvaluadoHoy && _idControlEditando == null) {
-      return Container(
-        padding: const EdgeInsets.all(60),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                child: Icon(Icons.verified_user_rounded, color: Colors.orange.shade800, size: 64),
-              ),
-              const SizedBox(height: 32),
-              Text("PACIENTE YA EVALUADO HOY", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 20, color: const Color(0xFF0F172A))),
-              const SizedBox(height: 16),
-              Text(
-                "Este paciente ya cuenta con un registro de control para la fecha actual (${DateFormat('dd/MM/yyyy').format(DateTime.now())}).",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.blueGrey, fontSize: 14, height: 1.5),
-              ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => _tabController.animateTo(1),
-                    icon: const Icon(Icons.history_edu_rounded),
-                    label: const Text("IR A EVALUACIÓN Y EDICIÓN"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: greenBrand,
-                      side: const BorderSide(color: greenBrand),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(40),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _buildOMSStatusCard(),
+        if (_yaEvaluadoHoy && _idControlEditando == null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.orange.withOpacity(0.3))),
+            child: Row(children: [
+              const Icon(Icons.info_outline, color: Colors.orange),
+              const SizedBox(width: 12),
+              const Expanded(child: Text("PACIENTE YA EVALUADO HOY. Si registra una nueva valoración, se sobreescribirá el control de esta fecha.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
+            ]),
+          ),
+        ],
         const SizedBox(height: 48),
         _sectionHeader("1. SIGNOS VITALES Y ANTROPOMETRÍA", Icons.monitor_weight_outlined),
         const SizedBox(height: 24),
@@ -738,7 +712,7 @@ class _ControlMensualPageState extends ConsumerState<ControlMensualPage> with Si
       padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.3))),
       child: Row(children: [
         Icon(Icons.analytics_rounded, color: _omsColor, size: 32), const SizedBox(width: 20),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueGrey)), Text("$_omsStatusPeso | $_omsStatusTalla".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]))
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueGrey)), Text("$_omsStatusPeso / $_omsStatusTalla".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]))
       ]),
     );
   }

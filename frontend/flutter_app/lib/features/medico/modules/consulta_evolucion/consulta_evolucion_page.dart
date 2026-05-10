@@ -88,13 +88,17 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
 
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final resumen = await repo.fetchPatientEvolutionSummary(idPaciente: idPaciente);
+      final resumen = await repo.fetchExpedienteCompleto(idPaciente);
 
       if (!mounted) {
         return;
       }
       setState(() {
         _resumen = resumen;
+        // Ajustar campos para compatibilidad con la UI si es necesario
+        _resumen!["paciente_nombre"] = resumen["paciente"]?["nombre_completo"];
+        _resumen!["total_controles"] = (resumen["historial_controles"] as List?)?.length ?? 0;
+        _resumen!["condiciones_temporales_activas"] = resumen["condiciones_temporales"];
         _resultado = "Resumen cargado correctamente.";
       });
     } catch (error) {
