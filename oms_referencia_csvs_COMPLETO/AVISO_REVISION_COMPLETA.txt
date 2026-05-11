@@ -1,0 +1,22 @@
+REVISIÓN COMPLETA OMS PARA ESQUEMA referencia
+===========================================
+
+Sí, los archivos LHFA que subiste son los que faltaban para completar talla/longitud para la edad de 0 a 5 años.
+Se reemplazó la cobertura mensual anterior de HFA 0-60 por datos diarios LHFA de 0 a 1856 días para masculino y femenino.
+
+Totales generados:
+- oms_curva_punto: 11934 filas
+- oms_curva_zscore: 11934 filas
+- oms_curva_percentil: 11934 filas
+- oms_curva: 12 curvas
+
+Cobertura incluida:
+- BMI/BFA 0 a 60 meses: diario, niños y niñas.
+- HFA/LHFA 0 a 60 meses: diario, niños y niñas.
+- WFA 0 a 60 meses: diario, niños y niñas.
+- BMI 61 a 228 meses: mensual, niños y niñas.
+- HFA 61 a 228 meses: mensual, niños y niñas.
+- WFA 61 a 120 meses: mensual, niños y niñas.
+
+No detecté faltantes para los indicadores que estás usando: BMI, HFA y WFA.
+Nota: WFA se deja hasta 120 meses porque subiste tablas WFA 61-120. Si tu tesis solo evaluará hasta 60 meses, puedes ignorar esa curva en el algoritmo.

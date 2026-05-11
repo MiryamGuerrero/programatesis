@@ -137,12 +137,12 @@ class _CondicionesMedicasPageState
                     child: Icon(isTemporal ? Icons.timer_outlined : Icons.monitor_heart, 
                                color: isTemporal ? Colors.orange.shade800 : Colors.blue.shade800),
                   ),
-                  title: Text(c['nombre'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(c['nombre']?.toString() ?? "Condición", style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Tipo: ${c['tipo_nombre']}", style: TextStyle(color: isTemporal ? Colors.orange.shade900 : Colors.blue.shade900, fontWeight: FontWeight.w600, fontSize: 12)),
-                      Text(c['descripcion'] ?? 'Sin descripción'),
+                      Text("Tipo: ${c['tipo_nombre'] ?? '-'}", style: TextStyle(color: isTemporal ? Colors.orange.shade900 : Colors.blue.shade900, fontWeight: FontWeight.w600, fontSize: 12)),
+                      Text(c['descripcion']?.toString() ?? 'Sin descripción'),
                     ],
                   ),
                   trailing: Row(

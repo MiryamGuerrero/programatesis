@@ -165,8 +165,8 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
             decoration: BoxDecoration(color: AppTema.pastelCeleste, borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.shopping_basket_outlined, color: AppTema.azulPrincipal, size: 20),
           ),
-          title: Text(item['nombre'], style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(item['categoria'] ?? 'Sin categoría'),
+          title: Text(item['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text(item['categoria']?.toString() ?? 'Sin categoría'),
           trailing: const Icon(Icons.add_circle_outline_rounded, color: AppTema.azulPrincipal),
         );
       },
@@ -194,7 +194,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
             children: [
               Text('Configurar Cantidad', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
               const SizedBox(height: 8),
-              Text(_ingredienteEnConfig!['nombre'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(_ingredienteEnConfig!['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -269,7 +269,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
                   final s = _seleccionados[index];
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(s['nombre'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    title: Text(s['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     subtitle: Text('${s['cantidad']} ${s['unidad']} (${s['gramos']}g)', style: const TextStyle(fontSize: 11)),
                     trailing: IconButton(
                       icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 20),

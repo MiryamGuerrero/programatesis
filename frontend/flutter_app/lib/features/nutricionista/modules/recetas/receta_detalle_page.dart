@@ -447,12 +447,12 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: AppTema.pastelCeleste, borderRadius: BorderRadius.circular(6)),
-                          child: Text(p['tiempo'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+                          child: Text(p['tiempo']?.toString() ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(p['descripcion'] ?? '', style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.5)),
+                  Text(p['descripcion']?.toString() ?? '', style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.5)),
                   if (p['nota'] != null && p['nota'].toString().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Nota: ${p['nota']}', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.verdeSalud, fontStyle: FontStyle.italic)),
@@ -550,7 +550,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(row['nombre'], style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600)),
+                Text(row['nombre']?.toString() ?? 'Nutriente', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600)),
                 Text('${row['valor']} ${row['unidad']}', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
               ],
             ),
@@ -630,11 +630,11 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                       ),
                     ),
                     title: Text(
-                      tag['nombre_visible'], 
+                      tag['nombre_visible']?.toString() ?? 'Etiqueta', 
                       style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)
                     ),
                     subtitle: Text(
-                      tag['codigo'], 
+                      tag['codigo']?.toString() ?? 'N/A', 
                       style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade400)
                     ),
                     trailing: yaAsignada 
@@ -711,7 +711,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
           Icon(Icons.tag_rounded, size: 14, color: AppTema.azulPrincipal.withOpacity(0.6)),
           const SizedBox(width: 10),
           Text(
-            e['titulo'] ?? '-',
+            e['titulo']?.toString() ?? '-',
             style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro),
           ),
           const SizedBox(width: 10),

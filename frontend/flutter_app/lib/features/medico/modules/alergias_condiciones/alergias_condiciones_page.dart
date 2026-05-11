@@ -16,6 +16,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   final _grupoSearchController = TextEditingController();
   final _observacionIngredienteController = TextEditingController();
   final _observacionGrupoController = TextEditingController();
+  final _ingFocus = FocusNode();
 
   final List<Map<String, dynamic>> _pacientesEncontrados = [];
   final List<Map<String, dynamic>> _ingredientes = [];
@@ -57,6 +58,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
   void initState() {
     super.initState();
     Future.microtask(_loadCatalogs);
+    _ingFocus.addListener(() => setState(() {}));
   }
 
   @override
@@ -66,7 +68,52 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     _grupoSearchController.dispose();
     _observacionIngredienteController.dispose();
     _observacionGrupoController.dispose();
+    _ingFocus.dispose();
     super.dispose();
+  }
+
+  void _autoBloquearDerivados(String nombre) {
+    final n = nombre.toLowerCase().trim();
+    if (n.length < 3) return;
+
+    final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+    final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+    if (words.isEmpty && n.isNotEmpty) words.add(n);
+
+    final derivados = _ingredientes.where((i) {
+      final iname = (i['nombre'] ?? "").toString().toLowerCase();
+      final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      
+      if (iname == n) return false;
+
+      bool match(String source, String target) {
+        if (source.isEmpty || target.isEmpty) return false;
+        final sourceWords = source.split(' ');
+        return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
+      }
+
+      if (match(iname, n)) return true;
+
+      for (var s in sinonimos) {
+        if (s.trim().isEmpty) continue;
+        if (match(s, n)) return true;
+      }
+
+      return false;
+    }).toList();
+    
+    for (var d in derivados) {
+      final idD = (d['id'] as num).toInt();
+      if (!_alergiasIngredientes.any((x) => x['id_ingrediente'] == idD)) {
+        setState(() {
+          _alergiasIngredientes.add({
+            "id_ingrediente": idD,
+            "nombre_ingrediente": d["nombre"],
+            "observacion": "Derivado de $nombre",
+          });
+        });
+      }
+    }
   }
 
   List<Map<String, dynamic>> get _ingredientesFiltrados {
@@ -307,36 +354,92 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 Text("Alergia a ingredientes específicos", 
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: _selectedIngredienteId,
-                  decoration: const InputDecoration(
-                    labelText: "Buscar e ingrediente a bloquear",
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  items: _ingredientesFiltrados
-                      .map(
-                        (i) => DropdownMenuItem<int>(
-                          value: (i["id"] as num).toInt(),
-                          child: Text(i["nombre"]?.toString() ?? "Ingrediente"),
+                StatefulBuilder(
+                  builder: (context, setInternalState) {
+                    final matches = _ingredientesFiltrados;
+                    final q = _ingredienteSearchController.text.toLowerCase().trim();
+                    
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _ingredienteSearchController,
+                                focusNode: _ingFocus,
+                                onChanged: (v) => setInternalState(() {}),
+                                decoration: InputDecoration(
+                                  labelText: q.isEmpty ? "Buscar ingrediente a bloquear..." : "Filtrando: $q",
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingredienteSearchController.clear(); setInternalState(() {}); }) : null,
+                                ),
+                              ),
+                            ),
+                            if (q.isNotEmpty && matches.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    for (var m in matches) {
+                                      final idM = (m['id'] as num).toInt();
+                                      if (!_alergiasIngredientes.any((ing) => ing['id_ingrediente'] == idM)) {
+                                        _alergiasIngredientes.add({
+                                          "id_ingrediente": idM,
+                                          "nombre_ingrediente": m["nombre"],
+                                          "observacion": _observacionIngredienteController.text,
+                                        });
+                                      }
+                                    }
+                                    _ingredienteSearchController.clear();
+                                  });
+                                  setInternalState(() {});
+                                },
+                                icon: const Icon(Icons.done_all, color: Colors.blue, size: 18),
+                                label: Text("MARCAR ${matches.length}", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
+                              ),
+                            ],
+                          ],
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _selectedIngredienteId = value),
+                        if (_ingredienteSearchController.text.isNotEmpty || _ingFocus.hasFocus) 
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            margin: const EdgeInsets.only(top: 8),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)]),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: matches.length > 50 ? 50 : matches.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (ctx, i) {
+                                final item = matches[i];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(item['nombre'] ?? ""),
+                                  trailing: const Icon(Icons.add_circle_outline, size: 18),
+                                  onTap: () {
+                                    final idItem = (item['id'] as num).toInt();
+                                    setState(() {
+                                      _alergiasIngredientes.add({
+                                        "id_ingrediente": idItem,
+                                        "nombre_ingrediente": item["nombre"],
+                                        "observacion": _observacionIngredienteController.text,
+                                      });
+                                      _autoBloquearDerivados(item["nombre"]?.toString() ?? "");
+                                    });
+                                    setInternalState(() {});
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _observacionIngredienteController,
-                  decoration: const InputDecoration(labelText: "Observación"),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _loading || _selectedIngredienteId == null ? null : _agregarAlergiaIngrediente,
-                    icon: const Icon(Icons.block),
-                    label: const Text("Bloquear Ingrediente"),
-                  ),
+                  decoration: const InputDecoration(labelText: "Observación opcional para el bloqueo"),
                 ),
                 const SizedBox(height: 12),
                 if (_alergiasIngredientes.isNotEmpty) ...[
@@ -382,7 +485,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(_emojiSubgrupo((g["id"] as num).toInt()), style: const TextStyle(fontSize: 16)),
+                              Text(_emojiSubgrupo((g["id"] as num?)?.toInt() ?? 0), style: const TextStyle(fontSize: 16)),
                               const SizedBox(width: 8),
                               Expanded(child: Text(g["nombre"]?.toString() ?? "Grupo")),
                             ],
@@ -412,7 +515,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                   ..._alergiasGrupos.map(
                     (item) => ListTile(
                       dense: true,
-                      leading: Text(_emojiSubgrupo((item["id_grupo_alimentario"] as num).toInt()), style: const TextStyle(fontSize: 20)),
+                      leading: Text(_emojiSubgrupo((item["id_grupo_alimentario"] as num?)?.toInt() ?? 0), style: const TextStyle(fontSize: 20)),
                       title: Text(item["nombre_grupo"]?.toString() ?? "Grupo"),
                       subtitle: Text(item["observacion"]?.toString() ?? ""),
                       trailing: IconButton(

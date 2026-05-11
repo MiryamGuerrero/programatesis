@@ -245,7 +245,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                     ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text("TODOS LOS DIAGNÓSTICOS")),
-                      ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"].toString().toUpperCase(), overflow: TextOverflow.ellipsis))),
+                      ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"]?.toString().toUpperCase() ?? "CONDICIÓN", overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (v) => setState(() => _filtroCondicion = v),
                   ),
@@ -270,7 +270,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                     ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text("TODAS LAS ACCIONES")),
-                      ...(_formData["acciones"] ?? []).map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"].toString().toUpperCase(), overflow: TextOverflow.ellipsis))),
+                      ...(_formData["acciones"] ?? []).map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (v) => setState(() => _filtroAccion = v),
                   ),
@@ -336,7 +336,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
   );
 
-  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre'] ?? r['grupo_nombre'] ?? r['subgrupo_nombre'] ?? r['etiqueta_nombre'] ?? "Objetivo";
+  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre']?.toString() ?? r['grupo_nombre']?.toString() ?? r['subgrupo_nombre']?.toString() ?? r['etiqueta_nombre']?.toString() ?? "Objetivo";
 
   void _showForm([Map<String, dynamic>? rule]) {
     showDialog(context: context, builder: (ctx) => _MedicalRuleFormDialog(formData: _formData, initialRule: rule, onSaved: _loadData));
@@ -387,14 +387,14 @@ class _ReglasMedicasDataSource extends DataTableSource {
     final condicionesIds = r["id_condiciones"] as List;
     final nombresCondiciones = condicionesIds.map((id) {
       final c = formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
-      return c != null ? c["nombre"] : "C-$id";
+      return c != null ? (c["nombre"]?.toString() ?? "C-$id") : "C-$id";
     }).join(", ");
 
     final tipos = (r['tipos_condicion'] as List? ?? []);
     final tipoPrincipal = tipos.contains("Clínica") ? "Clínica" : (tipos.isNotEmpty ? tipos.first : "Clínica");
 
     return DataRow(cells: [
-      DataCell(_accionBadge(r['accion_codigo'])),
+      DataCell(_accionBadge(r['accion_codigo']?.toString() ?? "-")),
       DataCell(_tipoBadge(tipoPrincipal)),
       DataCell(Text(_getTargetName(r), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700))),
       DataCell(SizedBox(width: 250, child: Text(nombresCondiciones, style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey), overflow: TextOverflow.ellipsis))),
@@ -431,7 +431,7 @@ class _ReglasMedicasDataSource extends DataTableSource {
     );
   }
 
-  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre'] ?? r['grupo_nombre'] ?? r['subgrupo_nombre'] ?? r['etiqueta_nombre'] ?? "Objetivo";
+  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre']?.toString() ?? r['grupo_nombre']?.toString() ?? r['subgrupo_nombre']?.toString() ?? r['etiqueta_nombre']?.toString() ?? "Objetivo";
 
   @override
   bool get isRowCountApproximate => false;
@@ -463,7 +463,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
     final r = widget.initialRule;
     _idAccion = r?["id_accion"]; _idObjetivo = r?["id_tipo_objetivo"];
     _idTarget = r?["id_ingrediente"] ?? r?["id_grupo_alimentario"] ?? r?["id_subgrupo_alimentario"] ?? r?["id_etiqueta"];
-    _mensajeController = TextEditingController(text: r?["mensaje_error"]);
+    _mensajeController = TextEditingController(text: r?["mensaje_error"]?.toString());
     _selectedCondiciones = List<int>.from(r?["id_condiciones"] ?? []);
     _esEstricta = r?["es_estricta"] ?? false;
   }
@@ -500,7 +500,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                 DropdownButtonFormField<int>(
                   initialValue: _idObjetivo,
                   decoration: _modalDecor("Tipo de Objetivo*", Icons.track_changes),
-                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"]?.toString().toUpperCase() ?? "OBJETIVO", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
                 ),
                 if (_idObjetivo != null) ...[
@@ -508,7 +508,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                   DropdownButtonFormField<int>(
                     initialValue: _idTarget,
                     decoration: _modalDecor("Seleccionar Item*", Icons.ads_click),
-                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"]?.toString().toUpperCase() ?? "ITEM", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                     onChanged: (v) => setState(() => _idTarget = v),
                   ),
                 ],
@@ -518,7 +518,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                 DropdownButtonFormField<int>(
                   initialValue: _idAccion,
                   decoration: _modalDecor("Acción Médica*", Icons.gavel),
-                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() => _idAccion = v),
                 ),
                 SwitchListTile(title: Text("Restricción Estricta", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600)), value: _esEstricta, onChanged: (v) => setState(() => _esEstricta = v)),
@@ -527,7 +527,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
               _buildFieldSection("APLICABILIDAD", [
                 Container(
                   height: 120, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: ListView(children: widget.formData["condiciones"]!.map((c) => CheckboxListTile(title: Text(c["nombre"], style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
+                  child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(title: Text(c["nombre"]?.toString() ?? "Condición", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
                     _selectedCondiciones.add(c["id"]);
                   } else {
                     _selectedCondiciones.remove(c["id"]);

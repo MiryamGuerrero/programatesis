@@ -145,7 +145,7 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
                     backgroundColor: Colors.teal.shade50,
                     child: const Icon(Icons.child_care, color: Colors.teal),
                   ),
-                  title: Text(p['nombre'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(p['nombre']?.toString() ?? "Paciente", style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("Tutor: ${p['tutor'] ?? 'N/A'} - Tel: ${p['tutor_telefono'] ?? '-'}"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

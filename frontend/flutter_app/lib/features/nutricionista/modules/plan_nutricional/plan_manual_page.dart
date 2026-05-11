@@ -229,7 +229,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           leading: CircleAvatar(backgroundColor: Colors.blue.shade50, child: const Icon(Icons.person, color: Colors.blue)),
-                          title: Text(p["nombre_completo"] ?? "S/N", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(p["nombre_completo"]?.toString() ?? "S/N", style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text("ID: ${p["id"]}"),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => _onPatientSelected(p),
@@ -595,7 +595,7 @@ class _DayCard extends StatelessWidget {
           else
             ...s.recipes.asMap().entries.map((re) => ListTile(
               dense: true, visualDensity: VisualDensity.compact,
-              title: Text(re.value["nombre"], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              title: Text(re.value["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               trailing: IconButton(icon: const Icon(Icons.close, size: 14, color: Colors.red), onPressed: () => onRemove(idx, re.key)),
             )),
           if (has) IconButton(onPressed: () => onAdd(idx), icon: const Icon(Icons.refresh, size: 16, color: Colors.blueGrey), tooltip: "Cambiar receta"),
@@ -686,8 +686,8 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     leading: const Icon(Icons.restaurant, color: Colors.orange),
-                    title: Text(_filtered[i]["nombre"], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(_filtered[i]["recomendacion"] ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
+                    title: Text(_filtered[i]["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(_filtered[i]["recomendacion"]?.toString() ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
                     trailing: const Icon(Icons.add_circle, color: Colors.blue),
                     onTap: () { widget.onSelected(_filtered[i]); Navigator.pop(context); },
                   ),

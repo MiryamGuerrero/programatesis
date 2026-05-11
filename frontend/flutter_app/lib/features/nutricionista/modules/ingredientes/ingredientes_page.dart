@@ -217,7 +217,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           hint: Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700)),
           items: [
             DropdownMenuItem(value: null, child: Text("TODOS LOS ${label}S", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700))),
-            ...items.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['nombre'].toString().toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w600)))),
+            ...items.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['nombre']?.toString().toUpperCase() ?? "INGREDIENTE", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w600)))),
           ],
           onChanged: onChanged,
         ),
@@ -294,7 +294,7 @@ class _IngredientesDataSource extends DataTableSource {
     if (index >= items.length) return null;
     final ing = items[index];
     return DataRow(cells: [
-      DataCell(Text(ing['nombre'], style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text(ing['nombre']?.toString() ?? "Ingrediente", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(Text(_capitalize(ing['categoria']), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
       DataCell(Text("${_fmt(ing['energia_kcal'])} kcal", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),

@@ -10,6 +10,8 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
 
+import '../../../shared/widgets/escalas/escala_selector.dart';
+
 class RegistroMensualPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> paciente;
   const RegistroMensualPage({super.key, required this.paciente});
@@ -47,7 +49,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
-  Color _omsColor = Colors.grey;
+  String _resumenClinico = "";
+  double _gananciaPeso = 0;
+  double _gananciaTalla = 0;
+  String _estadoPeso = "mantener";
+  double _pesoIdeal = 0;
+  double _tallaIdeal = 0;
+  bool _calculandoOMS = false;
+  Color _omsColor = Colors.grey.shade400;
 
   @override
   void initState() {
@@ -101,7 +110,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   void _debouncedOMS() {
     _debounceOMS?.cancel();
-    _debounceOMS = Timer(const Duration(milliseconds: 1000), () {
+    _debounceOMS = Timer(const Duration(milliseconds: 200), () {
       if (mounted) _calculateOMS();
     });
   }
@@ -116,6 +125,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
      
     if (fnac == null || idSexo == null) return;
 
+    setState(() => _calculandoOMS = true);
     try {
       final dio = ref.read(dioProvider);
       final fechaStr = fnac.toString().split("T").first;
@@ -132,20 +142,28 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         setState(() {
           _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
           _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
+          _resumenClinico = res.data['resumen_clinico'] ?? "";
+          _gananciaPeso = (res.data['ganancia_peso_necesaria'] ?? 0).toDouble();
+          _gananciaTalla = (res.data['ganancia_talla_necesaria'] ?? 0).toDouble();
+          _estadoPeso = res.data['estado_peso'] ?? "mantener";
+          _pesoIdeal = (res.data['peso_ideal'] ?? 0).toDouble();
+          _tallaIdeal = (res.data['talla_ideal'] ?? 0).toDouble();
           
           final String combined = (res.data['diagnostico_combinado'] ?? "$_omsStatusPeso / $_omsStatusTalla").toString().toLowerCase();
           
-          if (combined.contains("severa") || combined.contains("obesidad") || combined.contains("bajo peso severo")) {
+          if (combined.contains("severa") || combined.contains("obesidad") || combined.contains("desnutrición")) {
             _omsColor = Colors.red;
           } else if (combined.contains("sobrepeso") || combined.contains("baja") || combined.contains("delgadez") || combined.contains("bajo peso") || combined.contains("riesgo")) {
             _omsColor = Colors.orange;
           } else {
             _omsColor = greenBrand;
           }
+          _calculandoOMS = false;
         });
       }
     } catch (e) { 
       debugPrint("Error en pre-diagnóstico: $e");
+      if (mounted) setState(() => _calculandoOMS = false);
     }
   }
 
@@ -546,13 +564,102 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
           Expanded(child: _field(_talla, "Talla Actual (cm)*", Icons.height_rounded, onChanged: (_) => _debouncedOMS())),
         ]),
         const SizedBox(height: 48),
-        _sectionHeader("2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA", Icons.healing_outlined),
+        _sectionHeader("2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA", Icons.healing_outlined),
         const SizedBox(height: 24),
-        _buildMetricSlider("DOLOR (EVA)", _dolor, (v) => setState(() => _dolor = v), "DOLOR"),
+        Builder(builder: (context) {
+          final colorDolor = _dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red;
+          return EscalaSelector(
+            titulo: _dolor == 0 ? 'SIN DOLOR' : _dolor <= 3 ? 'LEVE' : _dolor <= 6 ? 'MODERADO' : _dolor <= 8 ? 'INTENSO' : 'INSOPORTABLE',
+            descripcion: _dolor == 0 ? 'Sin molestias reportadas' : _dolor <= 3 ? 'Molestia ligera ocasional' : _dolor <= 6 ? 'Dolor que interfiere con actividades' : _dolor <= 8 ? 'Dolor fuerte y persistente' : 'Dolor extremo, requiere atención',
+            min: 0,
+            max: 10,
+            value: _dolor.toInt(),
+            icons: const [
+              Icons.sentiment_very_satisfied_outlined,
+              Icons.sentiment_satisfied_outlined,
+              Icons.sentiment_neutral_outlined,
+              Icons.sentiment_dissatisfied_outlined,
+              Icons.sentiment_very_dissatisfied_outlined,
+              Icons.sentiment_neutral_outlined,
+              Icons.sentiment_dissatisfied_outlined,
+              Icons.sentiment_very_dissatisfied_outlined,
+              Icons.mood_bad_outlined,
+              Icons.sick_outlined,
+              Icons.personal_injury_outlined,
+            ],
+            etiquetas: [
+              EscalaEtiqueta('Leve', 3),
+              EscalaEtiqueta('Moderado', 4),
+              EscalaEtiqueta('Severo', 4),
+            ],
+            colorActivo: colorDolor,
+            colorFondoActivo: colorDolor.withOpacity(0.1),
+            onChanged: (v) => setState(() => _dolor = v.toDouble()),
+            puntajeLabel: '${_dolor.toInt()}/10',
+            headerIcon: Icon(_dolor == 0 ? Icons.sentiment_very_satisfied_rounded : _dolor <= 3 ? Icons.sentiment_satisfied_rounded : _dolor <= 6 ? Icons.sentiment_neutral_rounded : _dolor <= 8 ? Icons.sentiment_dissatisfied_rounded : Icons.sentiment_very_dissatisfied_rounded, color: colorDolor, size: 32),
+          );
+        }),
         const SizedBox(height: 32),
-        _buildMetricSlider("INFLAMACIÓN ARTICULAR", _inflamacion, (v) => setState(() => _inflamacion = v), "INFLAMACION"),
+        Builder(builder: (context) {
+          final colorInflam = _inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red;
+          return EscalaSelector(
+            titulo: _inflamacion == 0 ? 'SIN INFLAMACIÓN' : _inflamacion == 1 ? 'LEVE / DISCRETA' : _inflamacion == 2 ? 'MODERADA' : 'SEVERA / ACTIVA',
+            descripcion: _inflamacion == 0 ? 'Sin signos de inflamación' : _inflamacion == 1 ? 'Hinchazón mínima detectable' : _inflamacion == 2 ? 'Inflamación visible y limitante' : 'Inflamación severa y sistémica',
+            min: 0,
+            max: 3,
+            value: _inflamacion.toInt(),
+            icons: const [
+              Icons.health_and_safety_outlined,
+              Icons.healing_outlined,
+              Icons.report_problem_outlined,
+              Icons.local_fire_department_outlined,
+            ],
+            etiquetas: [
+              EscalaEtiqueta('Leve', 1),
+              EscalaEtiqueta('Moderada', 2),
+              EscalaEtiqueta('Severa / Activa', 1),
+            ],
+            colorActivo: colorInflam,
+            colorFondoActivo: colorInflam.withOpacity(0.1),
+            onChanged: (v) => setState(() => _inflamacion = v.toDouble()),
+            puntajeLabel: '${_inflamacion.toInt()}/3',
+            headerIcon: Icon(_inflamacion == 0 ? Icons.verified_user_rounded : _inflamacion == 1 ? Icons.healing_rounded : _inflamacion == 2 ? Icons.warning_rounded : Icons.whatshot_rounded, color: colorInflam, size: 32),
+          );
+        }),
         const SizedBox(height: 32),
-        _buildMetricSlider("NIVEL DE ENERGÍA / FATIGA", _fatiga, (v) => setState(() => _fatiga = v), "FATIGA"),
+        Builder(builder: (context) {
+          final colorFatiga = _fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red;
+          return EscalaSelector(
+            titulo: _fatiga >= 8 ? 'MUCHA ENERGÍA' : _fatiga >= 5 ? 'NORMAL' : _fatiga >= 3 ? 'FATIGA LEVE' : 'AGOTAMIENTO',
+            descripcion: _fatiga >= 8 ? 'Paciente con vitalidad máxima' : _fatiga >= 5 ? 'Energía estable para el día' : _fatiga >= 3 ? 'Cansancio superior al normal' : 'Falta total de energía basal',
+            min: 0,
+            max: 10,
+            value: _fatiga.toInt(),
+            icons: const [
+              Icons.battery_0_bar_outlined,
+              Icons.battery_1_bar_outlined,
+              Icons.battery_2_bar_outlined,
+              Icons.battery_3_bar_outlined,
+              Icons.battery_4_bar_outlined,
+              Icons.battery_5_bar_outlined,
+              Icons.battery_6_bar_outlined,
+              Icons.battery_full_outlined,
+              Icons.bolt_outlined,
+              Icons.flash_on_outlined,
+              Icons.star_outline_rounded,
+            ],
+            etiquetas: [
+              EscalaEtiqueta('Agotamiento', 3),
+              EscalaEtiqueta('Intermedio', 5),
+              EscalaEtiqueta('Alta energía', 3),
+            ],
+            colorActivo: colorFatiga,
+            colorFondoActivo: colorFatiga.withOpacity(0.1),
+            onChanged: (v) => setState(() => _fatiga = v.toDouble()),
+            puntajeLabel: '${_fatiga.toInt()}/10',
+            headerIcon: Icon(_fatiga >= 8 ? Icons.battery_full_rounded : _fatiga >= 5 ? Icons.battery_charging_full_rounded : _fatiga >= 3 ? Icons.battery_alert_rounded : Icons.battery_0_bar_rounded, color: colorFatiga, size: 32),
+          );
+        }),
         const SizedBox(height: 48),
         Row(children: [
           Expanded(child: _field(_artInflam, "Art. Inflamadas", Icons.adjust)),
@@ -642,7 +749,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
               },
             ),
             title: Text(
-              c['nombre'],
+              c['nombre']?.toString() ?? "Condición",
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
@@ -709,13 +816,52 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _buildOMSStatusCard() {
     return Container(
-      padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: _omsColor.withOpacity(0.1), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.3))),
-      child: Row(children: [
-        Icon(Icons.analytics_rounded, color: _omsColor, size: 32), const SizedBox(width: 20),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("ESTADO NUTRICIONAL ACTUAL (OMS)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueGrey)), Text("$_omsStatusPeso / $_omsStatusTalla".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]))
-      ]),
+      padding: const EdgeInsets.all(28), decoration: BoxDecoration(color: _omsColor.withOpacity(0.06), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)), 
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [Icon(Icons.analytics_rounded, color: _omsColor, size: 22), const SizedBox(width: 12), Text("DIAGNÓSTICO NUTRICIONAL OMS", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF475569)))]),
+          if (_calculandoOMS) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: greenBrand))
+          else IconButton(onPressed: _calculateOMS, icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.blueGrey), tooltip: "Recalcular")
+        ]),
+        const SizedBox(height: 24),
+        Text("${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+        if (_resumenClinico.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(_resumenClinico, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _omsColor)),
+        ],
+        const Divider(height: 40),
+        Row(children: [
+          _metaItem("PESO IDEAL", "${_pesoIdeal.toStringAsFixed(1)} kg", Icons.scale_rounded),
+          const SizedBox(width: 24),
+          _metaItem("TALLA IDEAL", "${_tallaIdeal.toStringAsFixed(1)} cm", Icons.height_rounded),
+        ]),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          child: Row(children: [
+            Icon(_estadoPeso == "aumentar" ? Icons.trending_up_rounded : _estadoPeso == "disminuir" ? Icons.trending_down_rounded : Icons.trending_flat_rounded, color: _omsColor),
+            const SizedBox(width: 16),
+            Expanded(child: Text(
+              _estadoPeso == "mantener"
+                  ? (_gananciaTalla > 0.5
+                      ? "EL PACIENTE TIENE UN PESO ADECUADO, PERO PRESENTA RETRASO DE TALLA (${_gananciaTalla.toStringAsFixed(1)} CM)."
+                      : "EL PACIENTE TIENE UN PESO ADECUADO.")
+                  : (_gananciaTalla > 0.5
+                      ? "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG Y CRECER ${_gananciaTalla.toStringAsFixed(1)} CM."
+                      : "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG."),
+              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))
+            ))
+          ]),
+        )
+      ])
     );
   }
+
+  Widget _metaItem(String l, String v, IconData i) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [Icon(i, size: 14, color: Colors.blueGrey), const SizedBox(width: 8), Text(l, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueGrey))]),
+    const SizedBox(height: 4),
+    Text(v, style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+  ]));
 
   Widget _buildHistoryTab() {
     if (_loading && _expediente == null) return const Center(child: CircularProgressIndicator());

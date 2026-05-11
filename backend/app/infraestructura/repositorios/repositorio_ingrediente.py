@@ -119,43 +119,40 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 mapa[id_rec].add(id_ing)
             return mapa
 
-    def buscar_ingredientes_filtrados(self, id_paciente: str, consulta: str = None, limite: int = 50) -> List[dict]:
+    def buscar_ingredientes_filtrados(self, id_paciente: str | None, consulta: str = None, limite: int = 50) -> List[dict]:
         """
         Busca ingredientes aplicando filtros de alergias del paciente.
-        
-        Logica de bloqueo:
-        1. Ingredientes individuales prohibidos (alergia_paciente_ingrediente)
-        2. Subgrupos prohibidos (alergia_paciente_subgrupo)
-        3. Si el paciente tiene algun subgrupo con lactosa prohibido -> intolerante
-           -> se bloquean TODOS los subgrupos con lactosa automaticamente
+        Si id_paciente es None, devuelve todos los ingredientes activos.
         """
         with db_cursor() as cur:
-            # 1. Obtener IDs de ingredientes y subgrupos prohibidos
-            cur.execute(
-                "select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true",
-                (id_paciente,)
-            )
-            ing_prohibidos = {r[0] for r in cur.fetchall()}
+            ing_prohibidos = set()
+            sub_prohibidos = set()
 
-            cur.execute(
-                "select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true",
-                (id_paciente,)
-            )
-            sub_prohibidos = {r[0] for r in cur.fetchall()}
+            if id_paciente and id_paciente != "null" and id_paciente != "none":
+                # 1. Obtener IDs de ingredientes y subgrupos prohibidos
+                cur.execute(
+                    "select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true",
+                    (id_paciente,)
+                )
+                ing_prohibidos = {r[0] for r in cur.fetchall()}
 
-            # 2. Detectar intolerancia a la lactosa:
-            # Si el paciente tiene prohibido CUALQUIER subgrupo con lactosa,
-            # consideramos que es intolerante y bloqueamos TODOS los subgrupos con lactosa
-            es_intolerante_lactosa = bool(sub_prohibidos & SUBGRUPOS_CON_LACTOSA)
+                cur.execute(
+                    "select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true",
+                    (id_paciente,)
+                )
+                sub_prohibidos = {r[0] for r in cur.fetchall()}
 
-            if es_intolerante_lactosa:
-                # Ampliar prohibicion a todos los subgrupos con lactosa
-                sub_prohibidos |= SUBGRUPOS_CON_LACTOSA
+                # 2. Detectar intolerancia a la lactosa:
+                # Si el paciente tiene prohibido CUALQUIER subgrupo con lactosa,
+                # consideramos que es intolerante y bloqueamos TODOS los subgrupos con lactosa
+                if sub_prohibidos & SUBGRUPOS_CON_LACTOSA:
+                    sub_prohibidos |= SUBGRUPOS_CON_LACTOSA
 
             # 3. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
             term = f"%{consulta}%" if consulta else "%"
-            safe_ing = list(ing_prohibidos) if ing_prohibidos else [0]
-            safe_sub = list(sub_prohibidos) if sub_prohibidos else [0]
+            
+            # Ajuste de limite: si no hay consulta, devolver mas para cargar catálogo
+            final_limit = limite if consulta else 200
 
             sql = """
                 select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
@@ -168,12 +165,21 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                         select 1 from unnest(i.sinonimos) s where s ilike %s
                     )
                   )
-                  and i.id != all(%s)
-                  and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))
-                order by i.nombre
-                limit %s
             """
+            
+            params = [term, term]
+            
+            if ing_prohibidos:
+                sql += " and i.id != all(%s)"
+                params.append(list(ing_prohibidos))
+            
+            if sub_prohibidos:
+                sql += " and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))"
+                params.append(list(sub_prohibidos))
+                
+            sql += " order by i.nombre limit %s"
+            params.append(final_limit)
 
-            cur.execute(sql, (term, term, safe_ing, safe_sub, limite))
+            cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]

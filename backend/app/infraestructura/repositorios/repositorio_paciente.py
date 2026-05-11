@@ -15,8 +15,7 @@ from app.domain.servicios.servicio_oms import ServicioOMS
 class RepositorioPacientePostgres(IRepositorioPaciente):
     
     def _calcular_edad_meses(self, fecha_nacimiento: date) -> int:
-        _, meses = ServicioOMS.calcular_edad_detallada(fecha_nacimiento)
-        return meses
+        return ServicioOMS.calcular_edad_meses(fecha_nacimiento, date.today())
 
     def _obtener_ids_lacteos(self) -> set[int]:
         return {98, 100, 101, 104, 105, 108, 111, 114, 117, 119}
@@ -71,10 +70,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 # 4. Evaluación OMS
                 fecha_nac = date.fromisoformat(paciente["fecha_nacimiento"])
-                edad_meses = self._calcular_edad_meses(fecha_nac)
                 peso = float(salud.get("peso_kg") or 0)
                 talla_cm = float(salud.get("talla_cm") or 0)
-                evaluacion = ServicioOMS.evaluar_paciente_integral(peso, talla_cm, int(paciente["id_sexo"]), edad_meses)
+                
+                # Usar la nueva lógica integral que maneja días y meses automáticamente
+                evaluacion = ServicioOMS.evaluar_paciente_integral(
+                    peso, talla_cm, int(paciente["id_sexo"]), fecha_nac, date.today()
+                )
+                edad_meses = evaluacion["edad_meses"]
                 
                 # 5. Insertar Control Inicial
                 id_medico_interno = None
@@ -82,6 +85,19 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     cur.execute("select id from usuarios.usuario where auth_user_id::text = %s or id::text = %s limit 1", (id_usuario_creador, id_usuario_creador))
                     m_row = cur.fetchone()
                     if m_row: id_medico_interno = m_row[0]
+
+                # Mapeo completo de referencia.oms_clasificacion_zscore -> heuristico.condicion
+                oms_to_heuristico = {
+                    1: 100, 2: 101, 3: 110, 4: 111, 5: 104,
+                    6: 105, 7: 118, 8: 119, 9: 110, 10: 122,
+                    11: 123, 12: 124, 13: 125, 14: 112, 15: 117,
+                    16: 27, 17: 28, 18: 29, 19: 30,
+                }
+                
+                oms_id_bmi = evaluacion["bmi_edad"].get("id_clasificacion")
+                heuristico_id = oms_to_heuristico.get(oms_id_bmi, 110) # Default Normal o eutrófico
+                oms_id_hfa = evaluacion["talla_edad"].get("id_clasificacion")
+                heuristico_id_talla = oms_to_heuristico.get(oms_id_hfa, 112) # Default Talla normal
 
                 cur.execute("""
                     insert into clinico.control_paciente (
@@ -91,7 +107,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         articulaciones_dolorosas, en_brote, estado_enfermedad, nota_evolucion, id_medico, created_at, fecha_proxima_cita
                     ) values (%s, now(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), %s) returning id
                 """, (
-                    paciente_id, peso, talla_cm, edad_meses, evaluacion["imc"], evaluacion["bmi_edad"].get("id_condicion"), 
+                    paciente_id, peso, talla_cm, edad_meses, evaluacion["imc"], heuristico_id, 
                     f"{evaluacion['bmi_edad']['diagnostico']} | {evaluacion['talla_edad']['diagnostico']}",
                     int(salud.get("puntos_dolor") or 0), int(salud.get("escala_inflamacion") or 0), 
                     int(salud.get("fatiga") or 10), int(salud.get("minutos_rigidez") or 0), 
@@ -102,8 +118,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 ))
                 control_id = cur.fetchone()[0]
                 
-                # 6. Condiciones Activas (Nutricionales)
-                for c_id in [evaluacion["bmi_edad"].get("id_condicion"), evaluacion["talla_edad"].get("id_condicion")]:
+                # 6. Condiciones Activas (Nutricionales + Talla)
+                for c_id in [heuristico_id, heuristico_id_talla]:
                     if c_id and c_id > 0:
                         cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, esta_activa) values (%s, %s, now(), true)", (control_id, c_id))
 
@@ -118,17 +134,44 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 for sid in subs:
                     cur.execute("insert into clinico.alergia_paciente_subgrupo (id_paciente, id_subgrupo_alimentario, fecha_registro, activa) values (%s, %s, now(), true)", (paciente_id, sid))
-                for iid in salud.get("alergias_ingredientes", []):
+                
+                # Lógica de expansión de alergias por ingredientes (estudio de la palabra)
+                ingredientes_base_ids = salud.get("alergias_ingredientes", [])
+                ingredientes_final_ids = set(ingredientes_base_ids)
+
+                if ingredientes_base_ids:
+                    # Obtener nombres de los ingredientes seleccionados para buscar similares
+                    cur.execute("select nombre from nutricion.ingrediente where id = any(%s)", (list(ingredientes_base_ids),))
+                    nombres_seleccionados = [r[0] for r in cur.fetchall()]
+                    
+                    for nombre in nombres_seleccionados:
+                        # Buscamos ingredientes que contengan la palabra base (ej: 'fresa')
+                        base_word = nombre.lower().strip()
+                        if len(base_word) > 3: # Solo si la palabra es significativa
+                            cur.execute("select id from nutricion.ingrediente where lower(nombre) like %s", (f"%{base_word}%",))
+                            similares = [r[0] for r in cur.fetchall()]
+                            ingredientes_final_ids.update(similares)
+
+                for iid in ingredientes_final_ids:
                     cur.execute("insert into clinico.alergia_paciente_ingrediente (id_paciente, id_ingrediente, fecha_registro, activa) values (%s, %s, now(), true) on conflict do nothing", (paciente_id, iid))
                 
                 # 9. Condiciones Temporales
                 for ct in salud.get("condiciones_temporales", []):
-                    # ct es dict con {id, fecha_inicio, fecha_fin}
+                    f_ini = ct.get('fecha_inicio') or date.today().isoformat()
+                    f_fin = ct.get('fecha_fin')
+                    
+                    if not f_fin:
+                        # Recuperar duración estándar si falta f_fin
+                        cur.execute("select dias_duracion_estandar from heuristico.condicion where id = %s", (ct['id'],))
+                        d_row = cur.fetchone()
+                        dias = d_row[0] if d_row and d_row[0] else 7
+                        f_fin = (date.fromisoformat(f_ini) + timedelta(days=dias)).isoformat()
+
                     cur.execute("""
                         insert into clinico.control_condicion_activa 
                         (id_control, id_condicion, fecha_inicio, fecha_fin, esta_activa) 
                         values (%s, %s, %s, %s, true)
-                    """, (control_id, ct['id'], ct['fecha_inicio'], ct['fecha_fin']))
+                    """, (control_id, ct['id'], f_ini, f_fin))
 
                 cur.execute("COMMIT")
                 return {"id": str(paciente_id), "temp_password": temp_password}
@@ -197,6 +240,22 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 # Insertar ingredientes
                 for iid in salud.get("alergias_ingredientes", []):
                     cur.execute("insert into clinico.alergia_paciente_ingrediente (id_paciente, id_ingrediente, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, iid))
+
+                # 5. Actualizar Condiciones Temporales
+                # Obtenemos el último control para asociarlas
+                cur.execute("select id from clinico.control_paciente where id_paciente = %s order by fecha_control desc limit 1", (id_paciente,))
+                ctrl_row = cur.fetchone()
+                if ctrl_row:
+                    id_control = ctrl_row[0]
+                    # Limpiamos temporales previas de este control si las hay (opcional, mejor limpiar todas las temporales del paciente si se desea refrescar)
+                    # Pero el modelo es por control. Vamos a insertar las nuevas.
+                    for ct in salud.get("condiciones_temporales", []):
+                        cur.execute("""
+                            insert into clinico.control_condicion_activa 
+                            (id_control, id_condicion, fecha_inicio, fecha_fin, esta_activa) 
+                            values (%s, %s, %s, %s, true)
+                            on conflict do nothing
+                        """, (id_control, ct['id'], ct['fecha_inicio'], ct['fecha_fin']))
 
                 cur.execute("COMMIT")
                 return True
@@ -278,14 +337,16 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             for c in controles_raw:
                 try:
                     # Enriquecemos cada control con su ideal OMS histórico para gráficas
+                    # c["fecha_control"] es date, paciente["fecha_nacimiento"] es date
                     eval_hist = ServicioOMS.evaluar_paciente_integral(
                         float(c["peso_kg"]), float(c["talla_cm"]), 
-                        paciente["id_sexo"], c["edad_meses"]
+                        paciente["id_sexo"], paciente["fecha_nacimiento"], c["fecha_control"]
                     )
-                    c["peso_ideal"] = eval_hist["peso_ideal"]
+                    c["peso_ideal"] = eval_hist["peso_ideal_estimado"]
                     c["talla_ideal"] = eval_hist["talla_ideal"]
                     c["z_score_bmi"] = eval_hist["bmi_edad"]["z_score"]
-                except:
+                except Exception as e:
+                    logging.warning(f"Error enriqueciendo control histórico: {e}")
                     c["peso_ideal"] = 0; c["talla_ideal"] = 0; c["z_score_bmi"] = 0
                 controles.append(c)
 
@@ -300,7 +361,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             """, (ultimo_control.get('id'),))
             condiciones_temporales = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
             
-            cur.execute("select id, nombre from heuristico.condicion where id_tipo_condicion = 2 and activa = true")
+            cur.execute("""
+                select id, nombre, dias_duracion_estandar as duracion_dias_sugerida 
+                from heuristico.condicion 
+                where id_tipo_condicion = 2 and activa = true
+            """)
             catalogo_temp = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
             
             return {
@@ -321,9 +386,40 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("BEGIN")
                 cur.execute("select fecha_nacimiento, id_sexo from usuarios.paciente where id = %s", (id_paciente,))
                 p = cur.fetchone()
-                eval = ServicioOMS.evaluar_paciente_integral(float(datos.get("peso_kg",0)), float(datos.get("talla_cm",0)), p[1], self._calcular_edad_meses(p[0]))
-                cur.execute("insert into clinico.control_paciente (id_paciente, fecha_control, peso_kg, talla_cm, edad_meses, imc_calculado, id_condicion_nutricional_resultado, estado_nutricional, id_medico, created_at) values (%s, now(), %s, %s, %s, %s, %s, %s, %s, now()) returning id", (id_paciente, datos.get("peso_kg"), datos.get("talla_cm"), self._calcular_edad_meses(p[0]), eval["imc"], eval["bmi_edad"].get("id_condicion"), eval["diagnostico_combinado"], id_medico))
+                if not p: raise Exception("Paciente no encontrado")
+                
+                fecha_nac = p[0]
+                id_sexo = p[1]
+                peso = float(datos.get("peso_kg") or 0)
+                talla = float(datos.get("talla_cm") or 0)
+                
+                evaluacion = ServicioOMS.evaluar_paciente_integral(peso, talla, id_sexo, fecha_nac, date.today())
+
+                oms_to_heuristico = {
+                    1: 100, 2: 101, 3: 110, 4: 111, 5: 104,
+                    6: 105, 7: 118, 8: 119, 9: 110, 10: 122,
+                    11: 123, 12: 124, 13: 125, 14: 112, 15: 117,
+                    16: 27, 17: 28, 18: 29, 19: 30,
+                }
+                heur_bmi = oms_to_heuristico.get(evaluacion["bmi_edad"].get("id_clasificacion"), 110)
+                heur_hfa = oms_to_heuristico.get(evaluacion["talla_edad"].get("id_clasificacion"), 112)
+
+                cur.execute("""
+                    insert into clinico.control_paciente (
+                        id_paciente, fecha_control, peso_kg, talla_cm, edad_meses, imc_calculado, 
+                        id_condicion_nutricional_resultado, estado_nutricional, id_medico, created_at
+                    ) values (%s, now(), %s, %s, %s, %s, %s, %s, %s, now()) returning id
+                """, (
+                    id_paciente, peso, talla, evaluacion["edad_meses"], 
+                    evaluacion["imc"], heur_bmi, 
+                    evaluacion["diagnostico_combinado"], id_medico
+                ))
                 cid = cur.fetchone()[0]
+                
+                for c_id in [heur_bmi, heur_hfa]:
+                    if c_id and c_id > 0:
+                        cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, esta_activa) values (%s, %s, now(), true)", (cid, c_id))
+
                 cur.execute("COMMIT")
                 return cid
             except Exception as e:

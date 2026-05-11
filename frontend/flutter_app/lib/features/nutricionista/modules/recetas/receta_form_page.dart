@@ -444,7 +444,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           const Icon(Icons.tag_rounded, size: 14, color: AppTema.azulPrincipal),
           const SizedBox(width: 8),
           Text(
-            e['titulo'] ?? e['nombre_visible'] ?? '-',
+            (e['titulo'] ?? e['nombre_visible'])?.toString() ?? '-',
             style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro),
           ),
           const SizedBox(width: 8),

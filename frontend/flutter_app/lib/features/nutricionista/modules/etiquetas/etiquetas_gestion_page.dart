@@ -191,13 +191,13 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue).withOpacity(0.1), shape: BoxShape.circle),
-                        child: Text(e['nombre_visible'][0].toString().toUpperCase(), style: TextStyle(color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                        child: Text((e['nombre_visible']?.toString() ?? "E")[0].toUpperCase(), style: TextStyle(color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                       const SizedBox(width: 12),
-                      Text(e['nombre_visible'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
+                      Text(e['nombre_visible']?.toString() ?? "Etiqueta", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal)),
                     ],
                   )),
-                  DataCell(Text(e['nombre'], style: GoogleFonts.lato(fontSize: 11))),
+                  DataCell(Text(e['nombre']?.toString() ?? "N/A", style: GoogleFonts.lato(fontSize: 11))),
                   DataCell(NutriBadge(label: e['tipo'].toString(), type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info')),
                   DataCell(Row(
                     children: [

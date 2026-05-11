@@ -126,7 +126,7 @@ def obtener_catalogo_maestro(
     schema: str = Query(...),
     table: str = Query(...),
     caso_uso: CasoUsoGestionarCatalogos = Depends(obtener_caso_uso_gestionar_catalogos),
-    _=Depends(require_roles("admin", "medico", "nutricionista"))
+    _=Depends(require_roles("admin", "medico", "nutricionista", "tutor"))
 ):
     try:
         return caso_uso.obtener_maestro(schema, table)

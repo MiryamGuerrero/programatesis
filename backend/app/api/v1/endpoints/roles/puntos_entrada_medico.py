@@ -1,4 +1,5 @@
 from typing import Any
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles, UserContext
 from app.api.v1.use_cases import obtener_caso_uso_gestionar_clinico, obtener_caso_uso_supervisar_adherencia, obtener_caso_uso_gestionar_pacientes
@@ -13,37 +14,48 @@ router = APIRouter(tags=["Medico"])
 
 @router.post("/pre-diagnostico-nutricional", response_model=PreDiagnosticoResponse)
 def pre_diagnostico_nutricional(
-    payload: PreDiagnosticoRequest, 
+    payload: PreDiagnosticoRequest,
     caso_uso: CasoUsoGestionarControlClinico = Depends(obtener_caso_uso_gestionar_clinico),
     _=Depends(require_roles("admin", "medico"))
 ):
     """Calcula el estado nutricional al instante sin guardar nada."""
     try:
-        anios, meses = ServicioOMS.calcular_edad_detallada(payload.fecha_nacimiento)
-        
+        # Convertir a objeto date de forma segura
+        dob = payload.fecha_nacimiento
+        if isinstance(dob, str):
+            dob = date.fromisoformat(dob)
+
+        today = date.today()
+
         result = ServicioOMS.evaluar_paciente_integral(
-            payload.peso_kg, 
-            payload.talla_cm, 
-            payload.id_sexo, 
-            meses
+            payload.peso_kg,
+            payload.talla_cm,
+            payload.id_sexo,
+            dob,
+            today
         )
-        
+
         return {
             "imc": result["imc"],
             "z_score": result["bmi_edad"]["z_score"] or 0.0,
-            "id_condicion_nutricional": result["bmi_edad"]["id_condicion"] or 0,
+            "id_condicion_nutricional": result["bmi_edad"]["id_clasificacion"] or 0,
             "diagnostico_nutri_texto": result["diagnostico_nutri_texto"],
             "diagnostico_talla_texto": result["diagnostico_talla_texto"],
             "diagnostico_combinado": result["diagnostico_combinado"],
+            "resumen_clinico": result["resumen_clinico"],
             "z_score_talla": result["talla_edad"]["z_score"] or 0.0,
-            "peso_ideal": result["peso_ideal"],
+            "peso_ideal": result["peso_ideal_estimado"],
             "talla_ideal": result["talla_ideal"],
-            "anios": anios,
-            "meses": meses % 12
+            "ganancia_peso_necesaria": result["ganancia_peso_necesaria"],
+            "ganancia_talla_necesaria": result["ganancia_talla_necesaria"],
+            "estado_peso": result["estado_peso"],
+            "anios": result["edad_meses"] // 12,
+            "meses": result["edad_meses"] % 12
         }
     except Exception as exc:
+        import logging
+        logging.error(f"Error en pre_diagnostico_nutricional: {str(exc)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(exc))
-
 @router.post("/diagnostico-oms")
 def diagnostico_oms(
     payload: dict,
@@ -59,12 +71,17 @@ def diagnostico_oms(
     
     valor = float(payload["valor"])
     z_score = ServicioOMS.calcular_z_score(valor, res["l"], res["m"], res["s"])
-    clasif = ServicioOMS.clasificar_zscore(payload.get("indicador_id", 1), z_score)
+    
+    # Se requiere edad_meses para clasificar correctamente
+    edad_meses = payload.get("edad_meses", 0)
+    indicador = str(payload.get("indicador_id", "BMI"))
+    
+    clasif = ServicioOMS.clasificar_zscore(indicador, z_score, edad_meses)
     
     return {
-        "z_score": z_score,
+        "z_score": round(z_score, 2),
         "id_condicion": clasif["id"],
-        "diagnostico": clasif["nombre"]
+        "diagnostico": clasif["diagnostico"]
     }
 
 @router.get("/supervisar-adherencia-pacientes")
