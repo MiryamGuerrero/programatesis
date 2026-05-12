@@ -71,8 +71,15 @@ class InteligenciaApiRepository {
     return Map<String, dynamic>.from(response.data as Map);
   }
 
-  Future<Map<String, dynamic>> ingredientesLista({String q = "", int? cat, bool? active, int limit = 10, int offset = 0}) async {
-    final response = await _dio.get("ingredientes-lista", queryParameters: {"q": q, if (cat != null) "cat": cat, if (active != null) "active": active, "limit": limit, "offset": offset});
+  Future<Map<String, dynamic>> ingredientesLista({String q = "", int? cat, int? subcat, bool? active, int limit = 10, int offset = 0}) async {
+    final response = await _dio.get("ingredientes-lista", queryParameters: {
+      "q": q, 
+      if (cat != null) "cat": cat, 
+      if (subcat != null) "subcat": subcat,
+      if (active != null) "active": active, 
+      "limit": limit, 
+      "offset": offset
+    });
     return Map<String, dynamic>.from(response.data as Map);
   }
 
@@ -82,7 +89,15 @@ class InteligenciaApiRepository {
   }
 
   Future<void> guardarIngrediente(int id, Map<String, dynamic> data) async {
-    await _dio.put("nutricionista/ingredientes/$id", data: data);
+    if (id > 0) {
+      await _dio.put("nutricionista/ingredientes/$id", data: data);
+    } else {
+      await _dio.post("nutricionista/ingredientes", data: data);
+    }
+  }
+
+  Future<void> eliminarIngrediente(int id) async {
+    await _dio.delete("nutricionista/ingredientes/$id");
   }
 
   Future<Map<String, dynamic>> guardarPlanManual({required String idPaciente, required Map<String, dynamic> plan, bool replicate = true}) {

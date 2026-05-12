@@ -57,6 +57,42 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     }
   }
 
+  Future<void> _deleteEtiqueta(int id, String nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar Etiqueta?'),
+        content: Text('¿Estás seguro de que deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de todos los ingredientes y recetas.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('ELIMINAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final dio = ref.read(dioProvider);
+        await dio.delete('nutricionista/etiquetas/$id');
+        if (mounted) {
+          NutriSnack.show(context, 'Etiqueta eliminada con éxito');
+          _loadEtiquetas();
+        }
+      } catch (e) {
+        if (mounted) {
+          NutriSnack.show(context, 'Error al eliminar la etiqueta', isError: true);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isEditing) {
@@ -219,6 +255,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
             _etiquetaParaEditar = item;
             _isEditing = true;
           }),
+          onDelete: () => _deleteEtiqueta(item['id'], item['nombre_visible'] ?? 'Sin nombre'),
         );
       },
     );

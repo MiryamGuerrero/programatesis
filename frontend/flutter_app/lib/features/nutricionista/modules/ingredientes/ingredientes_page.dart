@@ -13,20 +13,22 @@ class IngredientesPage extends ConsumerStatefulWidget {
   ConsumerState<IngredientesPage> createState() => _IngredientesPageState();
 }
 
+enum IngredienteView { list, detail, form }
+
 class _IngredientesPageState extends ConsumerState<IngredientesPage> {
-  int? _selectedId;
-  bool _isEditing = false;
+  IngredienteView _currentView = IngredienteView.list;
+  int? _activeId;
 
   List<dynamic> _items = [];
   List<dynamic> _groups = [];
   List<dynamic> _subgroups = [];
+  List<dynamic> _subgroupsFiltrados = [];
   int _total = 0;
   bool _loading = true;
   String _query = '';
   int? _groupId;
   int? _subgroupId;
-  final int _page = 0;
-  final int _limit = 1000; // Aumentado para PaginatedDataTable
+  final int _limit = 1000; 
 
   @override
   void initState() {
@@ -41,10 +43,28 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       final g = await repo.fetchCatalog('nutricion', 'grupo_alimentario');
-      List<dynamic> sg = [];
-      try { sg = await repo.fetchCatalog('nutricion', 'subgrupo_alimentario'); } catch(_) {}
-      if (mounted) setState(() { _groups = g; _subgroups = sg; });
+      final sg = await repo.fetchCatalog('nutricion', 'subgrupo_alimentario');
+      if (mounted) {
+        setState(() {
+          _groups = g;
+          _subgroups = sg;
+          _subgroupsFiltrados = sg;
+        });
+      }
     } catch (_) {}
+  }
+
+  void _onGroupChanged(int? id) {
+    setState(() {
+      _groupId = id;
+      _subgroupId = null; // Reset subgroup when group changes
+      if (id == null) {
+        _subgroupsFiltrados = _subgroups;
+      } else {
+        _subgroupsFiltrados = _subgroups.where((s) => s['id_grupo_alimentario'] == id).toList();
+      }
+      _fetch();
+    });
   }
 
   Future<void> _fetch() async {
@@ -52,7 +72,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
       final data = await repo.ingredientesLista(
-          q: _query, cat: _groupId, limit: _limit, offset: 0);
+          q: _query, cat: _groupId, subcat: _subgroupId, limit: _limit, offset: 0);
       if (mounted) {
         setState(() {
           _items = data['items'] ?? [];
@@ -66,40 +86,43 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   void _showDetail(int id) {
-    showDialog(
-      context: context,
-      builder: (context) => IngredienteDetallePage(
-        idIngrediente: id,
-        onBack: () => Navigator.pop(context),
-        onEdit: () {
-          Navigator.pop(context);
-          _showForm(id);
-        },
-      ),
-    );
+    if (id == -1) { _fetch(); return; }
+    setState(() {
+      _activeId = id;
+      _currentView = IngredienteView.detail;
+    });
   }
 
   void _showForm([int? id]) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 900),
-          child: IngredienteFormPage(
-            idIngrediente: id,
-            onBack: () {
-              Navigator.pop(context);
-              _fetch();
-            },
-          ),
-        ),
-      ),
-    );
+    setState(() {
+      _activeId = id;
+      _currentView = IngredienteView.form;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    switch (_currentView) {
+      case IngredienteView.detail:
+        return IngredienteDetallePage(
+          idIngrediente: _activeId!,
+          onBack: () => setState(() => _currentView = IngredienteView.list),
+          onEdit: () => setState(() => _currentView = IngredienteView.form),
+        );
+      case IngredienteView.form:
+        return IngredienteFormPage(
+          idIngrediente: _activeId,
+          onBack: () {
+            setState(() => _currentView = IngredienteView.list);
+            _fetch();
+          },
+        );
+      default:
+        return _buildList();
+    }
+  }
+
+  Widget _buildList() {
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
       body: SingleChildScrollView(
@@ -195,9 +218,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             children: [
               Text("FILTRAR POR:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
               const SizedBox(width: 16),
-              _buildFilterDropdown("GRUPO", _groups, _groupId, (v) => setState(() { _groupId = v; _fetch(); })),
+              _buildFilterDropdown("GRUPO", _groups, _groupId, _onGroupChanged),
               const SizedBox(width: 12),
-              _buildFilterDropdown("SUBGRUPO", _subgroups, _subgroupId, (v) => setState(() { _subgroupId = v; _fetch(); })),
+              _buildFilterDropdown("SUBGRUPO", _subgroupsFiltrados, _subgroupId, (v) => setState(() { _subgroupId = v; _fetch(); })),
             ],
           ),
         ],
@@ -243,7 +266,6 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                 _col("CATEGORÍA"),
                 _col("SUBGRUPO"),
                 _col("KCAL/100G"),
-                _col("PROT/100G"),
                 _col("ACCIONES"),
               ],
               source: _IngredientesDataSource(
@@ -298,7 +320,6 @@ class _IngredientesDataSource extends DataTableSource {
       DataCell(Text(_capitalize(ing['categoria']), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
       DataCell(Text("${_fmt(ing['energia_kcal'])} kcal", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
-      DataCell(Text("${_fmt(ing['proteinas_g'])} g", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(Row(
         children: [
           IconButton(
@@ -309,9 +330,41 @@ class _IngredientesDataSource extends DataTableSource {
             icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), 
             onPressed: () => onEdit(ing['id'])
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent), 
+            onPressed: () => _confirmDelete(ing['id'], ing['nombre']),
+          ),
         ],
       )),
     ]);
+  }
+
+  Future<void> _confirmDelete(int id, String nombre) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("¿Eliminar ingrediente?"),
+        content: Text('¿Estás seguro de eliminar "$nombre" del catálogo?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCELAR")),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("ELIMINAR", style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final repo = ProviderScope.containerOf(context).read(inteligenciaRepositoryProvider);
+        await repo.eliminarIngrediente(id);
+        // Recargar la tabla
+        // Como esto es un DataSource, necesitamos una forma de notificar a la pagina.
+        // En este caso, podemos usar una callback o simplemente recargar via ref.
+        // Pero para simplificar, el usuario puede refrescar o podemos pasar una callback.
+        onView(-1); // Usamos un id especial o callback para recargar
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al eliminar: $e"), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Widget _subgroupBadge(String text) {

@@ -24,7 +24,6 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
   bool _loading = false;
 
   late TextEditingController _ctrlNombre;
-  late TextEditingController _ctrlCodigo;
   late TextEditingController _ctrlDescripcion;
 
   @override
@@ -32,7 +31,6 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
     super.initState();
     final e = widget.etiquetaInicial;
     _ctrlNombre = TextEditingController(text: e?['nombre_visible'] ?? '');
-    _ctrlCodigo = TextEditingController(text: e?['codigo'] ?? '');
     _ctrlDescripcion = TextEditingController(text: e?['descripcion'] ?? '');
   }
 
@@ -42,13 +40,16 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
     setState(() => _loading = true);
     try {
       final payload = {
-        'codigo': _ctrlCodigo.text.trim().toUpperCase().replaceAll(' ', '_'),
         'nombre_visible': _ctrlNombre.text.trim(),
         'descripcion': _ctrlDescripcion.text.trim(),
       };
 
       final dio = ref.read(dioProvider);
-      await dio.post('nutricionista/etiquetas', data: payload);
+      if (widget.etiquetaInicial != null) {
+        await dio.put('nutricionista/etiquetas/${widget.etiquetaInicial!['id']}', data: payload);
+      } else {
+        await dio.post('nutricionista/etiquetas', data: payload);
+      }
       
       if (!mounted) return;
       NutriSnack.show(context, 'Etiqueta guardada con éxito');
@@ -92,30 +93,12 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
                       children: [
                         _buildSectionHeader('Información de la Etiqueta', Icons.label_important_rounded),
                         const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildTextField(
-                                label: 'Nombre Visible',
-                                controller: _ctrlNombre,
-                                hint: 'Ej: Alto en Proteína',
-                                icon: Icons.title_rounded,
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: _buildTextField(
-                                label: 'Código',
-                                controller: _ctrlCodigo,
-                                hint: 'ALTO_PROT',
-                                icon: Icons.code_rounded,
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                                enabled: widget.etiquetaInicial == null,
-                              ),
-                            ),
-                          ],
+                        _buildTextField(
+                          label: 'Nombre Visible',
+                          controller: _ctrlNombre,
+                          hint: 'Ej: Alto en Proteína',
+                          icon: Icons.title_rounded,
+                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
                         ),
                         const SizedBox(height: 24),
                         _buildTextField(

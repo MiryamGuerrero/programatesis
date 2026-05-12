@@ -50,6 +50,18 @@ class IRepositorioIngrediente(ABC):
     def obtener_mapa_ingredientes_receta(self) -> dict:
         pass
 
+    @abstractmethod
+    def obtener_ingrediente(self, id_ingrediente: int) -> Optional[dict]:
+        pass
+
+    @abstractmethod
+    def actualizar_ingrediente(self, id_ingrediente: int, datos: dict) -> bool:
+        pass
+
+    @abstractmethod
+    def eliminar_ingrediente(self, id_ingrediente: int) -> bool:
+        pass
+
 class IRepositorioNutricion(ABC):
     @abstractmethod
     def listar_variables(self, q: str = None, limit: int = 200) -> List[dict]:
@@ -74,6 +86,10 @@ class IRepositorioReceta(ABC):
 
     @abstractmethod
     def listar_momentos_comida(self) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
         pass
 
 class IRepositorioSeguimiento(ABC):

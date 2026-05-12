@@ -266,11 +266,22 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               onVer: () => _abrirDetalleCompleto(r['id']),
               onEditar: () => _prepararEdicion(r['id']),
               onEliminar: () => _confirmarEliminacion(r),
+              onToggleActive: (valor) => _toggleActiva(r['id'], valor),
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _toggleActiva(int id, bool valor) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('crud/recetas/$id/estado', data: {'activa': valor});
+      _loadRecetas();
+    } catch (e) {
+      NutriSnack.show(context, 'Error al cambiar estado: $e', isError: true);
+    }
   }
 
   Future<void> _abrirDetalleCompleto(int id) async {

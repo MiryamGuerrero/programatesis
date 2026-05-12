@@ -154,8 +154,8 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                         _buildInfoGeneral(r),
                         _buildIngredientes(r),
                         _buildPreparacion(r),
-                        _buildNutricion(r),
                         _buildGestionEtiquetas(r),
+                        _buildNutricion(r),
                       ],
                     ),
                   ),
@@ -191,6 +191,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                       r['imagen_url'],
                       fit: BoxFit.cover,
                       width: double.infinity,
+                      key: ValueKey(r['imagen_url']), // Forzar actualización visual
                       errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
                     )
                   : _buildImagePlaceholder(),
@@ -312,11 +313,11 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
       indicatorSize: TabBarIndicatorSize.label,
       labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
       tabs: const [
-        Tab(text: 'Información General'),
+        Tab(text: 'Información Básica'),
         Tab(text: 'Ingredientes'),
         Tab(text: 'Preparación'),
-        Tab(text: 'Nutrición'),
         Tab(text: 'Etiquetas'),
+        Tab(text: 'Nutrición'),
       ],
     );
   }
@@ -324,30 +325,39 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
   Widget _buildInfoGeneral(Map<String, dynamic> r) {
     return Padding(
       padding: const EdgeInsets.all(32),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Column(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoItem('Categoría', r['categoria']),
-              const SizedBox(height: 24),
-              _buildInfoItem('Tiempo Preparación', '${r['tiempo_preparacion']} min'),
-              const SizedBox(height: 24),
-              _buildInfoItem('Peso Total', '${r['peso_total'] ?? 0} g'),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem('Momento de comida', r['categoria'] ?? 'No definido'),
+                  const SizedBox(height: 24),
+                  _buildInfoItem('Dificultad', r['dificultad']),
+                  const SizedBox(height: 24),
+                  _buildInfoItem('Tiempo Preparación', '${r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0} min'),
+                ],
+              )),
+              const VerticalDivider(width: 64, color: Color(0xFFF1F5F9)),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem('Porciones', r['porciones']),
+                  const SizedBox(height: 24),
+                  _buildInfoItem('Tiempo Cocción', '${r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0} min'),
+                  const SizedBox(height: 24),
+                  _buildInfoItem('Estado', r['activa'] == true ? 'ACTIVA' : 'INACTIVA'),
+                ],
+              )),
             ],
-          )),
-          const VerticalDivider(width: 64, color: Color(0xFFF1F5F9)),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildInfoItem('Subcategoría', r['subcategoria'] ?? 'N/A'),
-              const SizedBox(height: 24),
-              _buildInfoItem('Tiempo Cocción', '${r['tiempo_coccion'] ?? 0} min'),
-              const SizedBox(height: 24),
-              _buildInfoItem('Fecha Creación', r['fecha_creacion'] ?? '-'),
-            ],
-          )),
+          ),
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 24),
+          _buildInfoItem('Peso Total Estimado', '${r['peso_total'] ?? 0} g'),
         ],
       ),
     );

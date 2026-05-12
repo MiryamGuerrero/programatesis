@@ -7,12 +7,14 @@ class EtiquetaCard extends StatelessWidget {
   final Map<String, dynamic> etiqueta;
   final VoidCallback onTap;
   final VoidCallback onEdit;
+  final VoidCallback? onDelete;
 
   const EtiquetaCard({
     super.key,
     required this.etiqueta,
     required this.onTap,
     required this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -92,17 +94,28 @@ class EtiquetaCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  Material(
-                    color: AppTema.azulPrincipal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      onTap: onEdit,
-                      borderRadius: BorderRadius.circular(10),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                  Row(
+                    children: [
+                      if (onDelete != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.redAccent),
+                          onPressed: onDelete,
+                          tooltip: 'Eliminar etiqueta',
+                        ),
+                      const SizedBox(width: 4),
+                      Material(
+                        color: AppTema.azulPrincipal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: onEdit,
+                          borderRadius: BorderRadius.circular(10),
+                          child: const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

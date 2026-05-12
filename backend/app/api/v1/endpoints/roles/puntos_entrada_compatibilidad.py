@@ -98,24 +98,34 @@ def eliminar_regla_nutri(
 def ingredientes_lista_compat(
     q: str = Query(default=""),
     cat: int = Query(default=None),
+    subcat: int = Query(default=None),
     limit: int = Query(default=10),
     offset: int = Query(default=0),
     caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """Soporte para la tabla principal de ingredientes con datos enriquecidos."""
-    # Listar todos los ingredientes filtrados por nombre
-    todos_filtrados = caso_uso.listar_ingredientes(consulta=q, limite=1000, desplazamientoo=0)
+    # Obtener ingredientes con filtros aplicados directamente en el caso de uso
+    items_filtrados = caso_uso.listar_ingredientes(
+        consulta=q, 
+        limite=limit, 
+        desplazamientoo=offset,
+        id_grupo=cat,
+        id_subgrupo=subcat
+    )
     
-    # Aplicar filtro de categoría si existe
-    if cat:
-        todos_filtrados = [i for i in todos_filtrados if i.get("id_grupo_alimentario") == cat]
-    
-    total = len(todos_filtrados)
-    items = todos_filtrados[offset : offset + limit]
-    
+    # Para el total, como PaginatedDataTable lo necesita, hacemos una consulta rápida o estimada
+    # En este caso, para no complicar el repo, podemos retornar un total aproximado o el tamaño de la lista si es menor al limite
+    total = 0
+    if len(items_filtrados) < limit and offset == 0:
+        total = len(items_filtrados)
+    else:
+        # Si hay más, asumimos un número alto o implementamos un count en el repo
+        # Por ahora, para que la paginación funcione, retornamos el offset + items + 1 si está lleno
+        total = offset + len(items_filtrados) + (1 if len(items_filtrados) == limit else 0)
+
     return {
-        "items": items,
+        "items": items_filtrados,
         "total": total
     }
 
@@ -252,6 +262,18 @@ def listar_etiquetas_compat(
     repo = RepositorioPerfilPostgres()
     return repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
 
+@router.get("/crud/momentos")
+def listar_momentos_comida_compat():
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.listar_momentos_comida()
+
+@router.get("/crud/tipos-plato")
+def listar_tipos_plato_compat():
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.listar_tipos_plato()
+
 @router.get("/crud/recetas")
 def crud_recetas_compat(
     q: str = Query(default=""),
@@ -281,6 +303,20 @@ def guardar_receta_completa(payload: dict):
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/crud/recetas/{id_receta}")
+def eliminar_receta_completa(id_receta: int):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    exito = repo.eliminar_receta(id_receta)
+    return {"success": exito}
+
+@router.patch("/crud/recetas/{id_receta}/estado")
+def cambiar_estado_receta_compat(id_receta: int, payload: dict):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    exito = repo.cambiar_estado_receta(id_receta, payload.get("activa", True))
+    return {"success": exito}
 
 @router.post("/crud/recetas/{id_receta}/etiquetas/{id_etiqueta}")
 def asignar_etiqueta_receta(id_receta: int, id_etiqueta: int):
