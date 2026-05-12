@@ -1,0 +1,20 @@
+id,indicador_codigo,edad_min_meses,edad_max_meses,z_min,z_max,incluye_min,incluye_max,diagnostico,severidad,orden,activo
+1,BMI,0,60,,-3,true,false,Emaciación severa,grave,1,true
+2,BMI,0,60,-3,-2,true,false,Emaciación,moderada,2,true
+3,BMI,0,60,-2,1,true,true,Normal,normal,3,true
+4,BMI,0,60,1,2,false,true,Posible riesgo de sobrepeso,riesgo,4,true
+5,BMI,0,60,2,3,false,true,Sobrepeso,alto,5,true
+6,BMI,0,60,3,,false,true,Obesidad,muy alto,6,true
+7,BMI,61,228,,-3,true,false,Delgadez severa,grave,1,true
+8,BMI,61,228,-3,-2,true,false,Delgadez,moderada,2,true
+9,BMI,61,228,-2,1,true,true,Normal,normal,3,true
+10,BMI,61,228,1,2,false,true,Sobrepeso,alto,4,true
+11,BMI,61,228,2,,false,true,Obesidad,muy alto,5,true
+12,HFA,0,228,,-3,true,false,Talla baja severa,grave,1,true
+13,HFA,0,228,-3,-2,true,false,Talla baja,moderada,2,true
+14,HFA,0,228,-2,3,true,true,Talla normal,normal,3,true
+15,HFA,0,228,3,,false,true,Talla alta,alto,4,true
+16,WFA,0,120,,-3,true,false,Bajo peso severo,grave,1,true
+17,WFA,0,120,-3,-2,true,false,Bajo peso,moderado,2,true
+18,WFA,0,120,-2,2,true,true,Peso normal para la edad,normal,3,true
+19,WFA,0,120,2,,false,true,Peso elevado para la edad,alto,4,true

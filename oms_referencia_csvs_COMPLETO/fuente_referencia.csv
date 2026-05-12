@@ -1,0 +1,3 @@
+id,codigo,nombre,organismo,anio,descripcion,activo
+1,OMS_2006,Patrones de crecimiento infantil OMS 2006,OMS,2006,"Referencia OMS para 0 a 5 años, tablas expandidas por día para indicadores basados en edad",true
+2,OMS_2007,Referencias de crecimiento OMS 2007,OMS,2007,"Referencia OMS para 5 a 19 años, tablas expandidas por mes",true

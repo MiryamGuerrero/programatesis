@@ -447,6 +447,157 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     );
   }
 
+<<<<<<< HEAD
+=======
+  // --- BLOQUE ETIQUETAS ---
+  Widget _buildSeccionEtiquetas() {
+    return _buildContenedorBlanco(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTituloSeccion('Etiquetas Nutricionales'),
+          const SizedBox(height: 8),
+          Text('Asigna etiquetas para clasificar la receta (ej: Sin Gluten, Keto, etc.)', style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey)),
+          const SizedBox(height: 24),
+          
+          _buildEtiquetaBuscador(),
+          
+          const SizedBox(height: 24),
+          if (_etiquetasSeleccionadas.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Center(
+                child: Text('No hay etiquetas seleccionadas.', 
+                  style: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontStyle: FontStyle.italic)),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _etiquetasSeleccionadas.map((e) => _buildTagChip(e)).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagChip(Map<String, dynamic> e) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.tag_rounded, size: 14, color: AppTema.azulPrincipal),
+          const SizedBox(width: 8),
+          Text(
+            (e['titulo'] ?? e['nombre_visible'])?.toString() ?? '-',
+            style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => setState(() => _etiquetasSeleccionadas.remove(e)),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.close_rounded, size: 12, color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEtiquetaBuscador() {
+    return Column(
+      children: [
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Buscar etiquetas...',
+            prefixIcon: const Icon(Icons.search_rounded, color: AppTema.azulPrincipal),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+          onChanged: _buscarEtiquetas,
+        ),
+        if (_loadingEtiquetas)
+          const Padding(padding: EdgeInsets.all(8.0), child: LinearProgressIndicator()),
+        if (_etiquetasDisponibles.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _etiquetasDisponibles.length,
+              separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade50, indent: 16, endIndent: 16),
+              itemBuilder: (context, index) {
+                final tag = _etiquetasDisponibles[index];
+                final yaSeleccionada = _etiquetasSeleccionadas.any((e) => e['id'] == tag['id']);
+                
+                return ListTile(
+                  dense: true,
+                  leading: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: yaSeleccionada ? Colors.green.withOpacity(0.1) : Colors.grey.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      yaSeleccionada ? Icons.check_rounded : Icons.label_outline_rounded,
+                      size: 14,
+                      color: yaSeleccionada ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                  title: Text(tag['nombre_visible'], style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                  subtitle: Text(tag['codigo'], style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade400)),
+                  trailing: yaSeleccionada 
+                    ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                    : IconButton(
+                        icon: const Icon(Icons.add_circle_rounded, color: AppTema.azulPrincipal, size: 24),
+                        onPressed: () {
+                          setState(() {
+                            _etiquetasSeleccionadas.add({
+                              'id': tag['id'],
+                              'titulo': tag['nombre_visible'],
+                              'explicacion': tag['codigo'],
+                            });
+                            _etiquetasDisponibles = [];
+                          });
+                        },
+                      ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+>>>>>>> 9f49549bc028bb5a0bc7b8cda2e6a8cbc14509d8
   // --- BLOQUE 2: GESTIÓN DE INGREDIENTES ---
   Widget _buildSeccionIngredientes() {
     return _buildContenedorBlanco(

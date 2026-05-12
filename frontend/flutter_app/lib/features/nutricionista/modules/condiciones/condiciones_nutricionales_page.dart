@@ -118,8 +118,8 @@ class _CondicionesNutricionalesPageState extends ConsumerState<CondicionesNutric
                 _col("ACCIONES"),
               ],
               rows: _conditions.map((c) => DataRow(cells: [
-                DataCell(Text(c['nombre'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal))),
-                DataCell(SizedBox(width: 400, child: Text(c['descripcion'] ?? 'Sin descripción', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))),
+                DataCell(Text(c['nombre']?.toString() ?? "Condición", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTema.azulPrincipal))),
+                DataCell(SizedBox(width: 400, child: Text(c['descripcion']?.toString() ?? 'Sin descripción', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))),
                 DataCell(NutriBadge(label: c['activa'] == true ? "ACTIVA" : "INACTIVA", type: c['activa'] == true ? 'success' : 'danger')),
                 DataCell(Row(
                   children: [

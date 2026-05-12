@@ -482,7 +482,7 @@ class _NutritionalRuleFormDialogState extends ConsumerState<_NutritionalRuleForm
               _buildFieldSection("APLICABILIDAD (CONDICIÓN)", [
                 Container(
                   height: 120, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(title: Text(c["nombre"], style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
+                  child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(title: Text(c["nombre"]?.toString() ?? "Condición", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
                     _selectedCondiciones.add(c["id"]);
                   } else {
                     _selectedCondiciones.remove(c["id"]);

@@ -43,7 +43,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   final List<int> _selectedSubgrupos = [];
   final List<Map<String, dynamic>> _selectedIngredientes = [];
 
-  String _emojiSubgrupo(int id) {
+  String _emojiSubgrupo(int? id) {
+    if (id == null) return "🍽️";
     return {
       8: "🍄", 9: "🍄", 10: "🥔", 11: "🥦", 12: "🥫", 13: "🥬", 14: "🥤", 15: "🍓",
       16: "🍇", 17: "🍎", 18: "🥜", 19: "🍊", 24: "🥚", 25: "🍗", 26: "🐖", 27: "🐑",
@@ -75,6 +76,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   final _emailTutorCtrl = TextEditingController();
   final _telTutorCtrl = TextEditingController();
   final _dirTutorCtrl = TextEditingController();
+  final _ingSearchCtrl = TextEditingController();
+  final _ingFocus = FocusNode();
   int? _idParentesco;
   bool? _tutorEncontrado; // null: no verificado, true: encontrado, false: nuevo
   bool _buscandoTutor = false;
@@ -83,6 +86,26 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   void initState() {
     super.initState();
     _cargarTodo();
+    _ingFocus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _cedulaPacCtrl.dispose();
+    _pesoCtrl.dispose();
+    _tallaCtrl.dispose();
+    _pcrCtrl.dispose();
+    _rigidezCtrl.dispose();
+    _observacionesMedicoCtrl.dispose();
+    _cedulaTutorCtrl.dispose();
+    _nombreTutorCtrl.dispose();
+    _emailTutorCtrl.dispose();
+    _telTutorCtrl.dispose();
+    _dirTutorCtrl.dispose();
+    _ingSearchCtrl.dispose();
+    _ingFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarTodo() async {
@@ -91,12 +114,12 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       
       final results = await Future.wait([
         repo.fetchCatalog("usuarios", "catalogo_sexo"),
-        repo.fetchCatalog("usuarios", "catalogo_canton"),
-        repo.fetchCatalog("usuarios", "catalogo_parroquia"),
+        repo.fetchCatalog("usuarios", "canton"),
+        repo.fetchCatalog("usuarios", "parroquia"),
         repo.fetchCatalog("usuarios", "parentesco"),
-        repo.fetchCatalog("nutricion", "condiciones_clinicas"),
-        repo.fetchCatalog("nutricion", "subgrupos_alimentarios"),
-        repo.fetchCatalog("nutricion", "ingredientes"),
+        repo.fetchCatalog("heuristico", "condicion"),
+        repo.fetchCatalog("nutricion", "subgrupo_alimentario"),
+        repo.fetchCatalog("nutricion", "ingrediente"),
       ]);
 
       if (mounted) {
@@ -105,7 +128,8 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           _cantones = results[1];
           _parroquiasCat = results[2];
           _parentescos = results[3];
-          _condicionesClinicas = results[4];
+          final List conds = results[4];
+          _condicionesClinicas = conds.where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1).toList();
           _allSubgrupos = results[5];
           _allIngredientes = results[6];
           
@@ -130,11 +154,12 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       final res = await repo.findTutorByCedula(_cedulaTutorCtrl.text);
       if (mounted) {
         setState(() {
-          if (res != null) {
-            _nombreTutorCtrl.text = res['nombre_completo'] ?? "";
-            _emailTutorCtrl.text = res['email'] ?? "";
-            _telTutorCtrl.text = res['telefono'] ?? "";
-            _dirTutorCtrl.text = res['direccion'] ?? "";
+          if (res != null && res['existe'] == true) {
+            final t = res['tutor'] ?? res;
+            _nombreTutorCtrl.text = (t['nombre_completo'] ?? "").toString();
+            _emailTutorCtrl.text = (t['email'] ?? "").toString();
+            _telTutorCtrl.text = (t['telefono'] ?? "").toString();
+            _dirTutorCtrl.text = (t['direccion'] ?? "").toString();
             _tutorEncontrado = true;
           } else {
             _tutorEncontrado = false;
@@ -260,7 +285,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: DropdownButtonFormField<int>(
-            initialValue: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['descripcion']))).toList(),
+            initialValue: _idSexo, items: _sexos.map((s) => DropdownMenuItem<int>(value: s['id'], child: Text(s['descripcion']?.toString() ?? "Sexo"))).toList(),
             onChanged: (v) => setState(() => _idSexo = v), decoration: const InputDecoration(labelText: "Sexo Biológico *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.wc)),
           )),
           const SizedBox(width: 16),
@@ -269,7 +294,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: DropdownButtonFormField<int>(
-            initialValue: _idCanton, items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre']))).toList(),
+            initialValue: _idCanton, items: _cantones.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['nombre']?.toString() ?? "Cantón"))).toList(),
             onChanged: (v) => setState(() {
               _idCanton = v;
               _idParroquia = null;
@@ -279,14 +304,14 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           )),
           const SizedBox(width: 16),
           Expanded(child: DropdownButtonFormField<int>(
-            initialValue: _idParroquia, items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+            initialValue: _idParroquia, items: _parroquiasFiltradas.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']?.toString() ?? "Parroquia"))).toList(),
             onChanged: (v) => setState(() => _idParroquia = v),
             decoration: const InputDecoration(labelText: "Parroquia *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
           )),
         ]),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          initialValue: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']))).toList(),
+          initialValue: _enfermedadBase, items: _condicionesClinicas.map((c) => DropdownMenuItem<String>(value: c['nombre'], child: Text(c['nombre']?.toString() ?? "Condición"))).toList(),
           onChanged: (v) => setState(() => _enfermedadBase = v), decoration: const InputDecoration(labelText: "Diagnóstico Reumatológico Base *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.medication)),
         ),
       ],
@@ -368,7 +393,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
                 children: [
                   Text(_emojiSubgrupo(s['id']), style: const TextStyle(fontSize: 16)),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(s['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text(s['nombre']?.toString() ?? "Subgrupo", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
               ),
               value: _selectedSubgrupos.contains(s['id']),
@@ -388,39 +413,92 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         if (_tieneAlergiaIngredientes) 
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Autocomplete<Map<String, dynamic>>(
-              displayStringForOption: (o) => o['nombre'],
-              optionsBuilder: (v) {
-                if (v.text.isEmpty) return const Iterable.empty();
-                return _allIngredientes.where((i) {
-                  final idSub = (i['id_subgrupo_alimentario'] as num?)?.toInt();
+            child: StatefulBuilder(
+              builder: (context, setInternalState) {
+                final q = _ingSearchCtrl.text.toLowerCase().trim();
+                final matches = _allIngredientes.where((e) {
+                  final idSub = (e['id_subgrupo_alimentario'] as num?)?.toInt();
                   final subBloqueados = <int>{};
                   if (_esIntoleranteLactosa) subBloqueados.addAll(_subgruposLactosa);
                   subBloqueados.addAll(_selectedSubgrupos);
                   if (idSub != null && subBloqueados.contains(idSub)) return false;
-                  return i['nombre'].toString().toLowerCase().contains(v.text.toLowerCase());
-                }).cast<Map<String, dynamic>>();
-              },
-              onSelected: (i) => setState(() {
-                if (!_selectedIngredientes.any((x) => x['id'] == i['id'])) {
-                  _selectedIngredientes.add(i);
-                  _autoBloquearDerivados(i['nombre']);
-                }
-              }),
-              fieldViewBuilder: (ctx, ctrl, focus, onFieldSubmitted) {
-                String feedback = "Buscar ingrediente...";
-                if (_esIntoleranteLactosa) feedback = "Lactosa activada: Lácteos bloqueados automáticamente.";
-                if (_selectedSubgrupos.isNotEmpty) feedback = "Subgrupos seleccionados: Ingredientes bloqueados.";
-                
-                return TextField(
-                  controller: ctrl, 
-                  focusNode: focus, 
-                  decoration: InputDecoration(
-                    labelText: feedback, 
-                    labelStyle: const TextStyle(fontSize: 12),
-                    border: const OutlineInputBorder(), 
-                    prefixIcon: const Icon(Icons.search)
-                  )
+
+                  if (q.isEmpty) return true;
+                  final name = (e['nombre'] ?? "").toString().toLowerCase();
+                  final syns = (e['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+                  return name.contains(q) || syns.any((s) => s.contains(q));
+                }).toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _ingSearchCtrl,
+                            focusNode: _ingFocus,
+                            onChanged: (v) => setInternalState(() {}),
+                            decoration: InputDecoration(
+                              labelText: q.isEmpty ? "Buscar ingrediente (ej: fresa, soya)..." : "Filtrando: $q",
+                              prefixIcon: const Icon(Icons.search),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingSearchCtrl.clear(); setInternalState(() {}); }) : null,
+                            ),
+                          ),
+                        ),
+                        if (q.isNotEmpty && matches.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                for (var m in matches) {
+                                  if (!_selectedIngredientes.any((ing) => ing['id'] == m['id'])) {
+                                    _selectedIngredientes.add(Map<String, dynamic>.from(m));
+                                  }
+                                }
+                                _ingSearchCtrl.clear();
+                              });
+                              setInternalState(() {});
+                            },
+                            icon: const Icon(Icons.done_all, color: Colors.blue),
+                            label: Text("MARCAR ${matches.length}", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (_ingSearchCtrl.text.isNotEmpty || _ingFocus.hasFocus) 
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        margin: const EdgeInsets.only(top: 8),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)]),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: matches.length > 50 ? 50 : matches.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (ctx, i) {
+                            final item = matches[i];
+                            final isSel = _selectedIngredientes.any((ing) => ing['id'] == item['id']);
+                            return ListTile(
+                              dense: true,
+                              title: Text(item['nombre'] ?? "", style: TextStyle(fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                              trailing: isSel ? const Icon(Icons.check_circle, color: Colors.green, size: 18) : const Icon(Icons.add_circle_outline, size: 18),
+                              onTap: () {
+                                setState(() {
+                                  if (!isSel) {
+                                    _selectedIngredientes.add(Map<String, dynamic>.from(item));
+                                    _autoBloquearDerivados(item['nombre']?.toString() ?? "");
+                                  } else {
+                                    _selectedIngredientes.removeWhere((ing) => ing['id'] == item['id']);
+                                  }
+                                });
+                                setInternalState(() {});
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -429,7 +507,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Wrap(spacing: 8, runSpacing: 8, children: _selectedIngredientes.map((i) => Chip(
-              label: Text(i['nombre'], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              label: Text(i['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               backgroundColor: Colors.red.shade50, deleteIconColor: Colors.red,
               onDeleted: () => setState(() => _selectedIngredientes.remove(i)),
             )).toList()),
@@ -440,18 +518,32 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
 
   void _autoBloquearDerivados(String nombre) {
     final n = nombre.toLowerCase().trim();
+    if (n.length < 3) return;
+
+    final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+    final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+    if (words.isEmpty && n.isNotEmpty) words.add(n);
+
     final derivados = _allIngredientes.where((i) {
-      final iname = i['nombre'].toString().toLowerCase();
-      bool matches = (iname.contains(n) && iname != n);
-      if (!matches) {
-        if (n.contains("fresa") && (iname.contains("mermelada") || iname.contains("yogurt"))) {
-          matches = iname.contains("fresa");
-        }
-        if (n.contains("coco") && (iname.contains("aceite") || iname.contains("leche") || iname.contains("rallado"))) {
-          matches = iname.contains("coco");
-        }
+      final iname = (i['nombre'] ?? "").toString().toLowerCase();
+      final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      
+      if (iname == n) return false;
+
+      bool match(String source, String target) {
+        if (source.isEmpty || target.isEmpty) return false;
+        final sourceWords = source.split(' ');
+        return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
       }
-      return matches;
+
+      if (match(iname, n)) return true;
+
+      for (var s in sinonimos) {
+        if (s.trim().isEmpty) continue;
+        if (match(s, n)) return true;
+      }
+
+      return false;
     }).toList();
     
     for (var d in derivados) {
@@ -508,7 +600,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         TextFormField(controller: _nombreTutorCtrl, decoration: const InputDecoration(labelText: "Nombre Completo del Tutor *", border: OutlineInputBorder(), prefixIcon: Icon(Icons.person), floatingLabelBehavior: FloatingLabelBehavior.always, contentPadding: EdgeInsets.fromLTRB(16, 20, 16, 16))),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
-          initialValue: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']))).toList(),
+          initialValue: _idParentesco, items: _parentescos.map((p) => DropdownMenuItem<int>(value: p['id'], child: Text(p['nombre']?.toString() ?? "Parentesco"))).toList(),
           onChanged: (v) => setState(() => _idParentesco = v), decoration: const InputDecoration(labelText: "Parentesco con el Paciente *", border: OutlineInputBorder()),
         ),
         const SizedBox(height: 16),

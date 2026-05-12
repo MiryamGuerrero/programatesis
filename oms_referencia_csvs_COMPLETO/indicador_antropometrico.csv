@@ -1,0 +1,4 @@
+id,codigo,nombre,descripcion,unidad_medida,edad_min_meses,edad_max_meses,activo
+1,BMI,IMC para la edad,Body Mass Index-for-age / BMI-for-age,kg/m2,0,228,true
+2,HFA,Talla o longitud para la edad,Length/height-for-age,cm,0,228,true
+3,WFA,Peso para la edad,Weight-for-age,kg,0,120,true

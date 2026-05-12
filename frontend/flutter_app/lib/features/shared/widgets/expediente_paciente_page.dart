@@ -284,7 +284,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: subgrupos.map((s) => Chip(
-                      label: Text(s['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(s['nombre']?.toString() ?? "Grupo", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade200),
                     )).toList(),
@@ -314,7 +314,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: ingredientes.map((i) => Chip(
-                      label: Text(i['nombre'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(i['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.red.shade50,
                       side: BorderSide(color: Colors.red.shade200),
                     )).toList(),
@@ -695,20 +695,20 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
             final id = c["id"] as int;
             final isSelected = _condicionesTemporalesSeleccionadas.containsKey(id);
             return FilterChip(
-              label: Text(c["nombre"]), 
+              label: Text(c["nombre"]?.toString() ?? "Condición"),
               selected: isSelected,
               onSelected: (v) async {
                 if (v) {
                   final f = await showDatePicker(
-                    context: context, 
+                    context: context,
                     helpText: "FECHA DE INICIO DEL SÍNTOMA",
-                    initialDate: DateTime.now(), 
-                    firstDate: DateTime.now().subtract(const Duration(days: 30)), 
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
                     lastDate: DateTime.now()
                   );
                   if (f != null) setState(() => _condicionesTemporalesSeleccionadas[id] = f);
-                } else { 
-                  setState(() => _condicionesTemporalesSeleccionadas.remove(id)); 
+                } else {
+                  setState(() => _condicionesTemporalesSeleccionadas.remove(id));
                 }
               },
             );
@@ -716,7 +716,8 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
           if (_condicionesTemporalesSeleccionadas.isNotEmpty) ...[
             const SizedBox(height: 12),
             ..._condicionesTemporalesSeleccionadas.entries.map((e) {
-              final nombre = _condicionesTemp.firstWhere((c) => c["id"] == e.key)["nombre"];
+              final c = _condicionesTemp.firstWhere((c) => c["id"] == e.key, orElse: () => {"nombre": "Condición"});
+              final nombre = c["nombre"]?.toString() ?? "Condición";
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -734,8 +735,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
                 ]),
               );
             }),
-          ],
-          const SizedBox(height: 24),
+          ],          const SizedBox(height: 24),
           _field(_notaCtrl, "Notas de evolución...", Icons.edit_note, maxLines: 2),
         ],
       ),

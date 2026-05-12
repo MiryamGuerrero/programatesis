@@ -1,7 +1,0 @@
-id,codigo,indicador_id,indicador_codigo,sexo_id,sexo_codigo,sexo_nombre,edad_min_meses,edad_max_meses,unidad_edad,fuente_zscore,fuente_percentil,activo
-1,BMI_M_WHO2006,1,BMI,1,M,Masculino,0,60,MESES,WHO Child Growth Standards 2006 - BMI-for-age boys 0-5 z-scores,,true
-2,BMI_F_WHO2006,1,BMI,2,F,Femenino,0,60,MESES,WHO Child Growth Standards 2006 - BMI-for-age girls 0-5 z-scores,,true
-3,HFA_M_WHO2006,2,HFA,1,M,Masculino,0,60,MESES,WHO Child Growth Standards 2006 - length/height-for-age boys 0-5 z-scores,,true
-4,HFA_F_WHO2006,2,HFA,2,F,Femenino,0,60,MESES,WHO Child Growth Standards 2006 - length/height-for-age girls 0-5 z-scores,,true
-5,WFA_M_WHO2006,3,WFA,1,M,Masculino,0,60,MESES,WHO Child Growth Standards 2006 - weight-for-age boys 0-5 z-scores,,true
-6,WFA_F_WHO2006,3,WFA,2,F,Femenino,0,60,MESES,WHO Child Growth Standards 2006 - weight-for-age girls 0-5 z-scores,,true

@@ -235,7 +235,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
               ),
               const SizedBox(height: 20),
               Text(
-                item["nombre"],
+                item["nombre"]?.toString() ?? "Condición",
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w800, color: AppTema.azulOscuro),

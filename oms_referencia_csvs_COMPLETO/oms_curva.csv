@@ -1,0 +1,13 @@
+id,codigo,indicador_id,indicador_codigo,sexo_id,sexo_codigo,sexo_nombre,fuente_id,fuente_codigo,edad_min_meses,edad_max_meses,edad_min_dias,edad_max_dias,unidad_edad,fuente_zscore,fuente_percentil,activo,nota
+1,BMI_M_OMS2006_DIAS,1,BMI,1,M,Masculino,1,OMS_2006,0,60,0,1856,DIAS,bfa-boys-zscore-expanded-tables.xlsx,bfa-boys-percentiles-expanded-tables.xlsx,true,
+2,BMI_F_OMS2006_DIAS,1,BMI,2,F,Femenino,1,OMS_2006,0,60,0,1856,DIAS,bfa-girls-zscore-expanded-tables.xlsx,bfa-girls-percentiles-expanded-tables.xlsx,true,
+3,HFA_M_OMS2006_DIAS,2,HFA,1,M,Masculino,1,OMS_2006,0,60,0,1856,DIAS,lhfa-boys-zscore-expanded-tables(1).xlsx,lhfa-boys-percentiles-expanded-tables(1).xlsx,true,
+4,HFA_F_OMS2006_DIAS,2,HFA,2,F,Femenino,1,OMS_2006,0,60,0,1856,DIAS,lhfa-girls-zscore-expanded-tables(1).xlsx,lhfa-girls-percentiles-expanded-tables(1).xlsx,true,
+5,WFA_M_OMS2006_DIAS,3,WFA,1,M,Masculino,1,OMS_2006,0,60,0,1856,DIAS,wfa-boys-zscore-expanded-tables.xlsx,wfa-boys-percentiles-expanded-tables.xlsx,true,
+6,WFA_F_OMS2006_DIAS,3,WFA,2,F,Femenino,1,OMS_2006,0,60,0,1856,DIAS,wfa-girls-zscore-expanded-tables.xlsx,wfa-girls-percentiles-expanded-tables.xlsx,true,
+7,BMI_M_OMS2007_MESES,1,BMI,1,M,Masculino,2,OMS_2007,61,228,,,MESES,bmi-boys-z-who-2007-exp(1).xlsx,bmi-boys-perc-who2007-exp(1).xlsx,true,
+8,BMI_F_OMS2007_MESES,1,BMI,2,F,Femenino,2,OMS_2007,61,228,,,MESES,bmi-girls-z-who-2007-exp.xlsx,bmi-girls-perc-who2007-exp(1).xlsx,true,
+9,HFA_M_OMS2007_MESES,2,HFA,1,M,Masculino,2,OMS_2007,61,228,,,MESES,hfa-boys-z-who-2007-exp(1).xlsx,hfa-boys-perc-who2007-exp(1).xlsx,true,
+10,HFA_F_OMS2007_MESES,2,HFA,2,F,Femenino,2,OMS_2007,61,228,,,MESES,hfa-girls-z-who-2007-exp.xlsx,hfa-girls-perc-who2007-exp(1).xlsx,true,
+11,WFA_M_OMS2007_MESES,3,WFA,1,M,Masculino,2,OMS_2007,61,120,,,MESES,hfa-boys-z-who-2007-exp_0ff9c43c-8cc0-4c23-9fc6-81290675e08b(1).xlsx,hfa-boys-perc-who2007-exp_07eb5053-9a09-4910-aa6b-c7fb28012ce6(1).xlsx,true,"Archivo recibido con nombre hfa, pero por rango y contenido corresponde a WFA 61-120"
+12,WFA_F_OMS2007_MESES,3,WFA,2,F,Femenino,2,OMS_2007,61,120,,,MESES,hfa-girls-z-who-2007-exp_7ea58763-36a2-436d-bef0-7fcfbadd2820(1).xlsx,hfa-girls-perc-who2007-exp_6040a43e-81da-48fa-a2d4-5c856fe4fe71(1).xlsx,true,"Archivo recibido con nombre hfa, pero por rango y contenido corresponde a WFA 61-120"

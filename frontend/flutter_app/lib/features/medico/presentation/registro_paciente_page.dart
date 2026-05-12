@@ -9,6 +9,8 @@ import "package:intl/intl.dart";
 import "../../../core/state/app_providers.dart";
 import "../../../shared/widgets/layout_components.dart";
 
+import '../../../shared/widgets/escalas/escala_selector.dart';
+
 class RegistroPacientePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialData;
   final bool fixedOnly;
@@ -57,6 +59,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   final _clinArtDolor = TextEditingController(text: "0");
   final _clinRigidez = TextEditingController();
   final _clinNotas = TextEditingController();
+  final _ingSearchCtrl = TextEditingController();
+  final _ingFocus = FocusNode();
   int? _idPatologiaBase;
   
   String _estadoEnfermedad = "Estable en remisión";
@@ -96,6 +100,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
+  String _resumenClinico = "Ingrese peso y talla para obtener el diagnóstico";
+  double _gananciaPeso = 0;
+  double _gananciaTalla = 0;
+  String _estadoPeso = "mantener";
+  bool _calculandoOMS = false;
   Color _omsColor = Colors.grey.shade400;
   double _pesoMediana = 0;
   double _tallaMediana = 0;
@@ -107,6 +116,30 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     super.initState();
     _generatedPassword = _generateRandomPassword();
     _fetchCatalogos().then((_) => _loadInitialData());
+    _ingFocus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tutNombre.dispose();
+    _tutCedula.dispose();
+    _tutEmail.dispose();
+    _tutTelefono.dispose();
+    _tutDireccion.dispose();
+    _pacNombre.dispose();
+    _pacCedula.dispose();
+    _clinPeso.dispose();
+    _clinTalla.dispose();
+    _clinPCR.dispose();
+    _clinVSG.dispose();
+    _clinArtInflam.dispose();
+    _clinArtDolor.dispose();
+    _clinRigidez.dispose();
+    _clinNotas.dispose();
+    _ingSearchCtrl.dispose();
+    _ingFocus.dispose();
+    _debounceOMS?.cancel();
+    super.dispose();
   }
 
   String _generateRandomPassword() {
@@ -119,7 +152,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     setState(() => _loading = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final results = await Future.wait([
+      final List<Future<List<Map<String, dynamic>>>> calls = [
         repo.fetchCatalog("usuarios", "parentesco"),
         repo.fetchCatalog("usuarios", "catalogo_sexo"),
         repo.fetchCatalog("heuristico", "condicion"),
@@ -127,7 +160,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         repo.fetchCatalog("usuarios", "canton"),
         repo.fetchCatalog("usuarios", "parroquia"),
         repo.fetchCatalog("nutricion", "subgrupo_alimentario"),
-      ]);
+      ];
+      final results = await Future.wait(calls.map((c) => c.catchError((_) => <Map<String, dynamic>>[])));
       if (mounted) {
         setState(() {
           _parentescos = results[0];
@@ -237,13 +271,14 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   void _debouncedOMS() {
     _debounceOMS?.cancel();
-    _debounceOMS = Timer(const Duration(milliseconds: 1000), () => _calculateOMS());
+    _debounceOMS = Timer(const Duration(milliseconds: 200), () => _calculateOMS());
   }
 
   Future<void> _calculateOMS() async {
     double p = double.tryParse(_clinPeso.text) ?? 0;
     double t = double.tryParse(_clinTalla.text) ?? 0;
     if (p > 1 && t > 30 && _pacFechaNac != null && _pacSexo != null) {
+      setState(() => _calculandoOMS = true);
       try {
         final dio = ref.read(dioProvider);
         final res = await dio.post("pre-diagnostico-nutricional", data: {
@@ -254,15 +289,23 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           setState(() {
             _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
             _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
+            _resumenClinico = res.data['resumen_clinico'] ?? "";
+            _gananciaPeso = (res.data['ganancia_peso_necesaria'] ?? 0).toDouble();
+            _gananciaTalla = (res.data['ganancia_talla_necesaria'] ?? 0).toDouble();
+            _estadoPeso = res.data['estado_peso'] ?? "mantener";
             _pesoMediana = (res.data['peso_ideal'] ?? 0).toDouble();
             _tallaMediana = (res.data['talla_ideal'] ?? 0).toDouble();
+            
             final String combined = (res.data['diagnostico_combinado'] ?? "$_omsStatusPeso / $_omsStatusTalla").toString().toLowerCase();
-            if (combined.contains("severa") || combined.contains("obesidad")) _omsColor = Colors.red;
+            if (combined.contains("severa") || combined.contains("obesidad") || combined.contains("desnutrición")) _omsColor = Colors.red;
             else if (combined.contains("sobrepeso") || combined.contains("baja") || combined.contains("delgadez") || combined.contains("bajo peso") || combined.contains("riesgo")) _omsColor = Colors.orange;
             else _omsColor = greenBrand;
+            _calculandoOMS = false;
           });
         }
-      } catch (_) {}
+      } catch (_) {
+        if (mounted) setState(() => _calculandoOMS = false);
+      }
     }
   }
 
@@ -453,111 +496,316 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     )
   );
 
+  Widget _miniHint(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(children: [
+      Icon(Icons.info_outline, size: 12, color: Colors.blueGrey.shade300),
+      const SizedBox(width: 6),
+      Expanded(child: Text(text, style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade400, fontStyle: FontStyle.italic))),
+    ]),
+  );
+
   Step _stepClinico() => Step(
     isActive: _currentStep >= (widget.fixedOnly ? 1 : 2),
-    state: _currentStep == (widget.fixedOnly ? 1 : 2) ? StepState.editing : StepState.complete,
-    title: Text("CONFIGURACIÓN DE SALUD", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 14)),
+    state: StepState.editing,
+    title: Text("PROTOCOLO DE EVALUACIÓN CLÍNICA", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 14)),
     content: Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _dropdown("Patología / Enfermedad Base*", _patologias, _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v)),
-        const SizedBox(height: 24),
-        _dropdown("Estado de la Enfermedad*", _estadosClinicos.asMap().entries.map((e) => {"id": e.key, "nombre": e.value}).toList(), _estadosClinicos.indexOf(_estadoEnfermedad), (v) => setState(() => _estadoEnfermedad = _estadosClinicos[v!])),
-        
-        const SizedBox(height: 40),
-        _sectionHeader("MEDIDAS ANTROPOMÉTRICAS", Icons.scale_outlined),
-        const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: _field(_clinPeso, "Peso Inicial (kg)*", Icons.monitor_weight_outlined, onChanged: (_) => _debouncedOMS())),
-          const SizedBox(width: 20),
-          Expanded(child: _field(_clinTalla, "Talla Inicial (cm)*", Icons.height_outlined, onChanged: (_) => _debouncedOMS())),
-        ]),
-        const SizedBox(height: 20),
-        _buildProfessionalPrediagnosis(),
-        
-        const SizedBox(height: 40),
-        _sectionHeader("ACTIVIDAD DE LA ENFERMEDAD (EVA)", Icons.healing_outlined),
-        const SizedBox(height: 24),
-        _buildMetricSlider("NIVEL DE DOLOR ACTUAL", _dolor, (v) => setState(() => _dolor = v), "DOLOR"),
-        const SizedBox(height: 24),
-        _buildMetricSlider("NIVEL DE INFLAMACIÓN", _inflamacion, (v) => setState(() => _inflamacion = v), "INFLAMACION"),
-        const SizedBox(height: 24),
-        _buildMetricSlider("NIVEL DE FATIGA / ENERGÍA", _fatiga, (v) => setState(() => _fatiga = v), "FATIGA"),
-        
-        const SizedBox(height: 32),
-        Row(children: [
-          Expanded(child: _field(_clinPCR, "PCR (mg/L)", Icons.science_outlined)),
-          const SizedBox(width: 16),
-          Expanded(child: _field(_clinVSG, "VSG/VRC (mm/h)", Icons.bloodtype_outlined)),
-        ]),
-        const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: _field(_clinArtInflam, "Art. Inflamadas", Icons.adjust_rounded)),
-          const SizedBox(width: 16),
-          Expanded(child: _field(_clinArtDolor, "Art. Dolorosas", Icons.pan_tool_alt_rounded)),
-        ]),
-        const SizedBox(height: 24),
+        // --- 1. ENFERMEDAD PRINCIPAL ---
         Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: _brote ? Colors.red.shade50 : Colors.green.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: _brote ? Colors.red : greenBrand)),
-          child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand, fontSize: 13)), subtitle: const Text("¿Presenta crisis hoy?", style: TextStyle(fontSize: 11)), value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("ENFERMEDAD PRINCIPAL", Icons.local_hospital_outlined),
+            const SizedBox(height: 20),
+            _dropdown("Patología / Enfermedad Base*", _patologias, _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v)),
+            const SizedBox(height: 20),
+            _dropdown("Estado de la Enfermedad*", _estadosClinicos.asMap().entries.map((e) => {"id": e.key, "nombre": e.value}).toList(), _estadosClinicos.indexOf(_estadoEnfermedad), (v) => setState(() => _estadoEnfermedad = _estadosClinicos[v!])),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 24),
+            Text("ACTIVIDAD DE LA ENFERMEDAD (EVA)", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 11, color: const Color(0xFF475569), letterSpacing: 0.5)),
+            const SizedBox(height: 8),
+            _miniHint("EVA = Escala Visual Análoga. Evalúa la percepción del paciente sobre su estado actual."),
+            EscalaSelector(
+          titulo: _dolor == 0 ? 'SIN DOLOR' : _dolor <= 3 ? 'LEVE' : _dolor <= 6 ? 'MODERADO' : _dolor <= 8 ? 'INTENSO' : 'INSOPORTABLE',
+          descripcion: _dolor == 0 ? 'Sin molestias reportadas' : _dolor <= 3 ? 'Molestia ligera ocasional' : _dolor <= 6 ? 'Dolor que interfiere con actividades' : _dolor <= 8 ? 'Dolor fuerte y persistente' : 'Dolor extremo, requiere atención',
+          min: 0,
+          max: 10,
+          value: _dolor.toInt(),
+          icons: const [
+            Icons.sentiment_very_satisfied_outlined,
+            Icons.sentiment_satisfied_outlined,
+            Icons.sentiment_neutral_outlined,
+            Icons.sentiment_dissatisfied_outlined,
+            Icons.sentiment_very_dissatisfied_outlined,
+            Icons.sentiment_neutral_outlined,
+            Icons.sentiment_dissatisfied_outlined,
+            Icons.sentiment_very_dissatisfied_outlined,
+            Icons.mood_bad_outlined,
+            Icons.sick_outlined,
+            Icons.personal_injury_outlined,
+          ],
+          etiquetas: [
+            EscalaEtiqueta('Leve', 3),
+            EscalaEtiqueta('Moderado', 4),
+            EscalaEtiqueta('Severo', 4),
+          ],
+          colorActivo: _dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red,
+          colorFondoActivo: (_dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red).withOpacity(0.1),
+          onChanged: (v) => setState(() => _dolor = v.toDouble()),
+          puntajeLabel: '${_dolor.toInt()}/10',
+          headerIcon: Icon(_dolor == 0 ? Icons.sentiment_very_satisfied_rounded : _dolor <= 3 ? Icons.sentiment_satisfied_rounded : _dolor <= 6 ? Icons.sentiment_neutral_rounded : _dolor <= 8 ? Icons.sentiment_dissatisfied_rounded : Icons.sentiment_very_dissatisfied_rounded, color: _dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red, size: 32),
+        ),
+        const SizedBox(height: 24),
+        EscalaSelector(
+          titulo: _inflamacion == 0 ? 'SIN INFLAMACIÓN' : _inflamacion == 1 ? 'LEVE / DISCRETA' : _inflamacion == 2 ? 'MODERADA' : 'SEVERA / ACTIVA',
+          descripcion: _inflamacion == 0 ? 'Sin signos de inflamación' : _inflamacion == 1 ? 'Hinchazón mínima detectable' : _inflamacion == 2 ? 'Inflamación visible y limitante' : 'Inflamación severa y sistémica',
+          min: 0,
+          max: 3,
+          value: _inflamacion.toInt(),
+          icons: const [
+            Icons.health_and_safety_outlined,
+            Icons.healing_outlined,
+            Icons.report_problem_outlined,
+            Icons.local_fire_department_outlined,
+          ],
+          etiquetas: [
+            EscalaEtiqueta('Leve', 1),
+            EscalaEtiqueta('Moderada', 2),
+            EscalaEtiqueta('Severa / Activa', 1),
+          ],
+          colorActivo: _inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red,
+          colorFondoActivo: (_inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red).withOpacity(0.1),
+          onChanged: (v) => setState(() => _inflamacion = v.toDouble()),
+          puntajeLabel: '${_inflamacion.toInt()}/3',
+          headerIcon: Icon(_inflamacion == 0 ? Icons.verified_user_rounded : _inflamacion == 1 ? Icons.healing_rounded : _inflamacion == 2 ? Icons.warning_rounded : Icons.whatshot_rounded, color: _inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red, size: 32),
+        ),
+        const SizedBox(height: 24),
+        EscalaSelector(
+          titulo: _fatiga >= 8 ? 'MUCHA ENERGÍA' : _fatiga >= 5 ? 'NORMAL' : _fatiga >= 3 ? 'FATIGA LEVE' : 'AGOTAMIENTO',
+          descripcion: _fatiga >= 8 ? 'Paciente con vitalidad máxima' : _fatiga >= 5 ? 'Energía estable para el día' : _fatiga >= 3 ? 'Cansancio superior al normal' : 'Falta total de energía basal',
+          min: 0,
+          max: 10,
+          value: _fatiga.toInt(),
+          icons: const [
+            Icons.battery_0_bar_outlined,
+            Icons.battery_1_bar_outlined,
+            Icons.battery_2_bar_outlined,
+            Icons.battery_3_bar_outlined,
+            Icons.battery_4_bar_outlined,
+            Icons.battery_5_bar_outlined,
+            Icons.battery_6_bar_outlined,
+            Icons.battery_full_outlined,
+            Icons.bolt_outlined,
+            Icons.flash_on_outlined,
+            Icons.star_outline_rounded,
+          ],
+          etiquetas: [
+            EscalaEtiqueta('Agotamiento', 3),
+            EscalaEtiqueta('Intermedio', 5),
+            EscalaEtiqueta('Alta energía', 3),
+          ],
+          colorActivo: _fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red,
+          colorFondoActivo: (_fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red).withOpacity(0.1),
+          onChanged: (v) => setState(() => _fatiga = v.toDouble()),
+          puntajeLabel: '${_fatiga.toInt()}/10',
+          headerIcon: Icon(_fatiga >= 8 ? Icons.battery_full_rounded : _fatiga >= 5 ? Icons.battery_charging_full_rounded : _fatiga >= 3 ? Icons.battery_alert_rounded : Icons.battery_0_bar_rounded, color: _fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red, size: 32),
+        ),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(child: _field(_clinPCR, "PCR (mg/L)", Icons.science_outlined)),
+              const SizedBox(width: 16),
+              Expanded(child: _field(_clinVSG, "VSG/VRC (mm/h)", Icons.bloodtype_outlined)),
+            ]),
+            _miniHint("PCR = Proteína C Reactiva. VSG/VRC = Velocidad de Sedimentación Globular. Marcadores de inflamación sistémica."),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(child: _field(_clinArtInflam, "Art. Inflamadas", Icons.adjust_rounded)),
+              const SizedBox(width: 16),
+              Expanded(child: _field(_clinArtDolor, "Art. Dolorosas", Icons.pan_tool_alt_rounded)),
+            ]),
+            _miniHint("Número de articulaciones con inflamación visible / dolorosas a la palpación en el examen físico."),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: _brote ? Colors.red.shade50 : Colors.green.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: _brote ? Colors.red : greenBrand)),
+              child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand, fontSize: 13)), subtitle: const Text("¿Presenta crisis hoy?", style: TextStyle(fontSize: 11)), value: _brote, onChanged: (v) => setState(() => _brote = v), activeColor: Colors.red),
+            ),
+          ]),
         ),
 
-        const SizedBox(height: 40),
-        _sectionHeader("SEGURIDAD ALIMENTARIA", Icons.warning_amber_rounded),
+        // --- 2. ALERGIAS E INTOLERANCIAS ---
         const SizedBox(height: 24),
-        _buildIntoleranciaLactosa(),
-        const SizedBox(height: 32),
-        _buildAlergiasCheckboxes(),
-        
-        const SizedBox(height: 40),
-        _sectionHeader("SÍNTOMAS TEMPORALES ACTUALES", Icons.event_note_rounded),
-        const SizedBox(height: 16),
-        _buildSintomasTemporalesSelector(),
-        
-        const SizedBox(height: 40),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("ALERGIAS E INTOLERANCIAS", Icons.warning_amber_rounded),
+            const SizedBox(height: 20),
+            _buildIntoleranciaLactosa(),
+            const SizedBox(height: 32),
+            _buildAlergiasCheckboxes(),
+          ]),
+        ),
+
+        // --- 3. IDENTIFICAR CONDICIÓN NUTRICIONAL ---
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("IDENTIFICAR CONDICIÓN NUTRICIONAL", Icons.scale_outlined),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: _field(_clinPeso, "Peso Inicial (kg)*", Icons.monitor_weight_outlined, onChanged: (_) => _debouncedOMS())),
+              const SizedBox(width: 20),
+              Expanded(child: _field(_clinTalla, "Talla Inicial (cm)*", Icons.height_outlined, onChanged: (_) => _debouncedOMS())),
+            ]),
+            const SizedBox(height: 20),
+            _buildProfessionalPrediagnosis(),
+          ]),
+        ),
+
+        // --- 4. CONDICIONES TEMPORALES ---
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("CONDICIONES TEMPORALES", Icons.event_note_rounded),
+            const SizedBox(height: 16),
+            _buildSintomasTemporalesSelector(),
+          ]),
+        ),
+
+        // --- 5. OBSERVACIONES ---
+        const SizedBox(height: 24),
         _field(_clinNotas, "Observaciones Médicas Iniciales", Icons.edit_note_rounded, maxLines: 4),
       ]),
     )
   );
 
+  Widget _buildIntoleranciaLactosa() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    const Text("¿PRESENTA INTOLERANCIA A LA LACTOSA?*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5)),
+    const SizedBox(height: 20),
+    Row(children: [_yesNoBtn("SÍ, RESTRICCIÓN ACTIVA", true, _lactosa == true, (v) => setState(() => _lactosa = v)), const SizedBox(width: 20), _yesNoBtn("NO DETECTADA", false, _lactosa == false, (v) => setState(() => _lactosa = v))])
+  ]);
+
+  Widget _yesNoBtn(String l, bool val, bool sel, Function(bool) onTap) => Expanded(child: InkWell(onTap: () => onTap(val), child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: sel ? (val ? Colors.red.shade50 : greenBrand.withOpacity(0.1)) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: sel ? (val ? Colors.red : greenBrand) : const Color(0xFFE2E8F0), width: 2.5)), child: Center(child: Text(l, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? (val ? Colors.red : greenBrand) : Colors.blueGrey))))));
+
+  String _emojiSubgrupo(int id) {
+    return {
+      8: "🍄", 9: "🍄", 10: "🥔", 11: "🥦", 12: "🥫", 13: "🥬", 14: "🥤", 15: "🍓",
+      16: "🍇", 17: "🍎", 18: "🥜", 19: "🍊", 24: "🥚", 25: "🍗", 26: "🐖", 27: "🐑",
+      29: "🥩", 30: "🐄", 31: "🫀", 32: "🦐", 33: "🐟", 34: "🐠", 35: "🐟", 36: "🥫",
+      37: "🧂", 38: "🫒", 41: "🧄", 43: "🍬", 47: "🍭", 48: "🍿", 49: "🥤", 50: "💧",
+      51: "☕", 53: "🧃", 88: "🌾", 89: "🌾", 90: "🍞", 91: "🍞", 92: "🍝", 93: "🫘",
+      94: "🌱", 95: "🫘", 96: "🥫", 97: "🥜", 98: "🥛", 99: "🥛", 100: "🍶", 101: "🥛",
+      102: "🥛", 103: "🥥", 104: "🥛", 105: "🧀", 106: "🧀", 107: "🧀", 108: "🧀",
+      109: "🥓", 110: "🌭", 111: "🧈", 112: "🧈", 113: "🥓", 114: "🥣", 115: "🥣",
+      116: "🥢", 117: "🍫", 118: "🍫", 119: "🍮", 120: "🍬", 121: "🍪", 122: "🥛",
+      123: "🥛", 124: "🥛",
+    }[id] ?? "🍽️";
+  }
+
+  void _autoBloquearDerivados(String nombreSeleccionado) {
+    final n = nombreSeleccionado.toLowerCase().trim();
+    if (n.length < 3) return; // Evitar bloqueos masivos con palabras muy cortas (ej: "A")
+
+    // Palabras irrelevantes que no deben disparar bloqueos automáticos
+    final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+    final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+    if (words.isEmpty && n.isNotEmpty) words.add(n); // Si todo son stop words, usar la original
+
+    final derivados = _ingredientes.where((i) {
+      final iname = (i['nombre'] ?? "").toString().toLowerCase();
+      final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      
+      if (iname == n) return false;
+
+      bool match(String source, String target) {
+        if (source.isEmpty || target.isEmpty) return false;
+        final sourceWords = source.split(' ');
+        // Coincidencia si alguna palabra importante del origen está en el destino o viceversa
+        return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
+      }
+
+      // 1. Coincidencia directa por palabras
+      if (match(iname, n)) return true;
+
+      // 2. Coincidencia en sinónimos
+      for (var s in sinonimos) {
+        if (s.trim().isEmpty) continue;
+        if (match(s, n)) return true;
+      }
+
+      return false;
+    }).toList();
+
+    for (var d in derivados) {
+      if (!_selectedIngredientes.any((x) => x['id'] == d['id'])) {
+        setState(() => _selectedIngredientes.add(Map<String, dynamic>.from(d)));
+      }
+    }
+  }
+
   Widget _buildSintomasTemporalesSelector() {
     return Column(children: [
-      _dropdown("Añadir Síntoma Temporal", _condicionesTemporalesCat, null, (v) {
+      _dropdown("Seleccionar condición temporal", _condicionesTemporalesCat, null, (v) async {
         if (v != null) {
           final s = _condicionesTemporalesCat.firstWhere((e) => e['id'] == v);
-          if (!_condicionesTemp.any((ct) => ct['id'] == v)) {
+          final DateTime? inicio = await showDatePicker(
+            context: context, initialDate: DateTime.now(), 
+            firstDate: DateTime.now().subtract(const Duration(days: 30)), 
+            lastDate: DateTime.now().add(const Duration(days: 60)),
+            helpText: "FECHA DE INICIO DE LA CONDICIÓN"
+          );
+          if (inicio != null && !_condicionesTemp.any((ct) => ct['id'] == v)) {
+            final int dias = (s['duracion_dias_sugerida'] ?? s['dias_duracion_estandar'] ?? 7).toInt();
+            final fin = inicio.add(Duration(days: dias));
             setState(() => _condicionesTemp.add({
               "id": v, "nombre": s['nombre'],
-              "fecha_inicio": DateTime.now().toIso8601String().split('T')[0],
-              "fecha_fin": DateTime.now().add(const Duration(days: 7)).toIso8601String().split('T')[0]
+              "fecha_inicio": inicio.toIso8601String().split('T')[0],
+              "fecha_fin": fin.toIso8601String().split('T')[0],
+              "duracion": dias
             }));
           }
         }
       }),
       const SizedBox(height: 16),
-      ...List.generate(_condicionesTemp.length, (i) => Card(
-        margin: const EdgeInsets.only(bottom: 8), elevation: 0, color: Colors.grey.shade50,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-        child: ListTile(
-          title: Text(_condicionesTemp[i]['nombre'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: Text("Del ${_condicionesTemp[i]['fecha_inicio']} al ${_condicionesTemp[i]['fecha_fin']}", style: const TextStyle(fontSize: 11)),
-          trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => setState(() => _condicionesTemp.removeAt(i))),
-        ),
-      ))
+      if (_condicionesTemp.isEmpty)
+        Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text("No hay condiciones temporales registradas.", style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic)))
+      else
+        ...List.generate(_condicionesTemp.length, (i) {
+          final ct = _condicionesTemp[i];
+          final DateTime fin = DateTime.parse(ct['fecha_fin']);
+          final int restantes = fin.difference(DateTime.now()).inDays;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8), elevation: 0, color: Colors.grey.shade50,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: ListTile(
+              leading: Icon(restantes <= 0 ? Icons.check_circle : Icons.schedule, color: restantes <= 0 ? Colors.green : restantes <= 3 ? Colors.orange : Colors.blueGrey),
+              title: Text(ct['nombre']?.toString() ?? "Condición", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Del ${ct['fecha_inicio']} al ${ct['fecha_fin']}", style: const TextStyle(fontSize: 11)),
+                Row(children: [
+                  Text("Duración: ${ct['duracion'] ?? 7} días", style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  Icon(Icons.timer_outlined, size: 12, color: restantes <= 0 ? Colors.green : restantes <= 3 ? Colors.orange : Colors.blueGrey),
+                  const SizedBox(width: 4),
+                  Text(restantes <= 0 ? "VENCIDA" : "$restantes días restantes", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: restantes <= 0 ? Colors.green : restantes <= 3 ? Colors.orange : Colors.blueGrey)),
+                ]),
+              ]),
+              trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => setState(() => _condicionesTemp.removeAt(i))),
+            ),
+          );
+        })
     ]);
   }
-
-  Widget _buildIntoleranciaLactosa() => Container(
-    padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text("¿PRESENTA INTOLERANCIA A LA LACTOSA?*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5)),
-      const SizedBox(height: 20),
-      Row(children: [_yesNoBtn("SÍ, RESTRICCIÓN ACTIVA", true, _lactosa == true, (v) => setState(() => _lactosa = v)), const SizedBox(width: 20), _yesNoBtn("NO DETECTADA", false, _lactosa == false, (v) => setState(() => _lactosa = v))])
-    ]),
-  );
-
-  Widget _yesNoBtn(String l, bool val, bool sel, Function(bool) onTap) => Expanded(child: InkWell(onTap: () => onTap(val), child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: sel ? (val ? Colors.red.shade50 : greenBrand.withOpacity(0.1)) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: sel ? (val ? Colors.red : greenBrand) : const Color(0xFFE2E8F0), width: 2.5)), child: Center(child: Text(l, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? (val ? Colors.red : greenBrand) : Colors.blueGrey))))));
 
   Widget _buildAlergiasCheckboxes() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     CheckboxListTile(title: const Text("TIENE ALERGIAS A GRUPOS ALIMENTARIOS", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)), value: _tieneAlergiaSub, onChanged: (v) => setState(() => _tieneAlergiaSub = v!), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, activeColor: greenBrand),
@@ -566,14 +814,109 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     CheckboxListTile(title: const Text("TIENE ALERGIAS A INGREDIENTES ESPECÍFICOS", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)), value: _tieneAlergiaIng, onChanged: (v) => setState(() => _tieneAlergiaIng = v!), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, activeColor: greenBrand),
     if (_tieneAlergiaIng) ...[
       const SizedBox(height: 12),
-      Autocomplete<Map<String, dynamic>>(
-        displayStringForOption: (e) => e['nombre'],
-        optionsBuilder: (v) => _ingredientes.where((e) => e['nombre'].toString().toLowerCase().contains(v.text.toLowerCase())).cast<Map<String, dynamic>>(),
-        onSelected: (e) { if (!_selectedIngredientes.any((ing) => ing['id'] == e['id'])) setState(() => _selectedIngredientes.add(e)); },
-        fieldViewBuilder: (ctx, ctrl, focus, onFieldSubmitted) => _field(ctrl, "Buscar ingrediente...", Icons.search_rounded),
-      ),
-      const SizedBox(height: 16),
-      Wrap(spacing: 12, runSpacing: 12, children: _selectedIngredientes.map((e) => Chip(label: Text(e['nombre'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 11)), onDeleted: () => setState(() => _selectedIngredientes.remove(e)), backgroundColor: Colors.orange.shade50, deleteIconColor: Colors.deepOrange, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.orange.shade200)))).toList())
+      if (_ingredientes.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.shade200)),
+          child: Row(children: [
+            const Icon(Icons.cloud_off, color: Colors.orange, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text("Catálogo de ingredientes no disponible. Verifique su conexión.", style: TextStyle(fontSize: 11, color: Colors.orange.shade800))),
+          ]),
+        )
+      else ...[
+        StatefulBuilder(
+          builder: (context, setInternalState) {
+            final q = _ingSearchCtrl.text.toLowerCase().trim();
+            final matches = _ingredientes.where((e) {
+              // Filtrar por subgrupos bloqueados (Lactosa + Subgrupos seleccionados)
+              final idSub = (e['id_subgrupo_alimentario'] as num?)?.toInt();
+              final subBloqueados = <int>{};
+              if (_lactosa == true) subBloqueados.addAll(_idsLacteos);
+              subBloqueados.addAll(_alergiasSub);
+              if (idSub != null && subBloqueados.contains(idSub)) return false;
+
+              if (q.isEmpty) return true;
+              final name = (e['nombre'] ?? "").toString().toLowerCase();
+              final syns = (e['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+              return name.contains(q) || syns.any((s) => s.contains(q));
+            }).toList();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _ingSearchCtrl,
+                        focusNode: _ingFocus,
+                        onChanged: (v) => setInternalState(() {}),
+                        decoration: InputDecoration(
+                          labelText: q.isEmpty ? "Buscar ingrediente (ej: fresa, maní, gluten)..." : "Filtrando: $q",
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingSearchCtrl.clear(); setInternalState(() {}); }) : null,
+                        ),
+                      ),
+                    ),
+                    if (q.isNotEmpty && matches.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            for (var m in matches) {
+                              if (!_selectedIngredientes.any((ing) => ing['id'] == m['id'])) {
+                                _selectedIngredientes.add(Map<String, dynamic>.from(m));
+                              }
+                            }
+                            _ingSearchCtrl.clear();
+                          });
+                          setInternalState(() {});
+                        },
+                        icon: const Icon(Icons.playlist_add_check_rounded, color: greenBrand),
+                        label: Text("MARCAR ${matches.length}", style: const TextStyle(color: greenBrand, fontWeight: FontWeight.bold, fontSize: 11)),
+                      ),
+                    ],
+                  ],
+                ),
+                if (_ingSearchCtrl.text.isNotEmpty || _ingFocus.hasFocus) 
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: matches.length > 50 ? 50 : matches.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final item = matches[i];
+                        final isSel = _selectedIngredientes.any((ing) => ing['id'] == item['id']);
+                        return ListTile(
+                          dense: true,
+                          title: Text(item['nombre'] ?? "", style: TextStyle(fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? greenBrand : Colors.black)),
+                          trailing: isSel ? const Icon(Icons.check_circle, color: greenBrand, size: 18) : const Icon(Icons.add_circle_outline, size: 18),
+                          onTap: () {
+                            setState(() {
+                              if (!isSel) {
+                                _selectedIngredientes.add(Map<String, dynamic>.from(item));
+                                _autoBloquearDerivados(item['nombre']?.toString() ?? "");
+                              } else {
+                                _selectedIngredientes.removeWhere((ing) => ing['id'] == item['id']);
+                              }
+                            });
+                            setInternalState(() {});
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+      ],
+      Wrap(spacing: 12, runSpacing: 12, children: _selectedIngredientes.map((e) => Chip(label: Text(e['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 11)), onDeleted: () => setState(() => _selectedIngredientes.remove(e)), backgroundColor: Colors.orange.shade50, deleteIconColor: Colors.deepOrange, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.orange.shade200)))).toList())
     ]
   ]);
 
@@ -582,7 +925,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     const SizedBox(height: 16),
     Wrap(spacing: 10, runSpacing: 10, children: items.map((i) { 
       final id = (i['id'] as num).toInt(); final s = sel.contains(id); final b = blockedIds.contains(id); 
-      return FilterChip(label: Text(i['nombre'] ?? "", style: TextStyle(fontSize: 11, fontWeight: s ? FontWeight.bold : FontWeight.w500, color: b ? Colors.grey.shade400 : (s ? greenBrand : const Color(0xFF475569)))), selected: s, onSelected: b ? null : (v) => onS(id, v), selectedColor: greenBrand.withOpacity(0.12), checkmarkColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: s ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0))), backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)); 
+      final emoji = i['emoji']?.toString() ?? _emojiSubgrupo(id);
+      return FilterChip(
+        label: Row(mainAxisSize: MainAxisSize.min, children: [Text(emoji, style: const TextStyle(fontSize: 16)), const SizedBox(width: 8), Text(i['nombre'] ?? "", style: TextStyle(fontSize: 11, fontWeight: s ? FontWeight.bold : FontWeight.w500, color: b ? Colors.grey.shade400 : (s ? greenBrand : const Color(0xFF475569))))]), 
+        selected: s, onSelected: b ? null : (v) => onS(id, v), selectedColor: greenBrand.withOpacity(0.12), checkmarkColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: s ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0))), backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+      ); 
     }).toList()),
     const SizedBox(height: 24),
   ]);
@@ -590,11 +937,49 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _buildProfessionalPrediagnosis() => Container(
     padding: const EdgeInsets.all(28), decoration: BoxDecoration(color: _omsColor.withOpacity(0.06), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)), 
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Icon(Icons.analytics_rounded, color: _omsColor, size: 22), const SizedBox(width: 12), Text("PRE-DIAGNÓSTICO OMS ESTIMADO", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF475569)))],),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(children: [Icon(Icons.analytics_rounded, color: _omsColor, size: 22), const SizedBox(width: 12), Text("DIAGNÓSTICO NUTRICIONAL OMS", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF475569)))]),
+        if (_calculandoOMS) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: greenBrand))
+        else IconButton(onPressed: _calculateOMS, icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.blueGrey), tooltip: "Recalcular")
+      ]),
       const SizedBox(height: 24),
       Text("${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+      if (_resumenClinico.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text(_resumenClinico, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _omsColor)),
+      ],
+      const Divider(height: 40),
+      Row(children: [
+        _metaItem("PESO IDEAL", "${_pesoMediana.toStringAsFixed(1)} kg", Icons.scale_rounded),
+        const SizedBox(width: 24),
+        _metaItem("TALLA IDEAL", "${_tallaMediana.toStringAsFixed(1)} cm", Icons.height_rounded),
+      ]),
+      const SizedBox(height: 20),
+      Container(
+        padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          Icon(_estadoPeso == "aumentar" ? Icons.trending_up_rounded : _estadoPeso == "disminuir" ? Icons.trending_down_rounded : Icons.trending_flat_rounded, color: _omsColor),
+          const SizedBox(width: 16),
+          Expanded(child: Text(
+            _estadoPeso == "mantener"
+                ? (_gananciaTalla > 0.5
+                    ? "EL PACIENTE TIENE UN PESO ADECUADO, PERO PRESENTA RETRASO DE TALLA (${_gananciaTalla.toStringAsFixed(1)} CM)."
+                    : "EL PACIENTE TIENE UN PESO ADECUADO.")
+                : (_gananciaTalla > 0.5
+                    ? "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG Y CRECER ${_gananciaTalla.toStringAsFixed(1)} CM."
+                    : "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG."),
+            style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))
+          ))
+        ]),
+      )
     ])
   );
+
+  Widget _metaItem(String l, String v, IconData i) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [Icon(i, size: 14, color: Colors.blueGrey), const SizedBox(width: 8), Text(l, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueGrey))]),
+    const SizedBox(height: 4),
+    Text(v, style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+  ]));
 
   Future<void> _buscarTutor(String c) async { 
     if (c.length < 10) return;
@@ -663,7 +1048,4 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       )
     ]);
   }
-  
-  // stubs
-  Widget _section(String title) => Container(); Widget _dateField() => Container(); Widget _buildRealtimeOMS() => Container(); Widget _buildSecuencialAlergias() => Container(); Widget _botonAccion(String l, bool sel, Color c, VoidCallback onTap) => Container(); Widget _buildCredentialBox(String l, String v, IconData i) => Container();
 }

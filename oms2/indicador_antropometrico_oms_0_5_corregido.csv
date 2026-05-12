@@ -1,4 +1,0 @@
-id,codigo,nombre,descripcion,unidad_medida,edad_min_meses,edad_max_meses,activo
-1,BMI,IMC para la edad,"Body Mass Index-for-age, estándar OMS 2006, nacimiento a 5 años (0 a 60 meses)",kg/m2,0,60,true
-2,HFA,Talla para la edad,"Length/Height-for-age, estándar OMS 2006, nacimiento a 5 años (0 a 60 meses)",cm,0,60,true
-3,WFA,Peso para la edad,"Weight-for-age, estándar OMS 2006, nacimiento a 5 años (0 a 60 meses)",kg,0,60,true
