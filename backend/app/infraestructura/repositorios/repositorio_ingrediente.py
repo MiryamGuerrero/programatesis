@@ -132,6 +132,12 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             cur.execute(f"insert into nutricion.ingrediente ({cols_i}) values ({val_i}) returning id", list(datos_i.values()))
             id_ingrediente = cur.fetchone()[0]
 
+            # Insertar etiquetas
+            etiquetas = datos.get('etiquetas', [])
+            if etiquetas:
+                etq_values = [(id_ingrediente, eid) for eid in etiquetas]
+                cur.executemany("insert into nutricion.ingrediente_etiqueta (id_ingrediente, id_etiqueta) values (%s, %s)", etq_values)
+
             # Insertar composicion
             if datos_c:
                 datos_c['id_ingrediente'] = id_ingrediente
@@ -183,7 +189,15 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 set_clause = ", ".join([f"{k} = %s" for k in datos_i.keys()])
                 cur.execute(f"update nutricion.ingrediente set {set_clause} where id = %s", list(datos_i.values()) + [id_ingrediente])
 
-            # 2. Upsert composicion
+            # 2. Sincronizar etiquetas
+            if 'etiquetas' in datos:
+                cur.execute("delete from nutricion.ingrediente_etiqueta where id_ingrediente = %s", (id_ingrediente,))
+                etiquetas = datos.get('etiquetas', [])
+                if etiquetas:
+                    etq_values = [(id_ingrediente, eid) for eid in etiquetas]
+                    cur.executemany("insert into nutricion.ingrediente_etiqueta (id_ingrediente, id_etiqueta) values (%s, %s)", etq_values)
+
+            # 3. Upsert composicion
             if datos_c:
                 datos_c['id_ingrediente'] = id_ingrediente
                 cols = ", ".join(datos_c.keys())

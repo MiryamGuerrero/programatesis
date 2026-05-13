@@ -21,6 +21,7 @@ class EtiquetaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String nombre = etiqueta['nombre_visible'] ?? 'Sin nombre';
     final String descripcion = etiqueta['descripcion'] ?? 'Sin descripción disponible.';
+    final String ingredientes = etiqueta['ingredientes'] ?? '';
     final String fechaRaw = etiqueta['created_at'] ?? '';
     
     String fechaFormateada = 'Fecha desconocida';
@@ -64,19 +65,42 @@ class EtiquetaCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: Text(
-                  descripcion,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                    height: 1.4,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                descripcion,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const Divider(height: 32),
+              const SizedBox(height: 12),
+              if (ingredientes.isNotEmpty) ...[
+                Text(
+                  'Ingredientes:',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTema.azulPrincipal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: Text(
+                    ingredientes,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.blueGrey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else
+                const Spacer(),
+              const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -87,7 +111,7 @@ class EtiquetaCard extends StatelessWidget {
                       Text(
                         fechaFormateada,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: Colors.grey.shade500,
                           fontWeight: FontWeight.w500,
                         ),
@@ -101,8 +125,10 @@ class EtiquetaCard extends StatelessWidget {
                           icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.redAccent),
                           onPressed: onDelete,
                           tooltip: 'Eliminar etiqueta',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 12),
                       Material(
                         color: AppTema.azulPrincipal.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
@@ -110,8 +136,8 @@ class EtiquetaCard extends StatelessWidget {
                           onTap: onEdit,
                           borderRadius: BorderRadius.circular(10),
                           child: const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                            padding: EdgeInsets.all(6.0),
+                            child: Icon(Icons.edit_note_rounded, size: 18, color: AppTema.azulPrincipal),
                           ),
                         ),
                       ),

@@ -21,6 +21,7 @@ class IngredientCreateRequest(BaseModel):
     unidad_base: str | None = "100g"
     parte_comestible_factor: float | None = Field(default=1.0, ge=0, le=1)
     sinonimos: list[str] = Field(default_factory=list)
+    etiquetas: list[int] = Field(default_factory=list)
     
     # Composición Nutricional
     energia_kcal: float | None = 0
@@ -158,12 +159,25 @@ def list_labels_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> list[dict[str, Any]]:
     with db_cursor() as cur:
-        sql = "select id, nombre_visible, descripcion, created_at from nutricion.etiqueta_nutricional"
+        sql = """
+            select 
+                e.id, 
+                e.nombre_visible, 
+                e.descripcion, 
+                e.created_at,
+                (
+                    select string_agg(i.nombre, ', ')
+                    from nutricion.ingrediente_etiqueta ie
+                    join nutricion.ingrediente i on i.id = ie.id_ingrediente
+                    where ie.id_etiqueta = e.id
+                ) as ingredientes
+            from nutricion.etiqueta_nutricional e
+        """
         params: list[Any] = []
         if q and q.strip():
-            sql += " where nombre_visible ilike %s"
+            sql += " where e.nombre_visible ilike %s"
             params.append(f"%{q.strip()}%")
-        sql += " order by created_at desc limit %s"
+        sql += " order by e.created_at desc limit %s"
         params.append(limit)
         cur.execute(sql, tuple(params))
         cols = [desc[0] for desc in cur.description]

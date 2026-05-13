@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from app.api.deps import require_roles
 from app.api.v1.use_cases import (
     obtener_caso_uso_gestionar_ingredientes, 
-    obtener_caso_uso_gestionar_catalogos
+    obtener_caso_uso_gestionar_catalogos,
+    obtener_caso_uso_evaluar_reglas
 )
+from app.api.v1.dtos.nutricion import RecetasPermitidasRequest, RecetasPermitidasResponse
 from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngredientes
 from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
 
 router = APIRouter(tags=["Compatibilidad"])
 
@@ -150,31 +153,25 @@ def obtener_perfil_detallado_paciente(
         "reglas_nutricionales": ["Bajo en Sodio"]
     }
 
-@router.post("/recetas-permitidas")
+@router.post("/recetas-permitidas", response_model=RecetasPermitidasResponse)
 def listar_recetas_seguras(
-    payload: dict,
+    payload: RecetasPermitidasRequest,
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     """
     Motor de Inferencia KBRS - Heurística de Exclusión.
     Filtra recetas que NO cumplen con las restricciones de salud del paciente.
     """
-    id_paciente = payload.get("id_paciente")
-    id_momento = payload.get("id_momento")
+    id_paciente = payload.id_paciente
+    id_momento = payload.id_momento
     
-    if not id_paciente:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="ID de paciente requerido")
-
     # 1. Ejecutar Motor de Inferencia (Heurística de Exclusión)
-    from app.api.v1.use_cases import obtener_caso_uso_evaluar_reglas
     caso_evaluacion = obtener_caso_uso_evaluar_reglas()
     analisis = caso_evaluacion.ejecutar(id_paciente)
     
-    recetas_prohibidas = analisis.get("recetas_prohibidas", set())
+    recetas_prohibidas = set(analisis.get("recetas_prohibidas", []))
     
     # 2. Obtener catálogo de recetas para el momento solicitado
-    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo_receta = RepositorioRecetaPostgres()
     
     if id_momento:
@@ -190,7 +187,10 @@ def listar_recetas_seguras(
             r["recomendacion"] = "Segura para el paciente"
             permitidas.append(r)
             
-    return {"recetas": permitidas}
+    return {
+        "id_paciente": id_paciente,
+        "recetas": permitidas
+    }
 
 @router.post("/plan-manual")
 def guardar_plan_manual(

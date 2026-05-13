@@ -1,4 +1,5 @@
 from typing import Dict
+from app.core.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioPaciente, IRepositorioRegla, IRepositorioIngrediente
 from ...domain.servicios.resolutor_conflictos import ServicioResolutorConflictos
 from ...domain.servicios.servicio_heuristico import ServicioMotorHeuristico

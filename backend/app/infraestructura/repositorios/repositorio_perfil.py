@@ -174,6 +174,13 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         # Especial para tabla condicion: asegurar que el frontend reciba el nombre de campo que espera
         if esquema == "heuristico" and tabla == "condicion":
             sql = "select *, dias_duracion_estandar as duracion_dias_sugerida from heuristico.condicion"
+        elif esquema == "nutricion" and tabla == "ingrediente":
+            # Realizamos JOIN con grupo_alimentario para obtener el nombre legible de la categoría
+            sql = """
+                select i.*, g.nombre as categoria 
+                from nutricion.ingrediente i
+                left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+            """
         else:
             sql = f"select * from {esquema}.{tabla}"
             

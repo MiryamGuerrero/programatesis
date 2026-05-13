@@ -11,6 +11,18 @@ class IRepositorioPaciente(ABC):
     def obtener_por_id(self, id_paciente: str) -> Optional[PerfilPaciente]:
         pass
 
+    @abstractmethod
+    def buscar_pacientes(self, consulta: str, limite: int = 50) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
+        pass
+
+    @abstractmethod
+    def eliminar_paciente_integral(self, id_paciente: str) -> bool:
+        pass
+
 class IRepositorioPerfil(ABC):
     @abstractmethod
     def obtener_por_auth_id(self, auth_id: str) -> Optional[PerfilUsuario]:

@@ -221,6 +221,16 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               _buildFilterDropdown("GRUPO", _groups, _groupId, _onGroupChanged),
               const SizedBox(width: 12),
               _buildFilterDropdown("SUBGRUPO", _subgroupsFiltrados, _subgroupId, (v) => setState(() { _subgroupId = v; _fetch(); })),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 22, color: AppTema.azulPrincipal),
+                onPressed: _fetch,
+                tooltip: "Actualizar catálogo",
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTema.azulPrincipal.withOpacity(0.05),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
             ],
           ),
         ],
@@ -356,13 +366,14 @@ class _IngredientesDataSource extends DataTableSource {
       try {
         final repo = ProviderScope.containerOf(context).read(inteligenciaRepositoryProvider);
         await repo.eliminarIngrediente(id);
-        // Recargar la tabla
-        // Como esto es un DataSource, necesitamos una forma de notificar a la pagina.
-        // En este caso, podemos usar una callback o simplemente recargar via ref.
-        // Pero para simplificar, el usuario puede refrescar o podemos pasar una callback.
-        onView(-1); // Usamos un id especial o callback para recargar
+        if (context.mounted) {
+          NutriSnack.show(context, "Ingrediente eliminado correctamente");
+        }
+        onView(-1); // Recargar
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al eliminar: $e"), backgroundColor: Colors.red));
+        if (context.mounted) {
+          NutriSnack.show(context, "Error al eliminar: $e", isError: true);
+        }
       }
     }
   }

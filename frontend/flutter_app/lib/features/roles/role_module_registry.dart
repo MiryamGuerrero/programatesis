@@ -115,16 +115,16 @@ List<RoleModule> modulesForRole(AppRole role) {
           builder: () => const IngredientesPage(),
         ),
         RoleModule(
-          key: "recetas",
-          title: "Recetas",
-          icon: Icons.menu_book_rounded,
-          builder: () => const RecetasPage(),
-        ),
-        RoleModule(
           key: "etiquetas",
           title: "Etiquetas",
           icon: Icons.label_rounded,
           builder: () => const EtiquetasPage(),
+        ),
+        RoleModule(
+          key: "recetas",
+          title: "Recetas",
+          icon: Icons.menu_book_rounded,
+          builder: () => const RecetasPage(),
         ),
         RoleModule(
           key: "plan_manual",
@@ -133,16 +133,16 @@ List<RoleModule> modulesForRole(AppRole role) {
           builder: () => const PlanManualPage(),
         ),
         RoleModule(
-          key: "reglas_nutri",
-          title: "Reglas Nutricionales",
-          icon: Icons.rule_rounded,
-          builder: () => const ReglasNutricionalesPage(),
-        ),
-        RoleModule(
           key: "condiciones_nutri",
           title: "Condiciones",
           icon: Icons.health_and_safety_rounded,
           builder: () => const CondicionesNutricionalesPage(),
+        ),
+        RoleModule(
+          key: "reglas_nutri",
+          title: "Reglas Nutricionales",
+          icon: Icons.rule_rounded,
+          builder: () => const ReglasNutricionalesPage(),
         ),
         perfilItem,
       ];

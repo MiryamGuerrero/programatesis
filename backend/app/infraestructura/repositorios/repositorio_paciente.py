@@ -25,14 +25,53 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             cur.execute("select id, nombre_completo, fecha_nacimiento, id_sexo, cedula from usuarios.paciente where id = %s and activo = true", (id_paciente,))
             row = cur.fetchone()
             if not row: return None
+            
+            # 1. Diagnósticos permanentes (Patologías)
             cur.execute("select id_condicion from clinico.diagnostico_paciente where id_paciente = %s and esta_activo = true", (id_paciente,))
             condiciones = [r[0] for r in cur.fetchall()]
-            return PerfilPaciente(id_paciente=str(row[0]), nombre=row[1], fecha_nacimiento=row[2], id_sexo=row[3], cedula=row[4], condiciones_activas=condiciones)
+            
+            # 2. Condiciones de controles clínicos (Nutricionales, Talla, Temporales)
+            # Buscamos el último control y sus condiciones activas
+            cur.execute("""
+                select cca.id_condicion 
+                from clinico.control_condicion_activa cca
+                join clinico.control_paciente cp on cp.id = cca.id_control
+                where cp.id_paciente = %s and cca.esta_activa = true
+                order by cp.fecha_control desc
+            """, (id_paciente,))
+            condiciones_ctrl = [r[0] for r in cur.fetchall()]
+            
+            # Unir sin duplicados
+            todas_condiciones = list(set(condiciones + condiciones_ctrl))
+            
+            return PerfilPaciente(
+                id_paciente=str(row[0]), 
+                nombre=row[1], 
+                fecha_nacimiento=row[2], 
+                id_sexo=row[3], 
+                cedula=row[4], 
+                condiciones_activas=todas_condiciones
+            )
 
     def listar_todos_pacientes(self) -> List[dict]:
         with db_cursor() as cur:
             sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
             cur.execute(sql)
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def buscar_pacientes(self, consulta: str, limite: int = 50) -> List[dict]:
+        with db_cursor() as cur:
+            term = f"%{consulta}%" if consulta else "%"
+            sql = """
+                select v.*, p.id_sexo 
+                from usuarios.vista_gestion_pacientes v 
+                join usuarios.paciente p on p.id = v.id 
+                where v.nombre_completo ilike %s or v.cedula ilike %s
+                order by v.nombre_completo 
+                limit %s
+            """
+            cur.execute(sql, (term, term, limite))
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 

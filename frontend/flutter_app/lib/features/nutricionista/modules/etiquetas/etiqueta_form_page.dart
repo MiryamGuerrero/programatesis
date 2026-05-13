@@ -5,21 +5,19 @@ import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
 
-class EtiquetaFormPage extends ConsumerStatefulWidget {
+class EtiquetaFormDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic>? etiquetaInicial;
-  final VoidCallback onBack;
 
-  const EtiquetaFormPage({
+  const EtiquetaFormDialog({
     super.key,
     this.etiquetaInicial,
-    required this.onBack,
   });
 
   @override
-  ConsumerState<EtiquetaFormPage> createState() => _EtiquetaFormPageState();
+  ConsumerState<EtiquetaFormDialog> createState() => _EtiquetaFormDialogState();
 }
 
-class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
+class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
 
@@ -52,8 +50,8 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
       }
       
       if (!mounted) return;
+      Navigator.pop(context, true);
       NutriSnack.show(context, 'Etiqueta guardada con éxito');
-      widget.onBack();
     } catch (e) {
       NutriSnack.show(context, 'Error al guardar la etiqueta', isError: true);
     } finally {
@@ -63,100 +61,57 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTema.grisLienzo,
-      body: Column(
-        children: [
-          _buildTopBar(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(40),
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  padding: const EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      )
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader('Información de la Etiqueta', Icons.label_important_rounded),
-                        const SizedBox(height: 24),
-                        _buildTextField(
-                          label: 'Nombre Visible',
-                          controller: _ctrlNombre,
-                          hint: 'Ej: Alto en Proteína',
-                          icon: Icons.title_rounded,
-                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildTextField(
-                          label: 'Descripción',
-                          controller: _ctrlDescripcion,
-                          hint: 'Describe cuándo se aplica esta etiqueta...',
-                          icon: Icons.description_rounded,
-                          maxLines: 4,
-                        ),
-                        const SizedBox(height: 48),
-                        _buildActions(),
-                      ],
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 600,
+        padding: const EdgeInsets.all(32),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.etiquetaInicial == null ? 'Nueva Etiqueta' : 'Editar Etiqueta',
+                    style: GoogleFonts.quicksand(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppTema.azulOscuro,
                     ),
                   ),
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      color: Colors.white,
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            onPressed: widget.onBack,
-          ),
-          const SizedBox(width: 16),
-          Text(
-            widget.etiquetaInicial == null ? 'Nueva Etiqueta' : 'Editar Etiqueta',
-            style: GoogleFonts.quicksand(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTema.azulOscuro,
-            ),
-          ),
-          const Spacer(),
-          if (_loading)
-            const CircularProgressIndicator()
-          else
-            ElevatedButton.icon(
-              onPressed: _guardar,
-              icon: const Icon(Icons.save_rounded),
-              label: Text(widget.etiquetaInicial == null ? 'CREAR ETIQUETA' : 'ACTUALIZAR ETIQUETA'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTema.azulPrincipal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              const SizedBox(height: 24),
+              _buildSectionHeader('Información de la Etiqueta', Icons.label_important_rounded),
+              const SizedBox(height: 24),
+              _buildTextField(
+                label: 'Nombre Visible',
+                controller: _ctrlNombre,
+                hint: 'Ej: Alto en Proteína',
+                icon: Icons.title_rounded,
+                validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
-            ),
-        ],
+              const SizedBox(height: 24),
+              _buildTextField(
+                label: 'Descripción',
+                controller: _ctrlDescripcion,
+                hint: 'Describe cuándo se aplica esta etiqueta...',
+                icon: Icons.description_rounded,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 40),
+              _buildActions(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -229,20 +184,23 @@ class _EtiquetaFormPageState extends ConsumerState<EtiquetaFormPage> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-          onPressed: widget.onBack,
+          onPressed: () => Navigator.pop(context),
           child: const Text('CANCELAR'),
         ),
         const SizedBox(width: 16),
-        ElevatedButton(
-          onPressed: _guardar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTema.azulPrincipal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        if (_loading)
+          const CircularProgressIndicator()
+        else
+          ElevatedButton(
+            onPressed: _guardar,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTema.azulPrincipal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(widget.etiquetaInicial == null ? 'CREAR ETIQUETA' : 'GUARDAR CAMBIOS'),
           ),
-          child: Text(widget.etiquetaInicial == null ? 'CREAR ETIQUETA' : 'ACTUALIZAR CAMBIOS'),
-        ),
       ],
     );
   }

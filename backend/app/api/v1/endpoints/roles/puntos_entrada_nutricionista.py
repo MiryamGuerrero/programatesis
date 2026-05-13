@@ -70,8 +70,8 @@ def registrar_paciente_nutri(
     _=Depends(require_roles("admin", "medico"))
 ):
     try:
-        id_p = caso_uso.registrar_nuevo_paciente(payload.model_dump())
-        return {"id": id_p, "success": True}
+        res = caso_uso.registrar_nuevo_paciente(payload.model_dump())
+        return {"id": res["id"], "temp_password": res.get("temp_password"), "success": True}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
