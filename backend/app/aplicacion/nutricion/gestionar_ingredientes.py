@@ -31,3 +31,19 @@ class CasoUsoGestionarIngredientes:
         
         datos_limpios = {k: v for k, v in datos_ingrediente.items() if v is not None}
         return self.repo_ingrediente.crear_ingrediente(datos_limpios)
+
+    def recomendar_ingrediente(self, id_paciente: str, id_ingrediente: int, id_profesional: str, id_rol: int, motivo: str = None, prioridad: int = 1) -> bool:
+        # Validar que no sea un ingrediente prohibido (alergia)
+        permitidos = self.repo_ingrediente.buscar_ingredientes_filtrados(id_paciente, limite=1000)
+        permitidos_ids = {p["id"] for p in permitidos}
+        
+        if id_ingrediente not in permitidos_ids:
+            raise ValueError("No se puede recomendar un ingrediente que es alérgico o prohibido para el paciente")
+
+        return self.repo_ingrediente.registrar_recomendacion(id_paciente, id_ingrediente, id_profesional, id_rol, motivo, prioridad)
+
+    def eliminar_recomendacion(self, id_paciente: str, id_ingrediente: int) -> bool:
+        return self.repo_ingrediente.eliminar_recomendacion(id_paciente, id_ingrediente)
+
+    def listar_recomendaciones(self, id_paciente: str) -> List[Dict[str, Any]]:
+        return self.repo_ingrediente.listar_recomendaciones_paciente(id_paciente)

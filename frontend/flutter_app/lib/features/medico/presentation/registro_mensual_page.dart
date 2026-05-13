@@ -45,8 +45,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   bool _brote = false;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
   final List<Map<String, dynamic>> _condicionesTemp = [];
+  List<Map<String, dynamic>> _recomendacionesIng = [];
   List<dynamic> _condicionesTemporalesCat = [];
-  
+  List<dynamic> _ingredientesCat = [];
+
+  final _ingRecomSearchCtrl = TextEditingController();
+  final _ingRecomFocus = FocusNode();
+
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
   String _resumenClinico = "";
@@ -70,9 +75,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get("catalogos/condiciones");
+      final resIng = await dio.get("nutricionista/ingredientes/catalogo-simple");
+      
       if (mounted) {
         setState(() {
           _condicionesTemporalesCat = (res.data as List).where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2).toList();
+          _ingredientesCat = resIng.data as List? ?? [];
         });
       }
     } catch (e) {
@@ -183,6 +191,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       _fatiga = (h['nivel_fatiga'] ?? 10).toDouble();
       _brote = h['en_brote'] ?? false;
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ?? DateTime.now().add(const Duration(days: 30));
+      
+      // Cargar recomendaciones actuales del expediente si existen
+      if (_expediente != null && _expediente!['recomendaciones'] != null) {
+        _recomendacionesIng = List<Map<String, dynamic>>.from(_expediente!['recomendaciones']['ingredientes'] ?? []);
+      }
     });
     _calculateOMS();
     _tabController.animateTo(0);
@@ -200,7 +213,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         "articulaciones_dolorosas": _artDolor.text, "minutos_rigidez": _rigidez.text,
         "en_brote": _brote, "estado_enfermedad": "Seguimiento",
         "nota_evolucion": _notas.text, "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first,
-        "condiciones_temporales": _condicionesTemp
+        "condiciones_temporales": _condicionesTemp,
+        "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList()
       };
       if (_idControlEditando == null) {
         await dio.post("pacientes/${widget.paciente['id']}/control-mensual", data: payload);
@@ -687,7 +701,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         const SizedBox(height: 24),
         _buildSintomasTemporalesGrid(),
         const SizedBox(height: 48),
-        _sectionHeader("5. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
+        _sectionHeader("5. RECOMENDACIÓN DE INGREDIENTES", Icons.thumb_up_alt_outlined),
+        const SizedBox(height: 24),
+        _buildRecomendacionesSelector(),
+        const SizedBox(height: 48),
+        _sectionHeader("6. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
         const SizedBox(height: 24),
         Container(
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
@@ -1841,5 +1859,78 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         ]),
       )
     ]);
+  }
+
+  Widget _buildRecomendacionesSelector() {
+    if (_ingredientesCat.isEmpty) return const Text("Cargando ingredientes...");
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StatefulBuilder(
+          builder: (context, setInternalState) {
+            final q = _ingRecomSearchCtrl.text.toLowerCase().trim();
+            final matches = _ingredientesCat.where((e) {
+              if (q.isEmpty) return false;
+              final name = (e['nombre'] ?? "").toString().toLowerCase();
+              final syns = (e['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+              return name.contains(q) || syns.any((s) => s.contains(q));
+            }).toList();
+
+            return Column(
+              children: [
+                TextFormField(
+                  controller: _ingRecomSearchCtrl,
+                  focusNode: _ingRecomFocus,
+                  onChanged: (v) => setInternalState(() {}),
+                  decoration: InputDecoration(
+                    labelText: "Buscar ingrediente a recomendar...",
+                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.blue),
+                    suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingRecomSearchCtrl.clear(); setInternalState(() {}); }) : null,
+                  ),
+                ),
+                if (matches.isNotEmpty && _ingRecomFocus.hasFocus)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: matches.length > 50 ? 50 : matches.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final item = matches[i];
+                        final isSel = _recomendacionesIng.any((ing) => ing['id'] == item['id']);
+                        return ListTile(
+                          dense: true,
+                          title: Text(item['nombre'] ?? ""),
+                          trailing: isSel ? const Icon(Icons.check_circle, color: Colors.blue) : const Icon(Icons.add_circle_outline),
+                          onTap: () {
+                            setState(() {
+                              if (!isSel) _recomendacionesIng.add(Map<String, dynamic>.from(item));
+                              else _recomendacionesIng.removeWhere((ing) => ing['id'] == item['id']);
+                            });
+                            setInternalState(() {});
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (_recomendacionesIng.isEmpty)
+          const Text("No ha seleccionado ingredientes recomendados.", style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic))
+        else
+          Wrap(spacing: 8, runSpacing: 8, children: _recomendacionesIng.map((e) => Chip(
+            label: Text(e['nombre']?.toString() ?? "", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+            onDeleted: () => setState(() => _recomendacionesIng.remove(e)),
+            backgroundColor: Colors.blue.shade50, deleteIconColor: Colors.blue,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          )).toList()),
+      ],
+    );
   }
 }

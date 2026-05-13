@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from app.api.deps import require_roles
+from app.core.security import UserContext
 from app.api.v1.use_cases import (
     obtener_caso_uso_gestionar_ingredientes, 
     obtener_caso_uso_gestionar_catalogos
@@ -143,11 +144,11 @@ def obtener_perfil_detallado_paciente(
 @router.post("/recetas-permitidas")
 def listar_recetas_seguras(
     payload: dict,
-    _=Depends(require_roles("admin", "nutricionista"))
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """
-    Motor de Inferencia KBRS - Heurística de Exclusión.
-    Filtra recetas que NO cumplen con las restricciones de salud del paciente.
+    Motor de Inferencia KBRS - Heurística de Exclusión y Priorización.
+    Filtra recetas prohibidas y destaca las potenciadas por recomendaciones médicas/nutricionales.
     """
     id_paciente = payload.get("id_paciente")
     id_momento = payload.get("id_momento")
@@ -156,40 +157,55 @@ def listar_recetas_seguras(
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="ID de paciente requerido")
 
-    # 1. Ejecutar Motor de Inferencia (Heurística de Exclusión)
-    from app.api.v1.use_cases import obtener_caso_uso_evaluar_reglas
-    caso_evaluacion = obtener_caso_uso_evaluar_reglas()
-    analisis = caso_evaluacion.ejecutar(id_paciente)
-    
-    recetas_prohibidas = analisis.get("recetas_prohibidas", set())
-    
-    # 2. Obtener catálogo de recetas para el momento solicitado
+    # Usamos el nuevo método del repositorio que centraliza la lógica de filtrado y potenciación
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo_receta = RepositorioRecetaPostgres()
     
-    if id_momento:
-        todas = repo_receta.obtener_recetas_por_momento(int(id_momento))
-    else:
-        todas = repo_receta.listar_recetas(limite=500)
-    
-    # 3. Filtrar y formatear respuesta
-    permitidas = []
-    for r in todas:
-        if r["id"] not in recetas_prohibidas:
-            # Enriquecemos con un mensaje de recomendación (Heurística de Clasificación básica por ahora)
-            r["recomendacion"] = "Segura para el paciente"
-            permitidas.append(r)
-            
-    return {"recetas": permitidas}
+    try:
+        permitidas = repo_receta.obtener_recetas_seguras_para_paciente(
+            id_paciente, 
+            int(id_momento) if id_momento else None
+        )
+        
+        # Formateamos la respuesta para incluir el mensaje de recomendación
+        for r in permitidas:
+            if r.get("es_potenciada"):
+                r["recomendacion"] = "POTENCIADA: Contiene ingredientes recomendados para su salud"
+            else:
+                r["recomendacion"] = "Segura para el paciente"
+                
+        return {"recetas": permitidas}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/plan-manual")
 def guardar_plan_manual(
     payload: dict,
-    _=Depends(require_roles("admin", "nutricionista"))
+    user: UserContext = Depends(require_roles("admin", "nutricionista"))
 ):
-    """Guarda el diseño semanal del plan alimentario."""
-    print(f"DEBUG: Guardando plan manual para {payload.get('id_paciente')}")
-    return {"success": True, "message": "Plan activado"}
+    """Guarda el diseño semanal del plan alimentario y los potenciadores."""
+    id_paciente = payload.get("id_paciente")
+    boosters = payload.get("boosters", []) # IDs de ingredientes recomendados para este plan
+    
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        # 1. Limpiar recomendaciones previas de la nutri para este paciente (opcional, según lógica de negocio)
+        # Aquí asumimos que las recomendaciones del plan mensual reemplazan las anteriores de la nutri
+        cur.execute("""
+            delete from clinico.recomendacion_ingrediente 
+            where id_paciente = %s and id_rol_recomienda = 3
+        """, (id_paciente,))
+        
+        # 2. Insertar nuevos potenciadores
+        for ing_id in boosters:
+            cur.execute("""
+                insert into clinico.recomendacion_ingrediente 
+                (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad)
+                values (%s, %s, %s, 3, 'Potenciador de Plan Mensual', 3)
+            """, (id_paciente, ing_id, user.user_id))
+            
+    return {"success": True, "message": "Plan y potenciadores activados"}
 
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat(

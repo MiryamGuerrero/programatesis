@@ -12,10 +12,61 @@ from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngr
 from app.api.v1.dtos.clinico import PacienteRegistroCompleto
 from app.api.v1.dtos.nutricion import (
     PlanManualRequest, PlanManualResponse,
-    RecetasPermitidasRequest, RecetasPermitidasResponse
+    RecetasPermitidasRequest, RecetasPermitidasResponse,
+    RecomendacionIngredienteRequest
 )
 
 router = APIRouter(tags=["Nutricionista"])
+
+@router.post("/ingredientes/recomendar")
+def recomendar_ingrediente(
+    payload: RecomendacionIngredienteRequest,
+    user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
+    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes)
+):
+    """Registra un ingrediente como seguro/recomendado para un paciente."""
+    try:
+        # El id_rol depende de si es nutricionista (3) o medico (2)
+        role_map = {"admin": 1, "medico": 2, "nutricionista": 3, "tutor": 4}
+        rol_id = role_map.get(user.role, 3) 
+        
+        success = caso_uso.recomendar_ingrediente(
+            payload.id_paciente,
+            payload.id_ingrediente,
+            user.user_id,
+            rol_id,
+            payload.motivo,
+            payload.prioridad
+        )
+        return {"success": success}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.delete("/ingredientes/recomendar/{id_paciente}/{id_ingrediente}")
+def eliminar_recomendacion_ingrediente(
+    id_paciente: str,
+    id_ingrediente: int,
+    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    """Elimina una recomendación de ingrediente."""
+    try:
+        success = caso_uso.eliminar_recomendacion(id_paciente, id_ingrediente)
+        return {"success": success}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.get("/ingredientes/recomendados/{id_paciente}")
+def listar_recomendaciones_ingredientes(
+    id_paciente: str,
+    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
+    _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
+):
+    """Lista los ingredientes recomendados para un paciente."""
+    try:
+        return caso_uso.listar_recomendaciones(id_paciente)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/ingredientes/buscar-para-paciente/{id_paciente}")
 def buscar_ingredientes_para_paciente(

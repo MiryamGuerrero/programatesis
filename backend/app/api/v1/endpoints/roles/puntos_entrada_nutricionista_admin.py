@@ -44,6 +44,14 @@ class LabelCreateRequest(BaseModel):
 
 # --- ENDPOINTS INGREDIENTES ---
 
+@router.get("/ingredientes/catalogo-simple")
+def list_ingredients_simple_catalog(
+    _=Depends(require_roles("admin", "nutricionista", "medico")),
+) -> list[dict[str, Any]]:
+    from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+    repo = RepositorioIngredientePostgres()
+    return repo.buscar_ingredientes_filtrados(id_paciente=None, limite=1000)
+
 @router.post("/ingredientes")
 def create_ingredient_admin(
     payload: IngredientCreateRequest,

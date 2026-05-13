@@ -24,8 +24,28 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
     def listar_ingredientes_admin(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False) -> List[dict]:
-        term = f"%{consulta}%" if consulta else "%"
-        sql = """
+        where_clause = "(%s or i.activo = true)"
+        params = [incluir_inactivos]
+
+        if consulta:
+            # Dividir la consulta en palabras significativas
+            stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
+            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
+            if not words and consulta.strip(): words = [consulta.lower().strip()]
+            
+            if words:
+                # Construir una condicion que busque cada palabra como palabra completa o al inicio/fin
+                word_conditions = []
+                for w in words:
+                    # Busqueda por palabra completa usando el ancla de limite de palabra de Postgres (\y)
+                    # Esto maneja correctamente signos de puntuacion como comas o parentesis
+                    word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
+                    pattern = f"\\y{w}\\y"
+                    params.extend([pattern, pattern])
+                
+                where_clause += " and (" + " and ".join(word_conditions) + ")"
+
+        sql = f"""
             with etiquetas_agg as (
                 select ie.id_ingrediente, array_agg(en.nombre_visible) as etiquetas
                 from nutricion.ingrediente_etiqueta ie
@@ -36,7 +56,7 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 i.*, 
                 g.nombre as categoria, 
                 sg.nombre as subgrupo,
-                coalesce(ea.etiquetas, '{}') as etiquetas,
+                coalesce(ea.etiquetas, '{{}}') as etiquetas,
                 coalesce(c.energia_kcal, 0) as energia_kcal,
                 coalesce(c.proteinas_g, 0) as proteinas_g,
                 coalesce(c.grasa_total_g, 0) as grasa_total_g,
@@ -46,11 +66,12 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
             left join etiquetas_agg ea on ea.id_ingrediente = i.id
             left join nutricion.ingrediente_composicion c on c.id_ingrediente = i.id
-            where (%s or i.activo = true) and (i.nombre ilike %s)
+            where {where_clause}
             order by i.nombre limit %s offset %s
         """
+        params.extend([limite, desplazamiento])
         with db_cursor() as cur:
-            cur.execute(sql, (incluir_inactivos, term, limite, desplazamiento))
+            cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
@@ -127,6 +148,7 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
         with db_cursor() as cur:
             ing_prohibidos = set()
             sub_prohibidos = set()
+            ing_recomendados = set()
 
             if id_paciente and id_paciente != "null" and id_paciente != "none":
                 # 1. Obtener IDs de ingredientes y subgrupos prohibidos
@@ -142,44 +164,97 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 )
                 sub_prohibidos = {r[0] for r in cur.fetchall()}
 
-                # 2. Detectar intolerancia a la lactosa:
+                # 2. Obtener recomendaciones actuales
+                cur.execute(
+                    "select id_ingrediente from clinico.recomendacion_ingrediente where id_paciente = %s and activa = true",
+                    (id_paciente,)
+                )
+                ing_recomendados = {r[0] for r in cur.fetchall()}
+
+                # 3. Detectar intolerancia a la lactosa:
                 # Si el paciente tiene prohibido CUALQUIER subgrupo con lactosa,
                 # consideramos que es intolerante y bloqueamos TODOS los subgrupos con lactosa
                 if sub_prohibidos & SUBGRUPOS_CON_LACTOSA:
                     sub_prohibidos |= SUBGRUPOS_CON_LACTOSA
 
-            # 3. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
-            term = f"%{consulta}%" if consulta else "%"
+            # 4. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
+            where_clause = "i.activo = true"
+            params = []
             
-            # Ajuste de limite: si no hay consulta, devolver mas para cargar catálogo
-            final_limit = limite if consulta else 200
-
-            sql = """
-                select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
-                from nutricion.ingrediente i
-                left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
-                where i.activo = true
-                  and (
-                    i.nombre ilike %s 
-                    or exists (
-                        select 1 from unnest(i.sinonimos) s where s ilike %s
-                    )
-                  )
-            """
-            
-            params = [term, term]
+            if consulta:
+                stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
+                words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
+                if not words and consulta.strip(): words = [consulta.lower().strip()]
+                
+                if words:
+                    word_conditions = []
+                    for w in words:
+                        word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
+                        pattern = f"\\y{w}\\y"
+                        params.extend([pattern, pattern])
+                    where_clause += " and (" + " and ".join(word_conditions) + ")"
             
             if ing_prohibidos:
-                sql += " and i.id != all(%s)"
+                where_clause += " and i.id != all(%s)"
                 params.append(list(ing_prohibidos))
             
             if sub_prohibidos:
-                sql += " and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))"
+                where_clause += " and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))"
                 params.append(list(sub_prohibidos))
-                
-            sql += " order by i.nombre limit %s"
+
+            # Ajuste de limite: si no hay consulta, devolver mas para cargar catálogo
+            final_limit = limite if consulta else 200
+
+            sql = f"""
+                select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
+                from nutricion.ingrediente i
+                left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
+                where {where_clause}
+                order by i.nombre limit %s
+            """
             params.append(final_limit)
 
             cur.execute(sql, params)
+            columnas = [desc[0] for desc in cur.description]
+            resultados = []
+            for row in cur.fetchall():
+                d = dict(zip(columnas, row))
+                d["es_recomendado"] = d["id"] in ing_recomendados
+                resultados.append(d)
+            return resultados
+
+    def registrar_recomendacion(self, id_paciente: str, id_ingrediente: int, id_profesional: str, id_rol: int, motivo: str = None, prioridad: int = 1) -> bool:
+        with db_cursor() as cur:
+            # 1. Resolver el id interno del profesional si viene el auth_id
+            id_profesional_interno = id_profesional
+            cur.execute("select id from usuarios.usuario where auth_user_id::text = %s or id::text = %s limit 1", (id_profesional, id_profesional))
+            row = cur.fetchone()
+            if row: id_profesional_interno = row[0]
+
+            sql = """
+                insert into clinico.recomendacion_ingrediente 
+                (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad, activa)
+                values (%s, %s, %s, %s, %s, %s, true)
+                on conflict (id_paciente, id_ingrediente, id_profesional) 
+                do update set activa = true, motivo = excluded.motivo, prioridad = excluded.prioridad
+            """
+            cur.execute(sql, (id_paciente, id_ingrediente, id_profesional_interno, id_rol, motivo, prioridad))
+            return True
+
+    def eliminar_recomendacion(self, id_paciente: str, id_ingrediente: int) -> bool:
+        with db_cursor() as cur:
+            cur.execute("update clinico.recomendacion_ingrediente set activa = false where id_paciente = %s and id_ingrediente = %s", (id_paciente, id_ingrediente))
+            return cur.rowcount > 0
+
+    def listar_recomendaciones_paciente(self, id_paciente: str) -> List[dict]:
+        sql = """
+            select ri.*, i.nombre as ingrediente_nombre, u.nombre_completo as profesional_nombre
+            from clinico.recomendacion_ingrediente ri
+            join nutricion.ingrediente i on i.id = ri.id_ingrediente
+            left join usuarios.usuario u on u.id = ri.id_profesional
+            where ri.id_paciente = %s and ri.activa = true
+        """
+        with db_cursor() as cur:
+            cur.execute(sql, (id_paciente,))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]

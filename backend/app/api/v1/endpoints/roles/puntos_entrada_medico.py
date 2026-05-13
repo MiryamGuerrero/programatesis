@@ -134,14 +134,13 @@ def obtener_tutor_por_cedula(
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     res = repo.buscar_tutor_por_cedula(cedula)
-    print(f"DEBUG: Búsqueda de tutor {cedula} -> {res}")
     if not res: return {"existe": False}
     return {"existe": True, "tutor": res}
 
 @router.get("/pacientes/{id_paciente}/expediente-completo")
 def obtener_expediente_completo(
     id_paciente: str,
-    _=Depends(require_roles("admin", "medico", "nutricionista"))
+    _=Depends(require_roles("admin", "medico", "nutricionista", "tutor"))
 ):
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
@@ -179,7 +178,7 @@ def actualizar_control_mensual(
 def actualizar_expediente_maestro(
     id_paciente: str,
     payload: dict,
-    _=Depends(require_roles("admin", "medico"))
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()

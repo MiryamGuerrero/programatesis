@@ -9,6 +9,7 @@ import "../admin/modules/usuarios/admin_tutors_page.dart";
 import "../medico/presentation/supervision_pacientes_page.dart";
 import "../medico/modules/catalogo_condiciones/catalogo_condiciones_page.dart";
 import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
+import "../medico/modules/alergias_condiciones/alergias_condiciones_page.dart";
 
 // Páginas de Tutor
 import "../tutor/presentation/mis_pacientes_page.dart";
@@ -131,6 +132,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Plan Manual",
           icon: Icons.calendar_month_rounded,
           builder: () => const PlanManualPage(),
+        ),
+        RoleModule(
+          key: "alergias_nutri",
+          title: "Alergias y Condiciones",
+          icon: Icons.warning_amber_rounded,
+          builder: () => const AlergiasCondicionesPage(),
         ),
         RoleModule(
           key: "reglas_nutri",

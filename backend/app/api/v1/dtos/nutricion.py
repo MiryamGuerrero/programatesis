@@ -21,3 +21,9 @@ class RecetasPermitidasRequest(BaseModel):
 class RecetasPermitidasResponse(BaseModel):
     id_paciente: str
     recetas: List[dict]
+
+class RecomendacionIngredienteRequest(BaseModel):
+    id_paciente: str
+    id_ingrediente: int
+    motivo: Optional[str] = None
+    prioridad: int = 1

@@ -60,7 +60,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   final _clinRigidez = TextEditingController();
   final _clinNotas = TextEditingController();
   final _ingSearchCtrl = TextEditingController();
+  final _ingRecomSearchCtrl = TextEditingController();
   final _ingFocus = FocusNode();
+  final _ingRecomFocus = FocusNode();
   int? _idPatologiaBase;
   
   String _estadoEnfermedad = "Estable en remisión";
@@ -83,6 +85,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   bool _tieneAlergiaIng = false;
   List<int> _alergiasSub = [];
   List<Map<String, dynamic>> _selectedIngredientes = [];
+  List<Map<String, dynamic>> _recomendacionesIng = [];
   List<Map<String, dynamic>> _condicionesTemp = [];
 
   // Catálogos
@@ -258,6 +261,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             }
             
             _condicionesTemp = (data['condiciones_temporales'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+            _recomendacionesIng = (data['recomendaciones']?['ingredientes'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
             
             _loading = false;
           });
@@ -418,6 +422,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "en_brote": _brote, "estado_enfermedad": _estadoEnfermedad, "observaciones": _clinNotas.text,
           "es_intolerante_lactosa": _lactosa, "alergias_subgrupos": _alergiasSub,
           "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
+          "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList(),
           "condiciones_temporales": _condicionesTemp,
           "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first
         }
@@ -682,12 +687,98 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           ]),
         ),
 
-        // --- 5. OBSERVACIONES ---
+        // --- 5. RECOMENDACIÓN DE INGREDIENTES (NUEVO) ---
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("INGREDIENTES RECOMENDADOS / SEGUROS", Icons.thumb_up_alt_outlined),
+            const SizedBox(height: 16),
+            _miniHint("Seleccione ingredientes que desea priorizar o que considera especialmente beneficiosos para el paciente."),
+            _buildRecomendacionesSelector(),
+          ]),
+        ),
+
+        // --- 6. OBSERVACIONES ---
         const SizedBox(height: 24),
         _field(_clinNotas, "Observaciones Médicas Iniciales", Icons.edit_note_rounded, maxLines: 4),
       ]),
     )
   );
+
+  Widget _buildRecomendacionesSelector() {
+    if (_ingredientes.isEmpty) return const Text("Cargando ingredientes...");
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StatefulBuilder(
+          builder: (context, setInternalState) {
+            final q = _ingRecomSearchCtrl.text.toLowerCase().trim();
+            final matches = _ingredientes.where((e) {
+              if (q.isEmpty) return false;
+              final name = (e['nombre'] ?? "").toString().toLowerCase();
+              final syns = (e['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+              return name.contains(q) || syns.any((s) => s.contains(q));
+            }).toList();
+
+            return Column(
+              children: [
+                TextFormField(
+                  controller: _ingRecomSearchCtrl,
+                  focusNode: _ingRecomFocus,
+                  onChanged: (v) => setInternalState(() {}),
+                  decoration: InputDecoration(
+                    labelText: "Buscar ingrediente a recomendar...",
+                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.blue),
+                    suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingRecomSearchCtrl.clear(); setInternalState(() {}); }) : null,
+                  ),
+                ),
+                if (matches.isNotEmpty && _ingRecomFocus.hasFocus)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: matches.length > 50 ? 50 : matches.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final item = matches[i];
+                        final isSel = _recomendacionesIng.any((ing) => ing['id'] == item['id']);
+                        return ListTile(
+                          dense: true,
+                          title: Text(item['nombre'] ?? ""),
+                          trailing: isSel ? const Icon(Icons.check_circle, color: Colors.blue) : const Icon(Icons.add_circle_outline),
+                          onTap: () {
+                            setState(() {
+                              if (!isSel) _recomendacionesIng.add(Map<String, dynamic>.from(item));
+                              else _recomendacionesIng.removeWhere((ing) => ing['id'] == item['id']);
+                            });
+                            setInternalState(() {});
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (_recomendacionesIng.isEmpty)
+          const Text("No ha seleccionado ingredientes recomendados.", style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic))
+        else
+          Wrap(spacing: 8, runSpacing: 8, children: _recomendacionesIng.map((e) => Chip(
+            label: Text(e['nombre']?.toString() ?? "", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+            onDeleted: () => setState(() => _recomendacionesIng.remove(e)),
+            backgroundColor: Colors.blue.shade50, deleteIconColor: Colors.blue,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          )).toList()),
+      ],
+    );
+  }
 
   Widget _buildIntoleranciaLactosa() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text("¿PRESENTA INTOLERANCIA A LA LACTOSA?*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5)),

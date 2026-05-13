@@ -102,8 +102,16 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
     // 3. Vista de Lista (Matriz)
     final filteredRecetas = _recetas.where((row) {
+      if (_query.isEmpty) return true;
       final nombre = row["nombre"]?.toString().toLowerCase() ?? "";
-      return nombre.contains(_query.toLowerCase());
+      final q = _query.toLowerCase().trim();
+      
+      final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+      final words = q.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+      if (words.isEmpty) words.add(q);
+
+      final nameWords = nombre.split(' ');
+      return words.any((w) => nameWords.contains(w)) || nameWords.any((nw) => words.contains(nw));
     }).toList();
 
     final totalItems = filteredRecetas.length;

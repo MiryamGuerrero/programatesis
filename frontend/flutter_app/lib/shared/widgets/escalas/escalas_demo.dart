@@ -26,7 +26,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             min: 0,
             max: 3,
             value: inflamacion,
-            emojis: const ['😊', '😐', '😟', '😡'],
+            icons: const [Icons.sentiment_very_satisfied, Icons.sentiment_neutral, Icons.sentiment_dissatisfied, Icons.sentiment_very_dissatisfied],
             etiquetas: [
               EscalaEtiqueta('Leve', 1),
               EscalaEtiqueta('Moderada', 2),
@@ -36,7 +36,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             colorFondoActivo: Colors.deepOrange.shade100,
             onChanged: (v) => setState(() => inflamacion = v),
             puntajeLabel: '$inflamacion/3',
-            icon: const Text('🔥', style: TextStyle(fontSize: 32)),
+            headerIcon: const Text('🔥', style: TextStyle(fontSize: 32)),
           ),
           EscalaSelector(
             titulo: 'AGOTAMIENTO',
@@ -44,7 +44,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             min: 0,
             max: 10,
             value: energia,
-            emojis: const ['🤩', '😊', '😐', '😕', '😟', '😞', '😫', '😩', '🥴', '😵', '💀'],
+            icons: List.generate(11, (index) => Icons.battery_alert),
             etiquetas: [
               EscalaEtiqueta('Alta energía', 3),
               EscalaEtiqueta('Intermedio', 5),
@@ -54,7 +54,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             colorFondoActivo: Colors.orange.shade100,
             onChanged: (v) => setState(() => energia = v),
             puntajeLabel: '$energia/10',
-            icon: const Text('🔋', style: TextStyle(fontSize: 32)),
+            headerIcon: const Text('🔋', style: TextStyle(fontSize: 32)),
           ),
           EscalaSelector(
             titulo: 'MODERADO',
@@ -62,7 +62,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             min: 0,
             max: 10,
             value: dolor,
-            emojis: const ['😊', '😊', '😐', '😕', '😟', '😐', '😕', '😟', '😢', '😭', '😫'],
+            icons: List.generate(11, (index) => Icons.personal_injury),
             etiquetas: [
               EscalaEtiqueta('Leve', 3),
               EscalaEtiqueta('Moderado', 4),
@@ -72,7 +72,7 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             colorFondoActivo: Colors.amber.shade100,
             onChanged: (v) => setState(() => dolor = v),
             puntajeLabel: '$dolor/10',
-            icon: const Text('😊', style: TextStyle(fontSize: 32)),
+            headerIcon: const Text('😊', style: TextStyle(fontSize: 32)),
           ),
         ],
       ),

@@ -25,20 +25,35 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
   final _ctrlGramos = TextEditingController(text: '100');
 
   Future<void> _buscar(String v) async {
-    if (v.length < 2) {
+    setState(() => _query = v);
+    if (v.isEmpty) {
       setState(() => _resultados = []);
       return;
     }
     setState(() => _buscando = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      // Usamos el listado de ingredientes maestro
       final data = await repo.fetchIngredientes();
       if (!mounted) return;
+
+      final n = v.toLowerCase().trim();
+      final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+      final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+      if (words.isEmpty && n.isNotEmpty) words.add(n);
+
       setState(() {
-        _resultados = data.where((i) => 
-          i['nombre'].toString().toLowerCase().contains(v.toLowerCase())
-        ).toList();
+        _resultados = data.where((i) {
+          final iname = (i['nombre'] ?? "").toString().toLowerCase();
+          final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+
+          bool match(String source) {
+            if (source.isEmpty) return false;
+            final sourceWords = source.split(' ');
+            return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
+          }
+
+          return match(iname) || sinonimos.any((s) => match(s));
+        }).toList();
       });
     } finally {
       if (mounted) setState(() => _buscando = false);
@@ -51,6 +66,24 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
       _ctrlCantidad.text = '1';
       _ctrlUnidad.text = 'unidad';
       _ctrlGramos.text = '100';
+    });
+  }
+
+  void _marcarTodos() {
+    if (_resultados.isEmpty) return;
+    setState(() {
+      for (var item in _resultados) {
+        if (!_seleccionados.any((s) => s['id_ingrediente'] == item['id'])) {
+          _seleccionados.add({
+            'id_ingrediente': item['id'],
+            'nombre': item['nombre'],
+            'cantidad': 1.0,
+            'unidad': 'unidad',
+            'gramos': 100.0,
+            'observaciones': 'Selección masiva',
+          });
+        }
+      }
     });
   }
 
@@ -114,17 +147,27 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Añadir Ingredientes', 
-          style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Añadir Ingredientes', 
+                style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+            ),
+            if (_query.isNotEmpty && _resultados.isNotEmpty)
+              TextButton.icon(
+                onPressed: _marcarTodos,
+                icon: const Icon(Icons.playlist_add_check_rounded, color: AppTema.azulPrincipal),
+                label: Text("MARCAR ${_resultados.length}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+          ],
+        ),
         const SizedBox(height: 16),
         TextField(
-          onChanged: (v) {
-            _query = v;
-            _buscar(v);
-          },
+          onChanged: _buscar,
           decoration: InputDecoration(
             hintText: 'Buscar en el catálogo de alimentos...',
             prefixIcon: const Icon(Icons.search, color: AppTema.azulPrincipal),
+            suffixIcon: _query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _buscar("")) : null,
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

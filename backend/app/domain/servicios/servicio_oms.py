@@ -150,6 +150,13 @@ class ServicioOMS:
             "ideal": round(params["m"], 2)
         }
 
+    @staticmethod
+    def calcular_peso_desde_imc_mediano(imc_mediano: Optional[float], talla_cm: float) -> float:
+        """Calcula el peso ideal aplicando el IMC mediano a la talla actual."""
+        if imc_mediano is None or imc_mediano <= 0 or talla_cm <= 0:
+            return 0.0
+        return round(imc_mediano * ((talla_cm / 100) ** 2), 2)
+
     @classmethod
     def evaluar_paciente_integral(
         cls, 
@@ -160,7 +167,9 @@ class ServicioOMS:
         fecha_control: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
-        Realiza una evaluación antropométrica completa y genera un diagnóstico integral.
+        Realiza una evaluación antropométrica completa siguiendo estándares OMS.
+        El diagnóstico nutricional principal y el estado del peso se basan en la relación peso vs talla.
+        WFA (Peso/Edad) se mantiene como indicador complementario.
         """
         if peso_kg <= 0: raise ValueError("El peso debe ser mayor a 0")
         if talla_cm <= 0: raise ValueError("La talla debe ser mayor a 0")
@@ -186,112 +195,101 @@ class ServicioOMS:
             raise ValueError("La edad excede los 19 años (228 meses) soportados por la OMS")
             
         imc = cls.calcular_imc(peso_kg, talla_cm)
+        advertencias = []
         
         # 1. Evaluación de indicadores individuales
-        # BMI/Edad (Estado nutricional actual)
         res_bmi = cls.evaluar_indicador('BMI', imc, sexo_codigo, edad_dias, edad_meses)
-        # Talla/Edad (Crecimiento lineal histórico)
         res_talla = cls.evaluar_indicador('HFA', talla_cm, sexo_codigo, edad_dias, edad_meses)
-        # Peso/Edad (Masa corporal total) - Principalmente útil < 10 años
-        res_peso = cls.evaluar_indicador('WFA', peso_kg, sexo_codigo, edad_dias, edad_meses)
+        res_peso_edad = cls.evaluar_indicador('WFA', peso_kg, sexo_codigo, edad_dias, edad_meses)
         
-        # 2. Determinación del Diagnóstico Consolidado
-        diag_nutri = res_bmi["diagnostico"]
-        diag_talla = res_talla["diagnostico"]
-        diag_peso = res_peso["diagnostico"]
+        # Futuro: Soporte para WFH (Peso para la talla) si se carga en la base
+        res_peso_talla = None 
+        
+        # 2. Selección de Indicador Nutricional Principal
+        # Mientras no exista WFH/WFL, usamos BMI como proxy porque incorpora la talla actual.
+        z_principal = None
+        indicador_principal = None
+        diagnostico_nutri = ""
+        peso_ideal_estimado = 0.0
+        referencia_peso_talla_disponible = False
 
-        z_bmi = res_bmi.get("z_score") or 0
-        z_hfa = res_talla.get("z_score") or 0
-
-        # 3. Cálculo de Ideales y Deltas
-        talla_ideal = res_talla["ideal"]
-        peso_ideal = 0.0
-
-        tiene_talla_baja = z_hfa < -2
-        tiene_talla_alta = z_hfa > 3
-
-        if tiene_talla_baja or tiene_talla_alta:
-            if res_bmi["ideal"] > 0:
-                peso_ideal = round(res_bmi["ideal"] * ((talla_cm / 100) ** 2), 2)
-        elif edad_meses <= 60:
-            peso_ideal = res_peso["ideal"]
+        if res_peso_talla and res_peso_talla.get("z_score") is not None:
+            indicador_principal = "WFH" # Weight-for-Height
+            z_principal = res_peso_talla["z_score"]
+            diagnostico_nutri = res_peso_talla["diagnostico"]
+            peso_ideal_estimado = res_peso_talla["ideal"]
+            referencia_peso_talla_disponible = True
         else:
-            if res_bmi["ideal"] > 0:
-                peso_ideal = round(res_bmi["ideal"] * ((talla_cm / 100) ** 2), 2)
+            indicador_principal = "BMI"
+            z_principal = res_bmi.get("z_score")
+            diagnostico_nutri = res_bmi["diagnostico"]
+            # El peso ideal se estima con la mediana del IMC para la edad aplicada a la Talla Actual
+            peso_ideal_estimado = cls.calcular_peso_desde_imc_mediano(res_bmi.get("ideal"), talla_cm)
+            referencia_peso_talla_disponible = False
+            if edad_meses <= 60:
+                advertencias.append("Para menores de 5 años, la OMS recomienda complementar con peso para talla/longitud. Actualmente se usa IMC/edad como aproximación.")
 
-        ganancia_peso = round(peso_ideal - peso_kg, 2)
-        ganancia_talla = round(talla_ideal - talla_cm, 2)
-
-        # estado_peso basado en BMI, no en WFA (para evitar contradicciones)
-        if z_bmi > 1:
+        # 3. Determinación de Estado de Peso
+        if z_principal is None:
+            estado_peso = "sin_referencia"
+        elif z_principal > 1: # > +1SD: Riesgo sobrepeso / Sobrepeso / Obesidad
             estado_peso = "disminuir"
-        elif z_bmi < -2:
+        elif z_principal < -2: # < -2SD: Desnutrición / Delgadez
             estado_peso = "aumentar"
         else:
             estado_peso = "mantener"
 
-        # 4. Construcción del diagnóstico combinado inteligente
-        anios = edad_meses // 12
-        meses_rest = edad_meses % 12
-        if anios > 0:
-            edad_texto = f"{anios} año{'s' if anios != 1 else ''}"
-            if meses_rest > 0:
-                edad_texto += f" y {meses_rest} mes{'es' if meses_rest != 1 else ''}"
+        # 4. Clasificación de Talla (HFA)
+        z_hfa = res_talla.get("z_score")
+        diagnostico_talla = res_talla["diagnostico"]
+        talla_mediana = res_talla["ideal"]
+
+        # 5. Hallazgo Complementario (WFA)
+        z_wfa = res_peso_edad.get("z_score")
+        diagnostico_peso_comp = res_peso_edad["diagnostico"]
+
+        # 6. Cálculos de Deltas (Descriptivos)
+        ganancia_peso_necesaria = round(peso_ideal_estimado - peso_kg, 2)
+        ganancia_talla_necesaria = round(talla_mediana - talla_cm, 2)
+
+        # 7. Construcción de Resumen Clínico
+        apertura = f"Evaluación antropométrica a los {edad_meses} meses. "
+        
+        # Línea de Nutrición
+        if z_principal is None:
+            nutri_linea = "Sin referencia OMS para determinar el diagnóstico nutricional principal."
         else:
-            edad_texto = f"{edad_meses} mes{'es' if edad_meses != 1 else ''}"
+            nutri_linea = f"Diagnóstico nutricional principal ({indicador_principal}/Edad): {diagnostico_nutri}."
 
-        diag_combinado = f"{diag_nutri} / {diag_talla}"
-        peso_ideal_str = f"{peso_ideal:.1f}" if peso_ideal > 0 else "N/A"
-        talla_ideal_str = f"{talla_ideal:.1f}" if talla_ideal > 0 else "N/A"
-        imc_str = f"{round(imc, 1):.1f}"
-
-        diag_nutri_lower = diag_nutri.lower()
-        diag_talla_lower = diag_talla.lower()
-        diff_talla = abs(talla_cm - talla_ideal)
-
-        apertura = f"Paciente de {edad_texto} ({edad_meses} meses). "
-
-        # -- Descripción de talla --
-        if "talla normal" in diag_talla_lower:
-            talla_linea = f"La talla para la edad es normal y mide {talla_cm:.1f} cm."
-        elif "talla alta" in diag_talla_lower:
-            talla_linea = f"La talla para la edad es talla alta y mide {talla_cm:.1f} cm, es muy alto para su edad con {diff_talla:.1f} cm por encima de la mediana."
+        # Línea de Talla
+        if z_hfa is None:
+            talla_linea = "Sin referencia OMS para clasificación de talla."
         else:
-            es_severa = "severa" in diag_talla_lower
-            grado = "muy bajo" if es_severa else "bajo"
-            talla_linea = f"La talla para la edad es {diag_talla.lower()} y mide {talla_cm:.1f} cm, es {grado} para su edad con {diff_talla:.1f} cm por debajo de la mediana."
-
-        # -- Descripción nutricional --
-        if "normal" in diag_nutri_lower:
-            nutri_linea = "Diagnóstico nutricional normal."
-        elif "riesgo" in diag_nutri_lower:
-            nutri_linea = f"Diagnóstico nutricional: {diag_nutri}."
-        elif "obesidad" in diag_nutri_lower or "sobrepeso" in diag_nutri_lower:
-            nutri_linea = f"Diagnóstico nutricional: {diag_nutri}."
-        elif "severa" in diag_nutri_lower or "delgadez severa" in diag_nutri_lower or "emaciación severa" in diag_nutri_lower:
-            nutri_linea = f"Diagnóstico nutricional: {diag_nutri}."
-        else:
-            nutri_linea = f"Diagnóstico nutricional: {diag_nutri}."
-
-        # -- Recomendación --
-        ideales = f"Peso ideal {peso_ideal_str} kg (IMC: {imc_str}), talla esperada {talla_ideal_str} cm."
-
-        if estado_peso == "aumentar":
-            recom = f"Debe aumentar {abs(ganancia_peso):.1f} kg"
-            if ganancia_talla > 0.5:
-                recom += f" y crecer {ganancia_talla:.1f} cm"
-            recom += " para alcanzar el rango normal."
-        elif estado_peso == "disminuir":
-            recom = f"Debe disminuir {abs(ganancia_peso):.1f} kg."
-            if ganancia_talla > 0.5:
-                recom += f" Ademas presenta retraso de talla ({ganancia_talla:.1f} cm por debajo de la mediana)."
-        else:
-            if ganancia_talla > 0.5:
-                recom = f"El peso es adecuado para su talla actual, pero presenta retraso de talla ({ganancia_talla:.1f} cm por debajo de la mediana)."
+            if z_hfa < -2:
+                talla_linea = f"Presenta {diagnostico_talla.lower()} para la edad. Requiere seguimiento longitudinal y evaluación clínica."
+            elif z_hfa > 2:
+                talla_linea = "La talla para la edad está por encima del rango esperado. Correlacionar con antecedentes familiares."
             else:
-                recom = "Se encuentra dentro del rango esperado."
+                talla_linea = "La talla para la edad se encuentra dentro del rango esperado."
 
-        resumen_texto = f"{apertura}{nutri_linea} {talla_linea} {ideales} {recom}"
+        # Línea de Recomendación de Peso
+        if estado_peso == "aumentar":
+            peso_linea = f"Se recomienda intervención para recuperación ponderal. Peso estimado hacia la mediana: {peso_ideal_estimado} kg."
+        elif estado_peso == "disminuir":
+            peso_linea = f"Se recomienda intervención para reducción gradual del exceso ponderal. Peso estimado hacia la mediana: {peso_ideal_estimado} kg."
+        elif estado_peso == "mantener":
+            peso_linea = "El peso es adecuado para la talla actual."
+        else:
+            peso_linea = "No se puede emitir recomendación de peso por falta de referencia."
+
+        # Hallazgo complementario WFA
+        complemento_wfa = ""
+        if z_wfa is not None and abs(z_wfa) > 2 and estado_peso == "mantener":
+            complemento_wfa = f" El peso para la edad se encuentra {diagnostico_peso_comp.lower()} como hallazgo complementario, probablemente asociado a la talla del paciente."
+        elif z_wfa is None and edad_meses > 120:
+            complemento_wfa = " Peso para la edad no disponible para mayores de 10 años; no afecta el diagnóstico principal."
+
+        resumen_texto = f"{apertura}{nutri_linea} {talla_linea} {peso_linea}{complemento_wfa}"
 
         return {
             "edad_dias": edad_dias,
@@ -299,15 +297,20 @@ class ServicioOMS:
             "imc": round(imc, 2),
             "bmi_edad": res_bmi,
             "talla_edad": res_talla,
-            "peso_edad": res_peso,
-            "diagnostico_nutri_texto": diag_nutri,
-            "diagnostico_talla_texto": diag_talla,
-            "diagnostico_peso_complementario": diag_peso,
-            "diagnostico_combinado": diag_combinado,
-            "resumen_clinico": resumen_texto,
-            "peso_ideal_estimado": peso_ideal,
-            "talla_ideal": talla_ideal,
-            "ganancia_peso_necesaria": ganancia_peso,
-            "ganancia_talla_necesaria": ganancia_talla,
-            "estado_peso": estado_peso
+            "peso_edad": res_peso_edad,
+            "diagnostico_nutri_texto": diagnostico_nutri,
+            "diagnostico_talla_texto": diagnostico_talla,
+            "diagnostico_peso_complementario": diagnostico_peso_comp,
+            "diagnostico_combinado": f"{diagnostico_nutri} / {diagnostico_talla}",
+            "resumen_clinico": resumen_texto.strip(),
+            "peso_ideal_estimado": peso_ideal_estimado,
+            "talla_ideal": talla_mediana,
+            "ganancia_peso_necesaria": ganancia_peso_necesaria,
+            "ganancia_talla_necesaria": ganancia_talla_necesaria,
+            "estado_peso": estado_peso,
+            "advertencias": advertencias,
+            "indicador_nutricional_principal": indicador_principal,
+            "peso_edad_es_complementario": True,
+            "z_indicador_peso_talla": z_principal,
+            "referencia_peso_talla_disponible": referencia_peso_talla_disponible
         }
