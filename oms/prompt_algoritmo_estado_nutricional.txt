@@ -1,0 +1,81 @@
+PROMPT PARA EL AGENTE / CODEX QUE DEBE CREAR EL ALGORITMO
+
+Necesito que implementes un algoritmo de diagnóstico nutricional pediátrico usando el esquema referencia y los CSV limpios adjuntos. Debe calcular dos resultados principales: estado nutricional de peso y estado nutricional de talla, con su resumen clínico.
+
+Reglas obligatorias:
+1. El estado de peso NO debe depender solo de la edad. Debe depender de la talla/longitud o del IMC según la edad.
+2. No compares a un niño de 12 años con un peso esperado solo por edad, porque si tiene talla pequeña el peso esperado cambia. Para mayores de 5 años usa IMC para edad; para menores usa peso para longitud/talla.
+3. Selección de indicador de peso:
+   - 0 a 23 meses: usar WFL, peso para longitud. Buscar por sexo y longitud_cm.
+   - 24 a 60 meses: usar WFH, peso para talla. Buscar por sexo y talla_cm.
+   - 61 a 228 meses: usar BMI, IMC para edad. Calcular IMC = peso_kg / (talla_m ^ 2), buscar por sexo y edad_meses.
+4. Selección de indicador de talla:
+   - 0 a 60 meses: usar LHFA, longitud/talla para edad. Buscar por sexo y edad_dias.
+   - 61 a 228 meses: usar HFA, talla para edad. Buscar por sexo y edad_meses.
+5. WFA, peso para edad, solo debe usarse como alerta secundaria de 61 a 120 meses; no debe reemplazar el diagnóstico principal de peso.
+
+Cálculo del puntaje Z:
+Usa los parámetros LMS de referencia. Formula:
+- Si L != 0: z = (((valor / M) ^ L) - 1) / (L * S)
+- Si L == 0: z = ln(valor / M) / S
+Donde valor es:
+- peso_kg para WFL/WFH/WFA,
+- IMC para BMI,
+- talla_cm o longitud_cm para LHFA/HFA.
+
+Búsqueda de referencia:
+- WFL/WFH: redondear longitud/talla a 0.1 cm y buscar medida_cm exacta. Si no existe exacta, usar interpolación lineal entre las dos filas más cercanas o devolver error controlado si está fuera de rango.
+- BMI/HFA/WFA: usar edad_meses entera. Si hay fecha de nacimiento, calcular edad exacta y redondear/truncar según la convención del sistema, pero documentarlo.
+- LHFA: usar edad_dias exacta. Si no existe exacta, usar el día más cercano solo si la diferencia es mínima y registrar advertencia.
+
+Clasificación:
+Usa referencia.oms_clasificacion_zscore para convertir cada z-score en condición. Debe devolver condicion_id, diagnóstico, z_score, indicador usado y mensaje clínico.
+
+Resultado esperado del método principal:
+Entrada mínima:
+- fecha_nacimiento
+- fecha_evaluacion
+- sexo: M/F
+- peso_kg
+- talla_cm
+- medicion_acostado: true/false o tipo_medicion: longitud/talla
+
+Salida:
+{
+  "edad_meses": ...,
+  "edad_dias": ...,
+  "peso": {
+    "indicador": "WFL/WFH/BMI",
+    "valor_evaluado": peso o imc,
+    "z_score": ...,
+    "diagnostico": ...,
+    "condicion_id": ...
+  },
+  "talla": {
+    "indicador": "LHFA/HFA",
+    "valor_evaluado": talla_cm,
+    "z_score": ...,
+    "diagnostico": ...,
+    "condicion_id": ...
+  },
+  "alertas_secundarias": [],
+  "resumen_clinico": "Texto humano breve que explique el estado de peso y talla, mencionando el indicador usado."
+}
+
+Validaciones obligatorias:
+- Rechazar edad < 0 o > 228 meses para diagnóstico OMS de este sistema.
+- Rechazar peso <= 0 o talla <= 0.
+- Validar sexo M/F.
+- Validar rangos de referencia: si talla/longitud o edad está fuera del CSV, devolver error claro.
+- Para menores de 2 años, advertir si se ingresó talla de pie en vez de longitud acostado.
+- Para mayores de 2 años, advertir si se ingresó longitud acostado en vez de talla de pie.
+
+Pruebas mínimas que debes crear:
+1. Niño 12 meses: debe usar WFL para peso y LHFA para talla.
+2. Niña 36 meses: debe usar WFH para peso y LHFA para talla.
+3. Niño 72 meses: debe usar BMI para peso y HFA para talla.
+4. Adolescente 144 meses con talla baja: debe clasificar peso por BMI, no por peso/edad.
+5. Valores extremos: z < -3, entre -3 y -2, normal, > +1, > +2.
+6. Fuera de rango: talla menor al mínimo de WFL/WFH, edad mayor a 228 meses, sexo inválido.
+
+No hardcodees los diagnósticos en el código. Lee los rangos de referencia.oms_clasificacion_zscore y los IDs de referencia.condicion.

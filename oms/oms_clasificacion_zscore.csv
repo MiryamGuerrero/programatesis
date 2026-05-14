@@ -1,0 +1,29 @@
+ref_code,edad_meses_min,edad_meses_max,z_min,z_max,incluye_min,incluye_max,diagnostico,condicion_id,grupo_diagnostico
+WFL,0,24,,-3,false,false,Emaciación severa,100,peso
+WFL,0,24,-3,-2,true,false,Emaciación,101,peso
+WFL,0,24,-2,1,true,true,Normal / Eutrófico,110,peso
+WFL,0,24,1,2,false,true,Riesgo de sobrepeso,111,peso
+WFL,0,24,2,3,false,true,Sobrepeso infantil,104,peso
+WFL,0,24,3,,false,false,Obesidad infantil,105,peso
+WFH,24,61,,-3,false,false,Emaciación severa,100,peso
+WFH,24,61,-3,-2,true,false,Emaciación,101,peso
+WFH,24,61,-2,1,true,true,Normal / Eutrófico,110,peso
+WFH,24,61,1,2,false,true,Riesgo de sobrepeso,111,peso
+WFH,24,61,2,3,false,true,Sobrepeso infantil,104,peso
+WFH,24,61,3,,false,false,Obesidad infantil,105,peso
+BMI,61,229,,-3,false,false,Delgadez severa,118,peso
+BMI,61,229,-3,-2,true,false,Delgadez,119,peso
+BMI,61,229,-2,1,true,true,Normal / Eutrófico,110,peso
+BMI,61,229,1,2,false,true,Sobrepeso,122,peso
+BMI,61,229,2,,false,false,Obesidad,123,peso
+LHFA,0,61,,-3,false,false,Talla baja severa,124,talla
+LHFA,0,61,-3,-2,true,false,Talla baja,125,talla
+LHFA,0,61,-2,2,true,true,Talla normal,112,talla
+LHFA,0,61,2,,false,false,Talla alta,117,talla
+HFA,61,229,,-3,false,false,Talla baja severa,124,talla
+HFA,61,229,-3,-2,true,false,Talla baja,125,talla
+HFA,61,229,-2,2,true,true,Talla normal,112,talla
+HFA,61,229,2,,false,false,Talla alta,117,talla
+WFA,61,121,,-3,false,false,Bajo peso severo,200,peso_alerta
+WFA,61,121,-3,-2,true,false,Bajo peso,201,peso_alerta
+WFA,61,121,-2,2,true,true,Peso normal para edad,202,peso_alerta

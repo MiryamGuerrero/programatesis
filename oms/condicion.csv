@@ -1,0 +1,18 @@
+id,nombre,tipo,edad_uso,grupo_diagnostico
+100,Emaciación severa,Nutricional,menores de 5 años,peso
+101,Emaciación,Nutricional,menores de 5 años,peso
+104,Sobrepeso infantil,Nutricional,menores de 5 años,peso
+105,Obesidad infantil,Nutricional,menores de 5 años,peso
+110,Normal / Eutrófico,Nutricional,todas,peso
+111,Riesgo de sobrepeso,Nutricional,menores de 5 años,peso
+112,Talla normal,Talla,todas,talla
+117,Talla alta,Talla,todas,talla
+118,Delgadez severa,Nutricional,mayores de 5 años,peso
+119,Delgadez,Nutricional,mayores de 5 años,peso
+122,Sobrepeso,Nutricional,mayores de 5 años,peso
+123,Obesidad,Nutricional,mayores de 5 años,peso
+124,Talla baja severa,Talla,todas,talla
+125,Talla baja,Talla,todas,talla
+200,Bajo peso severo,Nutricional,WFA secundario,peso_alerta
+201,Bajo peso,Nutricional,WFA secundario,peso_alerta
+202,Peso normal para edad,Nutricional,WFA secundario,peso_alerta

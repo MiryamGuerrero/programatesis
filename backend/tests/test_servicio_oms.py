@@ -1,134 +1,183 @@
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import date
-import sys
-import os
-
-# Add backend to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from unittest.mock import patch
 
 from app.domain.servicios.servicio_oms import ServicioOMS
 
-class TestServicioOMS(unittest.TestCase):
 
+def valor_desde_z(z: float, m: float, s: float = 0.1, l: float = 1.0) -> float:
+    if l == 0:
+        raise AssertionError("Los tests sinteticos usan L=1")
+    return m * (1 + l * s * z) ** (1 / l)
+
+
+def clasificacion_mock(indicador: str, z: float, edad_meses: int):
+    if indicador in {"WFL", "WFH"}:
+        if z < -3:
+            return {"diagnostico": "Emaciacion severa", "id_condicion": 100, "grupo": "peso"}
+        if z < -2:
+            return {"diagnostico": "Emaciacion", "id_condicion": 101, "grupo": "peso"}
+        if z <= 1:
+            return {"diagnostico": "Normal / Eutrofico", "id_condicion": 110, "grupo": "peso"}
+        if z <= 2:
+            return {"diagnostico": "Riesgo de sobrepeso", "id_condicion": 111, "grupo": "peso"}
+        if z <= 3:
+            return {"diagnostico": "Sobrepeso infantil", "id_condicion": 104, "grupo": "peso"}
+        return {"diagnostico": "Obesidad infantil", "id_condicion": 105, "grupo": "peso"}
+
+    if indicador == "BMI":
+        if z < -3:
+            return {"diagnostico": "Delgadez severa", "id_condicion": 118, "grupo": "peso"}
+        if z < -2:
+            return {"diagnostico": "Delgadez", "id_condicion": 119, "grupo": "peso"}
+        if z <= 1:
+            return {"diagnostico": "Normal / Eutrofico", "id_condicion": 110, "grupo": "peso"}
+        if z <= 2:
+            return {"diagnostico": "Sobrepeso", "id_condicion": 122, "grupo": "peso"}
+        return {"diagnostico": "Obesidad", "id_condicion": 123, "grupo": "peso"}
+
+    if indicador in {"LHFA", "HFA"}:
+        if z < -3:
+            return {"diagnostico": "Talla baja severa", "id_condicion": 124, "grupo": "talla"}
+        if z < -2:
+            return {"diagnostico": "Talla baja", "id_condicion": 125, "grupo": "talla"}
+        if z <= 2:
+            return {"diagnostico": "Talla normal", "id_condicion": 112, "grupo": "talla"}
+        return {"diagnostico": "Talla alta", "id_condicion": 117, "grupo": "talla"}
+
+    return {"diagnostico": "Peso normal para edad", "id_condicion": 202, "grupo": "peso_alerta"}
+
+
+def referencia_mock(indicador, sexo, *, edad_meses, edad_dias, medida_cm=None):
+    if indicador in {"WFL", "WFH", "WFA"}:
+        m = 10.0
+    elif indicador == "BMI":
+        m = 16.0
+    else:
+        m = 100.0
+    return {
+        "id": 1,
+        "ref_code": indicador,
+        "sexo": sexo,
+        "edad_meses": edad_meses,
+        "edad_dias": edad_dias,
+        "medida_cm": medida_cm,
+        "l": 1.0,
+        "m": m,
+        "s": 0.1,
+        "sd0": m,
+        "distancia": 0,
+    }
+
+
+class TestServicioOMSNuevo(unittest.TestCase):
     def setUp(self):
-        self.fecha_nacimiento = date(2022, 1, 1)
-        self.fecha_control = date(2024, 1, 1) # 24 meses
-        self.id_sexo = 1 # M
+        self.patcher_ref = patch.object(ServicioOMS, "obtener_referencia", side_effect=referencia_mock)
+        self.patcher_clas = patch.object(ServicioOMS, "_clasificar_por_regla", side_effect=clasificacion_mock)
+        self.patcher_range = patch.object(ServicioOMS, "_rango_referencia", return_value=(45.0, 120.0))
+        self.patcher_ref.start()
+        self.patcher_clas.start()
+        self.patcher_range.start()
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_a_imc_normal_wfa_bajo(self, mock_eval):
-        # Caso A: menor de 5 años con IMC normal y WFA bajo
-        # Simulamos retornos de indicadores
-        mock_eval.side_effect = [
-            {"z_score": 0.0, "diagnostico": "Normal", "id_clasificacion": 110, "ideal": 16.0}, # BMI
-            {"z_score": 0.0, "diagnostico": "Talla normal", "id_clasificacion": 112, "ideal": 87.0}, # HFA
-            {"z_score": -2.5, "diagnostico": "Bajo peso", "id_clasificacion": 101, "ideal": 12.0}, # WFA
-        ]
+    def tearDown(self):
+        patch.stopall()
 
-        res = ServicioOMS.evaluar_paciente_integral(12.0, 87.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def evaluar(self, edad_meses, sexo, z_peso=0.0, z_talla=0.0):
+        fecha_control = date(2026, 1, 1)
+        year = fecha_control.year - (edad_meses // 12)
+        month = fecha_control.month - (edad_meses % 12)
+        while month <= 0:
+            year -= 1
+            month += 12
+        fecha_nacimiento = date(year, month, 1)
+        talla = valor_desde_z(z_talla, 100.0)
+        if edad_meses <= 60:
+            peso = valor_desde_z(z_peso, 10.0)
+        else:
+            imc = valor_desde_z(z_peso, 16.0)
+            peso = imc * ((talla / 100) ** 2)
+        return ServicioOMS.evaluar_paciente_integral(peso, talla, sexo, fecha_nacimiento, fecha_control)
 
-        self.assertEqual(res["estado_p_eso" if "estado_p_eso" in res else "estado_peso"], "mantener")
-        self.assertEqual(res["indicador_nutricional_principal"], "BMI")
-        self.assertIn("normal", res["diagnostico_nutri_texto"].lower())
-        self.assertIn("Bajo peso", res["diagnostico_peso_complementario"])
-        self.assertNotIn("debe aumentar", res["resumen_clinico"].lower())
-        self.assertNotIn("debe disminuir", res["resumen_clinico"].lower())
+    def test_nino_menor_2_usa_wfl(self):
+        self.assertEqual(self.evaluar(12, 1)["indicador_nutricional_principal"], "WFL")
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_b_talla_baja_peso_adecuado_talla(self, mock_eval):
-        # Caso B: menor de 5 años con talla baja y peso adecuado para talla actual
-        mock_eval.side_effect = [
-            {"z_score": -0.5, "diagnostico": "Normal", "id_clasificacion": 110, "ideal": 16.0}, # BMI
-            {"z_score": -2.5, "diagnostico": "Talla baja", "id_clasificacion": 117, "ideal": 87.0}, # HFA
-            {"z_score": -2.5, "diagnostico": "Bajo peso", "id_clasificacion": 101, "ideal": 12.0}, # WFA
-        ]
+    def test_nina_menor_2_usa_wfl(self):
+        res = self.evaluar(18, 2)
+        self.assertEqual(res["sexo"], "F")
+        self.assertEqual(res["indicador_nutricional_principal"], "WFL")
 
-        # Peso actual 10kg, talla 80cm. IMC = 15.6 (Normal)
-        res = ServicioOMS.evaluar_paciente_integral(10.0, 80.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def test_nino_2_a_5_usa_wfh(self):
+        self.assertEqual(self.evaluar(36, 1)["indicador_nutricional_principal"], "WFH")
 
-        self.assertEqual(res["estado_peso"], "mantener")
-        self.assertIn("adecuado para la talla actual", res["resumen_clinico"])
-        self.assertIn("talla baja", res["resumen_clinico"].lower())
-        self.assertNotIn("debe aumentar", res["resumen_clinico"].lower())
+    def test_nina_2_a_5_usa_wfh(self):
+        self.assertEqual(self.evaluar(60, 2)["indicador_nutricional_principal"], "WFH")
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_c_z_bmi_bajo(self, mock_eval):
-        # Caso C: z_bmi < -2
-        mock_eval.side_effect = [
-            {"z_score": -2.5, "diagnostico": "Delgadez", "id_clasificacion": 104, "ideal": 16.0}, # BMI
-            {"z_score": 0.0, "diagnostico": "Talla normal", "id_clasificacion": 112, "ideal": 87.0}, # HFA
-            {"z_score": -2.5, "diagnostico": "Bajo peso", "id_clasificacion": 101, "ideal": 12.0}, # WFA
-        ]
+    def test_nino_mayor_5_usa_bmi(self):
+        self.assertEqual(self.evaluar(72, 1)["indicador_nutricional_principal"], "BMI")
 
-        res = ServicioOMS.evaluar_paciente_integral(9.0, 87.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def test_nina_mayor_5_usa_bmi(self):
+        self.assertEqual(self.evaluar(120, 2)["indicador_nutricional_principal"], "BMI")
 
-        self.assertEqual(res["estado_peso"], "aumentar")
-        # Peso ideal = 16.0 * (0.87^2) = 12.11
-        self.assertAlmostEqual(res["peso_ideal_estimado"], 12.11, places=2)
-        self.assertIn("recuperación ponderal", res["resumen_clinico"])
+    def test_talla_baja_severa(self):
+        self.assertEqual(self.evaluar(36, 1, z_talla=-3.5)["diagnostico_talla"]["id_condicion"], 124)
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_d_z_bmi_alto(self, mock_eval):
-        # Caso D: z_bmi > +1
-        mock_eval.side_effect = [
-            {"z_score": 1.5, "diagnostico": "Sobrepeso", "id_clasificacion": 118, "ideal": 16.0}, # BMI
-            {"z_score": 0.0, "diagnostico": "Talla normal", "id_clasificacion": 112, "ideal": 87.0}, # HFA
-            {"z_score": 1.5, "diagnostico": "Peso elevado", "id_clasificacion": 118, "ideal": 12.0}, # WFA
-        ]
+    def test_talla_baja(self):
+        self.assertEqual(self.evaluar(36, 1, z_talla=-2.5)["diagnostico_talla"]["id_condicion"], 125)
 
-        res = ServicioOMS.evaluar_paciente_integral(15.0, 87.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def test_talla_normal(self):
+        self.assertEqual(self.evaluar(36, 1, z_talla=0)["diagnostico_talla"]["id_condicion"], 112)
 
-        self.assertEqual(res["estado_peso"], "disminuir")
-        self.assertIn("exceso ponderal", res["resumen_clinico"])
+    def test_talla_alta(self):
+        self.assertEqual(self.evaluar(72, 1, z_talla=2.5)["diagnostico_talla"]["id_condicion"], 117)
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_e_mayor_10_anios(self, mock_eval):
-        # Caso E: paciente mayor de 10 años
-        fecha_nac = date(2010, 1, 1)
-        fecha_ctrl = date(2021, 1, 1) # 132 meses (> 10 años)
-        
-        mock_eval.side_effect = [
-            {"z_score": 0.0, "diagnostico": "Normal", "id_clasificacion": 110, "ideal": 18.0}, # BMI
-            {"z_score": 0.0, "diagnostico": "Talla normal", "id_clasificacion": 112, "ideal": 150.0}, # HFA
-            {"z_score": None, "diagnostico": "Sin referencia", "id_clasificacion": None, "ideal": 0.0}, # WFA
-        ]
+    def test_emaciacion_severa(self):
+        self.assertEqual(self.evaluar(12, 1, z_peso=-3.5)["diagnostico_peso"]["id_condicion"], 100)
 
-        res = ServicioOMS.evaluar_paciente_integral(45.0, 150.0, self.id_sexo, fecha_nac, fecha_ctrl)
+    def test_emaciacion(self):
+        self.assertEqual(self.evaluar(24, 2, z_peso=-2.5)["diagnostico_peso"]["id_condicion"], 101)
 
-        self.assertEqual(res["estado_peso"], "mantener")
-        self.assertIsNone(res["peso_edad"]["z_score"])
-        self.assertIn("Peso para la edad no disponible", res["resumen_clinico"])
+    def test_normal(self):
+        self.assertEqual(self.evaluar(24, 1, z_peso=0)["diagnostico_peso"]["id_condicion"], 110)
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_f_bmi_faltante(self, mock_eval):
-        # Caso F: referencia BMI faltante
-        mock_eval.side_effect = [
-            {"z_score": None, "diagnostico": "Sin referencia", "id_clasificacion": None, "ideal": 0.0}, # BMI
-            {"z_score": 0.0, "diagnostico": "Talla normal", "id_clasificacion": 112, "ideal": 87.0}, # HFA
-            {"z_score": 0.0, "diagnostico": "Peso normal", "id_clasificacion": 110, "ideal": 12.0}, # WFA
-        ]
+    def test_riesgo_sobrepeso(self):
+        self.assertEqual(self.evaluar(24, 1, z_peso=1.5)["diagnostico_peso"]["id_condicion"], 111)
 
-        res = ServicioOMS.evaluar_paciente_integral(12.0, 87.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def test_sobrepeso(self):
+        self.assertEqual(self.evaluar(24, 1, z_peso=2.5)["diagnostico_peso"]["id_condicion"], 104)
 
-        self.assertEqual(res["estado_peso"], "sin_referencia")
-        self.assertIn("Sin referencia OMS para determinar el diagnóstico nutricional principal", res["resumen_clinico"])
+    def test_obesidad(self):
+        self.assertEqual(self.evaluar(24, 1, z_peso=3.5)["diagnostico_peso"]["id_condicion"], 105)
 
-    @patch('app.domain.servicios.servicio_oms.ServicioOMS.evaluar_indicador')
-    def test_caso_g_talla_baja_bmi_normal(self, mock_eval):
-        # Caso G: talla baja con BMI normal
-        mock_eval.side_effect = [
-            {"z_score": 0.0, "diagnostico": "Normal", "id_clasificacion": 110, "ideal": 16.0}, # BMI
-            {"z_score": -2.5, "diagnostico": "Talla baja", "id_clasificacion": 117, "ideal": 87.0}, # HFA
-            {"z_score": -2.5, "diagnostico": "Bajo peso", "id_clasificacion": 101, "ideal": 12.0}, # WFA
-        ]
+    def test_edad_fuera_de_rango(self):
+        with self.assertRaises(ValueError):
+            self.evaluar(229, 1)
 
-        res = ServicioOMS.evaluar_paciente_integral(10.0, 80.0, self.id_sexo, self.fecha_nacimiento, self.fecha_control)
+    def test_sexo_incorrecto(self):
+        with self.assertRaises(ValueError):
+            self.evaluar(12, 9)
 
-        self.assertEqual(res["estado_peso"], "mantener")
-        self.assertIn("Normal", res["diagnostico_nutri_texto"])
-        self.assertIn("Talla baja", res["diagnostico_talla_texto"])
-        self.assertNotIn("aumentar", res["resumen_clinico"].lower())
+    def test_talla_fuera_de_tabla(self):
+        with patch.object(ServicioOMS, "_rango_referencia", return_value=(80.0, 120.0)):
+            with self.assertRaises(ValueError):
+                self.evaluar(12, 1, z_talla=-6)
 
-if __name__ == '__main__':
+    def test_misma_edad_distinta_talla_no_depende_solo_de_edad(self):
+        def ref_por_talla(indicador, sexo, *, edad_meses, edad_dias, medida_cm=None):
+            ref = referencia_mock(indicador, sexo, edad_meses=edad_meses, edad_dias=edad_dias, medida_cm=medida_cm)
+            if indicador == "WFH":
+                ref["m"] = 8.0 if medida_cm and medida_cm < 100 else 14.0
+                ref["sd0"] = ref["m"]
+            return ref
+
+        with patch.object(ServicioOMS, "obtener_referencia", side_effect=ref_por_talla):
+            fecha_control = date(2026, 1, 1)
+            fecha_nacimiento = date(2023, 1, 1)
+            bajo = ServicioOMS.evaluar_paciente_integral(10.0, 90.0, 1, fecha_nacimiento, fecha_control)
+            alto = ServicioOMS.evaluar_paciente_integral(10.0, 110.0, 1, fecha_nacimiento, fecha_control)
+
+        self.assertEqual(bajo["indicador_nutricional_principal"], "WFH")
+        self.assertNotEqual(bajo["diagnostico_peso"]["diagnostico"], alto["diagnostico_peso"]["diagnostico"])
+
+
+if __name__ == "__main__":
     unittest.main()

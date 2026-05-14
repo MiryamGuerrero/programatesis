@@ -1,0 +1,7 @@
+ref_code,nombre,estandar,edad_aplicable,clave_busqueda,variable_observada,uso_clinico
+WFL,Peso para longitud,WHO Child Growth Standards,0-23 meses,sexo + longitud_cm,peso_kg,Usar en menores de 24 meses. Estado de peso depende de longitud acostado.
+WFH,Peso para talla,WHO Child Growth Standards,24-60 meses,sexo + talla_cm,peso_kg,Usar de 24 a 60 meses. Estado de peso depende de talla de pie.
+BMI,IMC para edad,WHO 2007 Reference,61-228 meses,sexo + edad_meses,imc_kg_m2,"Usar desde 5 hasta 19 años. El peso se interpreta por IMC, no por peso/edad aislado."
+LHFA,Longitud/talla para edad,WHO Child Growth Standards,0-60 meses,sexo + edad_dias,talla_o_longitud_cm,Usar para diagnóstico de talla de 0 a 5 años.
+HFA,Talla para edad,WHO 2007 Reference,61-228 meses,sexo + edad_meses,talla_cm,Usar para diagnóstico de talla desde 5 hasta 19 años.
+WFA,Peso para edad,WHO 2007 Reference,61-120 meses,sexo + edad_meses,peso_kg,Indicador secundario/alerta de 5 a 10 años; no debe sustituir WFL/WFH/BMI para estado de peso.

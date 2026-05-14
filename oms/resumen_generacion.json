@@ -1,0 +1,13 @@
+{
+  "zscore_rows": 6910,
+  "percentile_rows": 6910,
+  "source_files_audited": 32,
+  "csv_files": [
+    "condicion.csv",
+    "oms_clasificacion_zscore.csv",
+    "oms_fuente_archivo.csv",
+    "oms_indicador.csv",
+    "oms_referencia_percentil.csv",
+    "oms_referencia_zscore.csv"
+  ]
+}
