@@ -113,7 +113,7 @@ def ingredientes_lista_compat(
     items_filtrados = caso_uso.listar_ingredientes(
         consulta=q, 
         limite=limit, 
-        desplazamientoo=offset,
+        desplazamiento=offset,
         id_grupo=cat,
         id_subgrupo=subcat
     )
