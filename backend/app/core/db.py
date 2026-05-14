@@ -30,7 +30,10 @@ def get_pool() -> ConnectionPool:
 def close_pool():
     global _pool
     if _pool is not None:
-        _pool.close()
+        try:
+            _pool.close()
+        except RuntimeError as exc:
+            logger.warning("No se pudo cerrar el pool limpiamente: %s", exc)
         _pool = None
         logger.info("Pool de conexiones cerrado correctamente.")
 
