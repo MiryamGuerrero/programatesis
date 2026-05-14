@@ -14,6 +14,32 @@ class ServicioOMS:
     5 anios usa peso para longitud/talla (WFL/WFH) y desde 61 meses usa BMI.
     """
 
+    CONDICION_HEURISTICA_NOMBRE = {
+        100: "Emaciacion severa",
+        101: "Emaciacion",
+        104: "Sobrepeso",
+        105: "Obesidad",
+        110: "Normal",
+        111: "Posible riesgo de sobrepeso",
+        112: "Talla normal",
+        117: "Talla alta",
+        118: "Delgadez severa",
+        119: "Delgadez",
+        122: "Sobrepeso",
+        123: "Obesidad",
+        124: "Talla baja severa",
+        125: "Talla baja",
+    }
+
+    INDICADOR_NOMBRE_CLINICO = {
+        "WFL": "peso para longitud",
+        "WFH": "peso para talla",
+        "BMI": "IMC para edad",
+        "LHFA": "longitud/talla para edad",
+        "HFA": "talla para edad",
+        "WFA": "peso para edad",
+    }
+
     @staticmethod
     def calcular_edad_dias(fecha_nacimiento: date, fecha_control: date) -> int:
         return (fecha_control - fecha_nacimiento).days
@@ -112,6 +138,18 @@ class ServicioOMS:
         if not row:
             return {"diagnostico": "Sin clasificacion disponible", "id_condicion": None, "grupo": grupo}
         return {"diagnostico": row[0], "id_condicion": row[1], "grupo": row[2]}
+
+    @classmethod
+    def _nombre_heuristico(cls, id_condicion: Optional[int], diagnostico: str) -> str:
+        if id_condicion in cls.CONDICION_HEURISTICA_NOMBRE:
+            return cls.CONDICION_HEURISTICA_NOMBRE[id_condicion]
+        return diagnostico
+
+    @classmethod
+    def _id_heuristico(cls, id_condicion: Optional[int]) -> Optional[int]:
+        if id_condicion in cls.CONDICION_HEURISTICA_NOMBRE:
+            return int(id_condicion)
+        return None
 
     @classmethod
     def clasificar_zscore(cls, indicador: str, z_score: float, edad_meses: int) -> Dict[str, Any]:
@@ -228,8 +266,12 @@ class ServicioOMS:
             "z_score": round(z_score, 2),
             "z_score_raw": z_score,
             "diagnostico": clasificacion["diagnostico"],
+            "diagnostico_heuristico": cls._nombre_heuristico(
+                clasificacion["id_condicion"], clasificacion["diagnostico"]
+            ),
             "id_clasificacion": clasificacion["id_condicion"],
             "id_condicion": clasificacion["id_condicion"],
+            "id_condicion_heuristico": cls._id_heuristico(clasificacion["id_condicion"]),
             "ideal": round(float(referencia["m"]), 2),
             "referencia": referencia,
             "explicacion": cls._explicacion(indicador, clasificacion["diagnostico"]),
@@ -241,9 +283,70 @@ class ServicioOMS:
             return 0.0
         return round(imc_mediano * ((talla_cm / 100) ** 2), 2)
 
-    @staticmethod
-    def mapear_oms_a_heuristico(id_condicion: Optional[int], default: int) -> int:
-        return int(id_condicion) if id_condicion else default
+    @classmethod
+    def mapear_oms_a_heuristico(cls, id_condicion: Optional[int], default: int) -> int:
+        return int(id_condicion) if cls._id_heuristico(id_condicion) else default
+
+    @classmethod
+    def _construir_resumen_clinico(
+        cls,
+        *,
+        sexo_txt: str,
+        edad_meses: int,
+        peso_kg: float,
+        talla_cm: float,
+        indicador_peso: str,
+        indicador_talla: str,
+        res_peso: Dict[str, Any],
+        res_talla: Dict[str, Any],
+        res_wfa: Dict[str, Any],
+    ) -> str:
+        nombre_peso = cls.INDICADOR_NOMBRE_CLINICO.get(indicador_peso, indicador_peso)
+        nombre_talla = cls.INDICADOR_NOMBRE_CLINICO.get(indicador_talla, indicador_talla)
+        diagnostico_peso = res_peso.get("diagnostico_heuristico") or res_peso["diagnostico"]
+        diagnostico_talla = res_talla.get("diagnostico_heuristico") or res_talla["diagnostico"]
+
+        partes = [
+            (
+                f"Paciente {sexo_txt} de {edad_meses} meses, con peso de {peso_kg:g} kg "
+                f"y talla de {talla_cm:g} cm."
+            ),
+            (
+                f"El diagnostico principal de peso se realiza con {nombre_peso} "
+                f"({indicador_peso}) y clasifica como {diagnostico_peso}."
+            ),
+            (
+                f"El diagnostico de talla se realiza con {nombre_talla} "
+                f"({indicador_talla}) y clasifica como {diagnostico_talla}."
+            ),
+        ]
+
+        talla_baja = res_talla.get("id_condicion") in {124, 125}
+        peso_adecuado = res_peso.get("id_condicion") == 110
+        if talla_baja and peso_adecuado and indicador_peso in {"WFL", "WFH"}:
+            partes.append(
+                "El paciente tiene talla baja para su edad, pero su peso es adecuado "
+                "para su talla actual. No debe clasificarse como bajo peso solo por edad."
+            )
+
+        if edad_meses == 24 and indicador_peso == "WFH":
+            partes.append(
+                "Para 24 meses, el peso se evalua con peso para talla, no con peso para edad."
+            )
+        elif indicador_peso in {"WFL", "WFH"}:
+            partes.append(
+                "El peso para edad no se usa como diagnostico principal porque no distingue "
+                "si el paciente es bajo, alto, delgado o tiene exceso de peso."
+            )
+
+        if res_wfa.get("id_condicion") and res_wfa.get("id_condicion_heuristico") is None:
+            partes.append(
+                "El indicador WFA queda solo como alerta complementaria y no se envia como "
+                "condicion nutricional principal."
+            )
+
+        partes.append("Se recomienda seguimiento segun criterio clinico.")
+        return " ".join(partes)
 
     @classmethod
     def evaluar_paciente_integral(
@@ -339,12 +442,19 @@ class ServicioOMS:
         ganancia_talla = round(talla_ideal - talla_cm, 2) if talla_ideal else 0.0
 
         sexo_txt = "masculino" if sexo_codigo == "M" else "femenino"
-        resumen = (
-            f"Paciente {sexo_txt} de {edad_meses} meses, con peso de {peso_kg:g} kg "
-            f"y talla de {talla_cm:g} cm. Segun el indicador {indicador_peso} presenta "
-            f"estado nutricional de peso: {res_peso['diagnostico']}. Segun {indicador_talla} "
-            f"presenta: {res_talla['diagnostico']}. Se recomienda seguimiento segun criterio clinico."
+        resumen = cls._construir_resumen_clinico(
+            sexo_txt=sexo_txt,
+            edad_meses=edad_meses,
+            peso_kg=peso_kg,
+            talla_cm=talla_cm,
+            indicador_peso=indicador_peso,
+            indicador_talla=indicador_talla,
+            res_peso=res_peso,
+            res_talla=res_talla,
+            res_wfa=res_wfa,
         )
+        diagnostico_peso_texto = res_peso.get("diagnostico_heuristico") or res_peso["diagnostico"]
+        diagnostico_talla_texto = res_talla.get("diagnostico_heuristico") or res_talla["diagnostico"]
 
         return {
             "edad_dias": edad_dias,
@@ -357,10 +467,10 @@ class ServicioOMS:
             "peso_edad": res_wfa,
             "bmi_edad": res_peso if indicador_peso == "BMI" else cls.evaluar_indicador("BMI", imc, sexo_codigo, edad_dias, edad_meses),
             "talla_edad": res_talla,
-            "diagnostico_nutri_texto": res_peso["diagnostico"],
-            "diagnostico_talla_texto": res_talla["diagnostico"],
+            "diagnostico_nutri_texto": diagnostico_peso_texto,
+            "diagnostico_talla_texto": diagnostico_talla_texto,
             "diagnostico_peso_complementario": res_wfa["diagnostico"],
-            "diagnostico_combinado": f"{res_peso['diagnostico']} / {res_talla['diagnostico']}",
+            "diagnostico_combinado": f"{diagnostico_peso_texto} / {diagnostico_talla_texto}",
             "resumen_clinico": resumen,
             "peso_ideal_estimado": round(peso_ideal, 2),
             "talla_ideal": round(talla_ideal, 2),
@@ -373,7 +483,7 @@ class ServicioOMS:
             "peso_edad_es_complementario": True,
             "z_score_principal": z_peso,
             "id_condicion_nutricional_principal": res_peso["id_condicion"],
-            "id_condicion_nutricional_heuristica": res_peso["id_condicion"],
+            "id_condicion_nutricional_heuristica": res_peso.get("id_condicion_heuristico"),
             "referencia_peso_talla_disponible": indicador_peso in {"WFL", "WFH"},
         }
 

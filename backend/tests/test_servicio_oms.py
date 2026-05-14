@@ -178,6 +178,16 @@ class TestServicioOMSNuevo(unittest.TestCase):
         self.assertEqual(bajo["indicador_nutricional_principal"], "WFH")
         self.assertNotEqual(bajo["diagnostico_peso"]["diagnostico"], alto["diagnostico_peso"]["diagnostico"])
 
+    def test_resumen_talla_baja_peso_adecuado_no_bajo_peso_por_edad(self):
+        res = self.evaluar(24, 1, z_peso=0, z_talla=-2.5)
+        resumen = res["resumen_clinico"].lower()
+
+        self.assertEqual(res["indicador_nutricional_principal"], "WFH")
+        self.assertEqual(res["id_condicion_nutricional_heuristica"], 110)
+        self.assertIn("peso es adecuado para su talla actual", resumen)
+        self.assertIn("no debe clasificarse como bajo peso solo por edad", resumen)
+        self.assertIn("para 24 meses, el peso se evalua con peso para talla", resumen)
+
 
 if __name__ == "__main__":
     unittest.main()
