@@ -118,7 +118,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Future<void> _seleccionarImagen() async {
-    final XFile? picked = await RecipeImageService.pickAndCropImage(context, ImageSource.gallery);
+    final XFile? picked = await RecipeImageService.pickImage(ImageSource.gallery);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
       setState(() {
