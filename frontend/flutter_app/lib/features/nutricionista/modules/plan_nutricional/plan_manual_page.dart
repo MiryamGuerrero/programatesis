@@ -16,9 +16,9 @@ class MealSlot {
 }
 
 class PlanDay {
-  final String day;
+  final DateTime date;
   final List<MealSlot> slots;
-  PlanDay({required this.day, required this.slots});
+  PlanDay({required this.date, required this.slots});
 }
 
 class PlanManualPage extends ConsumerStatefulWidget {
@@ -33,10 +33,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Map<String, dynamic>? _selectedPatient;
   Map<String, dynamic>? _patientProfile;
   List<Map<String, dynamic>> _patients = [];
+  List<dynamic> _patientPlans = []; // Historial de planes
   bool _isLoading = false;
+  bool _viewingHistory = true; // Nueva bandera de estado
   
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
+
+  String _durationType = "una semana";
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 6));
+  DateTime _calendarViewDate = DateTime.now();
+
+  bool _morningSnackEnabled = false;
+  bool _afternoonSnackEnabled = false;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -60,99 +70,131 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
+  void _calculateSmartDates(List planes) {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    
+    if (planes.isNotEmpty) {
+      DateTime latestEnd = todayOnly;
+      for (var p in planes) {
+        final fFin = DateTime.parse(p["fecha_fin"]);
+        if (fFin.isAfter(latestEnd)) latestEnd = fFin;
+      }
+      _startDate = latestEnd.add(const Duration(days: 1));
+    } else {
+      _startDate = todayOnly;
+    }
+    
+    _endDate = _startDate.add(const Duration(days: 6));
+    _calendarViewDate = _startDate;
+  }
+
   Future<void> _onPatientSelected(Map<String, dynamic> patient) async {
     setState(() {
       _selectedPatient = patient;
+      _viewingHistory = true; 
       _isLoading = true;
     });
     
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("pacientes/${patient['id']}/expediente-completo");
-      setState(() => _patientProfile = res.data);
-      _showConfigModal();
-    } catch (e) {
-      setState(() => _patientProfile = {
-        "paciente": {
-          "nombre_completo": patient["nombre_completo"],
-          "id": patient["id"]
-        },
-        "diagnostico": {},
-        "ultimo_control": {},
-        "alergias": {"subgrupos": [], "ingredientes": []},
-        "es_intolerante_lactosa": false
+      final resExp = await dio.get("pacientes/${patient['id']}/expediente-completo");
+      _patientProfile = resExp.data;
+      
+      final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
+      final List planes = List.from(resPlanes.data);
+      
+      setState(() {
+        _patientPlans = planes;
+        _planInitialized = false;
+        _calculateSmartDates(planes);
       });
-      _showConfigModal();
+    } catch (e) {
+      // Manejo fallback
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showConfigModal() {
-    bool morningSnack = true;
-    bool afternoonSnack = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Column(
-            children: [
-              Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
-              SizedBox(height: 12),
-              Text("Configurar plan alimentario", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildModalSectionTitle("Tiempos obligatorios"),
-                _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
-                _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
-                _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
-                const Divider(height: 32),
-                _buildModalSectionTitle("Snacks opcionales"),
-                _buildConfigTile("Snack media mañana", "Entre desayuno y almuerzo", Icons.coffee, morningSnack, (v) => setModalState(() => morningSnack = v!)),
-                _buildConfigTile("Snack media tarde", "Entre almuerzo y cena", Icons.apple, afternoonSnack, (v) => setModalState(() => afternoonSnack = v!)),
-              ],
-            ),
-          ),
-          actions: [
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                _initWeeklyTable(morningSnack, afternoonSnack);
-                Navigator.pop(context);
-              },
-              child: const Text("Continuar y generar tabla"),
-            )
-          ],
-        ),
-      ),
-    );
+  Future<void> _deletePlan(int id) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.delete("planes/$id");
+      if (mounted) {
+        setState(() => _patientPlans.removeWhere((p) => p["id"] == id));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Plan eliminado correctamente")));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+    }
   }
 
-  void _initWeeklyTable(bool morning, bool afternoon) {
-    final days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  void _startNewPlan() {
     setState(() {
-      _weeklyPlan = days.map((d) => PlanDay(
-        day: d,
-        slots: [
-          MealSlot(mealType: "Desayuno", momentId: 1),
-          if (morning) MealSlot(mealType: "Media mañana", momentId: 2),
-          MealSlot(mealType: "Almuerzo", momentId: 3),
-          if (afternoon) MealSlot(mealType: "Media tarde", momentId: 4),
-          MealSlot(mealType: "Merienda", momentId: 5),
-        ]
-      )).toList();
-      _planInitialized = true;
+      _viewingHistory = false;
+      _planInitialized = false;
+      _weeklyPlan = []; // Limpiar plan previo
+      _calculateSmartDates(_patientPlans); // Recalcular fechas para el nuevo plan
     });
+    _showConfigModal();
+  }
+
+  Future<void> _verDetallePlan(Map<String, dynamic> plan) async {
+    setState(() => _isLoading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("planes/${plan['id']}");
+      final List items = res.data; // [{fecha, id_momento, id_receta, nombre_receta}]
+      
+      // 1. Agrupar por fecha
+      final Map<String, List<Map<String, dynamic>>> group = {};
+      for (var it in items) {
+        final f = it["fecha"].toString();
+        if (!group.containsKey(f)) group[f] = [];
+        group[f]!.add(it);
+      }
+      
+      final List<PlanDay> reconstructed = [];
+      final sortedDates = group.keys.toList()..sort();
+      
+      for (var fStr in sortedDates) {
+        final date = DateTime.parse(fStr);
+        final dayItems = group[fStr]!;
+        
+        final List<MealSlot> slots = [];
+        // Determinar snacks habilitados
+        bool hasM = dayItems.any((i) => i["id_momento"] == 2);
+        bool hasT = dayItems.any((i) => i["id_momento"] == 4);
+        
+        slots.add(MealSlot(mealType: "Desayuno", momentId: 1, recipes: _findRecipe(dayItems, 1)));
+        if (hasM) slots.add(MealSlot(mealType: "Media mañana", momentId: 2, recipes: _findRecipe(dayItems, 2)));
+        slots.add(MealSlot(mealType: "Almuerzo", momentId: 3, recipes: _findRecipe(dayItems, 3)));
+        if (hasT) slots.add(MealSlot(mealType: "Media tarde", momentId: 4, recipes: _findRecipe(dayItems, 4)));
+        slots.add(MealSlot(mealType: "Merienda", momentId: 5, recipes: _findRecipe(dayItems, 5)));
+        
+        reconstructed.add(PlanDay(date: date, slots: slots));
+      }
+
+      setState(() {
+        _weeklyPlan = reconstructed;
+        _viewingHistory = false;
+        _planInitialized = true;
+        _startDate = reconstructed.first.date;
+        _endDate = reconstructed.last.date;
+        _morningSnackEnabled = reconstructed.any((d) => d.slots.any((s) => s.momentId == 2));
+        _afternoonSnackEnabled = reconstructed.any((d) => d.slots.any((s) => s.momentId == 4));
+      });
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al cargar plan: $e")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  List<dynamic> _findRecipe(List<dynamic> items, int momentId) {
+    final match = items.where((i) => i["id_momento"] == momentId).toList();
+    if (match.isEmpty) return [];
+    return [{"id": match.first["id_receta"], "nombre": match.first["nombre_receta"]}];
   }
 
   @override
@@ -163,7 +205,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: _selectedPatient == null ? _buildPatientSelection() : _buildEditorLayout(),
+      body: _selectedPatient == null 
+        ? _buildPatientSelection() 
+        : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
     );
   }
 
@@ -243,28 +287,37 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
-  Widget _buildEditorLayout() {
-    return Column(
+  Widget _buildHistoryLayout() {
+    return Row(
       children: [
-        _buildEditorTopBar(),
+        // Sidebar
+        if (_patientProfile != null) 
+          SizedBox(
+            width: 320, 
+            child: _PatientProfileSidebar(
+              expediente: _patientProfile!,
+              greenBrand: greenBrand,
+              formatEdad: _formatEdad,
+              summaryItem: _summaryItem,
+              onVerExpediente: _mostrarExpedienteMaestroDialog,
+            )
+          )
+        else
+          const SizedBox(width: 320, child: Center(child: CircularProgressIndicator())),
+        
+        // Contenido Historial
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
             children: [
-              if (_patientProfile != null) 
-                SizedBox(
-                  width: 350, 
-                  child: _PatientProfileSidebar(
-                    expediente: _patientProfile!,
-                    greenBrand: greenBrand,
-                    formatEdad: _formatEdad,
-                    summaryItem: _summaryItem,
-                    onVerExpediente: _mostrarExpedienteMaestroDialog,
-                  )
-                )
-              else
-                const SizedBox(width: 350, child: Center(child: CircularProgressIndicator())),
-              Expanded(child: _buildWeeklyBoard()),
+              _buildHistoryTopBar(),
+              Expanded(
+                child: Container(
+                  color: const Color(0xFFF1F5F9),
+                  child: _patientPlans.isEmpty 
+                    ? _buildEmptyHistoryState()
+                    : _buildHistoryList(),
+                ),
+              ),
             ],
           ),
         ),
@@ -272,51 +325,622 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
-  Widget _buildEditorTopBar() {
+  Widget _buildHistoryTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_ios, size: 18), onPressed: () => setState(() => _selectedPatient = null)),
-          const SizedBox(width: 8),
-          Expanded(child: Text("Diseñando Plan: ${_selectedPatient!["nombre_completo"]}", overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(onPressed: _showConfigModal, icon: const Icon(Icons.tune, size: 14), label: const Text("Ajustar")),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: () => _savePlan(replicate: true), 
-            icon: const Icon(Icons.auto_mode, size: 16), 
-            label: const Text("Guardar Mes"),
-            style: FilledButton.styleFrom(backgroundColor: Colors.indigo.shade700),
+          IconButton.filledTonal(
+            icon: const Icon(Icons.arrow_back, size: 20),
+            onPressed: () => setState(() => _selectedPatient = null),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Historial de Planes Nutricionales", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0F172A))),
+                Text("Paciente: ${_selectedPatient!["nombre_completo"]}", style: const TextStyle(color: Colors.blueGrey, fontSize: 13)),
+              ],
+            ),
+          ),
           FilledButton.icon(
-            onPressed: () => _savePlan(replicate: false), 
-            icon: const Icon(Icons.check, size: 16), 
-            label: const Text("Semana"),
-            style: FilledButton.styleFrom(backgroundColor: Colors.teal.shade700),
+            onPressed: _startNewPlan,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text("Diseñar Nuevo Plan", style: TextStyle(fontWeight: FontWeight.bold)),
+            style: FilledButton.styleFrom(
+              backgroundColor: greenBrand,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyBoard() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: _weeklyPlan.length,
-      itemBuilder: (context, idx) => _DayCard(
-        day: _weeklyPlan[idx],
-        onAdd: (slotIdx) => _openRecipePicker(idx, slotIdx),
-        onRemove: (slotIdx, rIdx) => setState(() => _weeklyPlan[idx].slots[slotIdx].recipes.removeAt(rIdx)),
-        onDuplicate: () => _duplicateDay(idx),
+  Widget _buildEmptyHistoryState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.history_edu_rounded, size: 80, color: Colors.blueGrey.shade200),
+          const SizedBox(height: 24),
+          const Text("No hay planes previos registrados", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          const SizedBox(height: 8),
+          const Text("Comienza diseñando el primer plan alimentario para este paciente.", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 32),
+          OutlinedButton.icon(onPressed: _startNewPlan, icon: const Icon(Icons.add), label: const Text("Crear plan ahora")),
+        ],
       ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(40),
+      itemCount: _patientPlans.length,
+      itemBuilder: (context, idx) {
+        final p = _patientPlans[idx];
+        final isVigente = p["vigente"] == true;
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isVigente ? greenBrand.withOpacity(0.3) : Colors.transparent)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  width: 60, height: 60,
+                  decoration: BoxDecoration(color: isVigente ? greenBrand.withOpacity(0.1) : Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
+                  child: Icon(Icons.description_outlined, color: isVigente ? greenBrand : Colors.blueGrey),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text("Plan ${p["tipo_plan"]}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1E293B))),
+                          const SizedBox(width: 12),
+                          if (isVigente) _buildBadge("VIGENTE", greenBrand),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text("Vigencia: ${p["fecha_inicio"]} hasta ${p["fecha_fin"]}", style: const TextStyle(color: Colors.blueGrey, fontSize: 13)),
+                      Text("Configuración: ${p["comidas_por_dia"]} comidas", style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text("Origen: ${p["origen_plan"]}", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          onPressed: () => _deletePlan(p["id"]),
+                          tooltip: "Eliminar plan",
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonal(
+                          onPressed: () => _verDetallePlan(p),
+                          child: const Text("Ver Detalle"),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEditorLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Sidebar Izquierdo
+        if (_patientProfile != null) 
+          SizedBox(
+            width: 320, 
+            child: _PatientProfileSidebar(
+              expediente: _patientProfile!,
+              greenBrand: greenBrand,
+              formatEdad: _formatEdad,
+              summaryItem: _summaryItem,
+              onVerExpediente: _mostrarExpedienteMaestroDialog,
+            )
+          )
+        else
+          const SizedBox(width: 320, child: Center(child: CircularProgressIndicator())),
+
+        // Área Central de Trabajo
+        Expanded(
+          child: Column(
+            children: [
+              _buildModernTopBar(),
+              Expanded(
+                child: Container(
+                  color: const Color(0xFFF1F5F9),
+                  child: _buildWeeklyTimeline(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          IconButton.filledTonal(
+            icon: const Icon(Icons.arrow_back, size: 20),
+            onPressed: () => setState(() => _viewingHistory = true),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Diseño de Plan Nutricional",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0F172A)),
+                ),
+                Text(
+                  "Paciente: ${_selectedPatient!["nombre_completo"]}",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          _buildActionButton(
+            label: "Ajustar Configuración",
+            icon: Icons.tune_rounded,
+            onPressed: _showConfigModal,
+            color: Colors.blueGrey.shade700,
+          ),
+          const SizedBox(width: 12),
+          _buildActionButton(
+            label: "Guardar Mes Completo",
+            icon: Icons.auto_mode_rounded,
+            onPressed: () => _savePlan(replicate: true),
+            color: Colors.indigo.shade600,
+          ),
+          const SizedBox(width: 12),
+          _buildActionButton(
+            label: "Finalizar Plan",
+            icon: Icons.check_circle_rounded,
+            onPressed: () => _savePlan(replicate: false),
+            color: greenBrand,
+            isPrimary: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({required String label, required IconData icon, required VoidCallback onPressed, required Color color, bool isPrimary = false}) {
+    return isPrimary
+      ? FilledButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          style: FilledButton.styleFrom(
+            backgroundColor: color,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        )
+      : OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18, color: color),
+          label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: color.withOpacity(0.5)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+  }
+
+  Widget _buildWeeklyTimeline() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(32),
+      itemCount: _weeklyPlan.length,
+      itemBuilder: (context, idx) {
+        final day = _weeklyPlan[idx];
+        final isLast = idx == _weeklyPlan.length - 1;
+        
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 100,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 4)],
+                      ),
+                      child: Column(
+                        children: [
+                          Text(DateFormat('EEE', 'es_EC').format(day.date).toUpperCase(), 
+                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.blue)),
+                          Text(DateFormat('d').format(day.date), 
+                               style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 24, color: const Color(0xFF1E293B))),
+                        ],
+                      ),
+                    ),
+                    if (!isLast) 
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          color: Colors.blue.withOpacity(0.1),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(DateFormat('EEEE, d ' 'MMMM', 'es_EC').format(day.date),
+                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF334155))),
+                          const Spacer(),
+                          if (idx < _weeklyPlan.length - 1)
+                            TextButton.icon(
+                              onPressed: () => _duplicateDay(idx),
+                              icon: const Icon(Icons.copy_all_rounded, size: 16),
+                              label: const Text("Copiar al siguiente día", style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(foregroundColor: Colors.blueGrey),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: day.slots.asMap().entries.map((e) => _buildModernSlot(idx, e.key, e.value)).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModernSlot(int dayIdx, int slotIdx, MealSlot s) {
+    final hasRecipe = s.recipes.isNotEmpty;
+    
+    return Container(
+      width: 220,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+        border: Border.all(color: hasRecipe ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: hasRecipe ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                Icon(_getMomentIcon(s.momentId), size: 14, color: hasRecipe ? Colors.green : Colors.orange),
+                const SizedBox(width: 8),
+                Text(s.mealType.toUpperCase(), 
+                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: hasRecipe ? Colors.green.shade800 : Colors.orange.shade800, letterSpacing: 0.5)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: hasRecipe
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s.recipes.first["nombre"], 
+                         maxLines: 2, overflow: TextOverflow.ellipsis,
+                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: _buildBadge(s.recipes.first["recomendacion"] ?? "Segura", Colors.green),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.blueGrey),
+                          onPressed: () => _openRecipePicker(dayIdx, slotIdx),
+                          tooltip: "Cambiar receta",
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                          onPressed: () => setState(() => s.recipes = []),
+                          tooltip: "Quitar",
+                        ),
+                      ],
+                    )
+                  ],
+                )
+              : Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openRecipePicker(dayIdx, slotIdx),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text("Añadir"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange,
+                        side: BorderSide(color: Colors.orange.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showConfigModal() {
+    bool morningSnack = _morningSnackEnabled;
+    bool afternoonSnack = _afternoonSnackEnabled;
+    final isAdjusting = _planInitialized;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Forzar uso de botones
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Column(
+            children: [
+              const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
+              const SizedBox(height: 12),
+              Text(isAdjusting ? "Ajustar plan nutricional" : "Configurar plan alimentario", 
+                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildModalSectionTitle("Periodo de Vigencia"),
+                  DropdownButtonFormField<String>(
+                    value: _durationType,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: "un día", child: Text("Un día")),
+                      DropdownMenuItem(value: "una semana", child: Text("Una semana")),
+                      DropdownMenuItem(value: "un mes", child: Text("Un mes")),
+                    ],
+                    onChanged: (v) {
+                      setModalState(() {
+                        _durationType = v!;
+                        if (_durationType == "un día") {
+                          _endDate = _startDate;
+                        } else if (_durationType == "una semana") {
+                          _endDate = _startDate.add(const Duration(days: 6));
+                        } else if (_durationType == "un mes") {
+                          _endDate = _startDate.add(const Duration(days: 30));
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModalSectionTitle("Resumen de Fechas"),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.calendar_month, color: Colors.blue),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
+                        ),
+                        Text(
+                          "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                          style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  _buildModalSectionTitle("Tiempos obligatorios"),
+                  const Text("Se establecerán 3 comidas base por día.", style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                  const SizedBox(height: 12),
+                  _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
+                  _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
+                  _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
+                  const Divider(height: 32),
+                  _buildModalSectionTitle("Snacks opcionales"),
+                  _buildConfigTile("Snack media mañana", "Entre desayuno y almuerzo", Icons.coffee, morningSnack, (v) => setModalState(() => morningSnack = v!)),
+                  _buildConfigTile("Snack media tarde", "Entre almuerzo y cena", Icons.apple, afternoonSnack, (v) => setModalState(() => afternoonSnack = v!)),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      if (isAdjusting) {
+                        Navigator.pop(context);
+                      } else {
+                        // Si es creación, cancelar vuelve al historial
+                        setState(() => _viewingHistory = true);
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: const Text("Cancelar"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      // VALIDACIÓN CRÍTICA: Fecha de Control
+                      final proximaCitaStr = _patientProfile?['ultimo_control']?['fecha_proxima_cita'];
+                      if (proximaCitaStr != null) {
+                        final proximaCita = DateTime.parse(proximaCitaStr);
+                        if (_endDate.isAfter(proximaCita)) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            backgroundColor: Colors.redAccent,
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA", style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text("El plan excede la fecha del próximo control ($proximaCitaStr)."),
+                                const Text("Acciones sugeridas:"),
+                                const Text("• Edite un plan existente para ampliarlo."),
+                                const Text("• Cree un plan de menor duración (Día/Semana)."),
+                                const Text("• Elimine planes futuros para liberar el calendario."),
+                              ],
+                            ),
+                            duration: const Duration(seconds: 8),
+                          ));
+                          return; // No cerrar el modal
+                        }
+                      }
+
+                      _morningSnackEnabled = morningSnack;
+                      _afternoonSnackEnabled = afternoonSnack;
+                      _initPlan(morningSnack, afternoonSnack);
+                      Navigator.pop(context);
+                    },
+                    child: Text(isAdjusting ? "Actualizar Plan" : "Continuar y generar tabla"),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _initPlan(bool morning, bool afternoon) {
+    final List<PlanDay> plan = [];
+    DateTime current = _startDate;
+    while (!current.isAfter(_endDate)) {
+      plan.add(PlanDay(
+        date: current,
+        slots: [
+          MealSlot(mealType: "Desayuno", momentId: 1),
+          if (morning) MealSlot(mealType: "Media mañana", momentId: 2),
+          MealSlot(mealType: "Almuerzo", momentId: 3),
+          if (afternoon) MealSlot(mealType: "Media tarde", momentId: 4),
+          MealSlot(mealType: "Merienda", momentId: 5),
+        ]
+      ));
+      current = current.add(const Duration(days: 1));
+    }
+    
+    setState(() {
+      _weeklyPlan = plan;
+      _planInitialized = true;
+    });
+  }
+
+  IconData _getMomentIcon(int momentId) {
+    switch (momentId) {
+      case 1: return Icons.wb_twilight_rounded;
+      case 2: return Icons.coffee_rounded;
+      case 3: return Icons.wb_sunny_rounded;
+      case 4: return Icons.apple_rounded;
+      case 5: return Icons.nightlight_round_rounded;
+      default: return Icons.restaurant_rounded;
+    }
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(text, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
     );
   }
 
   void _openRecipePicker(int dIdx, int sIdx) {
     final slot = _weeklyPlan[dIdx].slots[sIdx];
+    final dateStr = DateFormat('EEEE d MMMM', 'es_EC').format(_weeklyPlan[dIdx].date);
     showModalBottomSheet(
       context: context, 
       isScrollControlled: true, 
@@ -326,14 +950,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         idPaciente: _selectedPatient!["id"],
         momentId: slot.momentId,
         mealType: slot.mealType,
-        dayName: _weeklyPlan[dIdx].day,
-        onSelected: (r) => setState(() => slot.recipes = [r]), // Solo una por slot para simplificar
+        dayName: dateStr,
+        onSelected: (r) => setState(() => slot.recipes = [r]), 
       ),
     );
   }
 
   void _duplicateDay(int idx) {
-    if (idx >= 6) return;
+    if (idx >= _weeklyPlan.length - 1) return;
     setState(() {
       for (int i = 0; i < _weeklyPlan[idx].slots.length; i++) {
         _weeklyPlan[idx + 1].slots[i].recipes = List.from(_weeklyPlan[idx].slots[i].recipes);
@@ -343,29 +967,56 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   void _savePlan({bool replicate = true}) async {
-    // Validar que al menos haya una receta por slot
+    // 1. Validar que al menos haya una receta por slot
     for (var d in _weeklyPlan) {
       for (var s in d.slots) {
         if (s.recipes.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.orange, content: Text("Falta receta en ${d.day} - ${s.mealType}")));
+          final dateStr = DateFormat('yyyy-MM-dd').format(d.date);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.orange, content: Text("Falta receta en $dateStr - ${s.mealType}")));
           return;
         }
       }
     }
     
-    final data = {
-      for (var d in _weeklyPlan)
-        d.day: { for (var s in d.slots) s.mealType: s.recipes.first }
-    };
+    // 2. Validar Fecha Límite (Próxima Cita)
+    final proximaCitaStr = _patientProfile?['ultimo_control']?['fecha_proxima_cita'];
+    if (proximaCitaStr != null) {
+      final proximaCita = DateTime.parse(proximaCitaStr);
+      if (_endDate.isAfter(proximaCita)) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text("El plan excede la fecha de la próxima cita ($proximaCitaStr). Por favor, ajusta la vigencia o elimina planes previos."),
+          duration: const Duration(seconds: 5),
+        ));
+        return;
+      }
+    }
+    
+    final int totalComidas = 3 + (_morningSnackEnabled ? 1 : 0) + (_afternoonSnackEnabled ? 1 : 0);
+    
+    final List<Map<String, dynamic>> planData = [];
+    for (var d in _weeklyPlan) {
+      for (var s in d.slots) {
+        planData.add({
+          "fecha": DateFormat('yyyy-MM-dd').format(d.date),
+          "id_momento": s.momentId,
+          "id_receta": s.recipes.first["id"],
+          "comidas_por_dia": totalComidas,
+        });
+      }
+    }
 
     try {
       final dio = ref.read(dioProvider);
       await dio.post("plan-manual", data: {
         "id_paciente": _selectedPatient!["id"],
-        "plan": data,
+        "plan": planData,
         "replicate": replicate
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.green, content: Text("✅ Plan guardado y activado")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.green, content: Text("✅ Plan guardado y activado")));
+        _onPatientSelected(_selectedPatient!); // Recargar historial
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
     }
@@ -532,79 +1183,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   );
 }
 
-class _DayCard extends StatelessWidget {
-  final PlanDay day;
-  final Function(int) onAdd;
-  final Function(int, int) onRemove;
-  final VoidCallback onDuplicate;
-
-  const _DayCard({required this.day, required this.onAdd, required this.onRemove, required this.onDuplicate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 24),
-      elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.grey.shade200)),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-            child: Row(children: [
-              const Icon(Icons.calendar_today, color: Colors.white, size: 16), 
-              const SizedBox(width: 12), 
-              Text(day.day, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              const Spacer(),
-              TextButton.icon(onPressed: onDuplicate, icon: const Icon(Icons.copy, size: 14, color: Colors.white70), label: const Text("Duplicar al siguiente", style: TextStyle(color: Colors.white70, fontSize: 12))),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Wrap(
-              spacing: 12, runSpacing: 12,
-              children: day.slots.asMap().entries.map((e) => _buildSlot(e.key, e.value)).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSlot(int idx, MealSlot s) {
-    final has = s.recipes.isNotEmpty;
-    return Container(
-      width: 180,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: has ? Colors.blue.shade100 : Colors.orange.shade100)),
-      child: Column(
-        children: [
-          Container(padding: const EdgeInsets.all(6), width: double.infinity, decoration: BoxDecoration(color: has ? Colors.blue.shade50 : Colors.orange.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(15))), child: Text(s.mealType, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: has ? Colors.blue : Colors.orange.shade900))),
-          if (!has)
-            InkWell(
-              onTap: () => onAdd(idx),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Column(
-                  children: [
-                    Icon(Icons.add_circle, color: Colors.orange, size: 28),
-                    SizedBox(height: 4),
-                    Text("Agregar receta", style: TextStyle(fontSize: 9, color: Colors.grey)),
-                  ],
-                ),
-              ),
-            )
-          else
-            ...s.recipes.asMap().entries.map((re) => ListTile(
-              dense: true, visualDensity: VisualDensity.compact,
-              title: Text(re.value["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              trailing: IconButton(icon: const Icon(Icons.close, size: 14, color: Colors.red), onPressed: () => onRemove(idx, re.key)),
-            )),
-          if (has) IconButton(onPressed: () => onAdd(idx), icon: const Icon(Icons.refresh, size: 16, color: Colors.blueGrey), tooltip: "Cambiar receta"),
-        ],
-      ),
-    );
-  }
-}
-
 class _RecipePicker extends ConsumerStatefulWidget {
   final String idPaciente;
   final int momentId;
@@ -620,6 +1198,7 @@ class _RecipePicker extends ConsumerStatefulWidget {
 class _RecipePickerState extends ConsumerState<_RecipePicker> {
   List<dynamic> _recipes = [];
   List<dynamic> _filtered = [];
+  Map<int, bool> _preferences = {}; 
   bool _loading = true;
 
   @override
@@ -636,6 +1215,10 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
         setState(() { 
           _recipes = res.data["recetas"] ?? []; 
           _filtered = _recipes;
+          final prefsRaw = res.data["preferencias_receta"];
+          if (prefsRaw != null && prefsRaw is Map) {
+            _preferences = (prefsRaw as Map).map((k, v) => MapEntry(int.parse(k.toString()), v as bool));
+          }
           _loading = false; 
         });
       }
@@ -682,16 +1265,28 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: _filtered.length,
-                itemBuilder: (context, i) => Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: const Icon(Icons.restaurant, color: Colors.orange),
-                    title: Text(_filtered[i]["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(_filtered[i]["recomendacion"]?.toString() ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
-                    trailing: const Icon(Icons.add_circle, color: Colors.blue),
-                    onTap: () { widget.onSelected(_filtered[i]); Navigator.pop(context); },
-                  ),
-                ),
+                itemBuilder: (context, i) {
+                  final recipe = _filtered[i];
+                  final recipeId = int.tryParse(recipe["id"].toString()) ?? 0;
+                  final likes = _preferences[recipeId];
+                  
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: const Icon(Icons.restaurant, color: Colors.orange),
+                      title: Row(
+                        children: [
+                          Expanded(child: Text(recipe["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontWeight: FontWeight.bold))),
+                          if (likes == true) const Icon(Icons.thumb_up, color: Colors.green, size: 16),
+                          if (likes == false) const Icon(Icons.thumb_down, color: Colors.red, size: 16),
+                        ],
+                      ),
+                      subtitle: Text(recipe["recomendacion"]?.toString() ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.add_circle, color: Colors.blue),
+                      onTap: () { widget.onSelected(recipe); Navigator.pop(context); },
+                    ),
+                  );
+                },
               ),
             ),
         ],

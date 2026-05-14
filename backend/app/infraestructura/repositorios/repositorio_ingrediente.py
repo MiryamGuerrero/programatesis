@@ -19,7 +19,7 @@ SUBGRUPOS_CON_LACTOSA: Set[int] = {
 class RepositorioIngredientePostgres(IRepositorioIngrediente):
     def listar_todos_activos(self) -> List[dict]:
         with db_cursor() as cur:
-            cur.execute("select id, nombre, id_subgrupo_alimentario from nutricion.ingrediente where activo = true")
+            cur.execute("select id, nombre, id_grupo_alimentario, id_subgrupo_alimentario from nutricion.ingrediente where activo = true")
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
@@ -265,6 +265,16 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 mapa[id_ing].add(id_eti)
             return mapa
 
+    def obtener_mapa_etiquetas_receta(self) -> Dict[int, Set[int]]:
+        with db_cursor() as cur:
+            cur.execute("select id_receta, id_etiqueta from nutricion.receta_etiqueta")
+            mapa: Dict[int, Set[int]] = {}
+            for row in cur.fetchall():
+                id_rec, id_eti = row
+                if id_rec not in mapa: mapa[id_rec] = set()
+                mapa[id_rec].add(id_eti)
+            return mapa
+
     def obtener_mapa_ingredientes_receta(self) -> Dict[int, Set[int]]:
         with db_cursor() as cur:
             cur.execute("select id_receta, id_ingrediente from nutricion.receta_ingrediente")
@@ -274,6 +284,19 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 if id_rec not in mapa: mapa[id_rec] = set()
                 mapa[id_rec].add(id_ing)
             return mapa
+
+    def obtener_preferencias_receta(self, id_paciente: str) -> Dict[int, bool]:
+        """
+        Retorna un mapa de {id_receta: le_gusta} para un paciente.
+        Se basa en puntaje_ajuste: > 0 es que le gusta, < 0 es que no le gusta.
+        """
+        with db_cursor() as cur:
+            cur.execute("""
+                select id_receta, puntaje_ajuste 
+                from interaccion.preferencia_receta 
+                where id_paciente = %s
+            """, (id_paciente,))
+            return {row[0]: (float(row[1]) > 0) for row in cur.fetchall()}
 
     def buscar_ingredientes_filtrados(self, id_paciente: str | None, consulta: str = None, limite: int = 50) -> List[dict]:
         """

@@ -1,11 +1,13 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:intl/date_symbol_data_local.dart";
 
 import "core/config/app_config.dart";
 
 Future<void> bootstrapApp(Widget app) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es_EC', null);
 
   if (AppConfig.supabaseUrl.isEmpty || AppConfig.supabaseAnonKey.isEmpty) {
     runApp(const _MissingConfigApp());

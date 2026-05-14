@@ -498,14 +498,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 # 2. Limpieza de Nutrición (Esquema interaccion) - ORDEN CORRECTO POR FKs
                 cur.execute("delete from interaccion.seguimiento_plan_item where id_plan_item in (select id from interaccion.plan_item where id_plan in (select id from interaccion.plan_nutricional where id_paciente = %s))", (id_paciente,))
                 cur.execute("delete from interaccion.plan_item where id_plan in (select id from interaccion.plan_nutricional where id_paciente = %s)", (id_paciente,))
-                cur.execute("delete from interaccion.config_analisis_rechazo where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from interaccion.plan_nutricional where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from interaccion.preferencia_ingrediente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from interaccion.preferencia_receta where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from interaccion.recomendacion_puntual where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from interaccion.evaluacion_receta where id_paciente = %s", (id_paciente,))
-                cur.execute("delete from interaccion.repositorio_receta_segura_item where id_paciente = %s", (id_paciente,))
-                cur.execute("delete from interaccion.repositorio_receta_segura_version where id_paciente = %s", (id_paciente,))
 
                 # 3. Limpieza de Clínica
                 cur.execute("delete from clinico.control_condicion_activa where id_control in (select id from clinico.control_paciente where id_paciente = %s)", (id_paciente,))

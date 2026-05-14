@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import date
 from ..modelos.paciente import PerfilPaciente
 from ..modelos.usuario import PerfilUsuario
@@ -59,7 +59,15 @@ class IRepositorioIngrediente(ABC):
         pass
 
     @abstractmethod
+    def obtener_mapa_etiquetas_receta(self) -> dict:
+        pass
+
+    @abstractmethod
     def obtener_mapa_ingredientes_receta(self) -> dict:
+        pass
+
+    @abstractmethod
+    def obtener_preferencias_receta(self, id_paciente: str) -> dict:
         pass
 
     @abstractmethod
@@ -119,4 +127,21 @@ class IRepositorioSeguimiento(ABC):
 
     @abstractmethod
     def obtener_reporte_adherencia_medico(self, id_medico: str) -> List[dict]:
+        pass
+
+class IRepositorioPlan(ABC):
+    @abstractmethod
+    def guardar_plan_manual(self, id_paciente: str, items: List[Dict], replicate: bool = False) -> bool:
+        pass
+
+    @abstractmethod
+    def obtener_planes_por_paciente(self, id_paciente: str) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def eliminar_plan(self, id_plan: int) -> bool:
+        pass
+
+    @abstractmethod
+    def obtener_detalle_plan(self, id_plan: int) -> List[dict]:
         pass

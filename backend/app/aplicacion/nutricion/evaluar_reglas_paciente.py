@@ -16,15 +16,23 @@ class CasoUsoEvaluarReglasPaciente:
         self.servicio_heuristico = ServicioMotorHeuristico(repo_ingrediente)
 
     def ejecutar(self, id_paciente: str) -> Dict:
-        # Usamos la nueva función optimizada de base de datos
-        with db_cursor() as cur:
-            cur.execute("SELECT heuristico.evaluar_reglas_completas_paciente(%s)", (id_paciente,))
-            resultado = cur.fetchone()[0]
-        
-        # Obtenemos las reglas originales para trazabilidad (opcional)
+        # 1. Obtener el perfil del paciente con sus condiciones activas
         perfil = self.repo_paciente.obtener_por_id(id_paciente)
-        if perfil:
-            todas_reglas = self.repo_regla.obtener_reglas_por_condiciones(perfil.condiciones_activas)
-            resultado['reglas'] = todas_reglas
-
+        if not perfil:
+            return {"error": "Paciente no encontrado", "recetas_prohibidas": [], "ingredientes_prohibidos": []}
+        
+        # 2. Obtener reglas de conocimiento (KBRS - Nivel 1: Seguridad/Exclusión)
+        # 2.1 Reglas por condiciones (Patología, Estado Nutricional, Temporales)
+        reglas_condiciones = self.repo_regla.obtener_reglas_por_condiciones(perfil.condiciones_activas)
+        
+        # 2.2 Reglas por alergias específicas e intolerancias (Lactosa, Gluten, etc.)
+        reglas_alergias = self.repo_regla.obtener_alergias_por_paciente(id_paciente)
+        
+        # 3. Consolidar reglas en el perfil
+        perfil.reglas_aplicables = reglas_condiciones + reglas_alergias
+        
+        # 4. Ejecutar Motor Heurístico de Inferencia (Nivel 1 y Nivel 2 inicial)
+        # Este servicio expande subgrupos a ingredientes y detecta recetas inseguras
+        resultado = self.servicio_heuristico.expandir_reglas(perfil)
+        
         return resultado

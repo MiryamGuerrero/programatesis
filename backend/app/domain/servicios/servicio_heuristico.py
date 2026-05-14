@@ -38,7 +38,7 @@ class ServicioMotorHeuristico:
 
         # 2. Expansión: Grupos, Subgrupos y Etiquetas -> Ingredientes
         todos_ingredientes = self.repo_ingrediente.listar_todos_activos()
-        mapa_etiquetas = self.repo_ingrediente.obtener_mapa_etiquetas_ingrediente()
+        mapa_etiquetas_ing = self.repo_ingrediente.obtener_mapa_etiquetas_ingrediente()
         
         for ing in todos_ingredientes:
             ing_id = int(ing["id"])
@@ -49,19 +49,36 @@ class ServicioMotorHeuristico:
             if ing.get("id_subgrupo_alimentario") in subgrupos_prohibidos:
                 ingredientes_prohibidos.add(ing_id)
             # Bloqueo por Etiqueta
-            if mapa_etiquetas.get(ing_id, set()) & etiquetas_prohibidas:
+            if mapa_etiquetas_ing.get(ing_id, set()) & etiquetas_prohibidas:
                 ingredientes_prohibidos.add(ing_id)
 
-        # 3. Expansión: Ingredientes Prohibidos -> Recetas
-        mapa_recetas = self.repo_ingrediente.obtener_mapa_ingredientes_receta()
-        for receta_id, ids_ingredientes in mapa_recetas.items():
+        # 3. Expansión: Ingredientes Prohibidos y Etiquetas -> Recetas
+        mapa_ingredientes_rec = self.repo_ingrediente.obtener_mapa_ingredientes_receta()
+        mapa_etiquetas_rec = self.repo_ingrediente.obtener_mapa_etiquetas_receta()
+        
+        # Primero, identificar todas las recetas en el sistema
+        todas_recetas_ids = set(mapa_ingredientes_rec.keys()) | set(mapa_etiquetas_rec.keys())
+        
+        for receta_id in todas_recetas_ids:
+            # Bloqueo por Ingrediente Prohibido
+            ids_ingredientes = mapa_ingredientes_rec.get(receta_id, set())
             if any(iid in ingredientes_prohibidos for iid in ids_ingredientes):
                 recetas_prohibidas.add(receta_id)
+            
+            # Bloqueo por Etiqueta Directa en Receta
+            ids_etiquetas = mapa_etiquetas_rec.get(receta_id, set())
+            if ids_etiquetas & etiquetas_prohibidas:
+                recetas_prohibidas.add(receta_id)
+
+        # 4. Obtener Preferencias (Opcional - Para visualización en Frontend)
+        preferencias_receta = self.repo_ingrediente.obtener_preferencias_receta(perfil.id_paciente)
 
         return {
-            "ingredientes_prohibidos": ingredientes_prohibidos,
-            "recetas_prohibidas": recetas_prohibidas,
+            "ingredientes_prohibidos": list(ingredientes_prohibidos),
+            "recetas_prohibidas": list(recetas_prohibidas),
+            "preferencias_receta": preferencias_receta,
             "recomendaciones": recomendaciones,
             "recomendaciones_etiquetas": recomendaciones_etiquetas,
             "reglas": reglas
         }
+

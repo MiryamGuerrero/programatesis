@@ -197,9 +197,54 @@ def guardar_plan_manual(
     payload: dict,
     _=Depends(require_roles("admin", "nutricionista"))
 ):
-    """Guarda el diseño semanal del plan alimentario."""
-    print(f"DEBUG: Guardando plan manual para {payload.get('id_paciente')}")
-    return {"success": True, "message": "Plan activado"}
+    """Guarda el diseño manual del plan alimentario."""
+    id_paciente = payload.get("id_paciente")
+    plan_items = payload.get("plan", [])
+    replicate = payload.get("replicate", False)
+    
+    if not id_paciente or not plan_items:
+        raise HTTPException(status_code=400, detail="Datos incompletos")
+
+    from app.infraestructura.repositorios.repositorio_plan import RepositorioPlanPostgres
+    repo = RepositorioPlanPostgres()
+    
+    try:
+        exito = repo.guardar_plan_manual(id_paciente, plan_items, replicate)
+        return {"success": exito, "message": "Plan activado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/pacientes/{id_paciente}/planes")
+def listar_planes_paciente(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    """Lista el historial de planes de un paciente."""
+    from app.infraestructura.repositorios.repositorio_plan import RepositorioPlanPostgres
+    repo = RepositorioPlanPostgres()
+    return repo.obtener_planes_por_paciente(id_paciente)
+
+@router.delete("/planes/{id_plan}")
+def eliminar_plan_nutricional(
+    id_plan: int,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    """Elimina un plan nutricional específico."""
+    from app.infraestructura.repositorios.repositorio_plan import RepositorioPlanPostgres
+    repo = RepositorioPlanPostgres()
+    if repo.eliminar_plan(id_plan):
+        return {"success": True}
+    raise HTTPException(status_code=500, detail="No se pudo eliminar el plan")
+
+@router.get("/planes/{id_plan}")
+def obtener_detalle_plan(
+    id_plan: int,
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    """Obtiene el detalle (recetas por día) de un plan."""
+    from app.infraestructura.repositorios.repositorio_plan import RepositorioPlanPostgres
+    repo = RepositorioPlanPostgres()
+    return repo.obtener_detalle_plan(id_plan)
 
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat(
