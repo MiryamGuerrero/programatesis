@@ -11,6 +11,42 @@ class IRepositorioPaciente(ABC):
     def obtener_por_id(self, id_paciente: str) -> Optional[PerfilPaciente]:
         pass
 
+    @abstractmethod
+    def buscar_pacientes(self, consulta: str, limite: int = 50) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def listar_todos_pacientes(self) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def obtener_expediente_completo(self, id_paciente: str) -> dict:
+        pass
+
+    @abstractmethod
+    def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
+        pass
+
+    @abstractmethod
+    def actualizar_paciente_integral(self, id_paciente: str, payload: dict) -> bool:
+        pass
+
+    @abstractmethod
+    def registrar_control_mensual(self, id_paciente: str, datos: dict, id_medico: str) -> int:
+        pass
+
+    @abstractmethod
+    def actualizar_control_mensual_especifico(self, id_control: int, datos: dict) -> bool:
+        pass
+
+    @abstractmethod
+    def eliminar_paciente_integral(self, id_paciente: str) -> bool:
+        pass
+
 class IRepositorioPerfil(ABC):
     @abstractmethod
     def obtener_por_auth_id(self, auth_id: str) -> Optional[PerfilUsuario]:
@@ -18,6 +54,26 @@ class IRepositorioPerfil(ABC):
 
     @abstractmethod
     def actualizar_datos_perfil(self, auth_id: str, datos: dict) -> bool:
+        pass
+
+    @abstractmethod
+    def buscar_tutor_por_cedula(self, cedula: str) -> Optional[dict]:
+        pass
+
+    @abstractmethod
+    def registrar_tutor_solo(self, datos: dict) -> str:
+        pass
+
+    @abstractmethod
+    def listar_usuarios(self) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def crear_usuario(self, datos: dict) -> str:
+        pass
+
+    @abstractmethod
+    def obtener_catalogo(self, esquema: str, tabla: str, filtro_tipos: List[int] = None) -> List[dict]:
         pass
 
 class IRepositorioRegla(ABC):
@@ -35,7 +91,7 @@ class IRepositorioIngrediente(ABC):
         pass
 
     @abstractmethod
-    def listar_ingredientes_admin(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False) -> List[dict]:
+    def listar_ingredientes_admin(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> List[dict]:
         pass
 
     @abstractmethod
@@ -60,6 +116,18 @@ class IRepositorioIngrediente(ABC):
 
     @abstractmethod
     def listar_recomendaciones_paciente(self, id_paciente: str) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def obtener_ingrediente(self, id_ingrediente: int) -> Optional[dict]:
+        pass
+
+    @abstractmethod
+    def actualizar_ingrediente(self, id_ingrediente: int, datos: dict) -> bool:
+        pass
+
+    @abstractmethod
+    def eliminar_ingrediente(self, id_ingrediente: int) -> bool:
         pass
 
 class IRepositorioNutricion(ABC):
@@ -90,6 +158,10 @@ class IRepositorioReceta(ABC):
 
     @abstractmethod
     def listar_momentos_comida(self) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
         pass
 
 class IRepositorioSeguimiento(ABC):

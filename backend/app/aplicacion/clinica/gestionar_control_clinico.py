@@ -14,9 +14,9 @@ class CasoUsoGestionarControlClinico:
         
         return {
             "imc": evaluacion["imc"],
-            "z_score": evaluacion["bmi_edad"]["z_score"],
-            "id_condicion_nutricional": evaluacion["bmi_edad"]["id_clasificacion"],
-            "diagnostico_nutri_texto": evaluacion["bmi_edad"]["diagnostico"],
+            "z_score": evaluacion["z_score_principal"],
+            "id_condicion_nutricional": evaluacion["id_condicion_nutricional_principal"],
+            "diagnostico_nutri_texto": evaluacion["diagnostico_nutri_texto"],
             "diagnostico_talla_texto": evaluacion["talla_edad"]["diagnostico"],
             "z_score_talla": evaluacion["talla_edad"]["z_score"],
             "detalle_integral": evaluacion

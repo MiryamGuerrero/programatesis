@@ -2,11 +2,25 @@ from typing import Any
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles, UserContext
-from app.api.v1.use_cases import obtener_caso_uso_gestionar_clinico, obtener_caso_uso_supervisar_adherencia, obtener_caso_uso_gestionar_pacientes
+from app.api.v1.use_cases import (
+    obtener_caso_uso_gestionar_clinico,
+    obtener_caso_uso_gestionar_catalogos,
+    obtener_caso_uso_supervisar_adherencia,
+    obtener_caso_uso_gestionar_pacientes,
+    obtener_caso_uso_gestionar_usuarios,
+)
+from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.aplicacion.clinica.gestionar_control_clinico import CasoUsoGestionarControlClinico
 from app.aplicacion.clinica.supervisar_adherencia import CasoUsoSupervisarAdherenciaPacientes
 from app.aplicacion.clinica.gestionar_pacientes import CasoUsoGestionarPacientes
-from app.api.v1.dtos.clinico import PreDiagnosticoRequest, PreDiagnosticoResponse
+from app.aplicacion.clinica.gestionar_usuarios import CasoUsoGestionarUsuarios
+from app.api.v1.dtos.clinico import (
+    EstadoNutricionalOMSRequest,
+    PreDiagnosticoRequest,
+    PreDiagnosticoResponse,
+    RegistroPacienteIntegralRequest,
+    ActualizarExpedienteFijoRequest,
+)
 from app.infraestructura.repositorios.repositorio_clinico import RepositorioClinicoPostgres
 from app.domain.servicios.servicio_oms import ServicioOMS
 
@@ -37,10 +51,12 @@ def pre_diagnostico_nutricional(
 
         return {
             "imc": result["imc"],
-            "z_score": result["bmi_edad"]["z_score"] or 0.0,
-            "id_condicion_nutricional": result["bmi_edad"]["id_clasificacion"] or 0,
+            "z_score": result["z_score_principal"] or 0.0,
+            "id_condicion_nutricional": result["id_condicion_nutricional_heuristica"] or 110,
+            "id_condicion_nutricional_oms": result["id_condicion_nutricional_principal"] or 0,
             "diagnostico_nutri_texto": result["diagnostico_nutri_texto"],
             "diagnostico_talla_texto": result["diagnostico_talla_texto"],
+            "diagnostico_peso_complementario": result["diagnostico_peso_complementario"],
             "diagnostico_combinado": result["diagnostico_combinado"],
             "resumen_clinico": result["resumen_clinico"],
             "z_score_talla": result["talla_edad"]["z_score"] or 0.0,
@@ -84,6 +100,27 @@ def diagnostico_oms(
         "diagnostico": clasif["diagnostico"]
     }
 
+
+@router.post("/estado-nutricional-oms")
+def estado_nutricional_oms(
+    payload: EstadoNutricionalOMSRequest,
+    _=Depends(require_roles("admin", "medico")),
+):
+    """Devuelve la evaluacion OMS completa sin guardar datos."""
+    try:
+        return ServicioOMS.evaluar_estado_nutricional(
+            sexo_id=payload.sexo_id,
+            fecha_nacimiento=payload.fecha_nacimiento,
+            fecha_control=payload.fecha_control,
+            peso_kg=payload.peso_kg,
+            talla_cm=payload.talla_cm,
+            tipo_medicion=payload.tipo_medicion,
+        )
+    except Exception as exc:
+        import logging
+        logging.error(f"Error en estado_nutricional_oms: {str(exc)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(exc))
+
 @router.get("/supervisar-adherencia-pacientes")
 def supervisar_adherencia(
     user: UserContext = Depends(require_roles("admin", "medico")),
@@ -103,19 +140,17 @@ def buscar_pacientes_clinicos(
 @router.get("/pacientes/{id_paciente}/evolucion-resumen")
 def evolucion_paciente(
     id_paciente: str, 
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
-    return repo.obtener_resumen_evolucion(id_paciente)
+    return caso_uso.obtener_resumen_evolucion(id_paciente)
 
 @router.get("/pacientes")
 def listar_todos_los_pacientes(
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
-    return repo.listar_todos_pacientes()
+    return caso_uso.listar_todos()
 
 @router.delete("/pacientes/{id_paciente}")
 def eliminar_paciente_clinico(
@@ -129,33 +164,35 @@ def eliminar_paciente_clinico(
 @router.get("/usuarios/tutor-by-cedula/{cedula}")
 def obtener_tutor_por_cedula(
     cedula: str,
+    caso_uso: CasoUsoGestionarUsuarios = Depends(obtener_caso_uso_gestionar_usuarios),
     _=Depends(require_roles("admin", "medico"))
 ):
-    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    repo = RepositorioPerfilPostgres()
-    res = repo.buscar_tutor_por_cedula(cedula)
-    if not res: return {"existe": False}
-    return {"existe": True, "tutor": res}
+    return caso_uso.buscar_tutor_por_cedula(cedula)
+
+@router.get("/registro/paciente-integral/catalogos")
+def obtener_catalogos_registro_paciente(
+    caso_uso: CasoUsoGestionarCatalogos = Depends(obtener_caso_uso_gestionar_catalogos),
+    _=Depends(require_roles("admin", "medico"))
+):
+    return caso_uso.obtener_catalogos_registro_paciente()
 
 @router.get("/pacientes/{id_paciente}/expediente-completo")
 def obtener_expediente_completo(
     id_paciente: str,
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista", "tutor"))
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
-    return repo.obtener_expediente_completo(id_paciente)
+    return caso_uso.obtener_expediente_completo(id_paciente)
 
 @router.post("/pacientes/{id_paciente}/control-mensual")
 def registrar_control_mensual(
     id_paciente: str,
     payload: dict,
-    user: UserContext = Depends(require_roles("admin", "medico"))
+    user: UserContext = Depends(require_roles("admin", "medico")),
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
     try:
-        id_control = repo.registrar_control_mensual(id_paciente, payload, id_medico=user.user_id)
+        id_control = caso_uso.registrar_control_mensual(id_paciente, payload, id_medico=user.user_id)
         return {"id": id_control, "message": "Control mensual registrado"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -164,12 +201,11 @@ def registrar_control_mensual(
 def actualizar_control_mensual(
     id_control: int,
     payload: dict,
-    user: UserContext = Depends(require_roles("admin", "medico"))
+    user: UserContext = Depends(require_roles("admin", "medico")),
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
     try:
-        exito = repo.actualizar_control_mensual_especifico(id_control, payload)
+        exito = caso_uso.actualizar_control_mensual(id_control, payload)
         return {"success": exito, "message": "Control actualizado correctamente"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -177,26 +213,30 @@ def actualizar_control_mensual(
 @router.put("/pacientes/{id_paciente}/expediente-maestro")
 def actualizar_expediente_maestro(
     id_paciente: str,
-    payload: dict,
+    payload: ActualizarExpedienteFijoRequest,
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
     try:
-        exito = repo.actualizar_paciente_integral(id_paciente, payload)
+        exito = caso_uso.actualizar_expediente(
+            id_paciente,
+            payload.model_dump(mode="json"),
+        )
         return {"success": exito, "message": "Expediente actualizado correctamente"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.post("/registro/paciente-integral")
 def registro_paciente_integral(
-    payload: dict,
-    user: UserContext = Depends(require_roles("admin", "medico"))
+    payload: RegistroPacienteIntegralRequest,
+    user: UserContext = Depends(require_roles("admin", "medico")),
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
 ):
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    repo = RepositorioPacientePostgres()
     try:
-        resultado = repo.registrar_paciente_integral(payload, id_usuario_creador=user.user_id)
+        resultado = caso_uso.registrar_nuevo_paciente(
+            payload.model_dump(mode="json"),
+            id_usuario_creador=user.user_id,
+        )
         return {
             "id": resultado["id"], 
             "message": "Paciente registrado exitosamente",
@@ -208,12 +248,11 @@ def registro_paciente_integral(
 @router.post("/registro/tutor-solo")
 def registrar_tutor_solo(
     payload: dict,
-    user: UserContext = Depends(require_roles("admin", "medico"))
+    user: UserContext = Depends(require_roles("admin", "medico")),
+    caso_uso: CasoUsoGestionarUsuarios = Depends(obtener_caso_uso_gestionar_usuarios),
 ):
-    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    repo = RepositorioPerfilPostgres()
     try:
-        id_t = repo.registrar_tutor_solo(payload)
+        id_t = caso_uso.registrar_tutor_solo(payload)
         return {"id": id_t, "message": "Tutor registrado exitosamente"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
