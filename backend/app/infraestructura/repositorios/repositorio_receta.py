@@ -4,21 +4,40 @@ from ...domain.repositorios.interfaces import IRepositorioReceta
 
 class RepositorioRecetaPostgres(IRepositorioReceta):
     def listar_recetas(self, consulta: str = "", limite: int = 100) -> List[dict]:
-        """Lista recetas usando la vista nutricional calculada, incluyendo momentos."""
+        """Lista recetas usando la vista nutricional calculada con búsqueda precisa."""
+        where_clause = "v.activa = true"
+        params = []
+
+        if consulta:
+            stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
+            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
+            if not words and consulta.strip(): words = [consulta.lower().strip()]
+            
+            if words:
+                word_conditions = []
+                for w in words:
+                    # Busqueda por palabra completa usando regex con ancla de limite (\y)
+                    word_conditions.append("v.nombre ~* %s")
+                    pattern = f"\\y{w}\\y"
+                    params.append(pattern)
+                where_clause += " and (" + " and ".join(word_conditions) + ")"
+
+        sql = f"""
+            SELECT v.*, 
+            (SELECT m.nombre FROM nutricion.receta_momento rm 
+             JOIN nutricion.momento_comida m ON m.id = rm.id_momento 
+             WHERE rm.id_receta = v.id LIMIT 1) as categoria,
+            r.imagen_url
+            FROM nutricion.vista_receta_detalle v
+            JOIN nutricion.receta r ON r.id = v.id
+            WHERE {where_clause}
+            ORDER BY v.nombre ASC
+            LIMIT %s
+        """
+        params.append(limite)
+
         with db_cursor() as cur:
-            sql = """
-                SELECT v.*, 
-                (SELECT m.nombre FROM nutricion.receta_momento rm 
-                 JOIN nutricion.momento_comida m ON m.id = rm.id_momento 
-                 WHERE rm.id_receta = v.id LIMIT 1) as categoria,
-                r.imagen_url
-                FROM nutricion.vista_receta_detalle v
-                JOIN nutricion.receta r ON r.id = v.id
-                WHERE v.nombre ILIKE %s
-                ORDER BY v.nombre ASC
-                LIMIT %s
-            """
-            cur.execute(sql, (f"%{consulta}%", limite))
+            cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
@@ -124,6 +143,63 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             cur.execute(sql, (id_momento,))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def obtener_recetas_seguras_para_paciente(self, id_paciente: str, id_momento: Optional[int] = None) -> List[dict]:
+        """
+        Obtiene recetas filtrando prohibidas y marcando las que tienen ingredientes recomendados.
+        """
+        with db_cursor() as cur:
+            # 1. Obtener ingredientes recomendados por medico/nutri
+            cur.execute("select id_ingrediente from clinico.recomendacion_ingrediente where id_paciente = %s and activa = true", (id_paciente,))
+            ing_recomendados = {r[0] for r in cur.fetchall()}
+
+            # 2. Obtener recetas prohibidas (por el motor heuristico externo o calculo aqui)
+            # Para simplificar, usaremos la lógica de ingredientes prohibidos
+            cur.execute("select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true", (id_paciente,))
+            ing_prohibidos = {r[0] for r in cur.fetchall()}
+            
+            cur.execute("select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true", (id_paciente,))
+            sub_prohibidos = {r[0] for r in cur.fetchall()}
+
+            # 3. Traer todas las recetas del momento (o todas si id_momento es None)
+            sql = """
+                select r.id, r.nombre, r.imagen_url, v.calorias_totales, 
+                       array_agg(ri.id_ingrediente) as ingredientes_ids,
+                       array_agg(i.id_subgrupo_alimentario) as subgrupos_ids
+                from nutricion.receta r
+                join nutricion.vista_receta_detalle v on v.id = r.id
+                join nutricion.receta_ingrediente ri on ri.id_receta = r.id
+                join nutricion.ingrediente i on i.id = ri.id_ingrediente
+            """
+            params = []
+            if id_momento:
+                sql += " join nutricion.receta_momento rm on rm.id_receta = r.id where rm.id_momento = %s and r.activa = true"
+                params.append(id_momento)
+            else:
+                sql += " where r.activa = true"
+            
+            sql += " group by r.id, r.nombre, r.imagen_url, v.calorias_totales"
+            
+            cur.execute(sql, params)
+            columnas = [desc[0] for desc in cur.description]
+            recetas_raw = [dict(zip(columnas, row)) for row in cur.fetchall()]
+            
+            resultado = []
+            for r in recetas_raw:
+                ing_receta = set(r["ingredientes_ids"])
+                sub_receta = set(r["subgrupos_ids"])
+                
+                # Filtro de seguridad: ¿Tiene algo prohibido?
+                if (ing_receta & ing_prohibidos) or (sub_receta & sub_prohibidos):
+                    continue
+                
+                # Marcado de potenciacion: ¿Tiene algo recomendado?
+                r["es_potenciada"] = bool(ing_receta & ing_recomendados)
+                resultado.append(r)
+            
+            # Ordenar: Las potenciadas primero
+            resultado.sort(key=lambda x: x["es_potenciada"], reverse=True)
+            return resultado
 
     def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
         with db_cursor() as cur:

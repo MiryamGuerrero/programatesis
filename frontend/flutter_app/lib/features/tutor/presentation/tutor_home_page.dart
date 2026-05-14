@@ -3,7 +3,9 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:intl/intl.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../shared/widgets/expediente_paciente_page.dart";
 import "../data/seguimiento_provider.dart";
+import "../modules/reemplazos/reemplazo_page.dart";
 import "plan_diario_page.dart";
 
 class TutorHomePage extends ConsumerWidget {
@@ -180,19 +182,29 @@ class TutorHomePage extends ConsumerWidget {
           "Restricciones",
           Icons.no_food_rounded,
           Colors.orange,
-          () {},
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExpedientePacientePage(
+            idPaciente: idPaciente, 
+            nombrePaciente: "Paciente", 
+            onBack: () => Navigator.pop(context),
+            initialTabIndex: 1,
+          ))),
         ),
         _buildActionCard(
           "Evolución",
           Icons.insights_rounded,
           AppTema.verdeSalud,
-          () {},
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExpedientePacientePage(
+            idPaciente: idPaciente, 
+            nombrePaciente: "Paciente", 
+            onBack: () => Navigator.pop(context),
+            initialTabIndex: 2,
+          ))),
         ),
         _buildActionCard(
           "Reemplazos",
           Icons.swap_horiz_rounded,
           Colors.purple,
-          () {},
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TutorReemplazoPage())),
         ),
       ],
     );

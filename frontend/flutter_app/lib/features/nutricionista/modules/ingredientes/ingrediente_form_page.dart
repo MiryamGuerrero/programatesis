@@ -27,7 +27,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   late TextEditingController _factorCtrl;
   final Map<String, TextEditingController> _composicionCtrls = {};
   final Map<String, FocusNode> _focusNodes = {};
-  
+
   int? _idGrupo;
   int? _idSubgrupo;
   List<dynamic> _grupos = [];
@@ -114,7 +114,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
     super.initState();
     _nombreCtrl = TextEditingController();
     _factorCtrl = TextEditingController(text: "1.0");
-    
+
     // Inicializar controladores y focus nodes
     for (var seccion in _camposPorSeccion.values) {
       for (var campo in seccion) {
@@ -132,7 +132,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
           }
           return KeyEventResult.ignored;
         });
-        
+
         _focusNodes[key]!.addListener(() {
           if (_focusNodes[key]!.hasFocus) {
             if (_composicionCtrls[key]!.text == "0" || _composicionCtrls[key]!.text == "0.0") {
@@ -147,7 +147,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         });
       }
     }
-    
+
     _loadInitialData();
   }
 
@@ -198,7 +198,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
       _subgroups = results[1] as List<dynamic>;
       _etiquetasCatalog = ((results[2] as Response).data as List<dynamic>);
       _etiquetasFiltradas = _etiquetasCatalog;
-      
+
       if (widget.idIngrediente != null && widget.idIngrediente! > 0) {
         final repoInt = ref.read(inteligenciaRepositoryProvider);
         final data = await repoInt.obtenerIngredienteDetalle(widget.idIngrediente!);
@@ -212,7 +212,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
           // Cargar etiquetas seleccionadas
           final etq = data['etiquetas'] as List<dynamic>? ?? [];
           _etiquetasSeleccionadas = etq.map((e) => (e['id'] as num).toInt()).toList();
-          
+
           for (var seccion in _camposPorSeccion.values) {
             for (var campo in seccion) {
               final key = campo['key'] as String;
@@ -241,7 +241,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   @override
   Widget build(BuildContext context) {
     final bool esNuevo = widget.idIngrediente == null || widget.idIngrediente == 0;
-    
+
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
       appBar: AppBar(
@@ -261,7 +261,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
               child: FilledButton.icon(
                 onPressed: _loading ? null : _save,
-                icon: _loading 
+                icon: _loading
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.save_rounded, size: 20),
                 label: const Text("GUARDAR"),
@@ -270,7 +270,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
             ),
         ],
       ),
-      body: _initializing 
+      body: _initializing
         ? const Center(child: NutriLoading(mensaje: "Cargando datos..."))
         : _buildFormBody(),
     );
@@ -298,8 +298,8 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               Row(
                 children: [
                   Expanded(child: _buildDropdown("Grupo Alimentario", _grupos, _idGrupo, (v) {
-                    setState(() { 
-                      _idGrupo = v; 
+                    setState(() {
+                      _idGrupo = v;
                       _idSubgrupo = null;
                       _filtrarSubgrupos(v);
                     });
@@ -321,17 +321,17 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               const SizedBox(height: 32),
               _buildEtiquetasSostenible(),
               const SizedBox(height: 40),
-              
+
               const Divider(),
               const SizedBox(height: 20),
               _buildSectionTitle("COMPOSICIÓN NUTRICIONAL"),
               const SizedBox(height: 16),
-              Text("Seleccione la sección de nutrientes que desea completar:", 
+              Text("Seleccione la sección de nutrientes que desea completar:",
                 style: GoogleFonts.lato(fontSize: 13, color: Colors.grey.shade600)),
               const SizedBox(height: 12),
               _buildSeccionDropdown(),
               const SizedBox(height: 32),
-              
+
               _buildCamposSeccionActual(),
             ],
           ),
@@ -348,7 +348,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
       children: [
         Text("ETIQUETAS NUTRICIONALES", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
         const SizedBox(height: 12),
-        
+
         // Área de Chips Seleccionados
         if (seleccionadas.isNotEmpty)
           Padding(
@@ -469,9 +469,9 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         return SizedBox(
           width: 200,
           child: _buildField(
-            c['label'], 
-            _composicionCtrls[c['key']]!, 
-            c['icon'], 
+            c['label'],
+            _composicionCtrls[c['key']]!,
+            c['icon'],
             isNum: c['isNum'] ?? true,
             focusNode: _focusNodes[c['key']],
           )
@@ -553,7 +553,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Debe seleccionar Grupo y Subgrupo"), backgroundColor: Colors.orange));
       return;
     }
-    
+
     setState(() => _loading = true);
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
@@ -565,7 +565,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         'unidad_base': '100g',
         'etiquetas': _etiquetasSeleccionadas,
       };
-      
+
       for (var seccion in _camposPorSeccion.values) {
         for (var campo in seccion) {
           final key = campo['key'] as String;
@@ -577,9 +577,9 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
           }
         }
       }
-      
+
       await repo.guardarIngrediente(widget.idIngrediente ?? 0, payload);
-      
+
       if (mounted) {
         NutriSnack.show(context, "Ingrediente guardado correctamente");
         widget.onBack();

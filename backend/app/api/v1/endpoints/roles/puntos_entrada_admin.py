@@ -46,7 +46,6 @@ def registrar_usuario(
         id_usuario = caso_uso.registrar_usuario(payload.model_dump())
         return {"id": id_usuario, "message": "Usuario registrado con éxito"}
     except Exception as exc:
-        print(f"DEBUG: Error al registrar usuario: {str(exc)}")
         raise HTTPException(status_code=400, detail=f"No se pudo crear el usuario: {str(exc)}")
 
 @router.put("/usuarios/{user_id}")

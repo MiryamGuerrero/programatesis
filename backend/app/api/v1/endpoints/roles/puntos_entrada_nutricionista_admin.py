@@ -18,57 +18,11 @@ class IngredientCreateRequest(BaseModel):
     nombre: str
     id_grupo_alimentario: int | None = Field(default=None, gt=0)
     id_subgrupo_alimentario: int | None = Field(default=None, gt=0)
-    unidad_base: str | None = "100g"
-    parte_comestible_factor: float | None = Field(default=1.0, ge=0, le=1)
+    unidad_base: str | None = None
+    parte_comestible_factor: float | None = Field(default=None, ge=0, le=1)
+    precio_referencia: float | None = Field(default=None, ge=0)
+    costo_estimado_por_100g: float | None = Field(default=None, ge=0)
     sinonimos: list[str] = Field(default_factory=list)
-    etiquetas: list[int] = Field(default_factory=list)
-    
-    # Composición Nutricional
-    energia_kcal: float | None = 0
-    agua_g: float | None = 0
-    alcohol_g: float | None = 0
-    proteinas_g: float | None = 0
-    hidratos_carbono_g: float | None = 0
-    almidon_g: float | None = 0
-    azucares_sencillos_g: float | None = 0
-    azucares_libres_g: float | None = 0
-    fibra_vegetal_g: float | None = 0
-    grasa_total_g: float | None = 0
-    ags_g: float | None = 0
-    agm_g: float | None = 0
-    agp_g: float | None = 0
-    colesterol_mg: float | None = 0
-    vitamina_a_eq_retinol_ug: float | None = 0
-    retinol_ug: float | None = 0
-    carotenoides_eq_beta_caroteno_ug: float | None = 0
-    vit_d_ug: float | None = 0
-    vit_e_eq_alpha_tocoferol_mg: float | None = 0
-    vit_k_ug: float | None = 0
-    vitamina_b1_mg: float | None = 0
-    vitamina_b2_mg: float | None = 0
-    eq_niacina_mg: float | None = 0
-    vit_b6_mg: float | None = 0
-    eq_folato_dietetico_ug: float | None = 0
-    vit_b12_ug: float | None = 0
-    pantotenico_mg: float | None = 0
-    biotina_ug: float | None = 0
-    vit_c_mg: float | None = 0
-    calcio_mg: float | None = 0
-    fosforo_mg: float | None = 0
-    hierro_mg: float | None = 0
-    iodo_ug: float | None = 0
-    cinc_mg: float | None = 0
-    magnesio_mg: float | None = 0
-    sodio_mg: float | None = 0
-    potasio_mg: float | None = 0
-    manganeso_mg: float | None = 0
-    cobre_mg: float | None = 0
-    selenio_ug: float | None = 0
-    omega3_g: float | None = 0
-    tipo_omega3: str | None = None
-    grasas_trans_g: float | None = 0
-    polifenoles_mg: float | None = 0
-    probioticos_billones_ufc: float | None = 0
 
 class VariableCreateRequest(BaseModel):
     nombre_visible: str
@@ -89,6 +43,14 @@ class LabelCreateRequest(BaseModel):
     descripcion: str | None = None
 
 # --- ENDPOINTS INGREDIENTES ---
+
+@router.get("/ingredientes/catalogo-simple")
+def list_ingredients_simple_catalog(
+    _=Depends(require_roles("admin", "nutricionista", "medico")),
+) -> list[dict[str, Any]]:
+    from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+    repo = RepositorioIngredientePostgres()
+    return repo.buscar_ingredientes_filtrados(id_paciente=None, limite=1000)
 
 @router.post("/ingredientes")
 def create_ingredient_admin(
@@ -114,31 +76,6 @@ def get_ingredient_detail(
         raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
     return detalle
 
-@router.put("/ingredientes/{id_ingrediente}")
-def update_ingredient_admin(
-    id_ingrediente: int,
-    payload: IngredientCreateRequest,
-    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    try:
-        exito = caso_uso.actualizar_ingrediente(id_ingrediente, payload.model_dump())
-        return {"success": exito, "message": "Ingrediente actualizado con éxito"}
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-@router.delete("/ingredientes/{id_ingrediente}")
-def delete_ingredient_admin(
-    id_ingrediente: int,
-    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
-    _=Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    try:
-        exito = caso_uso.eliminar_ingrediente(id_ingrediente)
-        return {"success": exito, "message": "Ingrediente eliminado con éxito"}
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
 # --- ENDPOINTS VARIABLES ---
 
 @router.get("/variables")
@@ -159,80 +96,33 @@ def list_labels_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> list[dict[str, Any]]:
     with db_cursor() as cur:
-        sql = """
-            select 
-                e.id, 
-                e.nombre_visible, 
-                e.descripcion, 
-                e.created_at,
-                (
-                    select string_agg(i.nombre, ', ')
-                    from nutricion.ingrediente_etiqueta ie
-                    join nutricion.ingrediente i on i.id = ie.id_ingrediente
-                    where ie.id_etiqueta = e.id
-                ) as ingredientes
-            from nutricion.etiqueta_nutricional e
-        """
+        sql = "select id, nombre_visible, descripcion, created_at from nutricion.etiqueta_nutricional"
         params: list[Any] = []
         if q and q.strip():
-            sql += " where e.nombre_visible ilike %s"
+            sql += " where nombre_visible ilike %s"
             params.append(f"%{q.strip()}%")
-        sql += " order by e.created_at desc limit %s"
+        sql += " order by created_at desc limit %s"
         params.append(limit)
         cur.execute(sql, tuple(params))
         cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 @router.post("/etiquetas")
-def create_label_catalog(
+def upsert_label_catalog(
     payload: LabelCreateRequest,
     user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> dict[str, Any]:
     with db_cursor() as cur:
         cur.execute(
             """
-            insert into nutricion.etiqueta_nutricional (nombre_visible, descripcion) 
-            values (%s, %s)
+            insert into nutricion.etiqueta_nutricional (nombre_visible, descripcion, updated_at) 
+            values (%s, %s, now())
+            on conflict (nombre_visible) do update set descripcion = excluded.descripcion, updated_at = now()
             returning id
             """,
             (payload.nombre_visible, payload.descripcion),
         )
         return {"id": cur.fetchone()[0]}
-
-@router.put("/etiquetas/{id_etiqueta}")
-def update_label_catalog(
-    id_etiqueta: int,
-    payload: LabelCreateRequest,
-    user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
-) -> dict[str, Any]:
-    with db_cursor() as cur:
-        cur.execute(
-            """
-            update nutricion.etiqueta_nutricional 
-            set nombre_visible = %s, descripcion = %s
-            where id = %s
-            """,
-            (payload.nombre_visible, payload.descripcion, id_etiqueta),
-        )
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Etiqueta no encontrada")
-        return {"success": True, "message": "Etiqueta actualizada con éxito"}
-
-@router.delete("/etiquetas/{id_etiqueta}")
-def delete_label_catalog(
-    id_etiqueta: int,
-    user: UserContext = Depends(require_roles("admin", "nutricionista")),
-) -> dict[str, Any]:
-    with db_cursor() as cur:
-        # Eliminar asociaciones primero para evitar violaciones de integridad referencial
-        cur.execute("DELETE FROM nutricion.ingrediente_etiqueta WHERE id_etiqueta = %s", (id_etiqueta,))
-        cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_etiqueta = %s", (id_etiqueta,))
-        cur.execute("UPDATE heuristico.regla SET id_etiqueta = NULL WHERE id_etiqueta = %s", (id_etiqueta,))
-        
-        cur.execute("DELETE FROM nutricion.etiqueta_nutricional WHERE id = %s", (id_etiqueta,))
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Etiqueta no encontrada")
-        return {"success": True, "message": "Etiqueta eliminada con éxito"}
 
 # --- ENDPOINTS GESTIÓN DE COMPOSICIÓN (MOMENTOS Y TIPOS) ---
 

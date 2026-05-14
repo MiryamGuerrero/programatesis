@@ -13,8 +13,15 @@ class ExpedientePacientePage extends ConsumerStatefulWidget {
   final String idPaciente;
   final String nombrePaciente;
   final VoidCallback onBack;
+  final int initialTabIndex;
 
-  const ExpedientePacientePage({super.key, required this.idPaciente, required this.nombrePaciente, required this.onBack});
+  const ExpedientePacientePage({
+    super.key, 
+    required this.idPaciente, 
+    required this.nombrePaciente, 
+    required this.onBack,
+    this.initialTabIndex = 0,
+  });
 
   @override
   ConsumerState<ExpedientePacientePage> createState() => _ExpedientePacientePageState();
@@ -32,7 +39,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
     _loadExpedienteMaestro();
   }
 

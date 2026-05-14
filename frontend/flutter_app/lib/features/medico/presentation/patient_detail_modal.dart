@@ -1,9 +1,9 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
-import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
+import "../data/supervision_provider.dart";
 
 class PatientDetailModal extends ConsumerWidget {
   final String idPaciente;
@@ -12,7 +12,7 @@ class PatientDetailModal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expedienteAsync = ref.watch(patientExpedienteProvider(idPaciente));
+    final expedienteAsync = ref.watch(medicoPatientExpedienteProvider(idPaciente));
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),

@@ -13,9 +13,12 @@ class TutorReemplazoPage extends ConsumerStatefulWidget {
 
 class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
   final _cantidadController = TextEditingController();
+  final _ingSearchCtrl = TextEditingController();
+  final _ingFocus = FocusNode();
 
   List<Map<String, dynamic>> _ingredientes = [];
   int? _selectedIngredienteId;
+  String? _selectedIngredienteNombre;
   bool _loading = false;
   List<Map<String, dynamic>> _reemplazos = [];
   String? _error;
@@ -28,11 +31,14 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
         _cargarIngredientes();
       }
     });
+    _ingFocus.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _cantidadController.dispose();
+    _ingSearchCtrl.dispose();
+    _ingFocus.dispose();
     super.dispose();
   }
 
@@ -150,15 +156,83 @@ class _TutorReemplazoPageState extends ConsumerState<TutorReemplazoPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<int>(
-                    key: ValueKey<int?>(_selectedIngredienteId),
-                    initialValue: _selectedIngredienteId,
-                    decoration: const InputDecoration(
-                      labelText: "Ingrediente original",
-                    ),
-                    items: ingredientOptions,
-                    onChanged: (value) =>
-                        setState(() => _selectedIngredienteId = value),
+                  StatefulBuilder(
+                    builder: (context, setInternalState) {
+                      final q = _ingSearchCtrl.text.toLowerCase().trim();
+                      
+                      final matches = _ingredientes.where((e) {
+                        if (q.isEmpty) return true;
+                        
+                        final name = (e['nombre'] ?? "").toString().toLowerCase();
+                        final syns = (e['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+
+                        // Lógica de palabras completas (igual que en registro)
+                        final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
+                        final words = q.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+                        if (words.isEmpty) words.add(q);
+
+                        bool match(String source) {
+                          if (source.isEmpty) return false;
+                          final sourceWords = source.split(' ');
+                          return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
+                        }
+
+                        return match(name) || syns.any((s) => match(s));
+                      }).toList();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _ingSearchCtrl,
+                            focusNode: _ingFocus,
+                            onChanged: (v) => setInternalState(() {}),
+                            decoration: InputDecoration(
+                              labelText: _selectedIngredienteNombre ?? "Seleccionar ingrediente original",
+                              hintText: "Ej: Pollo, papa, leche...",
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _ingSearchCtrl.text.isNotEmpty 
+                                ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingSearchCtrl.clear(); setInternalState(() {}); }) 
+                                : (_selectedIngredienteId != null ? const Icon(Icons.check_circle, color: Colors.green) : null),
+                            ),
+                          ),
+                          if (_ingFocus.hasFocus || _ingSearchCtrl.text.isNotEmpty)
+                            Container(
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              margin: const EdgeInsets.only(top: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: matches.length > 50 ? 50 : matches.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (ctx, i) {
+                                  final item = matches[i];
+                                  final isSel = _selectedIngredienteId == item['id'];
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(item['nombre'] ?? "", style: TextStyle(fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                                    trailing: isSel ? const Icon(Icons.check_circle, color: Colors.green, size: 18) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedIngredienteId = (item['id'] as num).toInt();
+                                        _selectedIngredienteNombre = item['nombre'];
+                                        _ingSearchCtrl.clear();
+                                        _ingFocus.unfocus();
+                                      });
+                                      setInternalState(() {});
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

@@ -82,7 +82,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
 
   Widget _buildBody() {
     if (_loading) return const Center(child: NutriLoading(mensaje: "Consultando base nutricional..."));
-    
+
     if (_error != null || _data == null) {
       return Center(
         child: Column(
@@ -103,7 +103,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     final nombre = _data!['nombre'] ?? '-';
     final categoria = _data!['grupo_nombre'] ?? 'Sin categoría';
     final subgrupo = _data!['subgrupo_nombre'] ?? 'Sin subgrupo';
-    
+
     final double kcal = _parse(_data!['energia_kcal']);
     final double prot = _parse(_data!['proteinas_g']);
     final double gras = _parse(_data!['grasa_total_g']);
@@ -116,7 +116,7 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
         children: [
           _buildInfoSection(nombre, categoria, subgrupo),
           const SizedBox(height: 40),
-          
+
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -293,8 +293,8 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
         icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 22),
         label: Text("ELIMINAR ALIMENTO", style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
         style: TextButton.styleFrom(
-          backgroundColor: Colors.redAccent.withOpacity(0.05), 
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), 
+          backgroundColor: Colors.redAccent.withOpacity(0.05),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
         ),
       ),

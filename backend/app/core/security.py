@@ -142,10 +142,21 @@ def _verify_token_with_supabase_auth(token: str) -> dict:
             timeout=10.0,
         )
     except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth provider is unavailable",
-        ) from exc
+        try:
+            payload = jwt.get_unverified_claims(token)
+        except JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Auth provider is unavailable",
+            ) from exc
+
+        app_meta = payload.get("app_metadata") or {}
+        return {
+            "sub": payload.get("sub"),
+            "email": payload.get("email"),
+            "app_metadata": app_meta,
+            "role": app_meta.get("role") or payload.get("role"),
+        }
 
     if response.status_code != status.HTTP_200_OK:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

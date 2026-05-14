@@ -6,6 +6,8 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
 import "../../../core/state/app_providers.dart";
+import "../data/repositorio_medico.dart";
+import "../data/supervision_provider.dart";
 import "registro_paciente_page.dart";
 import "registro_mensual_page.dart";
 import "patient_detail_modal.dart";
@@ -51,7 +53,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
   @override
   Widget build(BuildContext context) {
-    final patientsAsync = ref.watch(patientsListProvider);
+    final patientsAsync = ref.watch(medicoPatientsProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
@@ -215,8 +217,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
     if (confirm == true) {
       try {
-        await ref.read(supabaseCrudRepositoryProvider).deletePatient(p["id"].toString());
-        ref.invalidate(patientsListProvider);
+        await ref.read(repositorioMedicoProvider).eliminarPaciente(p["id"].toString());
+        ref.invalidate(medicoPatientsProvider);
         if (mounted) NutriSnack.show(context, "Paciente eliminado con éxito", ref: ref);
       } catch (e) {
         if (mounted) NutriSnack.show(context, "Error al eliminar", isError: true, ref: ref);

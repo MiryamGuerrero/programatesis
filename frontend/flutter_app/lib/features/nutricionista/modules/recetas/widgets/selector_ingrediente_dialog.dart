@@ -36,7 +36,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
       final data = await repo.fetchIngredientes();
       if (!mounted) return;
       setState(() {
-        _resultados = data.where((i) => 
+        _resultados = data.where((i) =>
           i['nombre'].toString().toLowerCase().contains(v.toLowerCase())
         ).toList();
       });
@@ -56,7 +56,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
 
   void _confirmarIngredienteIndividual() {
     if (_ingredienteEnConfig == null) return;
-    
+
     setState(() {
       _seleccionados.add({
         'id_ingrediente': _ingredienteEnConfig!['id'],
@@ -91,8 +91,8 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
                   _buildHeaderBusqueda(),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: _ingredienteEnConfig != null 
-                      ? _buildFormularioConfiguracion() 
+                    child: _ingredienteEnConfig != null
+                      ? _buildFormularioConfiguracion()
                       : _buildListaResultados(),
                   ),
                 ],
@@ -114,7 +114,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Añadir Ingredientes', 
+        Text('Añadir Ingredientes',
           style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
         const SizedBox(height: 16),
         TextField(
@@ -143,7 +143,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
           children: [
             Icon(Icons.restaurant_menu_rounded, size: 64, color: Colors.grey.shade200),
             const SizedBox(height: 16),
-            Text('Escribe el nombre de un alimento\npara comenzar la búsqueda', 
+            Text('Escribe el nombre de un alimento\npara comenzar la búsqueda',
               textAlign: TextAlign.center,
               style: GoogleFonts.montserrat(color: Colors.grey.shade400, fontWeight: FontWeight.w500)),
           ],
@@ -260,7 +260,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
         ),
         const SizedBox(height: 24),
         Expanded(
-          child: _seleccionados.isEmpty 
+          child: _seleccionados.isEmpty
             ? Center(child: Text('Aún no has seleccionado nada', style: TextStyle(color: Colors.grey.shade400)))
             : ListView.separated(
                 itemCount: _seleccionados.length,

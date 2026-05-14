@@ -67,7 +67,6 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 rows = cur.fetchall()
                 return [dict(zip(columnas, row)) for row in rows]
             except Exception as e:
-                print(f"!!! ERROR SQL REGLAS: {str(e)}")
                 return []
 
     def guardar_regla(self, data: dict) -> int:

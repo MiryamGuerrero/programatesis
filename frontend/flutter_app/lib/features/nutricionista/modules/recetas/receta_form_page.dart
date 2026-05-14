@@ -41,7 +41,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   late TextEditingController _ctrlPorciones;
   late TextEditingController _ctrlTPrep;
   late TextEditingController _ctrlTCoccion;
-  
+
   String _dificultad = 'Media';
   bool _activa = true;
   String? _imagenUrl;
@@ -50,7 +50,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   List<Map<String, dynamic>> _ingredientes = [];
   List<Map<String, dynamic>> _pasos = [];
   List<Map<String, dynamic>> _etiquetasSeleccionadas = [];
-  
+
   // Catálogos
   List<dynamic> _momentosDisponibles = [];
   List<dynamic> _tiposPlatoDisponibles = [];
@@ -70,7 +70,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     _ctrlPorciones = TextEditingController(text: '1');
     _ctrlTPrep = TextEditingController(text: '0');
     _ctrlTCoccion = TextEditingController(text: '0');
-    
+
     _loadAllData();
   }
 
@@ -78,7 +78,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     setState(() => _initializing = true);
     try {
       final dio = ref.read(dioProvider);
-      
+
       // 1. Cargar Catálogos
       final resMom = await dio.get('crud/momentos');
       final resTip = await dio.get('crud/tipos-plato');
@@ -94,18 +94,18 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         _ctrlPorciones.text = (r['porciones'] ?? 1).toString();
         _ctrlTPrep.text = (r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0).toString();
         _ctrlTCoccion.text = (r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0).toString();
-        
+
         _dificultad = r['dificultad'] ?? 'Media';
         _activa = r['activa'] ?? true;
         _imagenUrl = r['imagen_url'];
         _ingredientes = List<Map<String, dynamic>>.from(r['ingredientes'] ?? []);
         _pasos = List<Map<String, dynamic>>.from(r['preparacion'] ?? []);
         _etiquetasSeleccionadas = List<Map<String, dynamic>>.from(r['etiquetas_salud'] ?? []);
-        
+
         _momentosSeleccionados = List<int>.from(r['momentos'] ?? []);
         _tiposPlatoSeleccionados = List<int>.from(r['tipos_plato'] ?? []);
       }
-      
+
       if (_pasos.isEmpty) {
         _pasos.add({'paso': 1, 'descripcion': '', 'tiempo': '', 'nota': ''});
       }
@@ -118,7 +118,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Future<void> _seleccionarImagen() async {
-    final XFile? picked = await RecipeImageService.pickAndCropImage(context, ImageSource.gallery);
+    final XFile? picked = await RecipeImageService.pickImage(ImageSource.gallery);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
       setState(() {
@@ -158,7 +158,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
     try {
       String? finalImageUrl = _imagenUrl;
@@ -185,7 +185,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         } finally {
           setState(() => _uploadingImage = false);
         }
-      } 
+      }
       // Si el usuario quitó la imagen manualmente
       else if (_imagenUrl == null && urlPrevia != null) {
         await RecipeImageService.deleteImageByUrl(urlPrevia);
@@ -212,7 +212,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
       final dio = ref.read(dioProvider);
       await dio.post('crud/recetas', data: payload);
-      
+
       if (!mounted) return;
       NutriSnack.show(context, 'Receta guardada con éxito');
       widget.onBack();
@@ -380,13 +380,13 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
-            child: _imagePreviewBytes != null 
+            child: _imagePreviewBytes != null
               ? Image.memory(_imagePreviewBytes!, fit: BoxFit.cover, width: 240, height: 180)
-              : (_imagenUrl != null && _imagenUrl!.isNotEmpty 
+              : (_imagenUrl != null && _imagenUrl!.isNotEmpty
                   ? Image.network(
-                      _imagenUrl!, 
-                      fit: BoxFit.cover, 
-                      width: 240, 
+                      _imagenUrl!,
+                      fit: BoxFit.cover,
+                      width: 240,
                       height: 180,
                       key: ValueKey(_imagenUrl),
                       errorBuilder: (context, error, stackTrace) => _buildPlaceholderContent(),
@@ -440,7 +440,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         Icon(Icons.image_not_supported_outlined, color: Colors.grey.shade300, size: 48),
         const SizedBox(height: 12),
         Text(
-          'Sin imagen seleccionada', 
+          'Sin imagen seleccionada',
           style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500)
         ),
       ],
@@ -753,10 +753,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
   void _abrirSelectorIngrediente() async {
     final List<Map<String, dynamic>>? seleccion = await showDialog<List<Map<String, dynamic>>>(
-      context: context, 
+      context: context,
       builder: (context) => const SelectorIngredienteDialog()
     );
-    
+
     if (seleccion != null) {
       setState(() {
         _ingredientes.addAll(seleccion);
@@ -775,7 +775,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           for (var etq in etqs) {
             if (!_etiquetasSeleccionadas.any((e) => e['id'] == etq['id'])) {
               _etiquetasSeleccionadas.add({
-                'id': etq['id'], 
+                'id': etq['id'],
                 'titulo': etq['nombre_visible'],
                 'nombre_visible': etq['nombre_visible']
               });

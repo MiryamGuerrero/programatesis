@@ -9,7 +9,6 @@ class ServicioPlanificadorNutricional:
         id_paciente: str,
         fecha_inicio: date,
         recetas_por_momento: Dict[int, List[dict]],
-        ids_recetas_prohibidas: Set[int],
         momentos_catalogo: List[dict]
     ) -> PlanSemanal:
         dias_plan = []
@@ -22,14 +21,20 @@ class ServicioPlanificadorNutricional:
                 id_m = momento["id"]
                 nombre_m = momento["nombre"]
                 
-                # Filtrar solo seguras
-                opciones_seguras = [
-                    r for r in recetas_por_momento.get(id_m, [])
-                    if r["id"] not in ids_recetas_prohibidas
-                ]
+                # Opciones ya vienen filtradas por el repositorio
+                opciones = recetas_por_momento.get(id_m, [])
                 
-                if opciones_seguras:
-                    seleccionada = random.choice(opciones_seguras)
+                if opciones:
+                    # Separar potenciadas de normales
+                    potenciadas = [r for r in opciones if r.get("es_potenciada")]
+                    normales = [r for r in opciones if not r.get("es_potenciada")]
+                    
+                    # Logica de seleccion: Priorizar potenciadas si existen (80% prob)
+                    if potenciadas and (random.random() < 0.8 or not normales):
+                        seleccionada = random.choice(potenciadas)
+                    else:
+                        seleccionada = random.choice(normales) if normales else random.choice(potenciadas)
+
                     comidas_dia.append(ItemPlan(
                         id_receta=seleccionada["id"],
                         nombre_receta=seleccionada["nombre"],

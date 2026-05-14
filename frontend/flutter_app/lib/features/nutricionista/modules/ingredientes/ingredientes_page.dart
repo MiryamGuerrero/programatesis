@@ -28,7 +28,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   String _query = '';
   int? _groupId;
   int? _subgroupId;
-  final int _limit = 1000; 
+  final int _limit = 1000;
 
   @override
   void initState() {
@@ -147,9 +147,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Catálogo Maestro de Alimentos", 
+        Text("Catálogo Maestro de Alimentos",
           style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Gestión de base nutricional, grupos alimentarios y composición química.", 
+        Text("Gestión de base nutricional, grupos alimentarios y composición química.",
           style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
@@ -207,7 +207,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                   ),
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-                  label: Text("NUEVO INGREDIENTE", 
+                  label: Text("NUEVO INGREDIENTE",
                     style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
                 ),
               ),
@@ -333,15 +333,15 @@ class _IngredientesDataSource extends DataTableSource {
       DataCell(Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal), 
+            icon: const Icon(Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal),
             onPressed: () => onView(ing['id'])
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey), 
+            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueGrey),
             onPressed: () => onEdit(ing['id'])
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent), 
+            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
             onPressed: () => _confirmDelete(ing['id'], ing['nombre']),
           ),
         ],

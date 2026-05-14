@@ -5,8 +5,8 @@ class CasoUsoGestionarIngredientes:
     def __init__(self, repo_ingrediente: IRepositorioIngrediente):
         self.repo_ingrediente = repo_ingrediente
 
-    def listar_ingredientes(self, consulta: str = None, limite: int = 100, desplazamientoo: int = 0, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> List[Dict[str, Any]]:
-        return self.repo_ingrediente.listar_ingredientes_admin(consulta, limite, desplazamientoo, incluir_inactivos, id_grupo, id_subgrupo)
+    def listar_ingredientes(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> List[Dict[str, Any]]:
+        return self.repo_ingrediente.listar_ingredientes_admin(consulta, limite, desplazamiento, incluir_inactivos, id_grupo, id_subgrupo)
 
     def buscar_para_paciente(self, id_paciente: str, consulta: str = None, limite: int = 50) -> List[Dict[str, Any]]:
         return self.repo_ingrediente.buscar_ingredientes_filtrados(id_paciente, consulta, limite)
@@ -59,3 +59,19 @@ class CasoUsoGestionarIngredientes:
 
     def eliminar_ingrediente(self, id_ingrediente: int) -> bool:
         return self.repo_ingrediente.eliminar_ingrediente(id_ingrediente)
+
+    def recomendar_ingrediente(self, id_paciente: str, id_ingrediente: int, id_profesional: str, id_rol: int, motivo: str = None, prioridad: int = 1) -> bool:
+        # Validar que no sea un ingrediente prohibido (alergia)
+        permitidos = self.repo_ingrediente.buscar_ingredientes_filtrados(id_paciente, limite=1000)
+        permitidos_ids = {p["id"] for p in permitidos}
+        
+        if id_ingrediente not in permitidos_ids:
+            raise ValueError("No se puede recomendar un ingrediente que es alérgico o prohibido para el paciente")
+
+        return self.repo_ingrediente.registrar_recomendacion(id_paciente, id_ingrediente, id_profesional, id_rol, motivo, prioridad)
+
+    def eliminar_recomendacion(self, id_paciente: str, id_ingrediente: int) -> bool:
+        return self.repo_ingrediente.eliminar_recomendacion(id_paciente, id_ingrediente)
+
+    def listar_recomendaciones(self, id_paciente: str) -> List[Dict[str, Any]]:
+        return self.repo_ingrediente.listar_recomendaciones_paciente(id_paciente)
