@@ -102,16 +102,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
     // 3. Vista de Lista (Matriz)
     final filteredRecetas = _recetas.where((row) {
-      if (_query.isEmpty) return true;
       final nombre = row["nombre"]?.toString().toLowerCase() ?? "";
-      final q = _query.toLowerCase().trim();
-      
-      final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
-      final words = q.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
-      if (words.isEmpty) words.add(q);
-
-      final nameWords = nombre.split(' ');
-      return words.any((w) => nameWords.contains(w)) || nameWords.any((nw) => words.contains(nw));
+      return nombre.contains(_query.toLowerCase());
     }).toList();
 
     final totalItems = filteredRecetas.length;
@@ -274,11 +266,22 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               onVer: () => _abrirDetalleCompleto(r['id']),
               onEditar: () => _prepararEdicion(r['id']),
               onEliminar: () => _confirmarEliminacion(r),
+              onToggleActive: (valor) => _toggleActiva(r['id'], valor),
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _toggleActiva(int id, bool valor) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('crud/recetas/$id/estado', data: {'activa': valor});
+      _loadRecetas();
+    } catch (e) {
+      NutriSnack.show(context, 'Error al cambiar estado: $e', isError: true);
+    }
   }
 
   Future<void> _abrirDetalleCompleto(int id) async {

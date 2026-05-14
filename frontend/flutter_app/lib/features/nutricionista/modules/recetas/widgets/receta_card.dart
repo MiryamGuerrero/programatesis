@@ -7,6 +7,7 @@ class RecetaCard extends StatelessWidget {
   final VoidCallback? onVer;
   final VoidCallback? onEditar;
   final VoidCallback? onEliminar;
+  final ValueChanged<bool>? onToggleActive;
 
   const RecetaCard({
     super.key,
@@ -14,6 +15,7 @@ class RecetaCard extends StatelessWidget {
     this.onVer,
     this.onEditar,
     this.onEliminar,
+    this.onToggleActive,
   });
 
   @override
@@ -134,22 +136,62 @@ class RecetaCard extends StatelessWidget {
   Widget _buildHeader() {
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: (receta['imagen_url'] != null && receta['imagen_url'].toString().isNotEmpty)
-              ? Image.network(
-                  receta['imagen_url'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                )
-              : _buildPlaceholder(),
-        ),
+      child: Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: (receta['imagen_url'] != null && receta['imagen_url'].toString().isNotEmpty)
+                  ? Image.network(
+                      receta['imagen_url'],
+                      fit: BoxFit.cover,
+                      key: ValueKey(receta['imagen_url']), // Forzar rebuild si cambia la URL
+                      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                    )
+                  : _buildPlaceholder(),
+            ),
+          ),
+          // Toggle de Activación (Fácil Acceso)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    receta['activa'] == true ? 'ACTIVA' : 'INACTIVA',
+                    style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: receta['activa'] == true ? AppTema.verdeSalud : Colors.grey),
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    height: 20,
+                    width: 32,
+                    child: FittedBox(
+                      fit: BoxFit.fill,
+                      child: Switch(
+                        value: receta['activa'] == true,
+                        onChanged: (v) => onToggleActive?.call(v),
+                        activeColor: AppTema.verdeSalud,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

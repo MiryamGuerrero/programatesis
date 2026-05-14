@@ -21,10 +21,6 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   String? _error;
   List<Map<String, dynamic>> _etiquetas = const [];
   
-  // Estados de navegación interna
-  bool _isEditing = false;
-  Map<String, dynamic>? _etiquetaParaEditar;
-  
   // Paginación
   int _currentPage = 0;
   final int _pageSize = 12;
@@ -57,21 +53,55 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     }
   }
 
+  void _abrirFormulario([Map<String, dynamic>? etiqueta]) async {
+    final exito = await showDialog<bool>(
+      context: context,
+      builder: (context) => EtiquetaFormDialog(etiquetaInicial: etiqueta),
+    );
+
+    if (exito == true) {
+      _loadEtiquetas();
+    }
+  }
+
+  Future<void> _deleteEtiqueta(int id, String nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar Etiqueta?'),
+        content: Text('¿Estás seguro de que deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de todos los ingredientes y recetas.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('ELIMINAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final dio = ref.read(dioProvider);
+        await dio.delete('nutricionista/etiquetas/$id');
+        if (mounted) {
+          NutriSnack.show(context, 'Etiqueta eliminada con éxito');
+          _loadEtiquetas();
+        }
+      } catch (e) {
+        if (mounted) {
+          NutriSnack.show(context, 'Error al eliminar la etiqueta', isError: true);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isEditing) {
-      return EtiquetaFormPage(
-        etiquetaInicial: _etiquetaParaEditar,
-        onBack: () {
-          setState(() {
-            _isEditing = false;
-            _etiquetaParaEditar = null;
-          });
-          _loadEtiquetas();
-        },
-      );
-    }
-
     final filtered = _etiquetas;
     final totalPages = (filtered.length / _pageSize).ceil();
     final start = _currentPage * _pageSize;
@@ -128,7 +158,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         ),
         const Spacer(),
         ElevatedButton.icon(
-          onPressed: () => setState(() => _isEditing = true),
+          onPressed: () => _abrirFormulario(),
           icon: const Icon(Icons.add_rounded),
           label: const Text('NUEVA ETIQUETA'),
           style: ElevatedButton.styleFrom(
@@ -202,7 +232,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 400,
-        mainAxisExtent: 240,
+        mainAxisExtent: 280, // Aumentado para mostrar ingredientes
         crossAxisSpacing: 24,
         mainAxisSpacing: 24,
       ),
@@ -211,14 +241,9 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         final item = items[index];
         return EtiquetaCard(
           etiqueta: item,
-          onTap: () => setState(() {
-            _etiquetaParaEditar = item;
-            _isEditing = true;
-          }),
-          onEdit: () => setState(() {
-            _etiquetaParaEditar = item;
-            _isEditing = true;
-          }),
+          onTap: () => _abrirFormulario(item),
+          onEdit: () => _abrirFormulario(item),
+          onDelete: () => _deleteEtiqueta(item['id'], item['nombre_visible'] ?? 'Sin nombre'),
         );
       },
     );

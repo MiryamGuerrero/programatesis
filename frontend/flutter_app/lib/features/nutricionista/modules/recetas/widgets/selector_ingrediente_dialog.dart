@@ -25,35 +25,20 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
   final _ctrlGramos = TextEditingController(text: '100');
 
   Future<void> _buscar(String v) async {
-    setState(() => _query = v);
-    if (v.isEmpty) {
+    if (v.length < 2) {
       setState(() => _resultados = []);
       return;
     }
     setState(() => _buscando = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
+      // Usamos el listado de ingredientes maestro
       final data = await repo.fetchIngredientes();
       if (!mounted) return;
-
-      final n = v.toLowerCase().trim();
-      final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
-      final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
-      if (words.isEmpty && n.isNotEmpty) words.add(n);
-
       setState(() {
-        _resultados = data.where((i) {
-          final iname = (i['nombre'] ?? "").toString().toLowerCase();
-          final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
-
-          bool match(String source) {
-            if (source.isEmpty) return false;
-            final sourceWords = source.split(' ');
-            return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
-          }
-
-          return match(iname) || sinonimos.any((s) => match(s));
-        }).toList();
+        _resultados = data.where((i) =>
+          i['nombre'].toString().toLowerCase().contains(v.toLowerCase())
+        ).toList();
       });
     } finally {
       if (mounted) setState(() => _buscando = false);
@@ -69,27 +54,9 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
     });
   }
 
-  void _marcarTodos() {
-    if (_resultados.isEmpty) return;
-    setState(() {
-      for (var item in _resultados) {
-        if (!_seleccionados.any((s) => s['id_ingrediente'] == item['id'])) {
-          _seleccionados.add({
-            'id_ingrediente': item['id'],
-            'nombre': item['nombre'],
-            'cantidad': 1.0,
-            'unidad': 'unidad',
-            'gramos': 100.0,
-            'observaciones': 'Selección masiva',
-          });
-        }
-      }
-    });
-  }
-
   void _confirmarIngredienteIndividual() {
     if (_ingredienteEnConfig == null) return;
-    
+
     setState(() {
       _seleccionados.add({
         'id_ingrediente': _ingredienteEnConfig!['id'],
@@ -124,8 +91,8 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
                   _buildHeaderBusqueda(),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: _ingredienteEnConfig != null 
-                      ? _buildFormularioConfiguracion() 
+                    child: _ingredienteEnConfig != null
+                      ? _buildFormularioConfiguracion()
                       : _buildListaResultados(),
                   ),
                 ],
@@ -147,27 +114,17 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text('Añadir Ingredientes', 
-                style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
-            ),
-            if (_query.isNotEmpty && _resultados.isNotEmpty)
-              TextButton.icon(
-                onPressed: _marcarTodos,
-                icon: const Icon(Icons.playlist_add_check_rounded, color: AppTema.azulPrincipal),
-                label: Text("MARCAR ${_resultados.length}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ),
-          ],
-        ),
+        Text('Añadir Ingredientes',
+          style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
         const SizedBox(height: 16),
         TextField(
-          onChanged: _buscar,
+          onChanged: (v) {
+            _query = v;
+            _buscar(v);
+          },
           decoration: InputDecoration(
             hintText: 'Buscar en el catálogo de alimentos...',
             prefixIcon: const Icon(Icons.search, color: AppTema.azulPrincipal),
-            suffixIcon: _query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _buscar("")) : null,
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
@@ -186,7 +143,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
           children: [
             Icon(Icons.restaurant_menu_rounded, size: 64, color: Colors.grey.shade200),
             const SizedBox(height: 16),
-            Text('Escribe el nombre de un alimento\npara comenzar la búsqueda', 
+            Text('Escribe el nombre de un alimento\npara comenzar la búsqueda',
               textAlign: TextAlign.center,
               style: GoogleFonts.montserrat(color: Colors.grey.shade400, fontWeight: FontWeight.w500)),
           ],
@@ -303,7 +260,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
         ),
         const SizedBox(height: 24),
         Expanded(
-          child: _seleccionados.isEmpty 
+          child: _seleccionados.isEmpty
             ? Center(child: Text('Aún no has seleccionado nada', style: TextStyle(color: Colors.grey.shade400)))
             : ListView.separated(
                 itemCount: _seleccionados.length,
