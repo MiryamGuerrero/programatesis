@@ -43,7 +43,14 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta,
                     r.mensaje_error, r.es_estricta,
                     a.nombre as accion_nombre, a.nombre as accion_codigo,
-                    t.nombre as objetivo_nombre, t.nombre as objetivo_codigo,
+                    t.nombre as objetivo_nombre, 
+                    CASE 
+                        WHEN t.id = 1 THEN 'INGREDIENTE'
+                        WHEN t.id = 2 THEN 'GRUPO'
+                        WHEN t.id = 3 THEN 'ETIQUETA'
+                        WHEN t.id = 4 THEN 'SUBGRUPO'
+                        ELSE UPPER(t.nombre)
+                    END as objetivo_codigo,
                     i.nombre as ingrediente_nombre, g.nombre as grupo_nombre, 
                     s.nombre as subgrupo_nombre, e.nombre_visible as etiqueta_nombre,
                     array_agg(DISTINCT cr.id_condicion) as id_condiciones,
@@ -59,7 +66,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
                 left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
                 where c.id_tipo_condicion = ANY(%s)
-                group by r.id, a.nombre, t.nombre, i.nombre, g.nombre, s.nombre, e.nombre_visible
+                group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible
             """
             try:
                 cur.execute(sql, (tipos_condicion,))
@@ -67,6 +74,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 rows = cur.fetchall()
                 return [dict(zip(columnas, row)) for row in rows]
             except Exception as e:
+                print(f"Error en listar_reglas_detalladas: {e}")
                 return []
 
     def guardar_regla(self, data: dict) -> int:
@@ -160,8 +168,11 @@ class RepositorioReglaPostgres(IRepositorioRegla):
         
         objetivo_map = {
             "INGREDIENTE": TipoObjetivo.INGREDIENTE,
+            "SUBGRUPO ALIMENTARIO": TipoObjetivo.SUBGRUPO,
             "SUBGRUPO": TipoObjetivo.SUBGRUPO,
+            "GRUPO ALIMENTARIO": TipoObjetivo.GRUPO,
             "GRUPO": TipoObjetivo.GRUPO,
+            "ETIQUETA NUTRICIONAL": TipoObjetivo.ETIQUETA,
             "ETIQUETA": TipoObjetivo.ETIQUETA,
             "RECETA": TipoObjetivo.RECETA
         }
