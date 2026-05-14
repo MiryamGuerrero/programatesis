@@ -475,13 +475,31 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
                 cur.execute("""
                     insert into clinico.control_paciente (
-                        id_paciente, fecha_control, peso_kg, talla_cm, edad_meses, imc_calculado, 
-                        id_condicion_nutricional_resultado, estado_nutricional, id_medico, created_at
-                    ) values (%s, now(), %s, %s, %s, %s, %s, %s, %s, now()) returning id
+                        id_paciente, fecha_control, peso_kg, talla_cm, edad_meses, imc_calculado,
+                        id_condicion_nutricional_resultado, estado_nutricional, id_medico,
+                        valor_pcr, valor_vsg, puntos_dolor, escala_inflamacion, nivel_fatiga,
+                        articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
+                        en_brote, estado_enfermedad, nota_evolucion, fecha_proxima_cita, created_at
+                    ) values (
+                        %s, now(), %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                    ) returning id
                 """, (
-                    id_paciente, peso, talla, evaluacion["edad_meses"], 
-                    evaluacion["imc"], heur_bmi, 
-                    evaluacion["diagnostico_combinado"], id_medico
+                    id_paciente, peso, talla, evaluacion["edad_meses"],
+                    evaluacion["imc"], heur_bmi,
+                    evaluacion["diagnostico_combinado"], id_medico,
+                    datos.get("valor_pcr") or None,
+                    datos.get("valor_vsg") or None,
+                    datos.get("puntos_dolor") or 0,
+                    datos.get("escala_inflamacion") or 0,
+                    datos.get("fatiga", datos.get("nivel_fatiga", 10)) or 10,
+                    datos.get("articulaciones_inflamadas") or 0,
+                    datos.get("articulaciones_dolorosas") or 0,
+                    datos.get("minutos_rigidez") or None,
+                    datos.get("en_brote") or False,
+                    datos.get("estado_enfermedad") or "Seguimiento",
+                    datos.get("nota_evolucion") or None,
+                    datos.get("fecha_proxima_cita") or None,
                 ))
                 cid = cur.fetchone()[0]
                 
@@ -489,22 +507,26 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     if c_id and c_id > 0:
                         cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, esta_activa) values (%s, %s, now(), true)", (cid, c_id))
 
-                # Actualizar Recomendaciones de Ingredientes desde el Control
-                recoms_ids = datos.get("recomendaciones_ingredientes", [])
-                if recoms_ids:
-                    # Limpiamos las anteriores para este paciente y profesional
-                    cur.execute("delete from clinico.recomendacion_ingrediente where id_paciente = %s and id_profesional = %s", (id_paciente, id_medico))
-                    
-                    cur.execute("select id_rol from usuarios.usuario where id = %s", (id_medico,))
-                    r_row = cur.fetchone()
-                    id_rol = r_row[0] if r_row else 2 # Medico por defecto
+                for ct in datos.get("condiciones_temporales", []):
+                    if not ct.get("id"):
+                        continue
+                    cur.execute("""
+                        insert into clinico.control_condicion_activa
+                        (id_control, id_condicion, fecha_inicio, fecha_fin, esta_activa)
+                        values (%s, %s, %s, %s, true)
+                    """, (
+                        cid,
+                        ct.get("id"),
+                        ct.get("fecha_inicio") or date.today().isoformat(),
+                        ct.get("fecha_fin"),
+                    ))
 
-                    for riid in recoms_ids:
-                        cur.execute("""
-                            insert into clinico.recomendacion_ingrediente 
-                            (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, activa) 
-                            values (%s, %s, %s, %s, true)
-                        """, (id_paciente, riid, id_medico, id_rol))
+                self._sincronizar_recomendaciones_ingredientes(
+                    cur,
+                    id_paciente,
+                    id_medico,
+                    datos.get("recomendaciones_ingredientes", []),
+                )
 
                 cur.execute("COMMIT")
                 return cid
@@ -515,11 +537,118 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
-                cur.execute("update clinico.control_paciente set peso_kg = %s, talla_cm = %s where id = %s", (datos.get("peso_kg"), datos.get("talla_cm"), id_control))
+                cur.execute("""
+                    select id_paciente, id_medico
+                    from clinico.control_paciente
+                    where id = %s
+                """, (id_control,))
+                control = cur.fetchone()
+                if not control:
+                    raise Exception("Control mensual no encontrado")
+
+                id_paciente, id_medico = control
+                cur.execute("select fecha_nacimiento, id_sexo from usuarios.paciente where id = %s", (id_paciente,))
+                paciente = cur.fetchone()
+                if not paciente:
+                    raise Exception("Paciente no encontrado")
+
+                peso = float(datos.get("peso_kg") or 0)
+                talla = float(datos.get("talla_cm") or 0)
+                evaluacion = ServicioOMS.evaluar_paciente_integral(peso, talla, paciente[1], paciente[0], date.today())
+                heur_bmi = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
+                heur_hfa = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
+
+                cur.execute("""
+                    update clinico.control_paciente
+                    set peso_kg = %s,
+                        talla_cm = %s,
+                        edad_meses = %s,
+                        imc_calculado = %s,
+                        id_condicion_nutricional_resultado = %s,
+                        estado_nutricional = %s,
+                        valor_pcr = %s,
+                        valor_vsg = %s,
+                        puntos_dolor = %s,
+                        escala_inflamacion = %s,
+                        nivel_fatiga = %s,
+                        articulaciones_inflamadas = %s,
+                        articulaciones_dolorosas = %s,
+                        minutos_rigidez = %s,
+                        en_brote = %s,
+                        estado_enfermedad = %s,
+                        nota_evolucion = %s,
+                        fecha_proxima_cita = %s
+                    where id = %s
+                """, (
+                    peso,
+                    talla,
+                    evaluacion["edad_meses"],
+                    evaluacion["imc"],
+                    heur_bmi,
+                    evaluacion["diagnostico_combinado"],
+                    datos.get("valor_pcr") or None,
+                    datos.get("valor_vsg") or None,
+                    datos.get("puntos_dolor") or 0,
+                    datos.get("escala_inflamacion") or 0,
+                    datos.get("fatiga", datos.get("nivel_fatiga", 10)) or 10,
+                    datos.get("articulaciones_inflamadas") or 0,
+                    datos.get("articulaciones_dolorosas") or 0,
+                    datos.get("minutos_rigidez") or None,
+                    datos.get("en_brote") or False,
+                    datos.get("estado_enfermedad") or "Seguimiento",
+                    datos.get("nota_evolucion") or None,
+                    datos.get("fecha_proxima_cita") or None,
+                    id_control,
+                ))
+
+                cur.execute("""
+                    delete from clinico.control_condicion_activa cca
+                    using heuristico.condicion c
+                    where cca.id_condicion = c.id
+                      and cca.id_control = %s
+                      and c.id_tipo_condicion = 2
+                """, (id_control,))
+
+                for ct in datos.get("condiciones_temporales", []):
+                    if not ct.get("id"):
+                        continue
+                    cur.execute("""
+                        insert into clinico.control_condicion_activa
+                        (id_control, id_condicion, fecha_inicio, fecha_fin, esta_activa)
+                        values (%s, %s, %s, %s, true)
+                    """, (
+                        id_control,
+                        ct.get("id"),
+                        ct.get("fecha_inicio") or date.today().isoformat(),
+                        ct.get("fecha_fin"),
+                    ))
+
+                self._sincronizar_recomendaciones_ingredientes(
+                    cur,
+                    id_paciente,
+                    id_medico,
+                    datos.get("recomendaciones_ingredientes", []),
+                )
                 cur.execute("COMMIT")
                 return True
             except Exception as e:
                 cur.execute("ROLLBACK"); raise e
+
+    def _sincronizar_recomendaciones_ingredientes(self, cur, id_paciente: str, id_profesional: str, ids_ingredientes: list) -> None:
+        cur.execute(
+            "delete from clinico.recomendacion_ingrediente where id_paciente = %s and id_profesional = %s",
+            (id_paciente, id_profesional),
+        )
+        cur.execute("select id_rol from usuarios.usuario where id = %s", (id_profesional,))
+        r_row = cur.fetchone()
+        id_rol = r_row[0] if r_row else 2
+
+        for id_ingrediente in ids_ingredientes:
+            cur.execute("""
+                insert into clinico.recomendacion_ingrediente
+                (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, activa)
+                values (%s, %s, %s, %s, true)
+            """, (id_paciente, id_ingrediente, id_profesional, id_rol))
 
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
         with db_cursor() as cur:

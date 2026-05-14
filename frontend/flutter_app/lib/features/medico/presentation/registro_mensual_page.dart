@@ -94,6 +94,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   void dispose() {
     _tabController.dispose();
     _debounceOMS?.cancel();
+    _ingRecomSearchCtrl.dispose();
+    _ingRecomFocus.dispose();
     super.dispose();
   }
 
