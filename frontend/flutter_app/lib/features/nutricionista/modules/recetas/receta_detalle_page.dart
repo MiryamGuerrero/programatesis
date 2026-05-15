@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/state/app_providers.dart';
@@ -22,9 +22,6 @@ class RecetaDetallePage extends ConsumerStatefulWidget {
 class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late Map<String, dynamic> _recetaData;
-  bool _loadingEtiquetas = false;
-  List<dynamic> _etiquetasDisponibles = [];
-  String _tagQuery = "";
 
   @override
   void initState() {
@@ -48,52 +45,24 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     }
   }
 
-  Future<void> _buscarEtiquetas(String q) async {
-    if (q.isEmpty) {
-      setState(() => _etiquetasDisponibles = []);
-      return;
-    }
-    setState(() => _loadingEtiquetas = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final resp = await dio.get('nutricionista/etiquetas', queryParameters: {'q': q});
-      if (mounted) {
-        setState(() {
-          _etiquetasDisponibles = resp.data;
-          _loadingEtiquetas = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingEtiquetas = false);
-    }
-  }
-
-  Future<void> _vincularEtiqueta(int idEtiqueta) async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.post('crud/recetas/${_recetaData['id']}/etiquetas/$idEtiqueta');
-      await _cargarDetalleActualizado();
-      if (mounted) {
-        NutriSnack.show(context, 'Etiqueta vinculada');
-        setState(() {
-          _tagQuery = "";
-          _etiquetasDisponibles = [];
-        });
-      }
-    } catch (e) {
-      if (mounted) NutriSnack.show(context, 'Error al vincular etiqueta', isError: true);
-    }
-  }
-
-  Future<void> _desvincularEtiqueta(int idEtiqueta) async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.delete('crud/recetas/${_recetaData['id']}/etiquetas/$idEtiqueta');
-      await _cargarDetalleActualizado();
-      if (mounted) { NutriSnack.show(context, 'Etiqueta eliminada'); }
-    } catch (e) {
-      if (mounted) NutriSnack.show(context, 'Error al desvincular etiqueta', isError: true);
-    }
+  String _textoLimpio(dynamic value) {
+    final text = value?.toString() ?? '-';
+    return text
+        .replaceAll('Ã¡', 'á')
+        .replaceAll('Ã©', 'é')
+        .replaceAll('Ã­', 'í')
+        .replaceAll('Ã³', 'ó')
+        .replaceAll('Ãº', 'ú')
+        .replaceAll('Ã±', 'ñ')
+        .replaceAll('Ã', 'Á')
+        .replaceAll('Ã‰', 'É')
+        .replaceAll('Ã', 'Í')
+        .replaceAll('Ã“', 'Ó')
+        .replaceAll('Ãš', 'Ú')
+        .replaceAll('Ã‘', 'Ñ')
+        .replaceAll('Â°', '°')
+        .replaceAll('Â¿', '¿')
+        .replaceAll('Â¡', '¡');
   }
 
   @override
@@ -116,7 +85,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
           onPressed: widget.onBack,
         ),
         title: Text(
-          r['nombre'] ?? 'Detalle de Receta',
+          _textoLimpio(r['nombre'] ?? 'Detalle de Receta'),
           style: GoogleFonts.montserrat(
             color: AppTema.azulOscuro,
             fontWeight: FontWeight.w800,
@@ -129,7 +98,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sección de Cabecera: Imagen + Resumen de Datos
+            // Seccion de Cabecera: Imagen + Resumen de Datos
             _buildHeaderSection(r),
             const SizedBox(height: 32),
             _buildDescriptionBlock(r),
@@ -154,7 +123,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                         _buildNutricion(r),
                         _buildIngredientes(r),
                         _buildPreparacion(r),
-                        _buildGestionEtiquetas(r),
+                        _buildEtiquetasLectura(r),
                       ],
                     ),
                   ),
@@ -168,7 +137,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
   }
 
   Widget _buildHeaderSection(Map<String, dynamic> r) {
-    // Cálculo de tiempo total: Preparación + Cocción
+    // Calculo de tiempo total: Preparacion + Coccion
     final int tPrep = r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0;
     final int tCoc = r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0;
     final int tTotal = tPrep + tCoc;
@@ -195,7 +164,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                       r['imagen_url'],
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      key: ValueKey(r['imagen_url']), // Forzar actualización visual
+                      key: ValueKey(r['imagen_url']), // Forzar actualizacion visual
                       errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
                     )
                   : _buildImagePlaceholder(),
@@ -228,7 +197,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                 const Divider(height: 24, color: Color(0xFFF1F5F9)),
                 Row(
                   children: [
-                    _buildCompactStat(Icons.bar_chart_rounded, '${r['dificultad'] ?? 'Media'}', 'Dificultad'),
+                    _buildCompactStat(Icons.bar_chart_rounded, r['dificultad'] ?? 'Media', 'Dificultad'),
                     _buildCompactStat(Icons.local_fire_department_rounded, '${r['calorias_por_porcion'] ?? 0} kcal', 'Cal / Porción'),
                   ],
                 ),
@@ -247,7 +216,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     );
   }
 
-  Widget _buildCompactStat(IconData icon, String valor, String label) {
+  Widget _buildCompactStat(IconData icon, dynamic valor, String label) {
     return Expanded(
       child: Row(
         children: [
@@ -265,11 +234,11 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(valor,
+                Text(_textoLimpio(valor),
                   style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 15, color: AppTema.azulOscuro),
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 10, color: Colors.blueGrey)),
+                Text(_textoLimpio(label), style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 10, color: Colors.blueGrey)),
               ],
             ),
           ),
@@ -315,7 +284,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
           Text('Descripción', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 18, color: AppTema.azulOscuro)),
           const SizedBox(height: 12),
           Text(
-            desc,
+            _textoLimpio(desc),
             style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.6),
           ),
         ],
@@ -387,9 +356,9 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+        Text(_textoLimpio(label), style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         const SizedBox(height: 4),
-        Text(value?.toString() ?? '-', style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+        Text(_textoLimpio(value), style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
       ],
     );
   }
@@ -434,7 +403,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
       decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
       children: cells.map((c) => Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(c, style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.blueGrey)),
+        child: Text(_textoLimpio(c), style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.blueGrey)),
       )).toList(),
     );
   }
@@ -443,7 +412,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     return TableRow(
       children: cells.map((c) => Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(c, style: GoogleFonts.montserrat(fontSize: 13, color: AppTema.azulOscuro, fontWeight: FontWeight.w500)),
+        child: Text(_textoLimpio(c), style: GoogleFonts.montserrat(fontSize: 13, color: AppTema.azulOscuro, fontWeight: FontWeight.w500)),
       )).toList(),
     );
   }
@@ -477,15 +446,15 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: AppTema.pastelCeleste, borderRadius: BorderRadius.circular(6)),
-                          child: Text(p['tiempo']?.toString() ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
+                          child: Text(_textoLimpio(p['tiempo']), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal)),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(p['descripcion']?.toString() ?? '', style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.5)),
+                  Text(_textoLimpio(p['descripcion']), style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.5)),
                   if (p['nota'] != null && p['nota'].toString().isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Nota: ${p['nota']}', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.verdeSalud, fontStyle: FontStyle.italic)),
+                    Text('Nota: ${_textoLimpio(p['nota'])}', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.verdeSalud, fontStyle: FontStyle.italic)),
                   ],
                 ],
               ),
@@ -552,8 +521,8 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
-            Text(value, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+            Text(_textoLimpio(label), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+            Text(_textoLimpio(value), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
           ],
         ),
         const SizedBox(height: 8),
@@ -573,15 +542,15 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (rows.isNotEmpty) ...[
-          Text(title.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+          Text(_textoLimpio(title).toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
           const SizedBox(height: 12),
           ...rows.map((row) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(row['nombre']?.toString() ?? 'Nutriente', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600)),
-                Text('${row['valor']} ${row['unidad']}', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                Text(_textoLimpio(row['nombre'] ?? 'Nutriente'), style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey.shade600)),
+                Text('${row['valor']} ${_textoLimpio(row['unidad'])}', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
               ],
             ),
           )),
@@ -590,109 +559,24 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
     );
   }
 
-  Widget _buildGestionEtiquetas(Map<String, dynamic> r) {
+  Widget _buildEtiquetasLectura(Map<String, dynamic> r) {
     final List<dynamic> etiquetasActuales = r['etiquetas_salud'] ?? [];
-
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Asignar Etiquetas Nutricionales', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulOscuro)),
-          const SizedBox(height: 8),
-          Text('Busca y selecciona etiquetas para clasificar esta receta.', style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey)),
-          const SizedBox(height: 24),
-
-          // Buscador de Etiquetas
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Buscar etiqueta...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                  ),
-                  onChanged: (v) {
-                    _tagQuery = v;
-                    _buscarEtiquetas(v);
-                  },
-                ),
-              ),
-              if (_loadingEtiquetas)
-                const Padding(padding: EdgeInsets.only(left: 16), child: CircularProgressIndicator(strokeWidth: 2)),
-            ],
-          ),
-
-          // Resultados de Búsqueda
-          if (_etiquetasDisponibles.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 150),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: _etiquetasDisponibles.length,
-                separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 16, endIndent: 16),
-                itemBuilder: (context, index) {
-                  final tag = _etiquetasDisponibles[index];
-                  final yaAsignada = etiquetasActuales.any((e) => e['id'] == tag['id']);
-
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: yaAsignada ? Colors.green.withOpacity(0.1) : AppTema.pastelCeleste.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        yaAsignada ? Icons.check_circle_rounded : Icons.label_outline_rounded,
-                        size: 18,
-                        color: yaAsignada ? Colors.green : AppTema.azulPrincipal,
-                      ),
-                    ),
-                    title: Text(
-                      tag['nombre_visible']?.toString() ?? 'Etiqueta',
-                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)
-                    ),
-                    subtitle: Text(
-                      tag['codigo']?.toString() ?? 'N/A',
-                      style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade400)
-                    ),
-                    trailing: yaAsignada
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : IconButton(
-                          icon: const Icon(Icons.add_circle_rounded, color: AppTema.azulPrincipal, size: 28),
-                          onPressed: () => _vincularEtiqueta(tag['id']),
-                        ),
-                  );
-                },
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 40),
-          const Divider(),
-          const SizedBox(height: 24),
-
           Row(
             children: [
               const Icon(Icons.bookmarks_rounded, color: AppTema.azulPrincipal, size: 18),
               const SizedBox(width: 12),
-              Text('Etiquetas Actuales (${etiquetasActuales.length})',
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 15, color: AppTema.azulOscuro)),
+              Text(
+                'Etiquetas (${etiquetasActuales.length})',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 15, color: AppTema.azulOscuro),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
-
+          const SizedBox(height: 20),
           if (etiquetasActuales.isEmpty)
             Container(
               width: double.infinity,
@@ -707,21 +591,20 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
                   children: [
                     Icon(Icons.label_off_outlined, color: Colors.grey.shade300, size: 40),
                     const SizedBox(height: 12),
-                    Text('No hay etiquetas asignadas.',
-                      style: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontStyle: FontStyle.italic)),
+                    Text(
+                      'No hay etiquetas asignadas.',
+                      style: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontStyle: FontStyle.italic),
+                    ),
                   ],
                 ),
               ),
             )
           else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: etiquetasActuales.map((e) => _buildTagChip(e)).toList(),
-            ),
+            Wrap(spacing: 12, runSpacing: 12, children: etiquetasActuales.map((e) => _buildTagChip(e)).toList()),
         ],
       ),
     );
+
   }
 
   Widget _buildTagChip(Map<String, dynamic> e) {
@@ -741,20 +624,8 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage> with Sing
           Icon(Icons.tag_rounded, size: 14, color: AppTema.azulPrincipal.withOpacity(0.6)),
           const SizedBox(width: 10),
           Text(
-            e['titulo']?.toString() ?? '-',
+            _textoLimpio(e['titulo']),
             style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro),
-          ),
-          const SizedBox(width: 10),
-          InkWell(
-            onTap: () => _desvincularEtiqueta(e['id']),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.close_rounded, size: 14, color: Colors.redAccent),
-            ),
           ),
         ],
       ),

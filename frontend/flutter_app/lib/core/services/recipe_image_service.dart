@@ -10,12 +10,15 @@ class RecipeImageService {
   static final _supabase = Supabase.instance.client;
   static const String _primaryBucket = 'receta_imagenes';
   static const String _legacyBucket = 'imagenes_recetas';
+  static const int _maxImageSide = 900;
+  static const int _jpegQuality = 68;
 
   static Future<XFile?> pickImage(ImageSource source) async {
     return await _picker.pickImage(
       source: source,
-      maxWidth: 2000,
-      maxHeight: 2000,
+      maxWidth: 1400,
+      maxHeight: 1400,
+      imageQuality: 85,
     );
   }
 
@@ -25,15 +28,17 @@ class RecipeImageService {
     img.Image? image = img.decodeImage(bytes);
     if (image == null) throw Exception("No se pudo decodificar la imagen");
 
-    if (image.width > 1024 || image.height > 1024) {
+    image = img.bakeOrientation(image);
+
+    if (image.width > _maxImageSide || image.height > _maxImageSide) {
       if (image.width > image.height) {
-        image = img.copyResize(image, width: 1024);
+        image = img.copyResize(image, width: _maxImageSide);
       } else {
-        image = img.copyResize(image, height: 1024);
+        image = img.copyResize(image, height: _maxImageSide);
       }
     }
 
-    return Uint8List.fromList(img.encodeJpg(image, quality: 80));
+    return Uint8List.fromList(img.encodeJpg(image, quality: _jpegQuality));
   }
 
   static Future<String> uploadRecipeImage({

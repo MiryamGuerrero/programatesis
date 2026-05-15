@@ -23,6 +23,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
   final _ctrlCantidad = TextEditingController(text: '1');
   final _ctrlUnidad = TextEditingController(text: 'unidad');
   final _ctrlGramos = TextEditingController(text: '100');
+  final _ctrlObservaciones = TextEditingController();
 
   Future<void> _buscar(String v) async {
     if (v.length < 2) {
@@ -51,6 +52,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
       _ctrlCantidad.text = '1';
       _ctrlUnidad.text = 'unidad';
       _ctrlGramos.text = '100';
+      _ctrlObservaciones.clear();
     });
   }
 
@@ -64,7 +66,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
         'cantidad': double.tryParse(_ctrlCantidad.text) ?? 1.0,
         'unidad': _ctrlUnidad.text,
         'gramos': double.tryParse(_ctrlGramos.text) ?? 0.0,
-        'observaciones': '',
+        'observaciones': _ctrlObservaciones.text.trim(),
       });
       _ingredienteEnConfig = null;
       _query = "";
@@ -73,12 +75,24 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
   }
 
   @override
+  void dispose() {
+    _ctrlCantidad.dispose();
+    _ctrlUnidad.dispose();
+    _ctrlGramos.dispose();
+    _ctrlObservaciones.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final dialogHeight = (screenSize.height - 48).clamp(420.0, 700.0).toDouble();
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         width: 900,
-        height: 700,
+        height: dialogHeight,
         padding: const EdgeInsets.all(32),
         child: Row(
           children: [
@@ -174,16 +188,18 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
   }
 
   Widget _buildFormularioConfiguracion() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         IconButton(
           onPressed: () => setState(() => _ingredienteEnConfig = null),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppTema.pastelCeleste.withOpacity(0.3),
             borderRadius: BorderRadius.circular(20),
@@ -194,21 +210,28 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
             children: [
               Text('Configurar Cantidad', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
               const SizedBox(height: 8),
-              Text(_ingredienteEnConfig!['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
+              Text(
+                _ingredienteEnConfig!['nombre']?.toString() ?? "Ingrediente",
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(child: _buildConfigInput('Cantidad', _ctrlCantidad, true)),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(child: _buildConfigInput('Unidad (taza, unidad, etc)', _ctrlUnidad, false)),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildConfigInput('Peso Técnico en Gramos (g)', _ctrlGramos, true),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              _buildConfigInput('Observaciones', _ctrlObservaciones, false, maxLines: 2),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 48,
                 child: FilledButton.icon(
                   onPressed: _confirmarIngredienteIndividual,
                   icon: const Icon(Icons.check_circle_outline_rounded),
@@ -219,11 +242,12 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildConfigInput(String label, TextEditingController ctrl, bool isNumber) {
+  Widget _buildConfigInput(String label, TextEditingController ctrl, bool isNumber, {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -231,6 +255,7 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
         const SizedBox(height: 8),
         TextField(
           controller: ctrl,
+          maxLines: maxLines,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           decoration: InputDecoration(
             filled: true,
@@ -267,10 +292,16 @@ class _SelectorIngredienteDialogState extends ConsumerState<SelectorIngredienteD
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final s = _seleccionados[index];
+                  final observaciones = s['observaciones']?.toString().trim() ?? '';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(s['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text('${s['cantidad']} ${s['unidad']} (${s['gramos']}g)', style: const TextStyle(fontSize: 11)),
+                    subtitle: Text(
+                      observaciones.isEmpty
+                          ? '${s['cantidad']} ${s['unidad']} (${s['gramos']}g)'
+                          : '${s['cantidad']} ${s['unidad']} (${s['gramos']}g) - $observaciones',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                     trailing: IconButton(
                       icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 20),
                       onPressed: () => setState(() => _seleccionados.removeAt(index)),

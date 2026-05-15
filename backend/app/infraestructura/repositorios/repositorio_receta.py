@@ -4,9 +4,84 @@ from ...domain.repositorios.interfaces import IRepositorioReceta
 from ...domain.servicios.restricciones_alimentarias import RESTRICCIONES_ALIMENTARIAS, SUBGRUPOS_CON_LACTOSA
 
 class RepositorioRecetaPostgres(IRepositorioReceta):
+    def _normalizar_dificultad(self, valor: Optional[str]) -> str:
+        if not valor:
+            return "Media"
+        dificultad = str(valor).strip()
+        mapa = {
+            "facil": "Fácil",
+            "fácil": "Fácil",
+            "fã¡cil": "Fácil",
+            "fãƒâ¡cil": "Fácil",
+            "media": "Media",
+            "dificil": "Difícil",
+            "difícil": "Difícil",
+            "difã­cil": "Difícil",
+            "difãƒâ­cil": "Difícil",
+        }
+        return mapa.get(dificultad.lower(), "Media")
+
+    def _entero_o_default(self, valor, default: int = 0) -> int:
+        if valor is None or valor == "":
+            return default
+        try:
+            return int(valor)
+        except (TypeError, ValueError):
+            return default
+
+    def _sql_receta_detalle_base(self, where_clause: str) -> str:
+        return f"""
+            SELECT
+                r.id,
+                r.nombre,
+                r.descripcion,
+                r.descripcion_larga,
+                r.dificultad,
+                r.porciones,
+                r.tiempo_preparacion_min,
+                r.tiempo_coccion_min,
+                r.activa,
+                r.imagen_url,
+                r.created_at,
+                r.updated_at,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.energia_kcal, 0))::numeric, 2), 0) AS calorias_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.proteinas_g, 0))::numeric, 2), 0) AS proteinas_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.hidratos_carbono_g, 0))::numeric, 2), 0) AS carbohidratos_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.grasa_total_g, 0))::numeric, 2), 0) AS grasas_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.fibra_vegetal_g, 0))::numeric, 2), 0) AS fibra_totales,
+                COALESCE(ROUND(SUM(COALESCE(ri.peso_en_gramos, 0))::numeric, 2), 0) AS peso_total,
+                COALESCE(
+                    ROUND(
+                        SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.energia_kcal, 0))::numeric
+                        / GREATEST(COALESCE(r.porciones, 1), 1),
+                        2
+                    ),
+                    0
+                ) AS calorias_por_porcion,
+                (
+                    SELECT STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre)
+                    FROM nutricion.receta_momento rm
+                    JOIN nutricion.momento_comida m ON m.id = rm.id_momento
+                    WHERE rm.id_receta = r.id
+                ) AS momentos_nombres,
+                (
+                    SELECT m.nombre
+                    FROM nutricion.receta_momento rm
+                    JOIN nutricion.momento_comida m ON m.id = rm.id_momento
+                    WHERE rm.id_receta = r.id
+                    ORDER BY m.orden NULLS LAST, m.nombre
+                    LIMIT 1
+                ) AS categoria
+            FROM nutricion.receta r
+            LEFT JOIN nutricion.receta_ingrediente ri ON ri.id_receta = r.id
+            LEFT JOIN nutricion.ingrediente_composicion ic ON ic.id_ingrediente = ri.id_ingrediente
+            WHERE {where_clause}
+            GROUP BY r.id
+        """
+
     def listar_recetas(self, consulta: str = "", limite: int = 100) -> List[dict]:
-        """Lista recetas usando la vista nutricional calculada con búsqueda precisa."""
-        where_clause = "v.activa = true"
+        """Lista recetas calculando la nutricion desde sus ingredientes."""
+        where_clause = "r.activa = true"
         params = []
 
         if consulta:
@@ -18,21 +93,13 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 word_conditions = []
                 for w in words:
                     # Busqueda por palabra completa usando regex con ancla de limite (\y)
-                    word_conditions.append("v.nombre ~* %s")
+                    word_conditions.append("r.nombre ~* %s")
                     pattern = f"\\y{w}\\y"
                     params.append(pattern)
                 where_clause += " and (" + " and ".join(word_conditions) + ")"
 
-        sql = f"""
-            SELECT v.*, 
-            (SELECT m.nombre FROM nutricion.receta_momento rm 
-             JOIN nutricion.momento_comida m ON m.id = rm.id_momento 
-             WHERE rm.id_receta = v.id LIMIT 1) as categoria,
-            r.imagen_url
-            FROM nutricion.vista_receta_detalle v
-            JOIN nutricion.receta r ON r.id = v.id
-            WHERE {where_clause}
-            ORDER BY v.nombre ASC
+        sql = self._sql_receta_detalle_base(where_clause) + """
+            ORDER BY nombre ASC
             LIMIT %s
         """
         params.append(limite)
@@ -45,8 +112,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
     def obtener_detalle_completo(self, id_receta: int) -> Optional[dict]:
         """Obtiene una receta con todos sus ingredientes, pasos y etiquetas."""
         with db_cursor() as cur:
-            # 1. Datos básicos y nutricionales (de la Vista)
-            cur.execute("SELECT * FROM nutricion.vista_receta_detalle WHERE id = %s", (id_receta,))
+            # 1. Datos basicos y nutricionales calculados desde ingredientes
+            cur.execute(self._sql_receta_detalle_base("r.id = %s"), (id_receta,))
             row = cur.fetchone()
             if not row:
                 return None
@@ -134,13 +201,14 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
     def obtener_recetas_por_momento(self, id_momento: int) -> List[dict]:
         with db_cursor() as cur:
-            sql = """
-                SELECT r.id, r.nombre, r.imagen_url, v.calorias_totales
-                FROM nutricion.receta r
-                JOIN nutricion.receta_momento rm ON rm.id_receta = r.id
-                JOIN nutricion.vista_receta_detalle v ON v.id = r.id
-                WHERE rm.id_momento = %s AND r.activa = true
-            """
+            sql = self._sql_receta_detalle_base("""
+                r.activa = true
+                AND EXISTS (
+                    SELECT 1
+                    FROM nutricion.receta_momento rm
+                    WHERE rm.id_receta = r.id AND rm.id_momento = %s
+                )
+            """)
             cur.execute(sql, (id_momento,))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
@@ -184,14 +252,15 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 3. Traer todas las recetas del momento (o todas si id_momento es None)
             sql = """
-                select r.id, r.nombre, r.imagen_url, v.calorias_totales, 
-                       array_agg(ri.id_ingrediente) as ingredientes_ids,
-                       array_agg(i.id_subgrupo_alimentario) as subgrupos_ids,
+                select r.id, r.nombre, r.imagen_url,
+                       coalesce(round(sum((coalesce(ri.peso_en_gramos, 0)::numeric / 100) * coalesce(ic.energia_kcal, 0))::numeric, 2), 0) as calorias_totales,
+                       coalesce(array_agg(ri.id_ingrediente) filter (where ri.id_ingrediente is not null), '{}') as ingredientes_ids,
+                       coalesce(array_agg(i.id_subgrupo_alimentario) filter (where i.id_subgrupo_alimentario is not null), '{}') as subgrupos_ids,
                        coalesce(array_agg(distinct e.codigo) filter (where e.codigo is not null), '{}') as etiquetas_codigos
                 from nutricion.receta r
-                join nutricion.vista_receta_detalle v on v.id = r.id
-                join nutricion.receta_ingrediente ri on ri.id_receta = r.id
-                join nutricion.ingrediente i on i.id = ri.id_ingrediente
+                left join nutricion.receta_ingrediente ri on ri.id_receta = r.id
+                left join nutricion.ingrediente i on i.id = ri.id_ingrediente
+                left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = ri.id_ingrediente
                 left join nutricion.receta_etiqueta re on re.id_receta = r.id
                 left join nutricion.etiqueta_nutricional e on e.id = re.id_etiqueta
             """
@@ -202,7 +271,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             else:
                 sql += " where r.activa = true"
             
-            sql += " group by r.id, r.nombre, r.imagen_url, v.calorias_totales"
+            sql += " group by r.id, r.nombre, r.imagen_url"
             
             cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
@@ -238,6 +307,15 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
         """Crea o actualiza una receta completa (Información, ingredientes y pasos)."""
         with db_cursor() as cur:
             id_receta = datos.get("id")
+            dificultad = self._normalizar_dificultad(datos.get("dificultad"))
+            tiempo_preparacion = self._entero_o_default(
+                datos.get("tiempo_preparacion", datos.get("tiempo_preparacion_min")),
+                0,
+            )
+            tiempo_coccion = self._entero_o_default(
+                datos.get("tiempo_coccion", datos.get("tiempo_coccion_min")),
+                0,
+            )
             
             # 1. Upsert de la información básica
             if id_receta:
@@ -250,8 +328,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 """
                 cur.execute(sql, (
                     datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
-                    datos.get("dificultad"), datos.get("porciones", 1), datos.get("tiempo_preparacion", 0),
-                    datos.get("tiempo_coccion", 0), datos.get("activa", True), datos.get("imagen_url"), id_receta
+                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
+                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url"), id_receta
                 ))
             else:
                 sql = """
@@ -262,8 +340,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 """
                 cur.execute(sql, (
                     datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
-                    datos.get("dificultad"), datos.get("porciones", 1), datos.get("tiempo_preparacion", 0),
-                    datos.get("tiempo_coccion", 0), datos.get("activa", True), datos.get("imagen_url")
+                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
+                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url")
                 ))
                 id_receta = cur.fetchone()[0]
 
@@ -361,6 +439,16 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 cur.execute("SELECT to_regclass(%s)", (tabla,))
                 if cur.fetchone()[0]:
                     cur.execute(f"DELETE FROM {tabla} WHERE id_receta = %s", (id_receta,))
+
+            cur.execute("SELECT to_regclass('heuristico.regla')")
+            if cur.fetchone()[0]:
+                cur.execute("""
+                    DELETE FROM heuristico.condicion_regla
+                    WHERE id_regla IN (
+                        SELECT id FROM heuristico.regla WHERE id_receta = %s
+                    )
+                """, (id_receta,))
+                cur.execute("DELETE FROM heuristico.regla WHERE id_receta = %s", (id_receta,))
 
             # 2. Limpiar dependencias en el esquema nutricion
             cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))

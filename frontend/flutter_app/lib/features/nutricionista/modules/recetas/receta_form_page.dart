@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
@@ -97,7 +98,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         _ctrlTPrep.text = (r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0).toString();
         _ctrlTCoccion.text = (r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0).toString();
 
-        _dificultad = r['dificultad'] ?? 'Media';
+        _dificultad = _normalizarDificultad(r['dificultad']);
         _activa = r['activa'] ?? true;
         _imagenUrl = r['imagen_url'];
         _ingredientes = List<Map<String, dynamic>>.from(r['ingredientes'] ?? []);
@@ -122,7 +123,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   Future<void> _seleccionarImagen() async {
     final XFile? picked = await RecipeImageService.pickImage(ImageSource.gallery);
     if (picked != null) {
-      final bytes = await picked.readAsBytes();
+      final bytes = await RecipeImageService.optimizeImage(picked);
       setState(() {
         _imageFile = picked;
         _imagePreviewBytes = bytes;
@@ -160,6 +161,15 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
+    final ingredientesSinId = _ingredientes.where((ing) => ing['id_ingrediente'] == null).length;
+    if (ingredientesSinId > 0) {
+      NutriSnack.show(
+        context,
+        'Hay $ingredientesSinId ingrediente(s) sin coincidencia en el catálogo. Elimínalos y agrégalos con el selector antes de guardar.',
+        isError: true,
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
@@ -185,7 +195,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         'nombre': _ctrlNombre.text,
         'descripcion': _ctrlDescCorta.text,
         'descripcion_larga': _ctrlDescLarga.text,
-        'dificultad': _dificultad,
+        'dificultad': _normalizarDificultad(_dificultad),
         'porciones': int.tryParse(_ctrlPorciones.text) ?? 1,
         'tiempo_preparacion': int.tryParse(_ctrlTPrep.text) ?? 0,
         'tiempo_coccion': int.tryParse(_ctrlTCoccion.text) ?? 0,
@@ -226,6 +236,21 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           widget.recetaInicial == null ? 'Nueva Receta' : 'Editar Receta',
           style: GoogleFonts.montserrat(color: AppTema.azulOscuro, fontWeight: FontWeight.w800, fontSize: 18),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: OutlinedButton.icon(
+              onPressed: _abrirImportadorJson,
+              icon: const Icon(Icons.data_object_rounded, size: 18),
+              label: const Text('CÓDIGO JSON'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTema.azulPrincipal,
+                side: const BorderSide(color: AppTema.azulPrincipal),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
       ),
       body: (_loading || _initializing)
         ? Center(child: NutriLoading(mensaje: _initializing ? 'Cargando catálogos...' : 'Procesando recetario...'))
@@ -348,6 +373,308 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         ),
       ],
     );
+  }
+
+  String _normalizarDificultad(dynamic value) {
+    final raw = value?.toString().trim().toLowerCase() ?? '';
+    switch (raw) {
+      case 'facil':
+      case 'fácil':
+      case 'fã¡cil':
+      case 'fãƒâ¡cil':
+        return 'Fácil';
+      case 'dificil':
+      case 'difícil':
+      case 'difã­cil':
+      case 'difãƒâ­cil':
+        return 'Difícil';
+      case 'media':
+        return 'Media';
+      default:
+        return 'Media';
+    }
+  }
+
+  Future<void> _abrirImportadorJson() async {
+    final ctrl = TextEditingController(text: _jsonEjemplo);
+    final jsonText = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        title: Row(
+          children: [
+            const Icon(Icons.data_object_rounded, color: AppTema.azulPrincipal),
+            const SizedBox(width: 12),
+            Text('Código JSON', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: SizedBox(
+          width: 860,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Llena esta estructura, presiona ACEPTAR y la información se reflejará en el formulario para editarla antes de guardar.',
+                  style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey.shade700),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => ctrl.text = _jsonEjemplo,
+                      icon: const Icon(Icons.description_outlined, size: 18),
+                      label: const Text('USAR ESTRUCTURA'),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton.icon(
+                      onPressed: () => ctrl.clear(),
+                      icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+                      label: const Text('LIMPIAR'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  maxLines: 22,
+                  minLines: 16,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    helperText: 'Puedes pegar tu JSON completo aquí. También se acepta que venga dentro de { "receta": ... }.',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            icon: const Icon(Icons.upload_file_rounded),
+            label: const Text('ACEPTAR'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+
+    if (jsonText == null || jsonText.trim().isEmpty) return;
+    await _aplicarJsonReceta(jsonText);
+  }
+
+  Future<void> _aplicarJsonReceta(String rawJson) async {
+    try {
+      final root = jsonDecode(rawJson);
+      if (root is! Map<String, dynamic>) {
+        NutriSnack.show(context, 'El JSON debe ser un objeto de receta.', isError: true);
+        return;
+      }
+      final decoded = root['receta'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(root['receta'] as Map)
+          : root;
+
+      final ingredientes = _listaMapas(decoded['ingredientes']);
+      final pasos = _listaMapas(decoded['preparacion'] ?? decoded['pasos']);
+      final etiquetas = _listaMapas(decoded['etiquetas_salud'] ?? decoded['etiquetas'] ?? decoded['etiquetas_salud_sugeridas']);
+      final ingredientesNormalizados = await _normalizarIngredientesJson(ingredientes);
+      final etiquetasNormalizadas = await _normalizarEtiquetasJson(etiquetas);
+
+      setState(() {
+        _ctrlNombre.text = _texto(decoded['nombre'], fallback: _ctrlNombre.text);
+        _ctrlDescCorta.text = _texto(decoded['descripcion'] ?? decoded['descripcion_corta'], fallback: _ctrlDescCorta.text);
+        _ctrlDescLarga.text = _texto(decoded['descripcion_larga'], fallback: _ctrlDescLarga.text);
+        _ctrlPorciones.text = _enteroTexto(decoded['porciones'], fallback: _ctrlPorciones.text);
+        _ctrlTPrep.text = _enteroTexto(decoded['tiempo_preparacion'] ?? decoded['tiempo_preparacion_min'], fallback: _ctrlTPrep.text);
+        _ctrlTCoccion.text = _enteroTexto(decoded['tiempo_coccion'] ?? decoded['tiempo_coccion_min'], fallback: _ctrlTCoccion.text);
+        if (decoded.containsKey('dificultad')) _dificultad = _normalizarDificultad(decoded['dificultad']);
+        _activa = decoded['activa'] is bool ? decoded['activa'] as bool : _activa;
+        _imagenUrl = _texto(decoded['imagen_url'], fallback: _imagenUrl ?? '');
+        if (_imagenUrl != null && _imagenUrl!.isEmpty) _imagenUrl = null;
+        _imageFile = null;
+        _imagePreviewBytes = null;
+
+        if (ingredientesNormalizados.isNotEmpty) _ingredientes = ingredientesNormalizados;
+        if (pasos.isNotEmpty) {
+          _pasos = pasos.asMap().entries.map((entry) => _normalizarPasoJson(entry.key, entry.value)).toList();
+        }
+        if (etiquetasNormalizadas.isNotEmpty) _etiquetasSeleccionadas = etiquetasNormalizadas;
+
+        _momentosSeleccionados = _normalizarIdsSeleccionados(decoded['momentos'] ?? decoded['momentos_comida'], _momentosDisponibles, _momentosSeleccionados);
+        _tiposPlatoSeleccionados = _normalizarIdsSeleccionados(decoded['tipos_plato'], _tiposPlatoDisponibles, _tiposPlatoSeleccionados);
+      });
+
+      final sinId = ingredientesNormalizados.where((ing) => ing['id_ingrediente'] == null).length;
+      final etiquetasSinId = etiquetasNormalizadas.where((etq) => etq['id'] == null).length;
+      NutriSnack.show(
+        context,
+        sinId == 0 && etiquetasSinId == 0
+            ? 'JSON cargado. Puedes editar la información y guardar.'
+            : 'JSON cargado. Revisa $sinId ingrediente(s) y $etiquetasSinId etiqueta(s) sin coincidencia en catálogo.',
+        isError: sinId > 0 || etiquetasSinId > 0,
+      );
+    } on FormatException catch (e) {
+      NutriSnack.show(context, 'JSON inválido: ${e.message}', isError: true);
+    } catch (e) {
+      NutriSnack.show(context, 'No se pudo cargar el JSON: $e', isError: true);
+    }
+  }
+
+  List<Map<String, dynamic>> _listaMapas(dynamic value) {
+    if (value is! List) return [];
+    return value.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _normalizarIngredientesJson(List<Map<String, dynamic>> ingredientes) async {
+    if (ingredientes.isEmpty) return [];
+    final catalogo = await _cargarCatalogoIngredientes();
+    final porNombre = {
+      for (final ing in catalogo)
+        _normalizarTextoBusqueda(ing['nombre']): ing,
+    };
+
+    return ingredientes.map((item) {
+      final nombre = _texto(item['nombre'] ?? item['ingrediente'], fallback: 'Ingrediente');
+      final match = porNombre[_normalizarTextoBusqueda(nombre)];
+      return {
+        'id_ingrediente': _entero(item['id_ingrediente'] ?? item['id']) ?? _entero(match?['id']),
+        'nombre': match?['nombre']?.toString() ?? nombre,
+        'cantidad': _decimal(item['cantidad'] ?? item['cantidad_visual'], fallback: 1),
+        'unidad': _texto(item['unidad'] ?? item['unidad_visual'], fallback: 'unidad'),
+        'gramos': _decimal(item['gramos'] ?? item['peso_gramos'] ?? item['peso_en_gramos'], fallback: 0),
+        'observaciones': _texto(item['observaciones'], fallback: ''),
+        'es_principal': item['es_principal'] == true,
+      };
+    }).toList();
+  }
+
+  Map<String, dynamic> _normalizarPasoJson(int index, Map<String, dynamic> item) {
+    return {
+      'paso': _entero(item['paso'] ?? item['numero_paso'], fallback: index + 1),
+      'descripcion': _texto(item['descripcion'] ?? item['instruccion'], fallback: ''),
+      'tiempo': _texto(item['tiempo'] ?? item['tiempo_estimado'], fallback: ''),
+      'nota': _texto(item['nota'] ?? item['nota_adicional'], fallback: ''),
+    };
+  }
+
+  Map<String, dynamic> _normalizarEtiquetaJson(Map<String, dynamic> item) {
+    final id = _entero(item['id'] ?? item['id_etiqueta']);
+    final nombre = _texto(item['titulo'] ?? item['nombre_visible'] ?? item['nombre'] ?? item['etiqueta'], fallback: '');
+    if (id == null && nombre.isEmpty) return {};
+    return {
+      if (id != null) 'id': id,
+      'titulo': nombre,
+      'nombre_visible': nombre,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> _normalizarEtiquetasJson(List<Map<String, dynamic>> etiquetas) async {
+    if (etiquetas.isEmpty) return [];
+    final catalogo = await _cargarCatalogoEtiquetas();
+    final porNombre = {
+      for (final etq in catalogo)
+        _normalizarTextoBusqueda(etq['nombre_visible'] ?? etq['titulo'] ?? etq['nombre']): etq,
+    };
+
+    return etiquetas.map((item) {
+      final base = _normalizarEtiquetaJson(item);
+      if (base.isEmpty) return base;
+      final nombre = _texto(base['titulo'] ?? item['etiqueta'], fallback: '');
+      final match = porNombre[_normalizarTextoBusqueda(nombre)];
+      return {
+        if (_entero(base['id'] ?? match?['id']) != null) 'id': _entero(base['id'] ?? match?['id']),
+        'titulo': match?['nombre_visible']?.toString() ?? nombre,
+        'nombre_visible': match?['nombre_visible']?.toString() ?? nombre,
+      };
+    }).where((e) => e.isNotEmpty).toList();
+  }
+
+  List<int> _normalizarIdsSeleccionados(dynamic value, List<dynamic> catalogo, List<int> actual) {
+    if (value is! List) return actual;
+    final ids = <int>[];
+    for (final item in value) {
+      if (item is Map && item['aplica'] == false) continue;
+      final id = item is Map
+          ? _entero(item['id'] ?? item['id_momento'] ?? item['id_tipo_plato'] ?? item['tipo_plato_id'])
+          : _entero(item);
+      if (id != null) {
+        ids.add(id);
+        continue;
+      }
+      final nombre = item is Map
+          ? (item['nombre'] ?? item['tipo_plato'] ?? item['nombre_visible'])?.toString().trim().toLowerCase()
+          : item?.toString().trim().toLowerCase();
+      if (nombre == null || nombre.isEmpty) continue;
+      for (final opt in catalogo) {
+        if (opt is Map && opt['nombre']?.toString().trim().toLowerCase() == nombre) {
+          final optId = _entero(opt['id']);
+          if (optId != null) ids.add(optId);
+        }
+      }
+    }
+    return ids.toSet().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _cargarCatalogoIngredientes() async {
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      return List<Map<String, dynamic>>.from(await repo.fetchIngredientes());
+    } catch (e) {
+      debugPrint('No se pudo cargar catalogo de ingredientes: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _cargarCatalogoEtiquetas() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get('nutricionista/etiquetas', queryParameters: {'q': ''});
+      return List<Map<String, dynamic>>.from(resp.data);
+    } catch (e) {
+      debugPrint('No se pudo cargar catalogo de etiquetas: $e');
+      return [];
+    }
+  }
+
+  String _normalizarTextoBusqueda(dynamic value) {
+    return value
+        ?.toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n') ?? '';
+  }
+
+  String _texto(dynamic value, {String fallback = ''}) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? fallback : text;
+  }
+
+  String _enteroTexto(dynamic value, {String fallback = '0'}) {
+    return (_entero(value)?.toString()) ?? fallback;
+  }
+
+  int? _entero(dynamic value, {int? fallback}) {
+    if (value == null) return fallback;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString()) ?? fallback;
+  }
+
+  double _decimal(dynamic value, {double fallback = 0}) {
+    if (value == null) return fallback;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().replaceAll(',', '.')) ?? fallback;
   }
 
   Widget _buildImagePicker() {
@@ -485,6 +812,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           Expanded(flex: 2, child: Text('Cantidad', style: _headerStyle())),
           Expanded(flex: 2, child: Text('Unidad', style: _headerStyle())),
           Expanded(flex: 2, child: Text('Gramos', style: _headerStyle())),
+          Expanded(flex: 3, child: Text('Observaciones', style: _headerStyle())),
           Expanded(flex: 2, child: Center(child: Text('Principal', style: _headerStyle()))),
           SizedBox(width: 80, child: Center(child: Text('Acciones', style: _headerStyle()))),
         ],
@@ -506,6 +834,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           Expanded(flex: 2, child: _buildRowInput(index, 'cantidad')),
           Expanded(flex: 2, child: _buildRowInput(index, 'unidad')),
           Expanded(flex: 2, child: _buildRowInput(index, 'gramos', isNumber: true)),
+          Expanded(flex: 3, child: _buildRowInput(index, 'observaciones', maxLines: 2)),
           Expanded(
             flex: 2,
             child: Center(
@@ -533,11 +862,13 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     );
   }
 
-  Widget _buildRowInput(int index, String key, {bool isNumber = false}) {
+  Widget _buildRowInput(int index, String key, {bool isNumber = false, int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: TextFormField(
         initialValue: _ingredientes[index][key]?.toString(),
+        key: ValueKey('ingrediente-$index-$key-${_ingredientes[index][key]}'),
+        maxLines: maxLines,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         decoration: _inputStyle(''),
         onChanged: (v) => _ingredientes[index][key] = isNumber ? (double.tryParse(v) ?? 0) : v,
@@ -587,6 +918,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             child: Column(
               children: [
                 TextFormField(
+                  key: ValueKey('paso-desc-$index-${p['descripcion']}'),
                   initialValue: p['descripcion'],
                   maxLines: 2,
                   decoration: _inputStyle('Instrucciones...'),
@@ -595,9 +927,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: TextFormField(initialValue: p['tiempo'], decoration: _inputStyle('Tiempo'), onChanged: (v) => _pasos[index]['tiempo'] = v)),
+                    Expanded(child: TextFormField(key: ValueKey('paso-tiempo-$index-${p['tiempo']}'), initialValue: p['tiempo'], decoration: _inputStyle('Tiempo'), onChanged: (v) => _pasos[index]['tiempo'] = v)),
                     const SizedBox(width: 8),
-                    Expanded(child: TextFormField(initialValue: p['nota'], decoration: _inputStyle('Nota'), onChanged: (v) => _pasos[index]['nota'] = v)),
+                    Expanded(child: TextFormField(key: ValueKey('paso-nota-$index-${p['nota']}'), initialValue: p['nota'], decoration: _inputStyle('Nota'), onChanged: (v) => _pasos[index]['nota'] = v)),
                     IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => setState(() => _pasos.removeAt(index))),
                   ],
                 ),
@@ -775,4 +1107,46 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       debugPrint("Error al heredar etiquetas inteligentes: $e");
     }
   }
+
+  static const String _jsonEjemplo = '''
+{
+  "receta": {
+    "nombre": "Batido de fresa",
+    "descripcion": "Batido frío con fresa, yogur y avena.",
+    "descripcion_larga": "Preparación fría y cremosa.",
+    "dificultad": "Fácil",
+    "porciones": 1,
+    "tiempo_preparacion_min": 6,
+    "tiempo_coccion_min": 0,
+    "activa": true,
+    "momentos_comida": [
+      {"nombre": "Desayuno", "aplica": true}
+    ],
+    "tipos_plato": [
+      {"tipo_plato": "Batido", "aplica": true}
+    ],
+    "ingredientes": [
+      {
+        "nombre": "Fresa",
+        "cantidad_visual": "1/2",
+        "unidad_visual": "taza",
+        "peso_en_gramos": 75,
+        "es_principal": true,
+        "observaciones": "lavada y picada"
+      }
+    ],
+    "preparacion": [
+      {
+        "numero_paso": 1,
+        "descripcion": "Lavar bien las fresas.",
+        "tiempo_estimado": 2,
+        "nota_adicional": "Usar fruta fresca."
+      }
+    ],
+    "etiquetas_salud_sugeridas": [
+      {"etiqueta": "Alto poder antioxidante"}
+    ]
+  }
+}
+''';
 }

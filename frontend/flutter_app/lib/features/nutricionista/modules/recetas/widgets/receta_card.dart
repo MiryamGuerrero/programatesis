@@ -41,7 +41,7 @@ class RecetaCard extends StatelessWidget {
           // Sección 2: Cuerpo de Información
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -78,7 +78,7 @@ class RecetaCard extends StatelessWidget {
                   ),
                   
                   // Fila 3: Descripción
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     receta['descripcion'] ?? 'Sin descripción disponible.',
                     style: GoogleFonts.montserrat(
@@ -102,7 +102,7 @@ class RecetaCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   
                   // Fila 4: Metadatos de Preparación
                   Row(
@@ -114,12 +114,12 @@ class RecetaCard extends StatelessWidget {
                       const SizedBox(width: 20),
                       _buildMetadataBlock(
                         Icons.access_time_rounded,
-                        '${receta['tiempo_preparacion'] ?? 0} min',
+                        '${receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0} min',
                       ),
                     ],
                   ),
                   
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 ],
               ),
@@ -134,8 +134,8 @@ class RecetaCard extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
+    return SizedBox(
+      height: 170,
       child: Stack(
         children: [
           Container(
@@ -279,10 +279,12 @@ class RecetaCard extends StatelessWidget {
           Text(
             value,
             style: GoogleFonts.montserrat(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: AppTema.azulOscuro,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -291,7 +293,7 @@ class RecetaCard extends StatelessWidget {
 
   Widget _buildFooter() {
     return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+      padding: const EdgeInsets.only(left: 18, right: 18, bottom: 16),
       child: Row(
         children: [
           // Botón Principal
