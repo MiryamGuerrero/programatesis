@@ -86,6 +86,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   bool _tieneAlergiaSub = false;
   bool _tieneAlergiaIng = false;
   List<int> _alergiasSub = [];
+  Set<String> _restriccionesAlimentarias = {};
   List<Map<String, dynamic>> _selectedIngredientes = [];
   List<Map<String, dynamic>> _recomendacionesIng = [];
   List<Map<String, dynamic>> _condicionesTemp = [];
@@ -97,11 +98,108 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   List<dynamic> _subgrupos = [];
   List<dynamic> _ingredientes = [];
   List<dynamic> _condicionesTemporalesCat = [];
+  List<dynamic> _restriccionesAlimentariasCat = [];
   List<dynamic> _cantones = [];
   List<dynamic> _parroquiasCat = [];
   List<dynamic> _parroquiasFiltradas = [];
 
   final Set<int> _idsLacteos = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119};
+
+  String _norm(dynamic value) => (value ?? "").toString().toLowerCase().trim();
+
+  bool _hasAny(String value, List<String> patterns) {
+    final normalized = _norm(value);
+    return patterns.any((p) => normalized.contains(p));
+  }
+
+  List<String> _patronesSubgrupoRestriccion(String codigo) {
+    switch (codigo) {
+      case "INTOLERANCIA_LACTOSA":
+        return ["con lactosa", "lacteos", "lÃ¡cteos", "leches animales", "quesos frescos", "quesos procesados", "mantequillas"];
+      case "ALERGIA_GLUTEN":
+      case "CELIAQUIA":
+        return ["con gluten"];
+      case "ALERGIA_HUEVO":
+        return ["huevo"];
+      case "ALERGIA_SOJA":
+        return ["soja"];
+      case "ALERGIA_FRUTOS_SECOS":
+        return ["frutos secos"];
+      case "ALERGIA_PESCADO_MARISCOS":
+        return ["pescado", "marisco", "crustaceo", "crustÃ¡ceo", "molusco"];
+      case "DIABETES":
+        return ["azucares", "azÃºcares", "dulces", "pasteleria", "pastelerÃ­a", "chocolates con leche"];
+      case "INTOLERANCIA_FRUCTOSA":
+        return ["frutas", "dulces", "azucares", "azÃºcares"];
+      case "INTOLERANCIA_HISTAMINA":
+        return ["quesos curados", "embutidos", "fermentad", "pescado"];
+      case "INTOLERANCIA_SORBITOL_SACAROSA":
+        return ["azucares", "azÃºcares", "dulces", "pasteleria", "pastelerÃ­a"];
+      case "INTOLERANCIA_SULFITOS":
+        return ["frutos secos", "procesad", "conserva"];
+      default:
+        return const [];
+    }
+  }
+
+  List<String> _patronesIngredienteRestriccion(String codigo) {
+    switch (codigo) {
+      case "ALERGIA_GLUTEN":
+      case "CELIAQUIA":
+        return ["trigo", "cebada", "centeno", "cuscus", "cuscÃºs", "pasta", "galleta"];
+      case "ALERGIA_HUEVO":
+        return ["huevo", "clara", "yema", "mayonesa", "merengue"];
+      case "ALERGIA_SOJA":
+        return ["soja", "tofu", "tempeh", "lecitina"];
+      case "ALERGIA_FRUTOS_SECOS":
+        return ["almendra", "nuez", "mani", "manÃ­", "cacahuete", "avellana", "pistacho"];
+      case "DIABETES":
+        return ["azucar", "azÃºcar", "panela", "miel", "jarabe", "sirope", "caramelo", "mermelada", "dulce de leche", "gaseosa", "refresco", "chocolate blanco", "chocolate con leche"];
+      case "INTOLERANCIA_FRUCTOSA":
+        return ["fructosa", "miel", "jarabe", "sirope", "manzana", "pera", "mango", "sandia", "sandÃ­a", "uva", "pasas", "higo", "datil", "dÃ¡til"];
+      case "INTOLERANCIA_HISTAMINA":
+        return ["queso curado", "parmesano", "embutido", "salami", "chorizo", "jamon", "jamÃ³n", "atun", "atÃºn", "sardina", "salmon", "salmÃ³n", "vinagre", "chucrut", "kefir", "kÃ©fir"];
+      case "INTOLERANCIA_SORBITOL_SACAROSA":
+        return ["sorbitol", "sacarosa", "azucar", "azÃºcar", "caramelo", "mermelada", "dulce", "chicle", "manzana", "pera", "ciruela"];
+      case "INTOLERANCIA_SULFITOS":
+        return ["sulfito", "vino", "pasas", "fruta deshidratada", "frutos secos", "conserva", "encurtido", "vinagre"];
+      default:
+        return const [];
+    }
+  }
+
+  Set<int> _subgruposBloqueadosPorRestricciones() {
+    final blocked = <int>{};
+    if (_lactosa == true || _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA")) {
+      blocked.addAll(_idsLacteos);
+    }
+    for (final subgrupo in _subgrupos) {
+      final id = (subgrupo["id"] as num?)?.toInt();
+      if (id == null) continue;
+      final nombre = subgrupo["nombre"]?.toString() ?? "";
+      final bloqueado = _restriccionesAlimentarias.any((codigo) => _hasAny(nombre, _patronesSubgrupoRestriccion(codigo)));
+      if (bloqueado) blocked.add(id);
+    }
+    return blocked;
+  }
+
+  bool _ingredienteBloqueadoPorRestricciones(Map ingrediente) {
+    final idSub = (ingrediente['id_subgrupo_alimentario'] as num?)?.toInt();
+    if (idSub != null && _subgruposBloqueadosPorRestricciones().contains(idSub)) return true;
+
+    final nombre = ingrediente['nombre']?.toString() ?? "";
+    final sinonimos = (ingrediente['sinonimos'] as List? ?? []).map((s) => s.toString()).toList();
+    return _restriccionesAlimentarias.any((codigo) {
+      final patterns = _patronesIngredienteRestriccion(codigo);
+      return _hasAny(nombre, patterns) || sinonimos.any((s) => _hasAny(s, patterns));
+    });
+  }
+
+  void _limpiarSeleccionesRedundantesPorRestricciones() {
+    final subBloqueados = _subgruposBloqueadosPorRestricciones();
+    _alergiasSub.removeWhere((id) => subBloqueados.contains(id));
+    _selectedIngredientes.removeWhere((ing) => _ingredienteBloqueadoPorRestricciones(ing));
+  }
 
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
@@ -165,6 +263,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           _sexos = catalogos["sexos"] ?? [];
           _patologias = catalogos["patologias"] ?? [];
           _condicionesTemporalesCat = catalogos["condiciones_temporales"] ?? [];
+          _restriccionesAlimentariasCat = catalogos["restricciones_alimentarias"] ?? [];
           _ingredientes = catalogos["ingredientes"] ?? [];
           _cantones = catalogos["cantones"] ?? [];
           _parroquiasCat = catalogos["parroquias"] ?? [];
@@ -233,6 +332,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               _tieneAlergiaSub = _alergiasSub.isNotEmpty;
               _tieneAlergiaIng = _selectedIngredientes.isNotEmpty;
               _lactosa = data['es_intolerante_lactosa'] == true;
+              _restriccionesAlimentarias = (data['restricciones_alimentarias'] as List? ?? [])
+                  .map((e) => e.toString())
+                  .toSet();
+              if (_lactosa == true) _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA");
               if (_lactosa == true) _alergiasSub.removeWhere((id) => _idsLacteos.contains(id));
             }
 
@@ -436,7 +539,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "minutos_rigidez": _clinRigidez.text, "puntos_dolor": _dolor.toInt(),
           "escala_inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
           "en_brote": _brote, "estado_enfermedad": _estadoEnfermedad, "observaciones": _clinNotas.text,
-          "es_intolerante_lactosa": _lactosa, "alergias_subgrupos": _alergiasSub,
+          "es_intolerante_lactosa": _lactosa,
+          "restricciones_alimentarias": _restriccionesAlimentarias.toList(),
+          "alergias_subgrupos": _alergiasSub,
           "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
           "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList(),
           "condiciones_temporales": _condicionesTemp,
@@ -682,6 +787,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _sectionHeader("ALERGIAS E INTOLERANCIAS", Icons.warning_amber_rounded),
             const SizedBox(height: 20),
             _buildIntoleranciaLactosa(),
+            const SizedBox(height: 24),
+            _buildRestriccionesAlimentarias(),
             const SizedBox(height: 32),
             _buildAlergiasCheckboxes(),
           ]),
@@ -824,11 +931,77 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       setState(() {
         _lactosa = v;
         if (v == true) {
-          _alergiasSub.removeWhere((id) => _idsLacteos.contains(id));
+          _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA");
+        } else {
+          _restriccionesAlimentarias.remove("INTOLERANCIA_LACTOSA");
         }
+        _limpiarSeleccionesRedundantesPorRestricciones();
       });
-    }), const SizedBox(width: 20), _yesNoBtn("NO DETECTADA", false, _lactosa == false, (v) => setState(() => _lactosa = v))])
+    }), const SizedBox(width: 20), _yesNoBtn("NO DETECTADA", false, _lactosa == false, (v) => setState(() {
+      _lactosa = v;
+      _restriccionesAlimentarias.remove("INTOLERANCIA_LACTOSA");
+      _limpiarSeleccionesRedundantesPorRestricciones();
+    }))])
   ]);
+
+  Widget _buildRestriccionesAlimentarias() {
+    final restricciones = _restriccionesAlimentariasCat
+        .where((r) => r["codigo"] != "INTOLERANCIA_LACTOSA")
+        .toList();
+    if (restricciones.isEmpty) return const SizedBox.shrink();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text(
+        "OTRAS RESTRICCIONES CLINICAS",
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5),
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: restricciones.map((r) {
+          final codigo = r["codigo"].toString();
+          final selected = _restriccionesAlimentarias.contains(codigo);
+          final isDiabetes = codigo == "DIABETES";
+          return FilterChip(
+            selected: selected,
+            label: Text(
+              r["nombre"]?.toString() ?? codigo,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                color: selected ? (isDiabetes ? Colors.deepPurple : Colors.red.shade700) : const Color(0xFF475569),
+              ),
+            ),
+            avatar: Icon(
+              isDiabetes ? Icons.monitor_heart_outlined : Icons.no_food_outlined,
+              size: 16,
+              color: selected ? (isDiabetes ? Colors.deepPurple : Colors.red.shade700) : Colors.blueGrey,
+            ),
+            selectedColor: isDiabetes ? Colors.deepPurple.withOpacity(0.10) : Colors.red.withOpacity(0.08),
+            checkmarkColor: isDiabetes ? Colors.deepPurple : Colors.red.shade700,
+            onSelected: (value) {
+              setState(() {
+                if (value) {
+                  _restriccionesAlimentarias.add(codigo);
+                } else {
+                  _restriccionesAlimentarias.remove(codigo);
+                }
+                _limpiarSeleccionesRedundantesPorRestricciones();
+              });
+            },
+          );
+        }).toList(),
+      ),
+      if (_restriccionesAlimentarias.contains("DIABETES")) ...[
+        const SizedBox(height: 10),
+        Text(
+          "Diabetes bloqueara azucares concentrados y etiquetas no aptas para diabeticos; no bloquea todos los carbohidratos.",
+          style: TextStyle(fontSize: 11, color: Colors.deepPurple.shade700, fontWeight: FontWeight.w600),
+        ),
+      ],
+    ]);
+  }
 
   Widget _yesNoBtn(String l, bool val, bool sel, Function(bool) onTap) => Expanded(child: InkWell(onTap: () => onTap(val), child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: sel ? (val ? Colors.red.shade50 : greenBrand.withOpacity(0.1)) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: sel ? (val ? Colors.red : greenBrand) : const Color(0xFFE2E8F0), width: 2.5)), child: Center(child: Text(l, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? (val ? Colors.red : greenBrand) : Colors.blueGrey))))));
 
@@ -959,7 +1132,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   Widget _buildAlergiasCheckboxes() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     CheckboxListTile(title: const Text("TIENE ALERGIAS A GRUPOS ALIMENTARIOS", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)), value: _tieneAlergiaSub, onChanged: (v) => setState(() => _tieneAlergiaSub = v!), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, activeColor: greenBrand),
-    if (_tieneAlergiaSub) _multiSelectChips("SELECCIONE GRUPOS RESTRINGIDOS", _subgrupos, _alergiasSub, (id, sel) { setState(() { if (sel) _alergiasSub.add(id); else _alergiasSub.remove(id); }); }, blockedIds: _lactosa == true ? _idsLacteos : {}),
+    if (_tieneAlergiaSub) _multiSelectChips("SELECCIONE GRUPOS RESTRINGIDOS", _subgrupos, _alergiasSub, (id, sel) { setState(() { if (sel) _alergiasSub.add(id); else _alergiasSub.remove(id); }); }, blockedIds: _subgruposBloqueadosPorRestricciones()),
     const SizedBox(height: 12),
     CheckboxListTile(title: const Text("TIENE ALERGIAS A INGREDIENTES ESPECÍFICOS", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)), value: _tieneAlergiaIng, onChanged: (v) => setState(() => _tieneAlergiaIng = v!), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, activeColor: greenBrand),
     if (_tieneAlergiaIng) ...[
@@ -982,9 +1155,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               // Filtrar por subgrupos bloqueados (Lactosa + Subgrupos seleccionados)
               final idSub = (e['id_subgrupo_alimentario'] as num?)?.toInt();
               final subBloqueados = <int>{};
-              if (_lactosa == true) subBloqueados.addAll(_idsLacteos);
+              subBloqueados.addAll(_subgruposBloqueadosPorRestricciones());
               subBloqueados.addAll(_alergiasSub);
               if (idSub != null && subBloqueados.contains(idSub)) return false;
+              if (_ingredienteBloqueadoPorRestricciones(Map<String, dynamic>.from(e as Map))) return false;
 
               if (q.isEmpty) return true;
               final name = (e['nombre'] ?? "").toString().toLowerCase();

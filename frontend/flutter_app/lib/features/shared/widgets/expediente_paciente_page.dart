@@ -267,11 +267,42 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
     final alergias = _data!['alergias'];
     final subgrupos = (alergias['subgrupos'] as List);
     final ingredientes = (alergias['ingredientes'] as List);
+    final restricciones = (_data!['restricciones_alimentarias_detalle'] as List? ?? []);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(40),
       child: Column(
         children: [
+          if (restricciones.isNotEmpty) ...[
+            NutriTableContainer(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.health_and_safety_outlined, color: Colors.deepPurple),
+                        SizedBox(width: 12),
+                        Text("RESTRICCIONES CLINICAS ACTIVAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: restricciones.map((r) => Chip(
+                        label: Text(r['nombre']?.toString() ?? r['codigo']?.toString() ?? "Restriccion", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        backgroundColor: Colors.deepPurple.shade50,
+                        side: BorderSide(color: Colors.deepPurple.shade100),
+                      )).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
           NutriTableContainer(
             child: Padding(
               padding: const EdgeInsets.all(24),

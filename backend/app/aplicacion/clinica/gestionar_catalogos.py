@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 from ...domain.repositorios.interfaces import IRepositorioPerfil
+from ...domain.servicios.restricciones_alimentarias import catalogo_restricciones
 
 class CasoUsoGestionarCatalogos:
     def __init__(self, repo_perfil: IRepositorioPerfil):
@@ -25,4 +26,5 @@ class CasoUsoGestionarCatalogos:
             "cantones": self.repo_perfil.obtener_catalogo("usuarios", "canton"),
             "parroquias": self.repo_perfil.obtener_catalogo("usuarios", "parroquia"),
             "subgrupos": self.repo_perfil.obtener_catalogo("nutricion", "subgrupo_alimentario"),
+            "restricciones_alimentarias": catalogo_restricciones(),
         }

@@ -82,6 +82,7 @@ class SaludRegistroIntegral(BaseModel):
     estado_enfermedad: Optional[str] = None
     observaciones: Optional[str] = None
     es_intolerante_lactosa: Optional[bool] = None
+    restricciones_alimentarias: list[str] = Field(default_factory=list)
     alergias_subgrupos: list[int] = Field(default_factory=list)
     alergias_ingredientes: list[int] = Field(default_factory=list)
     condiciones_temporales: list[dict[str, Any]] = Field(default_factory=list)
@@ -105,6 +106,7 @@ class SaludFijaUpdate(BaseModel):
     estado_enfermedad: Optional[str] = None
     observaciones: Optional[str] = None
     es_intolerante_lactosa: Optional[bool] = None
+    restricciones_alimentarias: list[str] = Field(default_factory=list)
     alergias_subgrupos: list[int] = Field(default_factory=list)
     alergias_ingredientes: list[int] = Field(default_factory=list)
     condiciones_temporales: list[dict[str, Any]] = Field(default_factory=list)

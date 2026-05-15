@@ -30,6 +30,8 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _initializing = true;
+  
+  // Soporte para archivos físicos
   XFile? _imageFile;
   Uint8List? _imagePreviewBytes;
   bool _uploadingImage = false;
@@ -163,37 +165,23 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     try {
       String? finalImageUrl = _imagenUrl;
 
-      // 1. Manejo de cambio/eliminación de imagen
-      final bool esEdicion = widget.recetaInicial != null;
-      final String? urlPrevia = esEdicion ? widget.recetaInicial!['imagen_url'] : null;
-
-      // Si se subió una nueva imagen
+      // 1. Manejo de subida física si se seleccionó un archivo
       if (_imageFile != null) {
         setState(() => _uploadingImage = true);
         try {
-          // Eliminar la previa si existía para no dejar huérfanos
-          if (urlPrevia != null && urlPrevia.isNotEmpty) {
-            await RecipeImageService.deleteImageByUrl(urlPrevia);
-          }
-
           finalImageUrl = await RecipeImageService.uploadRecipeImage(
             imageFile: _imageFile!,
             fileName: 'receta_${DateTime.now().millisecondsSinceEpoch}.jpg',
           );
         } catch (e) {
-          NutriSnack.show(context, 'Error al procesar imagen: $e', isError: true);
+          NutriSnack.show(context, 'Error al subir imagen: $e', isError: true);
         } finally {
           setState(() => _uploadingImage = false);
         }
       }
-      // Si el usuario quitó la imagen manualmente
-      else if (_imagenUrl == null && urlPrevia != null) {
-        await RecipeImageService.deleteImageByUrl(urlPrevia);
-        finalImageUrl = null;
-      }
 
       final payload = {
-        if (esEdicion) 'id': widget.recetaInicial!['id'],
+        if (widget.recetaInicial != null) 'id': widget.recetaInicial!['id'],
         'nombre': _ctrlNombre.text,
         'descripcion': _ctrlDescCorta.text,
         'descripcion_larga': _ctrlDescLarga.text,

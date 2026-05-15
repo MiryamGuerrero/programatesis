@@ -8,6 +8,11 @@ from app.core.db import db_cursor
 from app.domain.modelos.paciente import PerfilPaciente
 from app.domain.repositorios.interfaces import IRepositorioPaciente
 from app.domain.servicios.servicio_oms import ServicioOMS
+from app.domain.servicios.restricciones_alimentarias import (
+    RESTRICCIONES_ALIMENTARIAS,
+    SUBGRUPOS_CON_LACTOSA,
+    normalizar_codigos_restriccion,
+)
 
 class RepositorioPacientePostgres(IRepositorioPaciente):
     
@@ -15,7 +20,78 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         return ServicioOMS.calcular_edad_meses(fecha_nacimiento, date.today())
 
     def _obtener_ids_lacteos(self) -> set[int]:
-        return {98, 100, 101, 104, 105, 108, 111, 114, 117, 119}
+        return set(SUBGRUPOS_CON_LACTOSA)
+
+    def _expandir_restricciones_alimentarias(self, cur, codigos: set[str]) -> tuple[set[int], set[int]]:
+        subgrupos: set[int] = set()
+        ingredientes: set[int] = set()
+
+        for codigo in codigos:
+            restriccion = RESTRICCIONES_ALIMENTARIAS.get(codigo)
+            if not restriccion:
+                continue
+
+            subgrupos.update(restriccion.subgrupos_ids)
+            ingredientes.update(restriccion.ingredientes_ids)
+
+            for patron in restriccion.patrones_subgrupo:
+                cur.execute(
+                    "select id from nutricion.subgrupo_alimentario where lower(nombre) like %s",
+                    (f"%{patron.lower()}%",),
+                )
+                subgrupos.update(r[0] for r in cur.fetchall())
+
+            for patron in restriccion.patrones_ingrediente:
+                cur.execute(
+                    "select id from nutricion.ingrediente where lower(nombre) like %s",
+                    (f"%{patron.lower()}%",),
+                )
+                ingredientes.update(r[0] for r in cur.fetchall())
+
+            if restriccion.etiquetas_bloqueadas:
+                cur.execute(
+                    """
+                    select distinct ie.id_ingrediente
+                    from nutricion.ingrediente_etiqueta ie
+                    join nutricion.etiqueta_nutricional e on e.id = ie.id_etiqueta
+                    where e.codigo = any(%s)
+                    """,
+                    (list(restriccion.etiquetas_bloqueadas),),
+                )
+                ingredientes.update(r[0] for r in cur.fetchall())
+
+        return subgrupos, ingredientes
+
+    def _guardar_restricciones_alimentarias(self, cur, id_paciente: str, codigos: set[str]) -> None:
+        cur.execute("select to_regclass('clinico.restriccion_paciente')")
+        if not cur.fetchone()[0]:
+            return
+
+        cur.execute("delete from clinico.restriccion_paciente where id_paciente = %s", (id_paciente,))
+        for codigo in sorted(codigos):
+            cur.execute(
+                """
+                insert into clinico.restriccion_paciente
+                (id_paciente, codigo_restriccion, fecha_registro, activa)
+                values (%s, %s, now(), true)
+                """,
+                (id_paciente, codigo),
+            )
+
+    def _obtener_restricciones_registradas(self, cur, id_paciente: str) -> set[str]:
+        cur.execute("select to_regclass('clinico.restriccion_paciente')")
+        if not cur.fetchone()[0]:
+            return set()
+
+        cur.execute(
+            """
+            select codigo_restriccion
+            from clinico.restriccion_paciente
+            where id_paciente = %s and activa = true
+            """,
+            (id_paciente,),
+        )
+        return normalizar_codigos_restriccion(r[0] for r in cur.fetchall())
 
     def obtener_por_id(self, id_paciente: str) -> Optional[PerfilPaciente]:
         with db_cursor() as cur:
@@ -163,17 +239,22 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 if salud.get("id_patologia_base"):
                     cur.execute("insert into clinico.diagnostico_paciente (id_paciente, id_condicion, fecha_diagnostico, es_cronico, esta_activo, observaciones) values (%s, %s, now(), true, true, %s)", (paciente_id, salud["id_patologia_base"], salud.get("observaciones")))
                 
-                # 8. Alergias
+                # 8. Alergias y restricciones alimentarias
+                restricciones = normalizar_codigos_restriccion(salud.get("restricciones_alimentarias", []))
+                if salud.get("es_intolerante_lactosa") == True:
+                    restricciones.add("INTOLERANCIA_LACTOSA")
+
                 subs = set(salud.get("alergias_subgrupos", []))
-                if salud.get("es_intolerante_lactosa") == True: 
-                    subs.update(self._obtener_ids_lacteos())
+                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
+                subs.update(sub_restricciones)
+                self._guardar_restricciones_alimentarias(cur, str(paciente_id), restricciones)
                 
                 for sid in subs:
                     cur.execute("insert into clinico.alergia_paciente_subgrupo (id_paciente, id_subgrupo_alimentario, fecha_registro, activa) values (%s, %s, now(), true)", (paciente_id, sid))
                 
                 # Lógica de expansión de alergias por ingredientes
                 ingredientes_base_ids = salud.get("alergias_ingredientes", [])
-                ingredientes_final_ids = set(ingredientes_base_ids)
+                ingredientes_final_ids = set(ingredientes_base_ids) | ing_restricciones
                 if ingredientes_base_ids:
                     cur.execute("select nombre from nutricion.ingrediente where id = any(%s)", (list(ingredientes_base_ids),))
                     patrones = [
@@ -296,15 +377,20 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("delete from clinico.alergia_paciente_ingrediente where id_paciente = %s", (id_paciente,))
                 
                 # Insertar subgrupos (incluyendo lógica de lactosa)
-                subs = set(salud.get("alergias_subgrupos", []))
+                restricciones = normalizar_codigos_restriccion(salud.get("restricciones_alimentarias", []))
                 if salud.get("es_intolerante_lactosa") == True:
-                    subs.update(self._obtener_ids_lacteos())
+                    restricciones.add("INTOLERANCIA_LACTOSA")
+
+                subs = set(salud.get("alergias_subgrupos", []))
+                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
+                subs.update(sub_restricciones)
+                self._guardar_restricciones_alimentarias(cur, id_paciente, restricciones)
                 
                 for sid in subs:
                     cur.execute("insert into clinico.alergia_paciente_subgrupo (id_paciente, id_subgrupo_alimentario, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, sid))
                 
                 # Insertar ingredientes
-                for iid in salud.get("alergias_ingredientes", []):
+                for iid in set(salud.get("alergias_ingredientes", [])) | ing_restricciones:
                     cur.execute("insert into clinico.alergia_paciente_ingrediente (id_paciente, id_ingrediente, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, iid))
 
                 # 5. Recomendaciones de Ingredientes (Se consideran datos de fondo/fijos)
@@ -381,8 +467,15 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             alergias_ing = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
 
             # Detectar intolerancia a la lactosa (si tiene subgrupos lácteos bloqueados)
-            ids_lacteos_con_lactosa = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119}
-            tiene_bloqueo_lactosa = any(a['id'] in ids_lacteos_con_lactosa for a in alergias_sub)
+            restricciones = self._obtener_restricciones_registradas(cur, id_paciente)
+            if any(a['id'] in SUBGRUPOS_CON_LACTOSA for a in alergias_sub):
+                restricciones.add("INTOLERANCIA_LACTOSA")
+            tiene_bloqueo_lactosa = "INTOLERANCIA_LACTOSA" in restricciones
+            restricciones_detalle = [
+                {"codigo": codigo, "nombre": RESTRICCIONES_ALIMENTARIAS[codigo].nombre}
+                for codigo in sorted(restricciones)
+                if codigo in RESTRICCIONES_ALIMENTARIAS
+            ]
 
             # 5. Historial de Controles Clínicos
             cur.execute("""
@@ -441,6 +534,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "tutor": tutor, 
                 "diagnostico": diagnostico, 
                 "es_intolerante_lactosa": tiene_bloqueo_lactosa,
+                "restricciones_alimentarias": [r["codigo"] for r in restricciones_detalle],
+                "restricciones_alimentarias_detalle": restricciones_detalle,
                 "alergias": {"subgrupos": alergias_sub, "ingredientes": alergias_ing}, 
                 "recomendaciones": {"ingredientes": recomendaciones_ing},
                 "ultimo_control": ultimo_control, 
@@ -711,6 +806,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("delete from clinico.diagnostico_paciente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.alergia_paciente_subgrupo where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.alergia_paciente_ingrediente where id_paciente = %s", (id_paciente,))
+                delete_if_table_exists("clinico.restriccion_paciente", "delete from clinico.restriccion_paciente where id_paciente = %s", (id_paciente,))
                 
                 # 4. Eliminar relación Tutor-Paciente y finalmente al Paciente
                 cur.execute("delete from usuarios.tutor_paciente where id_paciente = %s", (id_paciente,))

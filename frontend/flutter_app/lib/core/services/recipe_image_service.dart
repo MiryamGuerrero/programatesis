@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,20 +8,20 @@ import 'package:path/path.dart' as p;
 class RecipeImageService {
   static final _picker = ImagePicker();
   static final _supabase = Supabase.instance.client;
+  static const String _primaryBucket = 'receta_imagenes';
+  static const String _legacyBucket = 'imagenes_recetas';
 
-  /// Permite al usuario seleccionar una imagen desde la galería o cámara.
   static Future<XFile?> pickImage(ImageSource source) async {
     return await _picker.pickImage(
       source: source,
-      maxWidth: 2000, 
+      maxWidth: 2000,
       maxHeight: 2000,
     );
   }
 
-  /// Optimiza la imagen: redimensiona a un máximo de 1024px y comprime a JPEG.
   static Future<Uint8List> optimizeImage(XFile xFile) async {
     final bytes = await xFile.readAsBytes();
-    
+
     img.Image? image = img.decodeImage(bytes);
     if (image == null) throw Exception("No se pudo decodificar la imagen");
 
@@ -37,71 +36,87 @@ class RecipeImageService {
     return Uint8List.fromList(img.encodeJpg(image, quality: 80));
   }
 
-  /// Sube la imagen optimizada a Supabase Storage y retorna la URL pública.
-  /// Usa el bucket 'receta_imagenes'.
   static Future<String> uploadRecipeImage({
     required XFile imageFile,
     required String fileName,
   }) async {
     try {
       final optimizedBytes = await optimizeImage(imageFile);
-      
-      final cleanFileName = '${DateTime.now().millisecondsSinceEpoch}_${p.basename(fileName)}';
-      // Guardamos en la raíz del bucket para simplificar
-      final storagePath = cleanFileName;
+      final baseName = p
+          .basenameWithoutExtension(fileName)
+          .replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
+          .replaceAll(RegExp(r'_+'), '_');
+      final cleanFileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${baseName.isEmpty ? 'receta' : baseName}.jpg';
 
-      await _supabase.storage.from('receta_imagenes').uploadBinary(
-            storagePath,
-            optimizedBytes,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
-          );
-
-      final String publicUrl = _supabase.storage.from('receta_imagenes').getPublicUrl(storagePath);
-      
-      return publicUrl;
+      final bucket = await _uploadToAvailableBucket(cleanFileName, optimizedBytes);
+      return _supabase.storage.from(bucket).getPublicUrl(cleanFileName);
     } catch (e) {
       debugPrint("Error subiendo imagen: $e");
       rethrow;
     }
   }
 
-  /// Elimina una imagen del storage dado su URL pública.
-  static Future<void> deleteImageByUrl(String url) async {
+  static Future<String> _uploadToAvailableBucket(
+    String storagePath,
+    Uint8List bytes,
+  ) async {
+    const options = FileOptions(
+      cacheControl: '3600',
+      upsert: true,
+      contentType: 'image/jpeg',
+    );
+
     try {
-      final uri = Uri.parse(url);
-      // El nombre del archivo es el último segmento de la ruta
-      final fileName = uri.pathSegments.last;
-      
-      await _supabase.storage.from('receta_imagenes').remove([fileName]);
-      debugPrint("Imagen eliminada del storage: $fileName");
-    } catch (e) {
-      debugPrint("Error eliminando imagen del storage: $e");
-      // No lanzamos error para evitar bloquear la app si la imagen ya no existía
+      await _supabase.storage.from(_primaryBucket).uploadBinary(
+            storagePath,
+            bytes,
+            fileOptions: options,
+          );
+      return _primaryBucket;
+    } on StorageException catch (e) {
+      final bucketMissing =
+          e.statusCode == '404' || e.message.toLowerCase().contains('bucket not found');
+      if (!bucketMissing) rethrow;
+
+      await _supabase.storage.from(_legacyBucket).uploadBinary(
+            storagePath,
+            bytes,
+            fileOptions: options,
+          );
+      return _legacyBucket;
     }
   }
 
-  /// Registra la imagen en la tabla receta_imagen (en el esquema public).
-  /// Columnas existentes: id, id_receta, imagen_url, orden.
+  static Future<void> deleteImageByUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final fileName = uri.pathSegments.last;
+      final bucket = uri.pathSegments.contains(_legacyBucket) ? _legacyBucket : _primaryBucket;
+
+      await _supabase.storage.from(bucket).remove([fileName]);
+      debugPrint("Imagen eliminada del storage: $fileName");
+    } catch (e) {
+      debugPrint("Error eliminando imagen del storage: $e");
+    }
+  }
+
   static Future<void> registerImageInDb({
     required int idReceta,
     required String url,
     int orden = 1,
   }) async {
     try {
-      // Usamos el esquema public (por defecto) para evitar errores de exposición
       await _supabase.from('receta_imagen').insert({
         'id_receta': idReceta,
         'imagen_url': url,
         'orden': orden,
       });
-      
-      // Intentamos actualizar la tabla nutricion.receta (que el backend sí ve)
-      // Pero para la app, si no está expuesto nutricion, esto podría fallar.
-      // Por ahora, registramos en receta_imagen que es lo que pide la funcionalidad.
+
       try {
         await _supabase.schema('nutricion').from('receta').update({'imagen_url': url}).eq('id', idReceta);
       } catch (e) {
-        debugPrint("Nota: No se pudo actualizar nutricion.receta (posible esquema no expuesto), pero la imagen se registró en receta_imagen.");
+        debugPrint("Nota: No se pudo actualizar nutricion.receta, pero la imagen se registro en receta_imagen.");
       }
     } catch (e) {
       debugPrint("Error registrando imagen en DB: $e");

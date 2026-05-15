@@ -1,6 +1,7 @@
 from typing import List, Optional
 from ...core.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioReceta
+from ...domain.servicios.restricciones_alimentarias import RESTRICCIONES_ALIMENTARIAS, SUBGRUPOS_CON_LACTOSA
 
 class RepositorioRecetaPostgres(IRepositorioReceta):
     def listar_recetas(self, consulta: str = "", limite: int = 100) -> List[dict]:
@@ -161,15 +162,38 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             cur.execute("select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true", (id_paciente,))
             sub_prohibidos = {r[0] for r in cur.fetchall()}
 
+            codigos_restricciones = set()
+            cur.execute("select to_regclass('clinico.restriccion_paciente')")
+            if cur.fetchone()[0]:
+                cur.execute(
+                    "select codigo_restriccion from clinico.restriccion_paciente where id_paciente = %s and activa = true",
+                    (id_paciente,),
+                )
+                codigos_restricciones = {str(r[0]).upper() for r in cur.fetchall()}
+            if sub_prohibidos & SUBGRUPOS_CON_LACTOSA:
+                codigos_restricciones.add("INTOLERANCIA_LACTOSA")
+
+            etiquetas_bloqueadas = set()
+            etiquetas_positivas = set()
+            for codigo in codigos_restricciones:
+                restriccion = RESTRICCIONES_ALIMENTARIAS.get(codigo)
+                if not restriccion:
+                    continue
+                etiquetas_bloqueadas.update(restriccion.etiquetas_bloqueadas)
+                etiquetas_positivas.update(restriccion.etiquetas_positivas)
+
             # 3. Traer todas las recetas del momento (o todas si id_momento es None)
             sql = """
                 select r.id, r.nombre, r.imagen_url, v.calorias_totales, 
                        array_agg(ri.id_ingrediente) as ingredientes_ids,
-                       array_agg(i.id_subgrupo_alimentario) as subgrupos_ids
+                       array_agg(i.id_subgrupo_alimentario) as subgrupos_ids,
+                       coalesce(array_agg(distinct e.codigo) filter (where e.codigo is not null), '{}') as etiquetas_codigos
                 from nutricion.receta r
                 join nutricion.vista_receta_detalle v on v.id = r.id
                 join nutricion.receta_ingrediente ri on ri.id_receta = r.id
                 join nutricion.ingrediente i on i.id = ri.id_ingrediente
+                left join nutricion.receta_etiqueta re on re.id_receta = r.id
+                left join nutricion.etiqueta_nutricional e on e.id = re.id_etiqueta
             """
             params = []
             if id_momento:
@@ -188,13 +212,17 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             for r in recetas_raw:
                 ing_receta = set(r["ingredientes_ids"])
                 sub_receta = set(r["subgrupos_ids"])
+                etiquetas_receta = set(r.get("etiquetas_codigos") or [])
                 
                 # Filtro de seguridad: ¿Tiene algo prohibido?
                 if (ing_receta & ing_prohibidos) or (sub_receta & sub_prohibidos):
                     continue
+                if etiquetas_receta & etiquetas_bloqueadas:
+                    continue
                 
                 # Marcado de potenciacion: ¿Tiene algo recomendado?
                 r["es_potenciada"] = bool(ing_receta & ing_recomendados)
+                r["etiquetas_seguridad"] = sorted(etiquetas_receta & etiquetas_positivas)
                 resultado.append(r)
             
             # Ordenar: Las potenciadas primero
@@ -315,12 +343,33 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
     def eliminar_receta(self, id_receta: int) -> bool:
-        """Elimina una receta y todas sus dependencias."""
+        """Elimina una receta y todas sus dependencias en nutrición e interacción."""
         with db_cursor() as cur:
+            # 1. Limpiar dependencias en el módulo de interacción (Planes y Seguimiento)
+            # Primero seguimiento (por FK a plan_item y a receta_reemplazo)
+            cur.execute("DELETE FROM interaccion.seguimiento_plan_item WHERE id_receta_reemplazo = %s", (id_receta,))
+            cur.execute("""
+                DELETE FROM interaccion.seguimiento_plan_item 
+                WHERE id_plan_item IN (SELECT id FROM interaccion.plan_item WHERE id_receta = %s)
+            """, (id_receta,))
+            
+            # Luego los ítems del plan nutricional
+            cur.execute("DELETE FROM interaccion.plan_item WHERE id_receta = %s", (id_receta,))
+            
+            # Limpiar preferencias y evaluaciones si las tablas existen
+            for tabla in ["interaccion.preferencia_receta", "interaccion.evaluacion_receta", "interaccion.repositorio_receta_segura_item"]:
+                cur.execute("SELECT to_regclass(%s)", (tabla,))
+                if cur.fetchone()[0]:
+                    cur.execute(f"DELETE FROM {tabla} WHERE id_receta = %s", (id_receta,))
+
+            # 2. Limpiar dependencias en el esquema nutricion
             cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))
             cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,))
             cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))
             cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
             cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))
+            cur.execute("DELETE FROM nutricion.receta_imagen WHERE id_receta = %s", (id_receta,))
+            
+            # 3. Finalmente eliminar la receta
             cur.execute("DELETE FROM nutricion.receta WHERE id = %s", (id_receta,))
             return cur.rowcount > 0
