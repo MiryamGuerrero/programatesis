@@ -19,6 +19,7 @@ class RecetasPage extends ConsumerStatefulWidget {
 class _RecetasPageState extends ConsumerState<RecetasPage> {
   String _query = "";
   bool _loading = false;
+  bool _isDeleting = false;
   String? _error;
   List<Map<String, dynamic>> _recetas = const [];
   
@@ -112,34 +113,60 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     final endIndex = (startIndex + _pageSize < totalItems) ? startIndex + _pageSize : totalItems;
     final visibleRecetas = (startIndex < totalItems) ? filteredRecetas.sublist(startIndex, endIndex) : <Map<String, dynamic>>[];
 
-    return Scaffold(
-      backgroundColor: AppTema.grisLienzo,
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: AppTema.grisLienzo,
+          body: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 32),
+                      _buildStatsRow(totalItems),
+                      const SizedBox(height: 32),
+                      _buildToolbar(),
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      ],
+                      const SizedBox(height: 32),
+                      _buildGrid(visibleRecetas),
+                    ],
+                  ),
+                ),
+              ),
+              if (totalPages > 1) _buildPaginationBar(totalPages),
+            ],
+          ),
+        ),
+        if (_isDeleting)
+          Container(
+            color: Colors.black.withOpacity(0.7),
+            child: Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildHeader(),
-                  const SizedBox(height: 32),
-                  _buildStatsRow(totalItems),
-                  const SizedBox(height: 32),
-                  _buildToolbar(),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                  ],
-                  const SizedBox(height: 32),
-                  _buildGrid(visibleRecetas),
+                  const CircularProgressIndicator(color: Colors.white),
+                  const SizedBox(height: 20),
+                  Text(
+                    "ELIMINANDO...",
+                    style: GoogleFonts.montserrat(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          if (totalPages > 1) _buildPaginationBar(totalPages),
-        ],
-      ),
+      ],
     );
   }
 
@@ -349,35 +376,21 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     );
   }
 
-  void _confirmarEliminacion(Map<String, dynamic> r) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("¿Eliminar receta?", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        content: Text("Esta acción no se puede deshacer. ¿Deseas eliminar '${r['nombre']}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                final dio = ref.read(dioProvider);
-                await dio.delete('crud/recetas/${r['id']}');
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                NutriSnack.show(context, "Receta eliminada correctamente");
-                _loadRecetas();
-              } catch (e) {
-                NutriSnack.show(context, "Error al eliminar: $e", isError: true);
-              }
-            },
-            child: Text("ELIMINAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
+  void _confirmarEliminacion(Map<String, dynamic> r) async {
+    // Eliminación directa con overlay según solicitud (sin Alert)
+    setState(() => _isDeleting = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.delete('crud/recetas/${r['id']}');
+      if (!mounted) return;
+      NutriSnack.show(context, "Receta eliminada correctamente");
+      _loadRecetas();
+    } catch (e) {
+      if (!mounted) return;
+      NutriSnack.show(context, "Error al eliminar: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
   }
 }
 
