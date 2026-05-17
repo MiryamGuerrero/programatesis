@@ -7,14 +7,15 @@ from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_500_
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.db import close_pool
+from app.core.db import close_pool, get_pool
 from app.domain.excepciones import ErrorDominio, ErrorValidacion, ErrorRecursoNoEncontrado, ErrorReglaNegocio
 
 settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Inicio del sistema
+    # Inicio del sistema: crear un unico pool antes de atender requests concurrentes.
+    get_pool()
     yield
     # Cierre: Limpiar recursos del pool de base de datos
     try:

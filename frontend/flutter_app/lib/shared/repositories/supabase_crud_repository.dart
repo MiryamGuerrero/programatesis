@@ -29,6 +29,7 @@ class SupabaseCrudRepository {
     required String nombreCompleto, 
     required int idRol, 
     required String password,
+    String? username,
     String? cedula,
     String? telefono,
     String? direccion,
@@ -37,6 +38,7 @@ class SupabaseCrudRepository {
       "usuarios",
       data: {
         "email": email, 
+        if (username != null && username.trim().isNotEmpty) "username": username.trim(),
         "nombre_completo": nombreCompleto, 
         "id_rol": idRol, 
         "password": password,
@@ -51,6 +53,7 @@ class SupabaseCrudRepository {
   Future<void> updateUser({
     required String userId, 
     String? email, 
+    String? username,
     String? nombreCompleto, 
     String? cedula, 
     int? idRol, 
@@ -60,6 +63,7 @@ class SupabaseCrudRepository {
   }) async {
     final payload = <String, dynamic>{};
     if (email != null) payload["email"] = email;
+    if (username != null) payload["username"] = username;
     if (nombreCompleto != null) payload["nombre_completo"] = nombreCompleto;
     if (cedula != null) payload["cedula"] = cedula;
     if (idRol != null) payload["id_rol"] = idRol;
@@ -76,6 +80,7 @@ class SupabaseCrudRepository {
 
   Future<void> updateMyProfile({
     String? nombreCompleto,
+    String? username,
     String? cedula,
     String? telefono,
     String? direccion,
@@ -83,6 +88,7 @@ class SupabaseCrudRepository {
   }) async {
     final data = <String, dynamic>{};
     if (nombreCompleto != null) data["nombre_completo"] = nombreCompleto;
+    if (username != null) data["username"] = username;
     if (cedula != null) data["cedula"] = cedula;
     if (telefono != null) data["telefono"] = telefono;
     if (direccion != null) data["direccion"] = direccion;

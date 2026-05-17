@@ -7,9 +7,28 @@ from ...domain.modelos.usuario import PerfilUsuario
 from ...core.supabase_client import get_supabase_admin_client
 
 class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
+    ROL_CODIGO_SQL = """
+        case
+            when r.id = 1 or lower(r.nombre) in ('admin', 'administrador') then 'admin'
+            when r.id = 2 or lower(r.nombre) = 'medico' then 'medico'
+            when r.id = 3 or lower(r.nombre) = 'nutricionista' then 'nutricionista'
+            when r.id = 4 or lower(r.nombre) = 'tutor' then 'tutor'
+            else btrim(
+                regexp_replace(
+                    lower(r.nombre),
+                    '[^a-z0-9]+',
+                    '_',
+                    'g'
+                ),
+                '_'
+            )
+        end
+    """
+
     def obtener_por_auth_id(self, auth_id: str) -> Optional[PerfilUsuario]:
-        sql = """
+        sql = f"""
             select u.id, u.email, u.nombre_completo, u.username, r.nombre as rol_nombre,
+                   {self.ROL_CODIGO_SQL} as rol_codigo, u.id_rol, u.activo,
                    u.cedula, u.telefono, u.direccion
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
@@ -26,7 +45,9 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             username=datos.get("username"),
             email=datos["email"],
             rol_nombre=datos["rol_nombre"],
-            rol_codigo="", # Eliminado de DB
+            rol_codigo=datos.get("rol_codigo") or "",
+            id_rol=datos.get("id_rol"),
+            activo=datos.get("activo"),
             cedula=datos.get("cedula"),
             telefono=datos.get("telefono"),
             direccion=datos.get("direccion")
@@ -52,8 +73,10 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
 
     # --- Métodos de compatibilidad (Legacy) ---
     def obtener_perfil_usuario(self, user_id: str) -> Optional[Dict[str, Any]]:
-        sql = """
-            select u.id, u.email, u.nombre_completo, u.username, u.cedula, r.nombre as rol_nombre, u.id_rol, u.telefono, u.direccion, u.activo
+        sql = f"""
+            select u.id, u.email, u.nombre_completo, u.username, u.cedula,
+                   r.nombre as rol_nombre, {self.ROL_CODIGO_SQL} as rol_codigo,
+                   u.id_rol, u.telefono, u.direccion, u.activo
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
             where u.auth_user_id::text = %s or u.id::text = %s
@@ -66,10 +89,11 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         return d
 
     def listar_usuarios(self) -> List[dict]:
-        sql = """
+        sql = f"""
             select 
                 u.id, u.cedula, u.email, u.nombre_completo, u.username,
                 r.nombre as rol_nombre,
+                {self.ROL_CODIGO_SQL} as rol_codigo,
                 u.id_rol, u.activo, u.telefono, u.direccion
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
@@ -80,6 +104,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
     def crear_usuario(self, datos: dict) -> str:
         email = datos["email"].lower().strip()
         password = datos["password"]
+        username = (datos.get("username") or email.split("@")[0]).lower().strip()
         
         res_rol = self.ejecutar_uno("select nombre from usuarios.rol where id = %s", (datos["id_rol"],))
         rol_name = res_rol["nombre"].lower() if res_rol else "tutor"
@@ -100,11 +125,11 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         if cedula == "": cedula = None
 
         sql = """
-            insert into usuarios.usuario (email, nombre_completo, cedula, id_rol, telefono, direccion, activo, auth_user_id)
-            values (%s, %s, %s, %s, %s, %s, true, %s)
+            insert into usuarios.usuario (email, username, nombre_completo, cedula, id_rol, telefono, direccion, activo, auth_user_id)
+            values (%s, %s, %s, %s, %s, %s, %s, true, %s)
             returning id
         """
-        params = (email, datos["nombre_completo"].strip(), cedula, datos["id_rol"],
+        params = (email, username, datos["nombre_completo"].strip(), cedula, datos["id_rol"],
                  datos.get("telefono"), datos.get("direccion"), auth_user_id)
         return str(self.ejecutar_comando(sql, params))
 
@@ -113,6 +138,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         
         email = datos["email"].lower().strip()
         nombre = datos["nombre_completo"].strip()
+        username = (datos.get("username") or email.split("@")[0]).lower().strip()
         cedula = datos.get("cedula")
         if cedula == "": cedula = None
         
@@ -121,6 +147,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         if existente:
             self.actualizar_usuario(str(existente["id"]), {
                 "nombre_completo": nombre,
+                "username": username,
                 "cedula": cedula,
                 "telefono": datos.get("telefono"),
                 "direccion": datos.get("direccion")
@@ -137,14 +164,14 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         # 2. Insertar en nuestra tabla de usuarios (id_rol = 4 para tutor)
         sql = """
             insert into usuarios.usuario (
-                email, nombre_completo, cedula, id_rol, 
+                email, username, nombre_completo, cedula, id_rol,
                 telefono, direccion, activo, auth_user_id
             )
-            values (%s, %s, %s, 4, %s, %s, true, %s)
+            values (%s, %s, %s, %s, 4, %s, %s, true, %s)
             returning id
         """
         params = (
-            email, nombre, cedula, 
+            email, username, nombre, cedula,
             datos.get("telefono"), datos.get("direccion"), auth_user_id
         )
         return str(self.ejecutar_comando(sql, params))
