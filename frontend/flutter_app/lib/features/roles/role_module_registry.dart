@@ -14,7 +14,7 @@ import "../medico/modules/reglas_medicas/reglas_medicas_page.dart";
 import "../tutor/presentation/mis_pacientes_page.dart";
 import "../tutor/presentation/tutor_perfil_page.dart";
 import "../tutor/presentation/tutor_home_page.dart";
-import "../tutor/presentation/plan_diario_page.dart";
+import "../tutor/presentation/tutor_calendario_page.dart";
 
 // Páginas de Nutricionista
 import "../nutricionista/modules/ingredientes/ingredientes_page.dart";

@@ -1,32 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
-import 'tutor_home_page.dart';
 
-class MisPacientesPage extends StatelessWidget {
-  const MisPacientesPage({super.key});
+class TutorMockupPacientesPage extends StatelessWidget {
+  const TutorMockupPacientesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Colores basados en el sistema de diseño web (AppTema) para consistencia
-    final Color colorFondo = AppTema.grisFondo; // Azul muy claro
-    final Color colorTitulo = const Color(0xFF1E293B); // Azul marino oscuro
-    final Color colorSubtitulo = const Color(0xFF64748B); // Azul-grisáceo muted
-    final Color colorAcento = AppTema.azulPrincipal; // Azul vibrante
-    final Color colorVerde = AppTema.verdeSalud; // Verde suave
+    // Colores basados en el sistema de diseño web identificado
+    final Color colorFondo = AppTema.grisFondo; // #F8FAFC
+    final Color colorTitulo = const Color(0xFF1E293B);
+    final Color colorSubtitulo = const Color(0xFF64748B);
+    final Color colorAcento = AppTema.azulPrincipal; // #0171BB
+    final Color colorEstadoPositivo = AppTema.verdeSalud; // #70A81C
 
     return Scaffold(
       backgroundColor: colorFondo,
       body: SafeArea(
         child: SingleChildScrollView(
-          // Estándar 20dp de padding horizontal
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
               
-              // Título Principal
+              // Encabezado
               Text(
                 "Mis Pacientes",
                 textAlign: TextAlign.center,
@@ -36,27 +34,26 @@ class MisPacientesPage extends StatelessWidget {
                   color: colorTitulo,
                 ),
               ),
-              const SizedBox(height: 12),
-              
-              // Subtítulo
+              const SizedBox(height: 16),
               Text(
                 "Gestiona el seguimiento y bienestar de tus pacientes asignados.",
                 textAlign: TextAlign.center,
                 style: GoogleFonts.lato(
                   fontSize: 16,
+                  fontWeight: FontWeight.normal,
                   color: colorSubtitulo,
                 ),
               ),
               
               const SizedBox(height: 32),
               
-              // Barra de Búsqueda (Pill-shaped)
+              // Barra de Búsqueda
               Container(
-                height: 54,
+                height: 56,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(27),
-                  border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.03),
@@ -68,13 +65,13 @@ class MisPacientesPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    const Icon(Icons.search_outlined, color: Color(0xFF94A3B8), size: 22),
+                    const Icon(Icons.search, color: Color(0xFF94A3B8), size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         decoration: InputDecoration(
                           hintText: "Buscar paciente...",
-                          hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8), fontSize: 14),
+                          hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8)),
                           border: InputBorder.none,
                         ),
                       ),
@@ -89,11 +86,10 @@ class MisPacientesPage extends StatelessWidget {
               _PatientCard(
                 nombre: "Carlos Ruiz",
                 diagnostico: "AIJ Oligoarticular",
-                estadoValor: "Estable",
-                planEstado: "Plan activo",
+                estado: "Plan activo",
                 edad: "8 años",
                 colorAcento: colorAcento,
-                colorEstado: colorVerde,
+                colorEstado: colorEstadoPositivo,
                 colorTitulo: colorTitulo,
                 colorSubtitulo: colorSubtitulo,
               ),
@@ -101,11 +97,10 @@ class MisPacientesPage extends StatelessWidget {
               _PatientCard(
                 nombre: "Sofía Méndez",
                 diagnostico: "AIJ Poliarticular",
-                estadoValor: "En observación",
-                planEstado: "Plan activo",
+                estado: "Plan activo",
                 edad: "6 años",
                 colorAcento: colorAcento,
-                colorEstado: colorVerde,
+                colorEstado: colorEstadoPositivo,
                 colorTitulo: colorTitulo,
                 colorSubtitulo: colorSubtitulo,
               ),
@@ -113,11 +108,10 @@ class MisPacientesPage extends StatelessWidget {
               _PatientCard(
                 nombre: "Juan Pérez",
                 diagnostico: "AIJ Sistémica",
-                estadoValor: "Estable",
-                planEstado: "Plan activo",
+                estado: "Plan activo",
                 edad: "10 años",
                 colorAcento: colorAcento,
-                colorEstado: colorVerde,
+                colorEstado: colorEstadoPositivo,
                 colorTitulo: colorTitulo,
                 colorSubtitulo: colorSubtitulo,
               ),
@@ -134,8 +128,7 @@ class MisPacientesPage extends StatelessWidget {
 class _PatientCard extends StatelessWidget {
   final String nombre;
   final String diagnostico;
-  final String estadoValor;
-  final String planEstado;
+  final String estado;
   final String edad;
   final Color colorAcento;
   final Color colorEstado;
@@ -145,8 +138,7 @@ class _PatientCard extends StatelessWidget {
   const _PatientCard({
     required this.nombre,
     required this.diagnostico,
-    required this.estadoValor,
-    required this.planEstado,
+    required this.estado,
     required this.edad,
     required this.colorAcento,
     required this.colorEstado,
@@ -159,7 +151,7 @@ class _PatientCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // Radio de borde medio
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -171,26 +163,16 @@ class _PatientCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TutorHomePage(
-                  idPaciente: "1", // Mock ID
-                  nombrePaciente: nombre,
-                ),
-              ),
-            );
-          }, // Interactiva
+          onTap: () {},
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(24.0), // Padding interno uniforme
+            padding: const EdgeInsets.all(24.0),
             child: Stack(
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar Circular
+                    // Avatar
                     Container(
                       width: 56,
                       height: 56,
@@ -206,12 +188,11 @@ class _PatientCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     
-                    // Bloque de Información Principal
+                    // Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Nombre
                           Text(
                             nombre,
                             style: GoogleFonts.lato(
@@ -221,12 +202,10 @@ class _PatientCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          
-                          // Diagnóstico
                           Row(
                             children: [
                               Icon(
-                                Icons.monitor_heart_outlined, // Ícono similar a ECG
+                                Icons.monitor_heart_outlined,
                                 color: colorAcento.withOpacity(0.6),
                                 size: 18,
                               ),
@@ -243,10 +222,8 @@ class _PatientCard extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          
-                          // Estado
                           Text(
-                            "Estado: $estadoValor",
+                            "Estado: Estable",
                             style: GoogleFonts.lato(
                               fontSize: 14,
                               color: colorSubtitulo,
@@ -254,7 +231,7 @@ class _PatientCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           
-                          // Badge de Estado (Plan activo)
+                          // Badge de Estado
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -268,13 +245,13 @@ class _PatientCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.check_circle_outline, // Ícono de check lineal
+                                  Icons.check_circle_outline,
                                   color: colorEstado,
                                   size: 14,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  planEstado,
+                                  estado,
                                   style: GoogleFonts.lato(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
