@@ -17,6 +17,7 @@ class PlanManualResponse(BaseModel):
 class RecetasPermitidasRequest(BaseModel):
     id_paciente: str
     id_momento: Optional[int] = None
+    id_tipo_plato: Optional[int] = None
 
 class RecetasPermitidasResponse(BaseModel):
     id_paciente: str

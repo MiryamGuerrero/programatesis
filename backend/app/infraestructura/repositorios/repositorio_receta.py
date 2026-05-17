@@ -64,6 +64,22 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     JOIN nutricion.momento_comida m ON m.id = rm.id_momento
                     WHERE rm.id_receta = r.id
                 ) AS momentos_nombres,
+                COALESCE((
+                    SELECT ARRAY_AGG(DISTINCT rm.id_momento ORDER BY rm.id_momento)
+                    FROM nutricion.receta_momento rm
+                    WHERE rm.id_receta = r.id
+                ), '{{}}'::int[]) AS momentos_ids,
+                (
+                    SELECT STRING_AGG(DISTINCT tp.nombre, ', ' ORDER BY tp.nombre)
+                    FROM nutricion.receta_tipo_plato rtp
+                    JOIN nutricion.tipo_plato tp ON tp.id = rtp.id_tipo_plato
+                    WHERE rtp.id_receta = r.id
+                ) AS tipos_plato_nombres,
+                COALESCE((
+                    SELECT ARRAY_AGG(DISTINCT rtp.id_tipo_plato ORDER BY rtp.id_tipo_plato)
+                    FROM nutricion.receta_tipo_plato rtp
+                    WHERE rtp.id_receta = r.id
+                ), '{{}}'::int[]) AS tipos_plato_ids,
                 (
                     SELECT m.nombre
                     FROM nutricion.receta_momento rm
@@ -79,9 +95,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             GROUP BY r.id
         """
 
-    def listar_recetas(self, consulta: str = "", limite: int = 100) -> List[dict]:
+    def listar_recetas(self, consulta: str = "", limite: int = 1000) -> List[dict]:
         """Lista recetas calculando la nutricion desde sus ingredientes."""
-        where_clause = "r.activa = true"
+        where_clause = "TRUE"
         params = []
 
         if consulta:
@@ -99,7 +115,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 where_clause += " and (" + " and ".join(word_conditions) + ")"
 
         sql = self._sql_receta_detalle_base(where_clause) + """
-            ORDER BY nombre ASC
+            ORDER BY r.activa DESC, nombre ASC
             LIMIT %s
         """
         params.append(limite)
@@ -213,7 +229,12 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
-    def obtener_recetas_seguras_para_paciente(self, id_paciente: str, id_momento: Optional[int] = None) -> List[dict]:
+    def obtener_recetas_seguras_para_paciente(
+        self,
+        id_paciente: str,
+        id_momento: Optional[int] = None,
+        id_tipo_plato: Optional[int] = None,
+    ) -> List[dict]:
         """
         Obtiene recetas filtrando prohibidas y marcando las que tienen ingredientes recomendados.
         """
@@ -256,20 +277,29 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                        coalesce(round(sum((coalesce(ri.peso_en_gramos, 0)::numeric / 100) * coalesce(ic.energia_kcal, 0))::numeric, 2), 0) as calorias_totales,
                        coalesce(array_agg(ri.id_ingrediente) filter (where ri.id_ingrediente is not null), '{}') as ingredientes_ids,
                        coalesce(array_agg(i.id_subgrupo_alimentario) filter (where i.id_subgrupo_alimentario is not null), '{}') as subgrupos_ids,
-                       coalesce(array_agg(distinct e.codigo) filter (where e.codigo is not null), '{}') as etiquetas_codigos
+                       coalesce(array_agg(distinct e.codigo) filter (where e.codigo is not null), '{}') as etiquetas_codigos,
+                       coalesce(array_agg(distinct rtp.id_tipo_plato) filter (where rtp.id_tipo_plato is not null), '{}') as tipos_plato_ids
                 from nutricion.receta r
                 left join nutricion.receta_ingrediente ri on ri.id_receta = r.id
                 left join nutricion.ingrediente i on i.id = ri.id_ingrediente
                 left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = ri.id_ingrediente
                 left join nutricion.receta_etiqueta re on re.id_receta = r.id
                 left join nutricion.etiqueta_nutricional e on e.id = re.id_etiqueta
+                left join nutricion.receta_tipo_plato rtp on rtp.id_receta = r.id
             """
             params = []
+            filtros = ["r.activa = true"]
             if id_momento:
-                sql += " join nutricion.receta_momento rm on rm.id_receta = r.id where rm.id_momento = %s and r.activa = true"
+                filtros.append(
+                    "exists (select 1 from nutricion.receta_momento rm where rm.id_receta = r.id and rm.id_momento = %s)"
+                )
                 params.append(id_momento)
-            else:
-                sql += " where r.activa = true"
+            if id_tipo_plato:
+                filtros.append(
+                    "exists (select 1 from nutricion.receta_tipo_plato rtp_f where rtp_f.id_receta = r.id and rtp_f.id_tipo_plato = %s)"
+                )
+                params.append(id_tipo_plato)
+            sql += " where " + " and ".join(filtros)
             
             sql += " group by r.id, r.nombre, r.imagen_url"
             
@@ -347,17 +377,17 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 2. Sincronizar Momentos de Comida (receta_momento)
             cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
-            momentos = datos.get("momentos", [])
+            momentos = list(set(datos.get("momentos", []))) # Deduplicar
             if momentos:
-                mom_values = [(id_receta, mid) for mid in momentos]
-                cur.executemany("INSERT INTO nutricion.receta_momento (id_receta, id_momento) VALUES (%s, %s)", mom_values)
+                mom_values = [(id_receta, mid) for mid in momentos if mid]
+                cur.executemany("INSERT INTO nutricion.receta_momento (id_receta, id_momento) VALUES (%s, %s) ON CONFLICT DO NOTHING", mom_values)
 
             # 3. Sincronizar Tipos de Plato (receta_tipo_plato)
             cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))
-            tipos_plato = datos.get("tipos_plato", [])
+            tipos_plato = list(set(datos.get("tipos_plato", []))) # Deduplicar
             if tipos_plato:
-                tp_values = [(id_receta, tid) for tid in tipos_plato]
-                cur.executemany("INSERT INTO nutricion.receta_tipo_plato (id_receta, id_tipo_plato) VALUES (%s, %s)", tp_values)
+                tp_values = [(id_receta, tid) for tid in tipos_plato if tid]
+                cur.executemany("INSERT INTO nutricion.receta_tipo_plato (id_receta, id_tipo_plato) VALUES (%s, %s) ON CONFLICT DO NOTHING", tp_values)
 
             # 4. Sincronizar Ingredientes
             cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,))
@@ -366,7 +396,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 ing_values = [
                     (id_receta, ing["id_ingrediente"], ing.get("cantidad"), ing.get("unidad"), 
                      ing.get("gramos", 0), ing.get("es_principal", False), ing.get("observaciones"))
-                    for ing in ingredientes
+                    for ing in ingredientes if ing.get("id_ingrediente")
                 ]
                 cur.executemany("""
                     INSERT INTO nutricion.receta_ingrediente (
@@ -391,10 +421,11 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 6. Sincronizar Etiquetas (Manuales y Validadas desde el Frontend)
             cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))
-            etiquetas = [etq.get("id") for etq in datos.get("etiquetas_salud", []) if etq.get("id")]
-            if etiquetas:
-                etq_values = [(id_receta, eid) for eid in etiquetas]
-                cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s)", etq_values)
+            # Deduplicar IDs de etiquetas
+            etiquetas_ids = list(set([etq.get("id") for etq in datos.get("etiquetas_salud", []) if etq.get("id")]))
+            if etiquetas_ids:
+                etq_values = [(id_receta, eid) for eid in etiquetas_ids]
+                cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING", etq_values)
 
             # 7. Sincronizar nutricion.receta_imagen (Regresado al esquema nutricion)
             img_url = datos.get("imagen_url")

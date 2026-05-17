@@ -301,7 +301,11 @@ class SupabaseCrudRepository {
 
   // --- RECETAS, INGREDIENTES Y CATÁLOGOS ---
   Future<List<Map<String, dynamic>>> fetchRecetas() async {
-    final response = await _dio.get("crud/recetas", options: _authorizedOptions());
+    final response = await _dio.get(
+      "crud/recetas",
+      queryParameters: {"limit": 1000},
+      options: _authorizedOptions(),
+    );
     return _toRows(response.data);
   }
 

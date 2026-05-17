@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:dio/dio.dart";
 import "package:google_fonts/google_fonts.dart";
 
 import "../../../../core/state/app_providers.dart";
@@ -17,11 +18,16 @@ class RecetasPage extends ConsumerStatefulWidget {
 }
 
 class _RecetasPageState extends ConsumerState<RecetasPage> {
+  final TextEditingController _searchController = TextEditingController();
   String _query = "";
   bool _loading = false;
   bool _isDeleting = false;
   String? _error;
   List<Map<String, dynamic>> _recetas = const [];
+  List<Map<String, dynamic>> _momentosComida = const [];
+  List<Map<String, dynamic>> _tiposPlato = const [];
+  int? _momentoSeleccionado;
+  int? _tipoPlatoSeleccionado;
   
   // Estados de navegación interna
   Map<String, dynamic>? _selectedReceta;
@@ -38,6 +44,12 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     Future.microtask(_loadRecetas);
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadRecetas() async {
     setState(() {
       _loading = true;
@@ -46,10 +58,20 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final data = await repo.fetchRecetas();
+      final dio = ref.read(dioProvider);
+      final results = await Future.wait([
+        repo.fetchRecetas(),
+        dio.get('crud/momentos'),
+        dio.get('crud/tipos-plato'),
+      ]);
+      final data = results[0] as List<Map<String, dynamic>>;
+      final momentos = _toRows((results[1] as Response).data);
+      final tiposPlato = _toRows((results[2] as Response).data);
       if (!mounted) return;
       setState(() {
         _recetas = data;
+        _momentosComida = momentos;
+        _tiposPlato = tiposPlato;
         _currentPage = 0;
       });
     } catch (error) {
@@ -103,8 +125,20 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
     // 3. Vista de Lista (Matriz)
     final filteredRecetas = _recetas.where((row) {
-      final nombre = row["nombre"]?.toString().toLowerCase() ?? "";
-      return nombre.contains(_query.toLowerCase());
+      final query = _query.trim().toLowerCase();
+      final textoBusqueda = [
+        row["nombre"],
+        row["descripcion"],
+        row["categoria"],
+        row["momentos_nombres"],
+        row["tipos_plato_nombres"],
+      ].whereType<Object>().join(" ").toLowerCase();
+      final coincideBusqueda = query.isEmpty || textoBusqueda.contains(query);
+      final coincideMomento = _momentoSeleccionado == null ||
+          _contieneId(row, ["momentos_ids", "momentos"], _momentoSeleccionado!);
+      final coincideTipoPlato = _tipoPlatoSeleccionado == null ||
+          _contieneId(row, ["tipos_plato_ids", "tipos_plato"], _tipoPlatoSeleccionado!);
+      return coincideBusqueda && coincideMomento && coincideTipoPlato;
     }).toList();
 
     final totalItems = filteredRecetas.length;
@@ -193,63 +227,189 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   }
 
   Widget _buildStatsRow(int visibles) {
+    final activas = _recetas.where((r) => r['activa'] == true).length;
+    final inactivas = _recetas.length - activas;
     return Row(
       children: [
         Expanded(child: NutriResumenCard(titulo: "TOTAL RECETAS", valor: "${_recetas.length}", icon: Icons.menu_book_rounded)),
         const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "FILTRADAS", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_list_rounded)),
+        Expanded(child: NutriResumenCard(titulo: "VISIBLES", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_list_rounded)),
         const SizedBox(width: 20),
-        const Expanded(child: NutriResumenCard(titulo: "ESTADO", valor: "ACTIVO", colorValor: AppTema.azulOscuro, icon: Icons.check_circle_outline)),
+        Expanded(child: NutriResumenCard(titulo: "ACTIVAS", valor: "$activas / $inactivas", colorValor: AppTema.azulOscuro, icon: Icons.check_circle_outline)),
       ],
     );
   }
 
   Widget _buildToolbar() {
-    return Row(
+    final filtrosActivos = _query.trim().isNotEmpty ||
+        _momentoSeleccionado != null ||
+        _tipoPlatoSeleccionado != null;
+
+    return Column(
       children: [
-        Expanded(
-          child: Container(
-            height: 55,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                hintText: "Buscar por nombre de receta...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 55,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por nombre, momento o tipo de plato...",
+                    hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  onChanged: (v) => setState(() {
+                    _query = v;
+                    _currentPage = 0;
+                  }),
+                ),
               ),
-              onChanged: (v) => setState(() {
-                _query = v;
-                _currentPage = 0;
-              }),
             ),
-          ),
+            const SizedBox(width: 20),
+            SizedBox(
+              height: 55,
+              child: FilledButton.icon(
+                onPressed: () => setState(() {
+                  _isEditing = true;
+                  _recetaParaEditar = null;
+                }),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
+                label: Text("NUEVA RECETA", 
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 20),
-        SizedBox(
-          height: 55,
-          child: FilledButton.icon(
-            onPressed: () => setState(() {
-              _isEditing = true;
-              _recetaParaEditar = null;
-            }),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFilterDropdown(
+                label: "Momento de comida",
+                value: _momentoSeleccionado,
+                items: _momentosComida,
+                icon: Icons.schedule_rounded,
+                onChanged: (value) => setState(() {
+                  _momentoSeleccionado = value;
+                  _currentPage = 0;
+                }),
+              ),
             ),
-            icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-            label: Text("NUEVA RECETA", 
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildFilterDropdown(
+                label: "Tipo de plato",
+                value: _tipoPlatoSeleccionado,
+                items: _tiposPlato,
+                icon: Icons.restaurant_menu_rounded,
+                onChanged: (value) => setState(() {
+                  _tipoPlatoSeleccionado = value;
+                  _currentPage = 0;
+                }),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              height: 55,
+              child: OutlinedButton.icon(
+                onPressed: filtrosActivos
+                    ? () => setState(() {
+                          _searchController.clear();
+                          _query = "";
+                          _momentoSeleccionado = null;
+                          _tipoPlatoSeleccionado = null;
+                          _currentPage = 0;
+                        })
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  side: BorderSide(color: Colors.grey.shade200),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                ),
+                icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+                label: Text(
+                  "LIMPIAR",
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildFilterDropdown({
+    required String label,
+    required int? value,
+    required List<Map<String, dynamic>> items,
+    required IconData icon,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return Container(
+      height: 55,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: value,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTema.azulPrincipal),
+          hint: Row(
+            children: [
+              Icon(icon, size: 20, color: AppTema.azulPrincipal),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.montserrat(
+                  color: Colors.grey.shade500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          items: [
+            DropdownMenuItem<int?>(
+              value: null,
+              child: Text(
+                "Todos",
+                style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ...items.where((item) => _asInt(item["id"]) != null).map((item) {
+              final id = _asInt(item["id"]);
+              return DropdownMenuItem<int?>(
+                value: id,
+                child: Text(
+                  item["nombre"]?.toString() ?? "Sin nombre",
+                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 
@@ -391,6 +551,34 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     } finally {
       if (mounted) setState(() => _isDeleting = false);
     }
+  }
+
+  List<Map<String, dynamic>> _toRows(dynamic payload) {
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
+  bool _contieneId(Map<String, dynamic> row, List<String> keys, int idBuscado) {
+    for (final key in keys) {
+      final value = row[key];
+      if (value is List && value.any((item) => _asInt(item) == idBuscado)) {
+        return true;
+      }
+      if (_asInt(value) == idBuscado) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 }
 

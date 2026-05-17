@@ -165,6 +165,7 @@ def listar_recetas_seguras(
     """
     id_paciente = payload.id_paciente
     id_momento = payload.id_momento
+    id_tipo_plato = payload.id_tipo_plato
     
     if not id_paciente:
         from fastapi import HTTPException
@@ -177,7 +178,8 @@ def listar_recetas_seguras(
     try:
         permitidas = repo_receta.obtener_recetas_seguras_para_paciente(
             id_paciente, 
-            int(id_momento) if id_momento else None
+            int(id_momento) if id_momento else None,
+            int(id_tipo_plato) if id_tipo_plato else None
         )
         
         # Formateamos la respuesta para incluir el mensaje de recomendación
@@ -187,7 +189,7 @@ def listar_recetas_seguras(
             else:
                 r["recomendacion"] = "Segura para el paciente"
                 
-        return {"recetas": permitidas}
+        return {"id_paciente": id_paciente, "recetas": permitidas}
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))
@@ -296,7 +298,7 @@ def listar_tipos_plato_compat():
 @router.get("/crud/recetas")
 def crud_recetas_compat(
     q: str = Query(default=""),
-    limit: int = Query(default=100)
+    limit: int = Query(default=1000)
 ):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
@@ -315,13 +317,18 @@ def obtener_receta_detalle_completo(id_receta: int):
 @router.post("/crud/recetas")
 def guardar_receta_completa(payload: dict):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    import traceback
+    import sys
     repo = RepositorioRecetaPostgres()
     try:
         id_receta = repo.guardar_receta(payload)
         return {"success": True, "id": id_receta}
     except Exception as e:
+        error_msg = f"Error guardando receta: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_msg)
 
 @router.delete("/crud/recetas/{id_receta}")
 def eliminar_receta_completa(id_receta: int):

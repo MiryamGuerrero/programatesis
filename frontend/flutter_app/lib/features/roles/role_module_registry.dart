@@ -23,6 +23,7 @@ import "../nutricionista/modules/etiquetas/etiquetas_page.dart";
 import "../nutricionista/modules/plan_nutricional/plan_manual_page.dart";
 import "../nutricionista/modules/reglas_nutricionales/reglas_nutricionales_page.dart";
 import "../nutricionista/modules/condiciones/condiciones_nutricionales_page.dart";
+import "../nutricionista/modules/configuracion_menu/configuracion_menu_page.dart";
 
 // Página de Perfil (Común)
 import "../perfil/perfil_page.dart";
@@ -131,6 +132,12 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Plan Manual",
           icon: Icons.calendar_month_rounded,
           builder: () => const PlanManualPage(),
+        ),
+        RoleModule(
+          key: "configuracion_menu",
+          title: "Menú y Horarios",
+          icon: Icons.schedule_rounded,
+          builder: () => const ConfiguracionMenuPage(),
         ),
         RoleModule(
           key: "condiciones_nutri",

@@ -181,7 +181,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         try {
           finalImageUrl = await RecipeImageService.uploadRecipeImage(
             imageFile: _imageFile!,
-            fileName: 'receta_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            fileName: 'receta_${DateTime.now().millisecondsSinceEpoch}.webp',
           );
         } catch (e) {
           NutriSnack.show(context, 'Error al subir imagen: $e', isError: true);
