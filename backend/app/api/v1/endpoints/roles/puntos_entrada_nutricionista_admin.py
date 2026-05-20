@@ -160,8 +160,15 @@ def delete_meal_moment(
     _=Depends(require_roles("admin", "nutricionista")),
 ):
     repo = RepositorioComposicionPostgres()
-    exito = repo.eliminar_momento(mid)
-    return {"success": exito}
+    try:
+        exito = repo.eliminar_momento(mid)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Momento de comida no encontrado")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/tipos-plato")
 def list_dish_types(
@@ -176,8 +183,44 @@ def create_dish_type(
     _=Depends(require_roles("admin", "nutricionista")),
 ):
     repo = RepositorioComposicionPostgres()
-    tid = repo.crear_tipo_plato(payload["nombre"])
-    return {"id": tid, "success": True}
+    try:
+        tid = repo.crear_tipo_plato(payload.get("nombre", ""))
+        return {"id": tid, "success": True}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.put("/tipos-plato/{tid}")
+def update_dish_type(
+    tid: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    try:
+        exito = repo.actualizar_tipo_plato(tid, payload.get("nombre", ""))
+        if not exito:
+            raise HTTPException(status_code=404, detail="Tipo de plato no encontrado")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.delete("/tipos-plato/{tid}")
+def delete_dish_type(
+    tid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    try:
+        exito = repo.eliminar_tipo_plato(tid)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Tipo de plato no encontrado")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 # --- ENDPOINTS REGLAS DE COMPOSICIÓN ---
 
@@ -196,7 +239,7 @@ def get_full_rule_by_moment(
     repo = RepositorioComposicionPostgres()
     res = repo.obtener_regla_completa_por_momento(mid)
     if not res:
-        raise HTTPException(status_code=404, detail="No hay regla definida para este momento")
+        raise HTTPException(status_code=404, detail="Momento de comida no encontrado")
     return res
 
 @router.post("/reglas-generales")
@@ -208,6 +251,13 @@ def upsert_general_rule(
     rid = repo.crear_regla_general(payload)
     return {"id": rid, "success": True}
 
+@router.delete("/reglas-generales")
+def clear_general_composition_rules(
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return {"success": True, **repo.limpiar_reglas_composicion()}
+
 @router.post("/reglas-generales/detalle")
 def save_rule_detail(
     payload: dict,
@@ -217,6 +267,21 @@ def save_rule_detail(
     did = repo.crear_tipo_permitido(payload)
     return {"id": did, "success": True}
 
+@router.post("/reglas-generales/por-momento/{mid}/importar-combinaciones")
+def import_rule_combinations_by_moment(
+    mid: int,
+    payload: Any,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    try:
+        combinaciones = payload.get("combinaciones") if isinstance(payload, dict) else payload
+        if not isinstance(combinaciones, list):
+            raise ValueError("El JSON debe incluir una lista llamada combinaciones")
+        return {"success": True, **repo.importar_combinaciones_momento(mid, combinaciones)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 @router.delete("/reglas-generales/detalle/{did}")
 def delete_rule_detail(
     did: int,
@@ -225,3 +290,84 @@ def delete_rule_detail(
     repo = RepositorioComposicionPostgres()
     exito = repo.eliminar_tipo_permitido(did)
     return {"success": exito}
+
+# --- REGLAS INTELIGENTES DE COMBINACION POR CONDICIONES NUTRICIONALES ---
+
+ROLES_COMBINACION_UI = [
+    {"valor": "COMBINACION_LIGERA", "etiqueta": "Ligera", "icono": "feather", "color": "#4CAF50"},
+    {"valor": "COMBINACION_EQUILIBRADA", "etiqueta": "Equilibrada", "icono": "balance", "color": "#2196F3"},
+    {"valor": "COMBINACION_ENERGETICA", "etiqueta": "Energetica", "icono": "bolt", "color": "#FF9800"},
+    {"valor": "COMBINACION_RECUPERACION_NUTRICIONAL", "etiqueta": "Recuperacion nutricional", "icono": "heart", "color": "#9C27B0"},
+    {"valor": "COMBINACION_SUAVE", "etiqueta": "Suave", "icono": "cloud", "color": "#00BCD4"},
+    {"valor": "COMBINACION_COMPLEMENTARIA", "etiqueta": "Complementaria", "icono": "add", "color": "#607D8B"},
+]
+
+@router.get("/roles-combinacion")
+def list_combination_roles(
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    return ROLES_COMBINACION_UI
+
+@router.get("/reglas-menu-combinaciones")
+def list_all_menu_combination_rules(
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_todas_reglas_menu_combinacion()
+
+@router.get("/reglas-menu-combinaciones/por-momento/{mid}")
+def list_menu_combination_rules(
+    mid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_reglas_menu_combinacion(mid)
+
+@router.get("/tipos-factibles/por-momento/{mid}")
+def list_feasible_dish_types_by_moment(
+    mid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.listar_tipos_factibles_por_momento(mid)
+
+@router.post("/reglas-menu-combinaciones/por-momento/{mid}/importar-json")
+def import_menu_combination_rules(
+    mid: int,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    try:
+        combinaciones = payload.get("combinaciones") if isinstance(payload, dict) else payload
+        return {
+            "success": True,
+            **repo.importar_reglas_menu_combinacion(mid, combinaciones),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.post("/reglas-menu-combinaciones")
+def create_menu_combination_rule(
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    try:
+        resultado = repo.crear_regla_menu_combinacion(
+            id_momento=int(payload["id_momento"]),
+            rol=payload["rol"],
+            platillos_nombres=payload.get("platillos", []),
+            condiciones_ids=payload.get("condiciones_ids", []),
+        )
+        return {"success": True, **resultado}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.delete("/reglas-menu-combinaciones/{rid}")
+def delete_menu_combination_rule(
+    rid: int,
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return {"success": repo.eliminar_regla_menu_combinacion(rid)}

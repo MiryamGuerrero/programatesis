@@ -652,6 +652,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 evaluacion = ServicioOMS.evaluar_paciente_integral(peso, talla, paciente[1], paciente[0], date.today())
                 heur_bmi = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
                 heur_hfa = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
+                cond_peso = int(datos.get("id_condicion_nutricional_peso") or heur_bmi)
+                cond_talla = int(datos.get("id_condicion_nutricional_talla") or heur_hfa)
 
                 cur.execute("""
                     update clinico.control_paciente
@@ -679,7 +681,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     talla,
                     evaluacion["edad_meses"],
                     evaluacion["imc"],
-                    heur_bmi,
+                    cond_peso,
                     evaluacion["diagnostico_combinado"],
                     datos.get("valor_pcr") or None,
                     datos.get("valor_vsg") or None,
@@ -695,6 +697,21 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     datos.get("fecha_proxima_cita") or None,
                     id_control,
                 ))
+
+                cur.execute("""
+                    delete from clinico.control_condicion_activa cca
+                    using heuristico.condicion c
+                    where cca.id_condicion = c.id
+                      and cca.id_control = %s
+                      and c.id_tipo_condicion = 3
+                """, (id_control,))
+                for cond_id in [cond_peso, cond_talla]:
+                    if cond_id and cond_id > 0:
+                        cur.execute("""
+                            insert into clinico.control_condicion_activa
+                            (id_control, id_condicion, fecha_inicio, esta_activa)
+                            values (%s, %s, now(), true)
+                        """, (id_control, cond_id))
 
                 cur.execute("""
                     delete from clinico.control_condicion_activa cca

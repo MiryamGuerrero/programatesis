@@ -8,6 +8,7 @@ import "package:fl_chart/fl_chart.dart";
 
 import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../shared/widgets/patient_summary_panel.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
 import "../data/supervision_provider.dart";
@@ -298,61 +299,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   Widget _buildLeftSummary() {
     if (_expediente == null) return const SizedBox(width: 350, child: Center(child: CircularProgressIndicator()));
      
-    final p = _expediente!['paciente'] ?? {};
-    final d = _expediente!['diagnostico'] ?? {};
-    final c = _expediente!['ultimo_control'] ?? {};
-    final al = _expediente!['alergias'] ?? {};
-     
-    final lactosa = _expediente!['es_intolerante_lactosa'] == true;
-    final subgrupos = (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ");
-    final ingredientes = (al['ingredientes'] as List? ?? []).map((e) => e['nombre']).join(", ");
-     
-    return Container(
+    return PatientSummaryPanel(
+      expediente: _expediente!,
+      formatEdad: _formatEdad,
+      onVerExpediente: _mostrarExpedienteMaestroDialog,
       width: 350,
-      color: Colors.white,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Column(
-                children: [
-                  NutriAvatar(nombreCompleto: p['nombre_completo'] ?? "P", radio: 40),
-                  const SizedBox(height: 16),
-                  Text("RESUMEN CLÍNICO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 10, color: greenBrand, letterSpacing: 2)),
-                ],
-              ),
-            ),
-            const Divider(height: 48),
-            _summaryItem("ENFERMEDAD PRINCIPAL", d['condicion_nombre'] ?? d['nombre_condicion'] ?? "-", Icons.medical_services_outlined),
-            _summaryItem("EDAD", _formatEdad(p['fecha_nacimiento']), Icons.cake_outlined),
-            _summaryItem("ESTADO NUTRICIONAL", c['estado_nutricional'] ?? "PENDIENTE", Icons.analytics_outlined, color: greenBrand),
-            _summaryItem("TALLA ACTUAL", "${c['talla_cm'] ?? '-'} cm", Icons.height_rounded),
-            const Divider(height: 48),
-            _summaryItem("INTOLERANTE A LACTOSA", lactosa ? "SÍ" : "NO", Icons.opacity, color: lactosa ? Colors.red : greenBrand),
-            _summaryItem("ALERGIAS (SUBGRUPOS)", subgrupos.isEmpty ? "NINGUNA" : subgrupos, Icons.warning_amber_rounded, color: subgrupos.isEmpty ? Colors.grey : Colors.orange),
-            _summaryItem("ALERGIAS (ESPECÍFICAS)", ingredientes.isEmpty ? "NINGUNA" : ingredientes, Icons.security_rounded, color: ingredientes.isEmpty ? Colors.grey : Colors.orange),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _mostrarExpedienteMaestroDialog(),
-                icon: const Icon(Icons.assignment_ind_outlined),
-                label: const Text("VER EXPEDIENTE MAESTRO"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: greenBrand,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -475,29 +426,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       ]
     )
   );
-
-  Widget _summaryItem(String label, String value, IconData icon, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: color ?? Colors.blueGrey),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5)),
-                const SizedBox(height: 4),
-                Text(value, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTopBar() {
     return Column(
