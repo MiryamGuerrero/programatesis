@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
+from datetime import date, datetime
 from app.api.deps import require_roles
 from app.core.security import UserContext
 from app.api.v1.use_cases import (
@@ -13,6 +14,250 @@ from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfi
 from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
 
 router = APIRouter(tags=["Compatibilidad"])
+
+
+def _asegurar_tabla_validacion_nutri(cur) -> None:
+    cur.execute(
+        """
+        create table if not exists clinico.validacion_control_nutricional_mensual (
+            id bigserial primary key,
+            id_control bigint not null,
+            id_paciente uuid not null,
+            anio integer not null,
+            mes integer not null,
+            confirmado boolean not null default true,
+            fecha_confirmacion timestamp without time zone not null default now(),
+            unique (id_control, anio, mes)
+        )
+        """
+    )
+
+@router.get("/pacientes/{id_paciente}/planes")
+def obtener_planes_paciente(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
+):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select column_name
+            from information_schema.columns
+            where table_schema = 'interaccion'
+              and table_name = 'plan_nutricional'
+            """
+        )
+        cols_plan = {r[0] for r in cur.fetchall()}
+        objetivo_col = "p.objetivo" if "objetivo" in cols_plan else "NULL::text as objetivo"
+        tipo_plan_col = "p.tipo_plan" if "tipo_plan" in cols_plan else "'MANUAL'::text as tipo_plan"
+        origen_plan_col = "p.origen_plan" if "origen_plan" in cols_plan else "'NUTRICIONISTA'::text as origen_plan"
+        comidas_col = "p.comidas_por_dia" if "comidas_por_dia" in cols_plan else "NULL::int as comidas_por_dia"
+
+        cur.execute(
+            f"""
+            select
+                p.id,
+                p.id_paciente,
+                p.fecha_inicio,
+                p.fecha_fin,
+                p.vigente,
+                {objetivo_col},
+                {tipo_plan_col},
+                {origen_plan_col},
+                {comidas_col},
+                p.created_at,
+                count(pi.id) as total_items
+            from interaccion.plan_nutricional p
+            left join interaccion.plan_item pi on pi.id_plan = p.id
+            where p.id_paciente = %s
+            group by p.id
+            order by p.created_at desc nulls last, p.id desc
+            """,
+            (id_paciente,),
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+@router.get("/planes/{id_plan}")
+def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select
+                pi.fecha_programada as fecha,
+                pi.id_momento,
+                pi.id_receta,
+                r.nombre as nombre_receta
+            from interaccion.plan_item pi
+            join nutricion.receta r on r.id = pi.id_receta
+            where pi.id_plan = %s
+            order by pi.fecha_programada, pi.id_momento, pi.id
+            """,
+            (id_plan,),
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+@router.delete("/planes/{id_plan}")
+def eliminar_plan(id_plan: int, _=Depends(require_roles("admin", "nutricionista", "medico"))):
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        cur.execute(
+            "delete from interaccion.seguimiento_plan_item where id_plan_item in (select id from interaccion.plan_item where id_plan = %s)",
+            (id_plan,),
+        )
+        cur.execute("delete from interaccion.plan_item where id_plan = %s", (id_plan,))
+        cur.execute("delete from interaccion.plan_nutricional where id = %s", (id_plan,))
+        return {"success": cur.rowcount > 0}
+
+@router.put("/pacientes/{id_paciente}/control-mensual-actual")
+def actualizar_control_mensual_actual_desde_nutri(
+    id_paciente: str,
+    payload: dict,
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    from app.core.db import db_cursor
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    hoy = date.today()
+
+    with db_cursor() as cur:
+        _asegurar_tabla_validacion_nutri(cur)
+        cur.execute(
+            """
+            select id, peso_kg, talla_cm, valor_pcr, valor_vsg, puntos_dolor, escala_inflamacion,
+                   nivel_fatiga, articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
+                   en_brote, estado_enfermedad, nota_evolucion, fecha_proxima_cita
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="No existe control mensual para este paciente")
+
+        id_control = row[0]
+        datos = {
+            "peso_kg": payload.get("peso_kg", row[1]),
+            "talla_cm": payload.get("talla_cm", row[2]),
+            "valor_pcr": payload.get("valor_pcr", row[3]),
+            "valor_vsg": payload.get("valor_vsg", row[4]),
+            "puntos_dolor": payload.get("puntos_dolor", row[5]),
+            "escala_inflamacion": payload.get("escala_inflamacion", row[6]),
+            "fatiga": payload.get("fatiga", row[7]),
+            "articulaciones_inflamadas": payload.get("articulaciones_inflamadas", row[8]),
+            "articulaciones_dolorosas": payload.get("articulaciones_dolorosas", row[9]),
+            "minutos_rigidez": payload.get("minutos_rigidez", row[10]),
+            "en_brote": payload.get("en_brote", row[11]),
+            "estado_enfermedad": payload.get("estado_enfermedad", row[12]),
+            "nota_evolucion": payload.get("nota_evolucion", row[13]),
+            "fecha_proxima_cita": payload.get("fecha_proxima_cita", row[14]),
+            "id_condicion_nutricional_peso": payload.get("id_condicion_nutricional_peso"),
+            "id_condicion_nutricional_talla": payload.get("id_condicion_nutricional_talla"),
+            "condiciones_temporales": payload.get("condiciones_temporales", []),
+            "recomendaciones_ingredientes": payload.get("recomendaciones_ingredientes", []),
+        }
+
+    repo = RepositorioPacientePostgres()
+    ok = repo.actualizar_control_mensual_especifico(id_control, datos)
+    with db_cursor() as cur:
+        _asegurar_tabla_validacion_nutri(cur)
+        cur.execute(
+            """
+            insert into clinico.validacion_control_nutricional_mensual
+            (id_control, id_paciente, anio, mes, confirmado)
+            values (%s, %s, %s, %s, true)
+            on conflict (id_control, anio, mes)
+            do update set confirmado = true, fecha_confirmacion = now()
+            """,
+            (id_control, id_paciente, hoy.year, hoy.month),
+        )
+    return {"success": ok, "id_control": id_control}
+
+
+@router.get("/pacientes/{id_paciente}/control-mensual-actual/estado-validacion")
+def obtener_estado_validacion_control_mensual(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    hoy = date.today()
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        _asegurar_tabla_validacion_nutri(cur)
+        cur.execute(
+            """
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_control = cur.fetchone()
+        if not row_control:
+            return {"mostrar_modal": False, "motivo": "sin_control_mensual"}
+        id_control = row_control[0]
+
+        cur.execute(
+            """
+            select confirmado
+            from clinico.validacion_control_nutricional_mensual
+            where id_control = %s and anio = %s and mes = %s
+            limit 1
+            """,
+            (id_control, hoy.year, hoy.month),
+        )
+        row_validado = cur.fetchone()
+        confirmado = bool(row_validado and row_validado[0] is True)
+        return {
+            "mostrar_modal": not confirmado,
+            "id_control": id_control,
+            "anio": hoy.year,
+            "mes": hoy.month,
+            "confirmado": confirmado,
+        }
+
+
+@router.post("/pacientes/{id_paciente}/control-mensual-actual/confirmar")
+def confirmar_control_mensual_actual(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    hoy = date.today()
+    from app.core.db import db_cursor
+    with db_cursor() as cur:
+        _asegurar_tabla_validacion_nutri(cur)
+        cur.execute(
+            """
+            select id
+            from clinico.control_paciente
+            where id_paciente = %s
+            order by fecha_control desc, id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_control = cur.fetchone()
+        if not row_control:
+            raise HTTPException(status_code=404, detail="No existe control mensual para este paciente")
+        id_control = row_control[0]
+        cur.execute(
+            """
+            insert into clinico.validacion_control_nutricional_mensual
+            (id_control, id_paciente, anio, mes, confirmado)
+            values (%s, %s, %s, %s, true)
+            on conflict (id_control, anio, mes)
+            do update set confirmado = true, fecha_confirmacion = now()
+            """,
+            (id_control, id_paciente, hoy.year, hoy.month),
+        )
+        return {"success": True, "id_control": id_control, "anio": hoy.year, "mes": hoy.month}
 
 @router.get("/etiquetas-lista")
 def etiquetas_lista_compat(
@@ -165,6 +410,7 @@ def listar_recetas_seguras(
     """
     id_paciente = payload.id_paciente
     id_momento = payload.id_momento
+    id_tipo_plato = payload.id_tipo_plato
     
     if not id_paciente:
         from fastapi import HTTPException
@@ -177,7 +423,8 @@ def listar_recetas_seguras(
     try:
         permitidas = repo_receta.obtener_recetas_seguras_para_paciente(
             id_paciente, 
-            int(id_momento) if id_momento else None
+            int(id_momento) if id_momento else None,
+            int(id_tipo_plato) if id_tipo_plato else None
         )
         
         # Formateamos la respuesta para incluir el mensaje de recomendación
@@ -187,7 +434,7 @@ def listar_recetas_seguras(
             else:
                 r["recomendacion"] = "Segura para el paciente"
                 
-        return {"recetas": permitidas}
+        return {"id_paciente": id_paciente, "recetas": permitidas}
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))
@@ -197,12 +444,168 @@ def guardar_plan_manual(
     payload: dict,
     user: UserContext = Depends(require_roles("admin", "nutricionista"))
 ):
-    """Guarda el diseño semanal del plan alimentario y los potenciadores."""
+    """Guarda plan y potenciadores; opcionalmente confirma/actualiza el control mensual actual."""
     id_paciente = payload.get("id_paciente")
     boosters = payload.get("boosters", []) # IDs de ingredientes recomendados para este plan
+    plan_items = payload.get("plan", [])
+    confirmar_control = bool(payload.get("confirmar_control_mensual", False))
+    datos_control = payload.get("control_mensual_actual") or {}
     
+    if confirmar_control:
+        from app.core.db import db_cursor
+        from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+        with db_cursor() as cur_control:
+            cur_control.execute(
+                """
+                select id
+                from clinico.control_paciente
+                where id_paciente = %s
+                order by fecha_control desc, id desc
+                limit 1
+                """,
+                (id_paciente,),
+            )
+            row_control = cur_control.fetchone()
+
+        repo_paciente = RepositorioPacientePostgres()
+        if row_control:
+            repo_paciente.actualizar_control_mensual_especifico(row_control[0], datos_control)
+        else:
+            repo_paciente.registrar_control_mensual(
+                id_paciente=id_paciente,
+                datos=datos_control,
+                id_medico=user.user_id,
+            )
+
     from app.core.db import db_cursor
     with db_cursor() as cur:
+        id_plan = None
+        if plan_items:
+            # Regla de seguridad nutricional para semáforo amarillo:
+            # 1) máximo 2 veces por semana
+            # 2) nunca en días consecutivos
+            amarillos_por_receta: dict[int, list[date]] = {}
+            for i in plan_items:
+                if str(i.get("semaforo", "")).lower() != "amarillo":
+                    continue
+                rid = int(i.get("id_receta") or 0)
+                if rid <= 0:
+                    continue
+                f = datetime.fromisoformat(str(i.get("fecha"))).date()
+                amarillos_por_receta.setdefault(rid, []).append(f)
+
+            for rid, fechas in amarillos_por_receta.items():
+                fechas_orden = sorted(set(fechas))
+                # no consecutivos
+                for idx in range(1, len(fechas_orden)):
+                    if (fechas_orden[idx] - fechas_orden[idx - 1]).days == 1:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"La receta {rid} (amarilla) no puede estar en días consecutivos.",
+                        )
+                # máximo 2 por semana ISO
+                conteo_semana: dict[tuple[int, int], int] = {}
+                for f in fechas_orden:
+                    yw = f.isocalendar()
+                    key = (yw.year, yw.week)
+                    conteo_semana[key] = conteo_semana.get(key, 0) + 1
+                    if conteo_semana[key] > 2:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"La receta {rid} (amarilla) supera 2 veces en la misma semana.",
+                        )
+
+            fechas = sorted(
+                {
+                    str(i.get("fecha"))
+                    for i in plan_items
+                    if i.get("fecha") is not None
+                }
+            )
+            if not fechas:
+                raise HTTPException(status_code=400, detail="El plan no contiene fechas válidas")
+
+            cur.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_schema = 'interaccion'
+                  and table_name = 'plan_nutricional'
+                """
+            )
+            cols_plan = {r[0] for r in cur.fetchall()}
+            cols = ["id_paciente", "fecha_inicio", "fecha_fin", "vigente"]
+            vals = [id_paciente, fechas[0], fechas[-1], True]
+            if "tipo_plan" in cols_plan:
+                cols.append("tipo_plan")
+                vals.append("MANUAL")
+            if "origen_plan" in cols_plan:
+                cols.append("origen_plan")
+                vals.append("NUTRICIONISTA")
+            if "comidas_por_dia" in cols_plan:
+                cols.append("comidas_por_dia")
+                vals.append(max(int(i.get("comidas_por_dia") or 0) for i in plan_items))
+            if "created_at" in cols_plan:
+                cols.append("created_at")
+                vals.append("now()")
+
+            cols_sql = []
+            placeholders = []
+            params = []
+            for c, v in zip(cols, vals):
+                cols_sql.append(c)
+                if v == "now()":
+                    placeholders.append("now()")
+                else:
+                    placeholders.append("%s")
+                    params.append(v)
+
+            cur.execute(
+                f"insert into interaccion.plan_nutricional ({', '.join(cols_sql)}) values ({', '.join(placeholders)}) returning id",
+                tuple(params),
+            )
+            id_plan = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_schema = 'interaccion'
+                  and table_name = 'plan_item'
+                """
+            )
+            cols_item = {r[0] for r in cur.fetchall()}
+            for item in plan_items:
+                item_cols = ["id_plan", "id_momento", "id_receta", "fecha_programada"]
+                item_vals = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
+                if "created_at" in cols_item:
+                    item_cols.append("created_at")
+                    item_vals.append("now()")
+                if "comidas_por_dia" in cols_item:
+                    item_cols.append("comidas_por_dia")
+                    item_vals.append(item.get("comidas_por_dia"))
+
+                icols = []
+                iph = []
+                iparams = []
+                for c, v in zip(item_cols, item_vals):
+                    icols.append(c)
+                    if v == "now()":
+                        iph.append("now()")
+                    else:
+                        iph.append("%s")
+                        iparams.append(v)
+                cur.execute(
+                    f"insert into interaccion.plan_item ({', '.join(icols)}) values ({', '.join(iph)})",
+                    tuple(iparams),
+                )
+
+            cur.execute(
+                "update interaccion.plan_nutricional set vigente = false where id_paciente = %s and id <> %s",
+                (id_paciente, id_plan),
+            )
+
+
         # 1. Limpiar recomendaciones previas de la nutri para este paciente (opcional, según lógica de negocio)
         # Aquí asumimos que las recomendaciones del plan mensual reemplazan las anteriores de la nutri
         cur.execute("""
@@ -218,7 +621,7 @@ def guardar_plan_manual(
                 values (%s, %s, %s, 3, 'Potenciador de Plan Mensual', 3)
             """, (id_paciente, ing_id, user.user_id))
             
-    return {"success": True, "message": "Plan y potenciadores activados"}
+    return {"success": True, "message": "Plan y potenciadores activados", "id_plan": id_plan}
 
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat(
@@ -296,7 +699,7 @@ def listar_tipos_plato_compat():
 @router.get("/crud/recetas")
 def crud_recetas_compat(
     q: str = Query(default=""),
-    limit: int = Query(default=100)
+    limit: int = Query(default=1000)
 ):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
@@ -315,13 +718,18 @@ def obtener_receta_detalle_completo(id_receta: int):
 @router.post("/crud/recetas")
 def guardar_receta_completa(payload: dict):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    import traceback
+    import sys
     repo = RepositorioRecetaPostgres()
     try:
         id_receta = repo.guardar_receta(payload)
         return {"success": True, "id": id_receta}
     except Exception as e:
+        error_msg = f"Error guardando receta: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_msg)
 
 @router.delete("/crud/recetas/{id_receta}")
 def eliminar_receta_completa(id_receta: int):

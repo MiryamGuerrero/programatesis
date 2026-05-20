@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
 
@@ -25,20 +25,16 @@ class RecipeImageService {
   static Future<Uint8List> optimizeImage(XFile xFile) async {
     final bytes = await xFile.readAsBytes();
 
-    img.Image? image = img.decodeImage(bytes);
-    if (image == null) throw Exception("No se pudo decodificar la imagen");
+    // flutter_image_compress maneja el redimensionamiento y la conversión a WebP de forma robusta
+    final result = await FlutterImageCompress.compressWithList(
+      bytes,
+      minWidth: _maxImageSide,
+      minHeight: _maxImageSide,
+      quality: _jpegQuality,
+      format: CompressFormat.webp,
+    );
 
-    image = img.bakeOrientation(image);
-
-    if (image.width > _maxImageSide || image.height > _maxImageSide) {
-      if (image.width > image.height) {
-        image = img.copyResize(image, width: _maxImageSide);
-      } else {
-        image = img.copyResize(image, height: _maxImageSide);
-      }
-    }
-
-    return Uint8List.fromList(img.encodeJpg(image, quality: _jpegQuality));
+    return result;
   }
 
   static Future<String> uploadRecipeImage({
@@ -51,8 +47,10 @@ class RecipeImageService {
           .basenameWithoutExtension(fileName)
           .replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
           .replaceAll(RegExp(r'_+'), '_');
+      
+      // Forzamos la extensión .webp ya que optimizeImage siempre devuelve WebP
       final cleanFileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${baseName.isEmpty ? 'receta' : baseName}.jpg';
+          '${DateTime.now().millisecondsSinceEpoch}_${baseName.isEmpty ? 'receta' : baseName}.webp';
 
       final bucket = await _uploadToAvailableBucket(cleanFileName, optimizedBytes);
       return _supabase.storage.from(bucket).getPublicUrl(cleanFileName);
@@ -69,7 +67,7 @@ class RecipeImageService {
     const options = FileOptions(
       cacheControl: '3600',
       upsert: true,
-      contentType: 'image/jpeg',
+      contentType: 'image/webp',
     );
 
     try {

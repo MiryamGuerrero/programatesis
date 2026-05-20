@@ -11,6 +11,8 @@ class PerfilUsuario(BaseModel):
     email: str
     rol_nombre: str  # Ahora usamos el nombre descriptivo
     rol_codigo: str
+    id_rol: Optional[int] = None
+    activo: Optional[bool] = None
     cedula: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None

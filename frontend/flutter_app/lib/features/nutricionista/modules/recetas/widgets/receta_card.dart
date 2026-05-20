@@ -20,6 +20,8 @@ class RecetaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final momentos = _textoLista(receta['momentos_nombres']);
+    final tiposPlato = _textoLista(receta['tipos_plato_nombres']);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -69,13 +71,28 @@ class RecetaCard extends StatelessWidget {
                   // Fila 2: Categoría
                   const SizedBox(height: 2),
                   Text(
-                    (receta['categoria'] ?? 'General').toString().toUpperCase(),
+                    (momentos.isNotEmpty ? momentos : (receta['categoria'] ?? 'General').toString()).toUpperCase(),
                     style: GoogleFonts.montserrat(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade400,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  if (tiposPlato.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      tiposPlato,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTema.azulPrincipal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   
                   // Fila 3: Descripción
                   const SizedBox(height: 6),
@@ -131,6 +148,17 @@ class RecetaCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _textoLista(dynamic value) {
+    if (value == null) return '';
+    if (value is List) {
+      return value
+          .map((item) => item?.toString().trim() ?? '')
+          .where((item) => item.isNotEmpty)
+          .join(', ');
+    }
+    return value.toString().trim();
   }
 
   Widget _buildHeader() {

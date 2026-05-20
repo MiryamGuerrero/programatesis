@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
+import '../../../../shared/widgets/patient_summary_panel.dart';
 import '../../../../shared/widgets/layout_components.dart';
 
 // --- MODELOS ---
@@ -47,6 +48,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   bool _morningSnackEnabled = false;
   bool _afternoonSnackEnabled = false;
+  List<int> _boostersSeleccionados = [];
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -100,6 +102,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       final dio = ref.read(dioProvider);
       final resExp = await dio.get("pacientes/${patient['id']}/expediente-completo");
       _patientProfile = resExp.data;
+      final estadoValidacion = await dio.get(
+        "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
+      );
+      final mostrarModal = estadoValidacion.data?["mostrar_modal"] == true;
+      if (mostrarModal) {
+        await _mostrarModalValidacionClinica(patient['id'].toString());
+      }
+      await _preguntarYRecomendarAlimentos(patient['id'].toString());
       
       final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
       final List planes = List.from(resPlanes.data);
@@ -116,6 +126,206 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
+  Future<void> _preguntarYRecomendarAlimentos(String idPaciente) async {
+    final bool? desea = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Recomendaciones del nutricionista"),
+        content: const Text("¿Desea recomendar alimentos para este paciente?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("No")),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Sí")),
+        ],
+      ),
+    );
+    if (desea != true) return;
+    await _modalRecomendacionesNutri(idPaciente);
+  }
+
+  Future<void> _modalRecomendacionesNutri(String idPaciente) async {
+    final dio = ref.read(dioProvider);
+    List<Map<String, dynamic>> seguros = [];
+    try {
+      final seg = await dio.get(
+        "ingredientes/buscar-para-paciente/$idPaciente",
+        queryParameters: {"q": "", "limit": 300},
+      );
+      seguros = List<Map<String, dynamic>>.from(seg.data ?? []);
+    } catch (_) {}
+
+    final Set<int> seleccion = {..._boostersSeleccionados};
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          return AlertDialog(
+            title: const Text("Seleccionar ingredientes recomendados"),
+            content: SizedBox(
+              width: 760,
+              height: 520,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Selecciona ingredientes seguros para potenciar este plan (Nutricionista):"),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: seguros.length,
+                      itemBuilder: (_, i) {
+                        final ing = seguros[i];
+                        final idIng = (ing["id"] as num?)?.toInt() ?? 0;
+                        final nombre = (ing["nombre"] ?? "-").toString();
+                        return CheckboxListTile(
+                          value: seleccion.contains(idIng),
+                          onChanged: (v) {
+                            setModal(() {
+                              if (v == true) {
+                                seleccion.add(idIng);
+                              } else {
+                                seleccion.remove(idIng);
+                              }
+                            });
+                          },
+                          title: Text(nombre),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+              FilledButton(
+                onPressed: () {
+                  setState(() => _boostersSeleccionados = seleccion.toList());
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text("Aplicar al plan"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _mostrarModalValidacionClinica(String idPaciente) async {
+    if (_patientProfile == null) return;
+    final dio = ref.read(dioProvider);
+    final ultimoControl = (_patientProfile!["ultimo_control"] ?? {}) as Map<String, dynamic>;
+    final paciente = (_patientProfile!["paciente"] ?? {}) as Map<String, dynamic>;
+    final condicionesResp = await dio.get("condiciones-nutricionales");
+    final List<Map<String, dynamic>> condiciones = List<Map<String, dynamic>>.from(condicionesResp.data ?? []);
+
+    final pesoCtrl = TextEditingController(text: (ultimoControl["peso_kg"] ?? "").toString());
+    final tallaCtrl = TextEditingController(text: (ultimoControl["talla_cm"] ?? "").toString());
+    int? condicionPesoId = (ultimoControl["id_condicion_nutricional_resultado"] as num?)?.toInt();
+    int? condicionTallaId;
+    final edadLabel = _formatEdad(paciente["fecha_nacimiento"]?.toString());
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return AlertDialog(
+              title: const Text("Validar datos clínicos del paciente"),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Edad actual: $edadLabel", style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: pesoCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: "Peso (kg)"),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: tallaCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: "Talla (cm)"),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        value: condicionPesoId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: "Condición nutricional - Peso"),
+                        items: condiciones
+                            .map((c) => DropdownMenuItem<int>(
+                                  value: (c["id"] as num).toInt(),
+                                  child: Text(c["nombre"]?.toString() ?? "Condición"),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setModalState(() => condicionPesoId = v),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<int>(
+                        value: condicionTallaId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: "Condición nutricional - Talla"),
+                        items: condiciones
+                            .map((c) => DropdownMenuItem<int>(
+                                  value: (c["id"] as num).toInt(),
+                                  child: Text(c["nombre"]?.toString() ?? "Condición"),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setModalState(() => condicionTallaId = v),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text("Dejar como está"),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final peso = double.tryParse(pesoCtrl.text.trim());
+                    final talla = double.tryParse(tallaCtrl.text.trim());
+                    if (peso == null || talla == null || condicionPesoId == null || condicionTallaId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Completa peso, talla y las 2 condiciones.")),
+                      );
+                      return;
+                    }
+                    await dio.put(
+                      "pacientes/$idPaciente/control-mensual-actual",
+                      data: {
+                        "peso_kg": peso,
+                        "talla_cm": talla,
+                        "id_condicion_nutricional_peso": condicionPesoId,
+                        "id_condicion_nutricional_talla": condicionTallaId,
+                      },
+                    );
+                    final resExpNuevo = await dio.get("pacientes/$idPaciente/expediente-completo");
+                    if (mounted) {
+                      setState(() => _patientProfile = resExpNuevo.data);
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text("Actualizar datos"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _deletePlan(int id) async {
     try {
       final dio = ref.read(dioProvider);
@@ -129,14 +339,88 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
-  void _startNewPlan() {
+  Future<void> _startNewPlan() async {
     setState(() {
       _viewingHistory = false;
       _planInitialized = false;
       _weeklyPlan = []; // Limpiar plan previo
       _calculateSmartDates(_patientPlans); // Recalcular fechas para el nuevo plan
     });
+    await _seleccionarPotenciadoresAntesDelPlan();
     _showConfigModal();
+  }
+
+  Future<void> _seleccionarPotenciadoresAntesDelPlan() async {
+    if (_selectedPatient == null) return;
+    final dio = ref.read(dioProvider);
+    List<Map<String, dynamic>> recs = [];
+    try {
+      final res = await dio.get("ingredientes/recomendados/${_selectedPatient!["id"]}");
+      recs = List<Map<String, dynamic>>.from(res.data ?? []);
+    } catch (_) {}
+
+    final seleccion = Set<int>.from(_boostersSeleccionados);
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          return AlertDialog(
+            title: const Text("Potenciadores del plan"),
+            content: SizedBox(
+              width: 680,
+              height: 420,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Expediente: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "-"} | Alergias consideradas automáticamente en recetas seguras.",
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: recs.isEmpty
+                        ? const Center(child: Text("No hay ingredientes recomendados activos"))
+                        : ListView.builder(
+                            itemCount: recs.length,
+                            itemBuilder: (_, i) {
+                              final r = recs[i];
+                              final idIng = (r["id_ingrediente"] as num?)?.toInt() ?? 0;
+                              final rol = (r["id_rol_recomienda"] ?? "").toString();
+                              final rolTxt = rol == "2" ? "Médico" : (rol == "3" ? "Nutricionista" : "Profesional");
+                              return CheckboxListTile(
+                                value: seleccion.contains(idIng),
+                                onChanged: (v) {
+                                  setModal(() {
+                                    if (v == true) {
+                                      seleccion.add(idIng);
+                                    } else {
+                                      seleccion.remove(idIng);
+                                    }
+                                  });
+                                },
+                                title: Text((r["ingrediente_nombre"] ?? "-").toString()),
+                                subtitle: Text("Recomendado por: $rolTxt"),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Continuar sin cambios")),
+              FilledButton(
+                onPressed: () {
+                  setState(() => _boostersSeleccionados = seleccion.toList());
+                  Navigator.pop(ctx);
+                },
+                child: const Text("Usar selección"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _verDetallePlan(Map<String, dynamic> plan) async {
@@ -292,15 +576,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       children: [
         // Sidebar
         if (_patientProfile != null) 
-          SizedBox(
-            width: 320, 
-            child: _PatientProfileSidebar(
-              expediente: _patientProfile!,
-              greenBrand: greenBrand,
-              formatEdad: _formatEdad,
-              summaryItem: _summaryItem,
-              onVerExpediente: _mostrarExpedienteMaestroDialog,
-            )
+          PatientSummaryPanel(
+            expediente: _patientProfile!,
+            formatEdad: _formatEdad,
+            onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
           const SizedBox(width: 320, child: Center(child: CircularProgressIndicator())),
@@ -450,15 +729,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       children: [
         // Sidebar Izquierdo
         if (_patientProfile != null) 
-          SizedBox(
-            width: 320, 
-            child: _PatientProfileSidebar(
-              expediente: _patientProfile!,
-              greenBrand: greenBrand,
-              formatEdad: _formatEdad,
-              summaryItem: _summaryItem,
-              onVerExpediente: _mostrarExpedienteMaestroDialog,
-            )
+          PatientSummaryPanel(
+            expediente: _patientProfile!,
+            formatEdad: _formatEdad,
+            onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
           const SizedBox(width: 320, child: Center(child: CircularProgressIndicator())),
@@ -649,6 +923,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildModernSlot(int dayIdx, int slotIdx, MealSlot s) {
     final hasRecipe = s.recipes.isNotEmpty;
+    String semaforoSlot = "neutral";
+    if (hasRecipe) {
+      final sems = s.recipes.map((e) => (e["semaforo"] ?? "neutral").toString()).toList();
+      if (sems.contains("amarillo")) {
+        semaforoSlot = "amarillo";
+      } else if (sems.contains("verde")) {
+        semaforoSlot = "verde";
+      }
+    }
+    final Color colorSlot = semaforoSlot == "verde"
+        ? Colors.green
+        : (semaforoSlot == "amarillo" ? Colors.amber.shade700 : Colors.blueGrey);
     
     return Container(
       width: 220,
@@ -656,7 +942,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
-        border: Border.all(color: hasRecipe ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.1)),
+        border: Border.all(color: hasRecipe ? colorSlot.withOpacity(0.45) : Colors.orange.withOpacity(0.1), width: hasRecipe ? 1.4 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,15 +950,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: hasRecipe ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
+              color: hasRecipe ? colorSlot.withOpacity(0.1) : const Color(0xFFFFF7ED),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
-                Icon(_getMomentIcon(s.momentId), size: 14, color: hasRecipe ? Colors.green : Colors.orange),
+                Icon(_getMomentIcon(s.momentId), size: 14, color: hasRecipe ? colorSlot : Colors.orange),
                 const SizedBox(width: 8),
                 Text(s.mealType.toUpperCase(), 
-                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: hasRecipe ? Colors.green.shade800 : Colors.orange.shade800, letterSpacing: 0.5)),
+                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: hasRecipe ? colorSlot : Colors.orange.shade800, letterSpacing: 0.5)),
               ],
             ),
           ),
@@ -682,23 +968,67 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(s.recipes.first["nombre"], 
-                         maxLines: 2, overflow: TextOverflow.ellipsis,
-                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-                    const SizedBox(height: 12),
+                    ...s.recipes.map((rec) {
+                      final sem = (rec["semaforo"] ?? "neutral").toString();
+                      final Color color = sem == "verde" ? Colors.green : (sem == "amarillo" ? Colors.amber.shade700 : Colors.blueGrey);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: color.withOpacity(0.22)),
+                        ),
+                        child: InkWell(
+                          onTap: () => _mostrarDetalleReceta((rec["id"] as num?)?.toInt() ?? 0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  width: 34,
+                                  height: 34,
+                                  child: (rec["imagen_url"] != null && rec["imagen_url"].toString().isNotEmpty)
+                                      ? Image.network(
+                                          rec["imagen_url"].toString(),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Container(
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(Icons.image, size: 16),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Icon(Icons.image, size: 16),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(rec["nombre"]?.toString() ?? "-", maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
+                                    const SizedBox(height: 4),
+                                    Text(rec["mensaje_regla"]?.toString() ?? "Segura", style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                     Row(
                       children: [
-                        Flexible(
-                          child: _buildBadge(s.recipes.first["recomendacion"] ?? "Segura", Colors.green),
-                        ),
-                        const SizedBox(width: 4),
                         IconButton(
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.blueGrey),
                           onPressed: () => _openRecipePicker(dayIdx, slotIdx),
-                          tooltip: "Cambiar receta",
+                          tooltip: "Cambiar recetas",
                         ),
                         const SizedBox(width: 8),
                         IconButton(
@@ -941,17 +1271,22 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   void _openRecipePicker(int dIdx, int sIdx) {
     final slot = _weeklyPlan[dIdx].slots[sIdx];
     final dateStr = DateFormat('EEEE d MMMM', 'es_EC').format(_weeklyPlan[dIdx].date);
-    showModalBottomSheet(
-      context: context, 
-      isScrollControlled: true, 
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _RecipePicker(
-        idPaciente: _selectedPatient!["id"],
-        momentId: slot.momentId,
-        mealType: slot.mealType,
-        dayName: dateStr,
-        onSelected: (r) => setState(() => slot.recipes = [r]), 
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
+        child: SizedBox(
+          width: 980,
+          height: MediaQuery.of(context).size.height * 0.82,
+          child: _RecipePicker(
+            idPaciente: _selectedPatient!["id"],
+            momentId: slot.momentId,
+            mealType: slot.mealType,
+            dayName: dateStr,
+            initialSelected: List<Map<String, dynamic>>.from(slot.recipes),
+            onSelected: (recipes) => setState(() => slot.recipes = recipes),
+          ),
+        ),
       ),
     );
   }
@@ -964,6 +1299,40 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Día duplicado exitosamente")));
+  }
+
+  Future<void> _mostrarDetalleReceta(int idReceta) async {
+    if (idReceta <= 0) return;
+    final dio = ref.read(dioProvider);
+    try {
+      final res = await dio.get("crud/recetas/$idReceta");
+      final r = Map<String, dynamic>.from(res.data ?? {});
+      final ingredientes = List<Map<String, dynamic>>.from(r["ingredientes"] ?? []);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text((r["nombre"] ?? "Receta").toString()),
+          content: SizedBox(
+            width: 640,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Calorías: ${r["calorias_totales"] ?? 0} kcal"),
+                  Text("Proteínas: ${r["proteinas_totales"] ?? 0} g"),
+                  const SizedBox(height: 12),
+                  const Text("Ingredientes", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...ingredientes.map((i) => Text("- ${i["nombre"] ?? "-"} ${i["cantidad"] ?? ""} ${i["unidad"] ?? ""}")).toList(),
+                ],
+              ),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cerrar"))],
+        ),
+      );
+    } catch (_) {}
   }
 
   void _savePlan({bool replicate = true}) async {
@@ -997,12 +1366,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final List<Map<String, dynamic>> planData = [];
     for (var d in _weeklyPlan) {
       for (var s in d.slots) {
-        planData.add({
-          "fecha": DateFormat('yyyy-MM-dd').format(d.date),
-          "id_momento": s.momentId,
-          "id_receta": s.recipes.first["id"],
-          "comidas_por_dia": totalComidas,
-        });
+        for (final recipe in s.recipes) {
+          planData.add({
+            "fecha": DateFormat('yyyy-MM-dd').format(d.date),
+            "id_momento": s.momentId,
+            "id_receta": recipe["id"],
+            "semaforo": recipe["semaforo"],
+            "comidas_por_dia": totalComidas,
+          });
+        }
       }
     }
 
@@ -1011,7 +1383,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       await dio.post("plan-manual", data: {
         "id_paciente": _selectedPatient!["id"],
         "plan": planData,
-        "replicate": replicate
+        "replicate": replicate,
+        "boosters": _boostersSeleccionados,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.green, content: Text("✅ Plan guardado y activado")));
@@ -1044,29 +1417,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       if (months < 0) { years--; months += 12; }
       return "$years años y $months meses";
     } catch (_) { return "-"; }
-  }
-
-  Widget _summaryItem(String label, String value, IconData icon, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: color ?? Colors.blueGrey),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 0.5)),
-                const SizedBox(height: 4),
-                Text(value, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _mostrarExpedienteMaestroDialog() {
@@ -1188,8 +1538,16 @@ class _RecipePicker extends ConsumerStatefulWidget {
   final int momentId;
   final String mealType;
   final String dayName;
-  final Function(Map<String, dynamic>) onSelected;
-  const _RecipePicker({required this.idPaciente, required this.momentId, required this.mealType, required this.dayName, required this.onSelected});
+  final List<Map<String, dynamic>> initialSelected;
+  final Function(List<Map<String, dynamic>>) onSelected;
+  const _RecipePicker({
+    required this.idPaciente,
+    required this.momentId,
+    required this.mealType,
+    required this.dayName,
+    required this.initialSelected,
+    required this.onSelected,
+  });
 
   @override
   ConsumerState<_RecipePicker> createState() => _RecipePickerState();
@@ -1198,24 +1556,61 @@ class _RecipePicker extends ConsumerStatefulWidget {
 class _RecipePickerState extends ConsumerState<_RecipePicker> {
   List<dynamic> _recipes = [];
   List<dynamic> _filtered = [];
+  List<Map<String, dynamic>> _tipos = [];
+  int? _tipoSeleccionado;
+  final Map<int?, List<dynamic>> _cachePorTipo = {};
   Map<int, bool> _preferences = {}; 
+  final Map<int, Map<String, dynamic>> _selected = {};
   bool _loading = true;
 
   @override
-  void initState() { super.initState(); _fetch(); }
+  void initState() {
+    super.initState();
+    for (final r in widget.initialSelected) {
+      final rid = int.tryParse((r["id"] ?? "").toString());
+      if (rid != null) _selected[rid] = r;
+    }
+    _fetch();
+  }
 
   Future<void> _fetch() async {
     try {
       final dio = ref.read(dioProvider);
+      final tiposRes = await dio.get("nutricionista/tipos-factibles/por-momento/${widget.momentId}");
+      final tipos = List<Map<String, dynamic>>.from(tiposRes.data ?? []);
+      final tipoInicial = tipos.isNotEmpty ? (tipos.first["id_tipo_plato"] as num?)?.toInt() : null;
       final res = await dio.post("recetas-permitidas", data: {
         "id_paciente": widget.idPaciente,
-        "id_momento": widget.momentId
+        "id_momento": widget.momentId,
+        "id_tipo_plato": null,
       });
+      final todas = List<dynamic>.from(res.data["recetas"] ?? []);
+      _cachePorTipo[null] = todas;
+
+      final idsTipos = tipos
+          .map((t) => (t["id_tipo_plato"] as num?)?.toInt())
+          .whereType<int>()
+          .toSet()
+          .toList();
+      for (final idTipo in idsTipos) {
+        _cachePorTipo[idTipo] = todas.where((r) {
+          final tiposReceta = List<dynamic>.from(r["tipos_plato_ids"] ?? const []);
+          final idsReceta = tiposReceta
+              .map((x) => int.tryParse(x.toString()))
+              .whereType<int>()
+              .toSet();
+          return idsReceta.contains(idTipo);
+        }).toList();
+      }
+
+      final recetasIniciales = _cachePorTipo[tipoInicial] ?? _cachePorTipo[null] ?? <dynamic>[];
       if (mounted) {
         setState(() { 
-          _recipes = res.data["recetas"] ?? []; 
+          _tipos = tipos;
+          _tipoSeleccionado = tipoInicial;
+          _recipes = recetasIniciales; 
           _filtered = _recipes;
-          final prefsRaw = res.data["preferencias_receta"];
+          final prefsRaw = {};
           if (prefsRaw != null && prefsRaw is Map) {
             _preferences = (prefsRaw as Map).map((k, v) => MapEntry(int.parse(k.toString()), v as bool));
           }
@@ -1227,15 +1622,24 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     }
   }
 
+  Future<void> _cargarPorTipo(int? idTipo) async {
+    if (!mounted) return;
+    final recetas = _cachePorTipo[idTipo] ?? <dynamic>[];
+    setState(() {
+      _tipoSeleccionado = idTipo;
+      _recipes = recetas;
+      _filtered = _recipes;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(16))),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24), decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+            padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
             child: Row(
               children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1243,18 +1647,45 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                   Text("${widget.dayName} • ${widget.mealType}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ]),
                 const Spacer(),
+                Text("${_selected.length} seleccionadas", style: const TextStyle(color: Colors.white70)),
+                const SizedBox(width: 8),
                 IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
               ],
             ),
           ),
+          if (_tipos.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _tipos.map((t) {
+                    final id = (t["id_tipo_plato"] as num?)?.toInt();
+                    final selected = id == _tipoSeleccionado;
+                    return ChoiceChip(
+                      label: Text((t["tipo_plato_nombre"] ?? "Tipo").toString()),
+                      selected: selected,
+                      onSelected: (_) => _cargarPorTipo(id),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(24),
             child: TextField(
               autofocus: true,
               onChanged: (v) => setState(() {
-                _filtered = _recipes.where((r) => r["nombre"].toString().toLowerCase().contains(v.toLowerCase())).toList();
+                final q = v.toLowerCase();
+                _filtered = _recipes.where((r) {
+                  final nombre = (r["nombre"] ?? "").toString().toLowerCase();
+                  final ing = (r["ingredientes_nombres"] ?? []).toString().toLowerCase();
+                  return nombre.contains(q) || ing.contains(q);
+                }).toList();
               }),
-              decoration: InputDecoration(hintText: "Filtrar por nombre...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
+              decoration: InputDecoration(hintText: "Buscar por receta o ingrediente...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
             ),
           ),
           const SizedBox(height: 12),
@@ -1273,7 +1704,20 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
-                      leading: const Icon(Icons.restaurant, color: Colors.orange),
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: (recipe["imagen_url"] != null && recipe["imagen_url"].toString().isNotEmpty)
+                              ? Image.network(
+                                  recipe["imagen_url"].toString(),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(color: Colors.orange.shade100, child: const Icon(Icons.restaurant, color: Colors.orange)),
+                                )
+                              : Container(color: Colors.orange.shade100, child: const Icon(Icons.restaurant, color: Colors.orange)),
+                        ),
+                      ),
                       title: Row(
                         children: [
                           Expanded(child: Text(recipe["nombre"]?.toString() ?? "Receta", style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1281,91 +1725,53 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                           if (likes == false) const Icon(Icons.thumb_down, color: Colors.red, size: 16),
                         ],
                       ),
-                      subtitle: Text(recipe["recomendacion"]?.toString() ?? "Permitida", style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.add_circle, color: Colors.blue),
-                      onTap: () { widget.onSelected(recipe); Navigator.pop(context); },
+                      subtitle: Text(recipe["mensaje_regla"]?.toString() ?? recipe["recomendacion"]?.toString() ?? "Permitida", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      trailing: Checkbox(
+                        value: _selected.containsKey(recipeId),
+                        onChanged: (_) {
+                          setState(() {
+                            if (_selected.containsKey(recipeId)) {
+                              _selected.remove(recipeId);
+                            } else {
+                              _selected[recipeId] = Map<String, dynamic>.from(recipe);
+                            }
+                          });
+                        },
+                      ),
+                      onTap: () {
+                        setState(() {
+                          if (_selected.containsKey(recipeId)) {
+                            _selected.remove(recipeId);
+                          } else {
+                            _selected[recipeId] = Map<String, dynamic>.from(recipe);
+                          }
+                        });
+                      },
                     ),
                   );
                 },
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            child: Row(
+              children: [
+                OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () {
+                    widget.onSelected(_selected.values.toList());
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Aplicar selección"),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PatientProfileSidebar extends StatelessWidget {
-  final Map<String, dynamic> expediente;
-  final Color greenBrand;
-  final String Function(String?) formatEdad;
-  final Widget Function(String, String, IconData, {Color? color}) summaryItem;
-  final VoidCallback onVerExpediente;
 
-  const _PatientProfileSidebar({
-    required this.expediente,
-    required this.greenBrand,
-    required this.formatEdad,
-    required this.summaryItem,
-    required this.onVerExpediente,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final p = expediente['paciente'] ?? {};
-    final d = expediente['diagnostico'] ?? {};
-    final c = expediente['ultimo_control'] ?? {};
-    final al = expediente['alergias'] ?? {};
-     
-    final lactosa = expediente['es_intolerante_lactosa'] == true;
-    final subgrupos = (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ");
-    final ingredientes = (al['ingredientes'] as List? ?? []).map((e) => e['nombre']).join(", ");
-
-    return Container(
-      color: Colors.white,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Column(
-                children: [
-                  NutriAvatar(nombreCompleto: p['nombre_completo'] ?? "P", radio: 40),
-                  const SizedBox(height: 16),
-                  Text("RESUMEN CLÍNICO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 10, color: greenBrand, letterSpacing: 2)),
-                ],
-              ),
-            ),
-            const Divider(height: 48),
-            summaryItem("ENFERMEDAD PRINCIPAL", d['condicion_nombre'] ?? d['nombre_condicion'] ?? "-", Icons.medical_services_outlined),
-            summaryItem("EDAD", formatEdad(p['fecha_nacimiento']), Icons.cake_outlined),
-            summaryItem("ESTADO NUTRICIONAL", c['estado_nutricional'] ?? "PENDIENTE", Icons.analytics_outlined, color: greenBrand),
-            summaryItem("TALLA ACTUAL", "${c['talla_cm'] ?? '-'} cm", Icons.height_rounded),
-            const Divider(height: 48),
-            summaryItem("INTOLERANTE A LACTOSA", lactosa ? "SÍ" : "NO", Icons.opacity, color: lactosa ? Colors.red : greenBrand),
-            summaryItem("ALERGIAS (SUBGRUPOS)", subgrupos.isEmpty ? "NINGUNA" : subgrupos, Icons.warning_amber_rounded, color: subgrupos.isEmpty ? Colors.grey : Colors.orange),
-            summaryItem("ALERGIAS (ESPECÍFICAS)", ingredientes.isEmpty ? "NINGUNA" : ingredientes, Icons.security_rounded, color: ingredientes.isEmpty ? Colors.grey : Colors.orange),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onVerExpediente,
-                icon: const Icon(Icons.assignment_ind_outlined),
-                label: const Text("VER EXPEDIENTE MAESTRO"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: greenBrand,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

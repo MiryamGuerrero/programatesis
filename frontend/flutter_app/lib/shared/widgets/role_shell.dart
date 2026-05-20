@@ -48,10 +48,16 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final perfilAsync = ref.watch(miPerfilProvider);
 
     final String nombreUsuario = perfilAsync.maybeWhen(
-      data: (d) => d["nombre_completo"]?.toString() ?? "Usuario",
-      orElse: () => session?.user.userMetadata?["full_name"] ?? 
-                     session?.user.userMetadata?["nombre_completo"] ??
-                     session?.user.email?.split("@")[0] ?? "Usuario",
+      data: (d) {
+        final username = d["username"]?.toString().trim() ?? "";
+        if (username.isNotEmpty) return username;
+        final email = d["email"]?.toString().trim() ?? "";
+        if (email.isNotEmpty) return email.split("@").first;
+        return d["nombre_completo"]?.toString() ?? "Usuario";
+      },
+      orElse: () => session?.user.email?.split("@")[0] ??
+                     session?.user.userMetadata?["username"] ??
+                     "Usuario",
     );
 
     final String nombreRol = perfilAsync.maybeWhen(

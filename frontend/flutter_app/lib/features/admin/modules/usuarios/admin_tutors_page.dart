@@ -16,6 +16,13 @@ class AdminTutorsPage extends ConsumerStatefulWidget {
 class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   String _searchQuery = "";
 
+  bool _isTutor(Map<String, dynamic> user) {
+    final roleCode = user["rol_codigo"]?.toString().toLowerCase().trim() ?? "";
+    final roleName = user["rol_nombre"]?.toString().toLowerCase().trim() ?? "";
+    final roleId = user["id_rol"]?.toString().trim() ?? "";
+    return roleCode == "tutor" || roleCode.contains("tutor") || roleName.contains("tutor") || roleId == "4";
+  }
+
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(usersListProvider);
@@ -24,10 +31,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       backgroundColor: AppTema.grisLienzo,
       body: usersAsync.when(
         data: (users) {
-          final tutors = users.where((u) {
-            final c = u["rol_codigo"]?.toString().toLowerCase().trim() ?? "";
-            return c.contains("tutor");
-          }).toList();
+          final tutors = users.where(_isTutor).toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
@@ -214,7 +218,9 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   Widget _buildTutorTable(List<Map<String, dynamic>> tutors) {
     final filtered = tutors.where((u) {
       final q = _searchQuery.toLowerCase().trim();
-      return u["nombre_completo"].toString().toLowerCase().contains(q) || u["email"].toString().toLowerCase().contains(q);
+      return u["nombre_completo"].toString().toLowerCase().contains(q) ||
+          u["username"].toString().toLowerCase().contains(q) ||
+          u["email"].toString().toLowerCase().contains(q);
     }).toList();
 
     return Theme(
@@ -227,7 +233,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         showFirstLastButtons: true,
         headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
         columns: [
-          DataColumn(label: Text("REPRESENTANTE", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+          DataColumn(label: Text("USUARIO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+          DataColumn(label: Text("NOMBRE", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
           DataColumn(label: Text("CORREO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
           DataColumn(label: Text("ESTADO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
           DataColumn(label: Text("GESTIÓN", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
@@ -258,14 +265,18 @@ class _TutorsDataSource extends DataTableSource {
     if (index >= tutors.length) return null;
     final u = tutors[index];
     final nombre = u["nombre_completo"] ?? "-";
+    final username = (u["username"]?.toString().trim().isNotEmpty ?? false)
+        ? u["username"].toString()
+        : u["email"]?.toString().split("@").first ?? "usuario";
     return DataRow(cells: [
       DataCell(Row(
         children: [
           NutriAvatar(nombreCompleto: nombre, radio: 16),
           const SizedBox(width: 12),
-          Text(nombre, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600)),
+          Text(username, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700)),
         ],
       )),
+      DataCell(Text(nombre, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(Text(u["email"] ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
       DataCell(NutriBadge(label: (u["activo"] ?? true) ? "ACTIVO" : "INACTIVO", type: (u["activo"] ?? true) ? "success" : "danger")),
       DataCell(Row(children: [
