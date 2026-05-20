@@ -303,23 +303,43 @@ class _LoginPageState extends ConsumerState<LoginPage>
               _buildField(controller: _passwordController, label: "CONTRASEÑA", hint: "••••••••", icon: Icons.lock_outline, isPass: true),
               const SizedBox(height: 36),
               SizedBox(
-                width: double.infinity, height: 56,
-                child: ElevatedButton(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
                   onPressed: _loading ? null : _handleLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _azul,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 4, shadowColor: _azul.withOpacity(0.3),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _loading
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                      : Text("INGRESAR", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1)),
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : Text(
+                          "INGRESAR",
+                          style: GoogleFonts.montserrat(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
               TextButton(
                 onPressed: () {},
-                child: Text("¿Olvidó su contraseña?", style: GoogleFonts.lato(fontSize: 14, color: _azul, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                child: Text(
+                  "¿Olvidó su contraseña?",
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: _azul,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -330,8 +350,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
             width: 100, height: 100,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white, shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                )
+              ],
             ),
             child: ClipOval(child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
           ),
@@ -340,24 +367,56 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildField({required TextEditingController controller, required String label, required String hint, required IconData icon, bool isPass = false}) {
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool isPass = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: _azulOscuro, letterSpacing: 1)),
-        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: _azulOscuro,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
         TextField(
           controller: controller,
           obscureText: isPass && _obscurePassword,
           style: GoogleFonts.lato(fontSize: 16, color: _grisFuerte, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: _grisTexto.withOpacity(0.5)),
-            prefixIcon: Icon(icon, color: _azul.withOpacity(0.5), size: 22),
-            suffixIcon: isPass ? IconButton(icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20), onPressed: () => setState(() => _obscurePassword = !_obscurePassword)) : null,
-            filled: true, fillColor: Colors.white,
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borde)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _azul, width: 2)),
+            prefixIcon: Icon(icon, size: 22),
+            suffixIcon: isPass 
+                ? IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ) 
+                : null,
+            filled: true,
+            fillColor: _fondo,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _borde),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _azul, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],

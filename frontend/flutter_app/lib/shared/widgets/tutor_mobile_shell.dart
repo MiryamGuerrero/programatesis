@@ -17,100 +17,99 @@ class TutorMobileShell extends ConsumerStatefulWidget {
 
 class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
   int _index = 0;
+  int _oldIndex = 0; // Tracker para la dirección
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final modules = modulesForRole(AppRole.tutor);
     if (_index >= modules.length) _index = 0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: _buildAppBar(),
-      body: IndexedStack(
-        index: _index,
-        children: [for (final m in modules) m.builder()],
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: _buildAppBar(context),
+        body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.easeInOutCubic,
+        switchOutCurve: Curves.easeInOutCubic,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final int childIndex = (child.key as ValueKey<int>).value;
+          final bool isForward = _index >= _oldIndex;
+          
+          Offset beginOffset;
+          if (childIndex == _index) {
+            // El que entra
+            beginOffset = isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
+          } else {
+            // El que sale
+            beginOffset = isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
+          }
+          
+          return SlideTransition(
+            position: animation.drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
+            child: child,
+          );
+        },
+        child: Container(
+          key: ValueKey<int>(_index),
+          child: modules[_index].builder(),
+        ),
       ),
-      bottomNavigationBar: _buildBottomNav(modules),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) {
+          if (i != _index) {
+            setState(() {
+              _oldIndex = _index;
+              _index = i;
+            });
+          }
+        },
+        destinations: modules.map((m) => NavigationDestination(
+          icon: Icon(m.icon),
+          label: m.title,
+        )).toList(),
+      ),
+    ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    const Color brandBlue = Color(0xFF0068B7);
-    const Color brandGreen = Color(0xFF58A932);
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final brandBlue = theme.colorScheme.primary;
+    const Color brandGreen = Color(0xFF70A81C);
 
     return AppBar(
       backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 0,
       centerTitle: false,
       title: Row(
         children: [
-          Image.asset("assets/images/logo sin.png", width: 32, height: 32),
-          const SizedBox(width: 8),
+          // Logo placeholder if image is missing
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: brandBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.health_and_safety_outlined, color: brandBlue, size: 20),
+          ),
+          const SizedBox(width: 12),
           RichText(
             text: TextSpan(
               style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5),
-              children: const [
+              children: [
                 TextSpan(text: "Nutri", style: TextStyle(color: brandBlue)),
-                TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
+                const TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
               ],
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildBottomNav(List<RoleModule> modules) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF0068B7),
-        unselectedItemColor: Colors.grey.shade400,
-        selectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 11),
-        unselectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w500, fontSize: 11),
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-        items: modules.map((m) => BottomNavigationBarItem(
-          icon: Icon(m.icon),
-          label: m.title,
-        )).toList(),
-      ),
-    );
-  }
-
-  Future<void> _handleSignOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Cerrar Sesión"),
-        content: const Text("¿Estás seguro de que deseas salir?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("SÍ, SALIR")),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await Supabase.instance.client.auth.signOut();
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (_) => false,
-        );
-      }
-    }
   }
 }

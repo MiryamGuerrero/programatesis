@@ -1,118 +1,92 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 
-class TutorRecetasPage extends StatelessWidget {
+class TutorRecetasPage extends StatefulWidget {
   const TutorRecetasPage({super.key});
 
   @override
+  State<TutorRecetasPage> createState() => _TutorRecetasPageState();
+}
+
+class _TutorRecetasPageState extends State<TutorRecetasPage> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Color colorTitulo = const Color(0xFF1E293B);
-    final Color colorSubtitulo = const Color(0xFF64748B);
-    final Color colorAcento = AppTema.azulPrincipal;
-    final Color colorVerde = AppTema.verdeSalud;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 16), // Espaciado estándar inicial
+          
+          // SEARCH M3 STYLE
+          SearchBar(
+            controller: _searchController,
+            hintText: "Buscar recetas o ingredientes...",
+            leading: const Icon(Icons.search),
+            trailing: [
+              if (_searchController.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() => _searchController.clear());
+                  },
+                ),
+            ],
+            onChanged: (val) => setState(() {}),
+            elevation: WidgetStateProperty.all(0),
+            backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
+            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16)),
+          ),
           const SizedBox(height: 24),
           
-          // TÍTULO DE SECCIÓN
-          Text(
-            "Recetas seguras",
-            style: GoogleFonts.lato(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorTitulo,
-            ),
-          ),
-          const SizedBox(height: 20),
-          
-          // CAMPO DE BÚSQUEDA (Search Input)
-          Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(26), // Píldora
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Color(0xFF94A3B8), size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "Buscar recetas o ingredientes...",
-                      hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8), fontSize: 14),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          
-          // FILA DE CHIPS DE FILTRO (Filter Chips)
+          // FILTER CHIPS M3
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip("Todas", isSelected: true, colorAcento: colorAcento),
-                _buildFilterChip("Desayunos"),
-                _buildFilterChip("Almuerzos"),
-                _buildFilterChip("Snacks"),
-                _buildFilterChip("Cenas"),
+                _buildFilterChip(context, "Todas", isSelected: true),
+                _buildFilterChip(context, "Desayunos"),
+                _buildFilterChip(context, "Almuerzos"),
+                _buildFilterChip(context, "Snacks"),
+                _buildFilterChip(context, "Cenas"),
               ],
             ),
           ),
           const SizedBox(height: 24),
           
-          // LISTA DE TARJETAS DE RECETA
-          _RecipeCard(
+          const _RecipeCard(
             titulo: "Huevos con Espinaca",
             categoria: "Desayuno Nutritivo",
             tiempo: "15 min",
             calorias: "320 kcal",
             macronutriente: "Proteína",
-            colorTitulo: colorTitulo,
-            colorSubtitulo: colorSubtitulo,
-            colorVerde: colorVerde,
-            colorAcento: colorAcento,
           ),
           const SizedBox(height: 16),
-          _RecipeCard(
+          const _RecipeCard(
             titulo: "Batido de Arándanos",
             categoria: "Snack Saludable",
             tiempo: "5 min",
             calorias: "180 kcal",
             macronutriente: "Fibra",
-            colorTitulo: colorTitulo,
-            colorSubtitulo: colorSubtitulo,
-            colorVerde: colorVerde,
-            colorAcento: colorAcento,
           ),
           const SizedBox(height: 16),
-          _RecipeCard(
+          const _RecipeCard(
             titulo: "Ensalada de Pollo",
             categoria: "Almuerzo Ligero",
             tiempo: "25 min",
             calorias: "450 kcal",
             macronutriente: "Proteína",
-            colorTitulo: colorTitulo,
-            colorSubtitulo: colorSubtitulo,
-            colorVerde: colorVerde,
-            colorAcento: colorAcento,
           ),
           const SizedBox(height: 32),
         ],
@@ -120,28 +94,13 @@ class TutorRecetasPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterChip(String label, {bool isSelected = false, Color? colorAcento}) {
+  Widget _buildFilterChip(BuildContext context, String label, {bool isSelected = false}) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       child: FilterChip(
         label: Text(label),
         selected: isSelected,
         onSelected: (val) {},
-        backgroundColor: Colors.white,
-        selectedColor: colorAcento?.withOpacity(0.1) ?? Colors.blue.withOpacity(0.1),
-        checkmarkColor: colorAcento,
-        labelStyle: GoogleFonts.lato(
-          fontSize: 13,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? colorAcento : const Color(0xFF64748B),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: isSelected ? (colorAcento ?? Colors.blue) : const Color(0xFFE2E8F0),
-            width: 1,
-          ),
-        ),
       ),
     );
   }
@@ -153,10 +112,6 @@ class _RecipeCard extends StatelessWidget {
   final String tiempo;
   final String calorias;
   final String macronutriente;
-  final Color colorTitulo;
-  final Color colorSubtitulo;
-  final Color colorVerde;
-  final Color colorAcento;
 
   const _RecipeCard({
     required this.titulo,
@@ -164,40 +119,25 @@ class _RecipeCard extends StatelessWidget {
     required this.tiempo,
     required this.calorias,
     required this.macronutriente,
-    required this.colorTitulo,
-    required this.colorSubtitulo,
-    required this.colorVerde,
-    required this.colorAcento,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 140,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Center(
-              child: Icon(Icons.restaurant, color: Colors.grey.shade300, size: 48),
+              child: Icon(Icons.restaurant, color: colorScheme.onSurfaceVariant.withOpacity(0.3), size: 48),
             ),
           ),
           Padding(
@@ -211,29 +151,24 @@ class _RecipeCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         titulo,
-                        style: GoogleFonts.lato(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: colorTitulo,
-                        ),
+                        style: theme.textTheme.titleLarge,
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorVerde.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTema.verdeSalud.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle, color: colorVerde, size: 14),
+                          const Icon(Icons.check_circle, color: AppTema.verdeSalud, size: 14),
                           const SizedBox(width: 4),
                           Text(
                             "Segura",
-                            style: GoogleFonts.lato(
-                              fontSize: 11,
+                            style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: colorVerde,
+                              color: AppTema.verdeSalud,
                             ),
                           ),
                         ],
@@ -244,18 +179,15 @@ class _RecipeCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   categoria,
-                  style: GoogleFonts.lato(
-                    fontSize: 13,
-                    color: colorSubtitulo,
-                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMetaInfo(Icons.schedule_outlined, tiempo, colorSubtitulo, colorAcento),
-                    _buildMetaInfo(Icons.local_fire_department_outlined, calorias, colorSubtitulo, colorAcento),
-                    _buildMetaInfo(Icons.donut_large_outlined, macronutriente, colorSubtitulo, colorAcento),
+                    _buildMetaInfo(context, Icons.schedule_outlined, tiempo),
+                    _buildMetaInfo(context, Icons.local_fire_department_outlined, calorias),
+                    _buildMetaInfo(context, Icons.donut_large_outlined, macronutriente),
                   ],
                 ),
               ],
@@ -266,17 +198,15 @@ class _RecipeCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMetaInfo(IconData icon, String label, Color colorText, Color colorIcon) {
+  Widget _buildMetaInfo(BuildContext context, IconData icon, String label) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 16, color: colorIcon.withOpacity(0.7)),
+        Icon(icon, size: 16, color: theme.colorScheme.primary),
         const SizedBox(width: 4),
         Text(
           label,
-          style: GoogleFonts.lato(
-            fontSize: 12,
-            color: colorText,
-          ),
+          style: theme.textTheme.labelMedium?.copyWith(color: const Color(0xFF64748B)),
         ),
       ],
     );

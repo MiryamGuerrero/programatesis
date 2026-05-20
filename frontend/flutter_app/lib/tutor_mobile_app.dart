@@ -1,11 +1,10 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
-import "package:google_fonts/google_fonts.dart";
 
 import "core/state/app_providers.dart";
+import "core/theme/app_theme.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
-import "shared/models/app_role.dart";
 import "shared/widgets/tutor_mobile_shell.dart";
 
 class TutorMobileApp extends ConsumerWidget {
@@ -19,11 +18,7 @@ class TutorMobileApp extends ConsumerWidget {
     return MaterialApp(
       title: "Reuma Nutri Tutor",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0A7E8C),
-        textTheme: GoogleFonts.latoTextTheme(),
-        useMaterial3: true,
-      ),
+      theme: AppTema.light,
       home: authSession.when(
         data: (session) {
           if (authFlowIntent == AuthFlowIntent.setPassword) {

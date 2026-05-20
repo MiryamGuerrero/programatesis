@@ -26,17 +26,6 @@ class _TutorComprasPageState extends State<TutorComprasPage> {
       final index = _items.indexWhere((item) => item["id"] == id);
       if (index != -1) {
         _items[index]["comprado"] = !_items[index]["comprado"];
-        
-        final bool todosComprados = _items.every((item) => item["comprado"] == true);
-        final bool ningunoComprado = _items.every((item) => item["comprado"] == false);
-        
-        if (_selectedTab == 0 && todosComprados) {
-          // Si estamos en pendientes y marcamos el último, pasamos a comprados
-          _selectedTab = 1;
-        } else if (_selectedTab == 1 && ningunoComprado) {
-          // Si estamos en comprados y desmarcamos el último, volvemos a pendientes
-          _selectedTab = 0;
-        }
       }
     });
   }
@@ -46,21 +35,8 @@ class _TutorComprasPageState extends State<TutorComprasPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // LÓGICA DE FILTRADO HÍBRIDA
-    final bool listaCompletada = _items.every((item) => item["comprado"] == true);
-    final List<Map<String, dynamic>> displayItems;
-    
-    if (_selectedTab == 0) {
-      // En PENDIENTES: 
-      // Si la lista está 100% completada, mostramos vacío (ya pasaron todos a comprados).
-      // Si no, mostramos TODOS (marcados y no marcados) para permitir la selección por lote.
-      displayItems = listaCompletada ? [] : _items;
-    } else {
-      // En COMPRADOS:
-      // Solo mostramos los items que están explícitamente marcados como comprados.
-      // Si desmarcas uno, desaparecerá de aquí y volverá a estar disponible en Pendientes.
-      displayItems = _items.where((item) => item["comprado"] == true).toList();
-    }
+    // Filtrar items según la pestaña seleccionada
+    final displayItems = _items.where((item) => _selectedTab == 0 ? !item["comprado"] : item["comprado"]).toList();
     
     // Agrupar por categoría
     final Map<String, List<Map<String, dynamic>>> groupedItems = {};
@@ -71,38 +47,10 @@ class _TutorComprasPageState extends State<TutorComprasPage> {
       groupedItems[item["categoria"]]!.add(item);
     }
 
-    return Column(
+    return Stack(
       children: [
-        // SEGMENTED BUTTON M3
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(
-                value: 0,
-                label: Text("Pendientes"),
-                icon: Icon(Icons.list_alt_outlined),
-              ),
-              ButtonSegment(
-                value: 1,
-                label: Text("Comprados"),
-                icon: Icon(Icons.check_circle_outline),
-              ),
-            ],
-            selected: {_selectedTab},
-            onSelectionChanged: (Set<int> newSelection) {
-              setState(() => _selectedTab = newSelection.first);
-            },
-            showSelectedIcon: false,
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: colorScheme.primary,
-              selectedForegroundColor: Colors.white,
-              visualDensity: VisualDensity.comfortable,
-            ),
-          ),
-        ),
-        
-        Expanded(
+        // LISTA DE INGREDIENTES
+        Positioned.fill(
           child: displayItems.isEmpty
             ? Center(
                 child: Column(
@@ -122,7 +70,7 @@ class _TutorComprasPageState extends State<TutorComprasPage> {
                 ),
               )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120), // Padding inferior extra para el FAB
                 itemCount: groupedItems.keys.length,
                 itemBuilder: (context, index) {
                   final categoria = groupedItems.keys.elementAt(index);
@@ -145,6 +93,59 @@ class _TutorComprasPageState extends State<TutorComprasPage> {
                   );
                 },
               ),
+        ),
+
+        // FILTROS FLOTANTES (ESTILO FAB)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 30,
+          child: Center(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ColorFilter.mode(Colors.white.withOpacity(0.9), BlendMode.srcOver),
+                  child: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 0,
+                        label: Text("Pendientes"),
+                        icon: Icon(Icons.list_alt_outlined, size: 20),
+                      ),
+                      ButtonSegment(
+                        value: 1,
+                        label: Text("Comprados"),
+                        icon: Icon(Icons.check_circle_outline, size: 20),
+                      ),
+                    ],
+                    selected: {_selectedTab},
+                    onSelectionChanged: (Set<int> newSelection) {
+                      setState(() => _selectedTab = newSelection.first);
+                    },
+                    showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      selectedBackgroundColor: colorScheme.primary,
+                      selectedForegroundColor: Colors.white,
+                      side: BorderSide.none, // Eliminamos el borde del contenedor
+                      visualDensity: VisualDensity.comfortable,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

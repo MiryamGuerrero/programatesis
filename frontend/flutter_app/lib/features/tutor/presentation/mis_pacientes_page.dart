@@ -1,131 +1,106 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import 'tutor_home_page.dart';
 
-class MisPacientesPage extends StatelessWidget {
+class MisPacientesPage extends StatefulWidget {
   const MisPacientesPage({super.key});
 
   @override
+  State<MisPacientesPage> createState() => _MisPacientesPageState();
+}
+
+class _MisPacientesPageState extends State<MisPacientesPage> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Colores basados en el sistema de diseño web (AppTema) para consistencia
-    final Color colorFondo = AppTema.grisFondo; // Azul muy claro
-    final Color colorTitulo = const Color(0xFF1E293B); // Azul marino oscuro
-    final Color colorSubtitulo = const Color(0xFF64748B); // Azul-grisáceo muted
-    final Color colorAcento = AppTema.azulPrincipal; // Azul vibrante
-    final Color colorVerde = AppTema.verdeSalud; // Verde suave
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorFondo,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          // Estándar 20dp de padding horizontal
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              
-              // Título Principal
-              Text(
-                "Mis Pacientes",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.lato(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: colorTitulo,
+      backgroundColor: colorScheme.surface,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                
+                Text(
+                  "Mis Pacientes",
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineMedium,
                 ),
-              ),
-              const SizedBox(height: 12),
-              
-              // Subtítulo
-              Text(
-                "Gestiona el seguimiento y bienestar de tus pacientes asignados.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.lato(
-                  fontSize: 16,
-                  color: colorSubtitulo,
+                const SizedBox(height: 12),
+                
+                Text(
+                  "Gestiona el seguimiento y bienestar de tus pacientes asignados.",
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
                 ),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Barra de Búsqueda (Pill-shaped)
-              Container(
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(27),
-                  border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search_outlined, color: Color(0xFF94A3B8), size: 22),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: "Buscar paciente...",
-                          hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8), fontSize: 14),
-                          border: InputBorder.none,
-                        ),
+                
+                const SizedBox(height: 32),
+                
+                // SEARCH BAR M3
+                SearchBar(
+                  controller: _searchController,
+                  hintText: "Buscar paciente...",
+                  leading: const Icon(Icons.search_outlined),
+                  trailing: [
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _searchController.clear());
+                        },
                       ),
-                    ),
                   ],
+                  onChanged: (val) => setState(() {}),
+                  elevation: WidgetStateProperty.all(0),
+                  backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
+                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16)),
                 ),
-              ),
+                
+                const SizedBox(height: 32),
               
-              const SizedBox(height: 24),
-              
-              // Lista de Pacientes
-              _PatientCard(
+              const _PatientCard(
                 nombre: "Carlos Ruiz",
                 diagnostico: "AIJ Oligoarticular",
                 estadoValor: "Estable",
                 planEstado: "Plan activo",
                 edad: "8 años",
-                colorAcento: colorAcento,
-                colorEstado: colorVerde,
-                colorTitulo: colorTitulo,
-                colorSubtitulo: colorSubtitulo,
               ),
               const SizedBox(height: 16),
-              _PatientCard(
+              const _PatientCard(
                 nombre: "Sofía Méndez",
                 diagnostico: "AIJ Poliarticular",
                 estadoValor: "En observación",
                 planEstado: "Plan activo",
                 edad: "6 años",
-                colorAcento: colorAcento,
-                colorEstado: colorVerde,
-                colorTitulo: colorTitulo,
-                colorSubtitulo: colorSubtitulo,
               ),
               const SizedBox(height: 16),
-              _PatientCard(
+              const _PatientCard(
                 nombre: "Juan Pérez",
                 diagnostico: "AIJ Sistémica",
                 estadoValor: "Estable",
                 planEstado: "Plan activo",
                 edad: "10 años",
-                colorAcento: colorAcento,
-                colorEstado: colorVerde,
-                colorTitulo: colorTitulo,
-                colorSubtitulo: colorSubtitulo,
               ),
               
               const SizedBox(height: 40),
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -137,10 +112,6 @@ class _PatientCard extends StatelessWidget {
   final String estadoValor;
   final String planEstado;
   final String edad;
-  final Color colorAcento;
-  final Color colorEstado;
-  final Color colorTitulo;
-  final Color colorSubtitulo;
 
   const _PatientCard({
     required this.nombre,
@@ -148,162 +119,125 @@ class _PatientCard extends StatelessWidget {
     required this.estadoValor,
     required this.planEstado,
     required this.edad,
-    required this.colorAcento,
-    required this.colorEstado,
-    required this.colorTitulo,
-    required this.colorSubtitulo,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // Radio de borde medio
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TutorHomePage(
-                  idPaciente: "1", // Mock ID
-                  nombrePaciente: nombre,
-                ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TutorHomePage(
+                idPaciente: "1",
+                nombrePaciente: nombre,
               ),
-            );
-          }, // Interactiva
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0), // Padding interno uniforme
-            child: Stack(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar Circular
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: colorAcento,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 32,
-                      ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Stack(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // AVATAR M3 STYLE
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 16),
-                    
-                    // Bloque de Información Principal
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Nombre
-                          Text(
-                            nombre,
-                            style: GoogleFonts.lato(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: colorTitulo,
+                    child: Icon(
+                      Icons.person,
+                      color: colorScheme.primary,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nombre,
+                          style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.monitor_heart_outlined,
+                              color: colorScheme.primary.withOpacity(0.6),
+                              size: 18,
                             ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                diagnostico,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        Text(
+                          "Estado: $estadoValor",
+                          style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // BADGE M3 STYLE
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTema.verdeSalud.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          const SizedBox(height: 8),
-                          
-                          // Diagnóstico
-                          Row(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.monitor_heart_outlined, // Ícono similar a ECG
-                                color: colorAcento.withOpacity(0.6),
-                                size: 18,
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: AppTema.verdeSalud,
+                                size: 14,
                               ),
                               const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  diagnostico,
-                                  style: GoogleFonts.lato(
-                                    fontSize: 14,
-                                    color: colorSubtitulo,
-                                  ),
+                              Text(
+                                planEstado,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTema.verdeSalud,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          
-                          // Estado
-                          Text(
-                            "Estado: $estadoValor",
-                            style: GoogleFonts.lato(
-                              fontSize: 14,
-                              color: colorSubtitulo,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          // Badge de Estado (Plan activo)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorEstado.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline, // Ícono de check lineal
-                                  color: colorEstado,
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  planEstado,
-                                  style: GoogleFonts.lato(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: colorEstado,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Texto de Edad (esquina superior derecha)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Text(
-                    edad,
-                    style: GoogleFonts.lato(
-                      fontSize: 12,
-                      color: const Color(0xFF94A3B8),
+                        ),
+                      ],
                     ),
                   ),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Text(
+                  edad,
+                  style: theme.textTheme.labelSmall?.copyWith(color: const Color(0xFF94A3B8)),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
