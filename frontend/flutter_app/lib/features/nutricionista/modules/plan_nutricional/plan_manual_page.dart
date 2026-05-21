@@ -49,6 +49,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   bool _morningSnackEnabled = false;
   bool _afternoonSnackEnabled = false;
   List<int> _boostersSeleccionados = [];
+  List<Map<String, dynamic>> _ingredientesSegurosCache = [];
+  List<Map<String, dynamic>> _recomendacionesCache = [];
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -100,16 +102,40 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     
     try {
       final dio = ref.read(dioProvider);
-      final resExp = await dio.get("pacientes/${patient['id']}/expediente-completo");
-      _patientProfile = resExp.data;
-      final estadoValidacion = await dio.get(
-        "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
-      );
-      final mostrarModal = estadoValidacion.data?["mostrar_modal"] == true;
+      final prefetch = await dio.get("pacientes/${patient['id']}/prefetch-planificacion");
+      final payload = (prefetch.data ?? {}) as Map<String, dynamic>;
+      _patientProfile = (payload["expediente"] ?? {}) as Map<String, dynamic>;
+      _ingredientesSegurosCache = List<Map<String, dynamic>>.from(payload["ingredientes_seguros"] ?? []);
+      _recomendacionesCache = List<Map<String, dynamic>>.from(payload["ingredientes_recomendados"] ?? []);
+      _boostersSeleccionados = _recomendacionesCache
+          .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+          .whereType<int>()
+          .toList();
+
+      final estadoValidacion = (payload["estado_validacion"] ?? {}) as Map<String, dynamic>;
+      final mostrarModal = estadoValidacion["mostrar_modal"] == true;
       if (mostrarModal) {
         await _mostrarModalValidacionClinica(patient['id'].toString());
+        final estadoRevalidado = await dio.get(
+          "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
+        );
+        if (estadoRevalidado.data?["mostrar_modal"] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: Colors.redAccent,
+                content: Text("Debes confirmar el estado nutricional antes de continuar."),
+              ),
+            );
+          }
+          setState(() {
+            _selectedPatient = null;
+            _patientProfile = null;
+            _isLoading = false;
+          });
+          return;
+        }
       }
-      await _preguntarYRecomendarAlimentos(patient['id'].toString());
       
       final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
       final List planes = List.from(resPlanes.data);
@@ -126,32 +152,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
-  Future<void> _preguntarYRecomendarAlimentos(String idPaciente) async {
-    final bool? desea = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Recomendaciones del nutricionista"),
-        content: const Text("¿Desea recomendar alimentos para este paciente?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("No")),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Sí")),
-        ],
-      ),
-    );
-    if (desea != true) return;
-    await _modalRecomendacionesNutri(idPaciente);
-  }
-
   Future<void> _modalRecomendacionesNutri(String idPaciente) async {
     final dio = ref.read(dioProvider);
-    List<Map<String, dynamic>> seguros = [];
-    try {
-      final seg = await dio.get(
-        "ingredientes/buscar-para-paciente/$idPaciente",
-        queryParameters: {"q": "", "limit": 300},
-      );
-      seguros = List<Map<String, dynamic>>.from(seg.data ?? []);
-    } catch (_) {}
+    List<Map<String, dynamic>> seguros = _ingredientesSegurosCache;
+    if (seguros.isEmpty) {
+      try {
+        final seg = await dio.get(
+          "ingredientes/buscar-para-paciente/$idPaciente",
+          queryParameters: {"q": "", "limit": 300},
+        );
+        seguros = List<Map<String, dynamic>>.from(seg.data ?? []);
+      } catch (_) {}
+    }
 
     final Set<int> seleccion = {..._boostersSeleccionados};
 
@@ -170,27 +182,45 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   const Text("Selecciona ingredientes seguros para potenciar este plan (Nutricionista):"),
                   const SizedBox(height: 8),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: seguros.length,
-                      itemBuilder: (_, i) {
-                        final ing = seguros[i];
-                        final idIng = (ing["id"] as num?)?.toInt() ?? 0;
-                        final nombre = (ing["nombre"] ?? "-").toString();
-                        return CheckboxListTile(
-                          value: seleccion.contains(idIng),
-                          onChanged: (v) {
-                            setModal(() {
-                              if (v == true) {
-                                seleccion.add(idIng);
-                              } else {
-                                seleccion.remove(idIng);
-                              }
-                            });
-                          },
-                          title: Text(nombre),
-                        );
-                      },
-                    ),
+                    child: seguros.isEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: const Text(
+                              "No hay ingredientes seguros disponibles para recomendar en este momento.\n\n"
+                              "Posibles causas:\n"
+                              "- Alergias/restricciones del paciente demasiado amplias.\n"
+                              "- No existen ingredientes activos compatibles en el catalogo.\n"
+                              "- Faltan datos clinicos actualizados para filtrar correctamente.",
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: seguros.length,
+                            itemBuilder: (_, i) {
+                              final ing = seguros[i];
+                              final idIng = (ing["id"] as num?)?.toInt() ?? -1;
+                              if (idIng <= 0) return const SizedBox.shrink();
+                              final nombre = (ing["nombre"] ?? "-").toString();
+                              return CheckboxListTile(
+                                value: seleccion.contains(idIng),
+                                onChanged: (v) {
+                                  setModal(() {
+                                    if (v == true) {
+                                      seleccion.add(idIng);
+                                    } else {
+                                      seleccion.remove(idIng);
+                                    }
+                                  });
+                                },
+                                title: Text(nombre),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -198,9 +228,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   setState(() => _boostersSeleccionados = seleccion.toList());
                   if (ctx.mounted) Navigator.pop(ctx);
+                  await _aplicarPotenciadoresAutomaticos(idPaciente);
                 },
                 child: const Text("Aplicar al plan"),
               ),
@@ -211,6 +242,48 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
+  Future<void> _aplicarPotenciadoresAutomaticos(String idPaciente) async {
+    final dio = ref.read(dioProvider);
+    int errores = 0;
+    final idsValidos = _boostersSeleccionados.where((id) => id > 0).toSet().toList();
+    for (final idIngrediente in idsValidos) {
+      try {
+        await dio.post(
+          "ingredientes/recomendar",
+          data: {
+            "id_paciente": idPaciente,
+            "id_ingrediente": idIngrediente,
+            "motivo": "Potenciador de plan recomendado por nutricionista",
+            "prioridad": 3,
+          },
+        );
+      } catch (_) {
+        errores += 1;
+      }
+    }
+    try {
+      final res = await dio.get("ingredientes/recomendados/$idPaciente");
+      if (!mounted) return;
+      setState(() {
+        _recomendacionesCache = List<Map<String, dynamic>>.from(res.data ?? []);
+        _boostersSeleccionados = _recomendacionesCache
+            .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+            .whereType<int>()
+            .toList();
+      });
+    } catch (_) {}
+    if (!mounted) return;
+    if (errores > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Se omitieron $errores recomendaciones no válidas para este paciente.")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Recomendaciones guardadas correctamente.")),
+      );
+    }
+  }
+
   Future<void> _mostrarModalValidacionClinica(String idPaciente) async {
     if (_patientProfile == null) return;
     final dio = ref.read(dioProvider);
@@ -218,6 +291,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final paciente = (_patientProfile!["paciente"] ?? {}) as Map<String, dynamic>;
     final condicionesResp = await dio.get("condiciones-nutricionales");
     final List<Map<String, dynamic>> condiciones = List<Map<String, dynamic>>.from(condicionesResp.data ?? []);
+    final condicionesPeso = _filtrarCondicionesPeso(condiciones);
+    final condicionesTalla = _filtrarCondicionesTalla(condiciones);
 
     final pesoCtrl = TextEditingController(text: (ultimoControl["peso_kg"] ?? "").toString());
     final tallaCtrl = TextEditingController(text: (ultimoControl["talla_cm"] ?? "").toString());
@@ -240,6 +315,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        "Diagnostico: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "No registrado"}",
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 10),
                       Text("Edad actual: $edadLabel", style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
                       TextField(
@@ -258,7 +338,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         value: condicionPesoId,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: "Condición nutricional - Peso"),
-                        items: condiciones
+                        items: condicionesPeso
                             .map((c) => DropdownMenuItem<int>(
                                   value: (c["id"] as num).toInt(),
                                   child: Text(c["nombre"]?.toString() ?? "Condición"),
@@ -271,7 +351,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         value: condicionTallaId,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: "Condición nutricional - Talla"),
-                        items: condiciones
+                        items: condicionesTalla
                             .map((c) => DropdownMenuItem<int>(
                                   value: (c["id"] as num).toInt(),
                                   child: Text(c["nombre"]?.toString() ?? "Condición"),
@@ -340,87 +420,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Future<void> _startNewPlan() async {
+    if (_selectedPatient == null) return;
     setState(() {
       _viewingHistory = false;
       _planInitialized = false;
       _weeklyPlan = []; // Limpiar plan previo
       _calculateSmartDates(_patientPlans); // Recalcular fechas para el nuevo plan
     });
-    await _seleccionarPotenciadoresAntesDelPlan();
     _showConfigModal();
-  }
-
-  Future<void> _seleccionarPotenciadoresAntesDelPlan() async {
-    if (_selectedPatient == null) return;
-    final dio = ref.read(dioProvider);
-    List<Map<String, dynamic>> recs = [];
-    try {
-      final res = await dio.get("ingredientes/recomendados/${_selectedPatient!["id"]}");
-      recs = List<Map<String, dynamic>>.from(res.data ?? []);
-    } catch (_) {}
-
-    final seleccion = Set<int>.from(_boostersSeleccionados);
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          return AlertDialog(
-            title: const Text("Potenciadores del plan"),
-            content: SizedBox(
-              width: 680,
-              height: 420,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Expediente: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "-"} | Alergias consideradas automáticamente en recetas seguras.",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: recs.isEmpty
-                        ? const Center(child: Text("No hay ingredientes recomendados activos"))
-                        : ListView.builder(
-                            itemCount: recs.length,
-                            itemBuilder: (_, i) {
-                              final r = recs[i];
-                              final idIng = (r["id_ingrediente"] as num?)?.toInt() ?? 0;
-                              final rol = (r["id_rol_recomienda"] ?? "").toString();
-                              final rolTxt = rol == "2" ? "Médico" : (rol == "3" ? "Nutricionista" : "Profesional");
-                              return CheckboxListTile(
-                                value: seleccion.contains(idIng),
-                                onChanged: (v) {
-                                  setModal(() {
-                                    if (v == true) {
-                                      seleccion.add(idIng);
-                                    } else {
-                                      seleccion.remove(idIng);
-                                    }
-                                  });
-                                },
-                                title: Text((r["ingrediente_nombre"] ?? "-").toString()),
-                                subtitle: Text("Recomendado por: $rolTxt"),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Continuar sin cambios")),
-              FilledButton(
-                onPressed: () {
-                  setState(() => _boostersSeleccionados = seleccion.toList());
-                  Navigator.pop(ctx);
-                },
-                child: const Text("Usar selección"),
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 
   Future<void> _verDetallePlan(Map<String, dynamic> plan) async {
@@ -478,7 +485,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<dynamic> _findRecipe(List<dynamic> items, int momentId) {
     final match = items.where((i) => i["id_momento"] == momentId).toList();
     if (match.isEmpty) return [];
-    return [{"id": match.first["id_receta"], "nombre": match.first["nombre_receta"]}];
+    return [
+      {
+        "id": match.first["id_receta"],
+        "nombre": match.first["nombre_receta"],
+        "imagen_url": match.first["imagen_url"],
+        "semaforo": match.first["semaforo"] ?? "neutral",
+      }
+    ];
   }
 
   @override
@@ -589,6 +603,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           child: Column(
             children: [
               _buildHistoryTopBar(),
+              _buildWorkflowSections(),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF1F5F9),
@@ -627,14 +642,111 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           FilledButton.icon(
             onPressed: _startNewPlan,
             icon: const Icon(Icons.add_rounded),
-            label: const Text("Diseñar Nuevo Plan", style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text("Seccion Plan Manual", style: TextStyle(fontWeight: FontWeight.bold)),
             style: FilledButton.styleFrom(
               backgroundColor: greenBrand,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (_selectedPatient == null) return;
+              await _modalRecomendacionesNutri(_selectedPatient!["id"].toString());
+            },
+            icon: const Icon(Icons.eco_outlined),
+            label: const Text("Seccion Recomendador"),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWorkflowSections() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildWorkflowCard(
+              title: "Seccion Plan Manual",
+              description: "Arma o ajusta el plan nutricional completo del paciente.",
+              icon: Icons.calendar_month_rounded,
+              primary: true,
+              onTap: _startNewPlan,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildWorkflowCard(
+              title: "Seccion Recomendador",
+              description: "Selecciona ingredientes seguros para potenciar el algoritmo.",
+              icon: Icons.eco_outlined,
+              primary: false,
+              onTap: () async {
+                if (_selectedPatient == null) return;
+                await _modalRecomendacionesNutri(_selectedPatient!["id"].toString());
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkflowCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required bool primary,
+    required VoidCallback onTap,
+  }) {
+    final bg = primary ? const Color(0xFFE8F5E9) : const Color(0xFFF1F5F9);
+    final border = primary ? greenBrand.withOpacity(0.35) : const Color(0xFFCBD5E1);
+    final iconBg = primary ? greenBrand : const Color(0xFF0F172A);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.blueGrey),
+          ],
+        ),
       ),
     );
   }
@@ -650,7 +762,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           const SizedBox(height: 8),
           const Text("Comienza diseñando el primer plan alimentario para este paciente.", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 32),
-          OutlinedButton.icon(onPressed: _startNewPlan, icon: const Icon(Icons.add), label: const Text("Crear plan ahora")),
+          Wrap(
+            spacing: 12,
+            children: [
+              OutlinedButton.icon(onPressed: _startNewPlan, icon: const Icon(Icons.add), label: const Text("Seccion Plan Manual")),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  if (_selectedPatient == null) return;
+                  await _modalRecomendacionesNutri(_selectedPatient!["id"].toString());
+                },
+                icon: const Icon(Icons.eco_outlined),
+                label: const Text("Seccion Recomendador"),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1417,6 +1542,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       if (months < 0) { years--; months += 12; }
       return "$years años y $months meses";
     } catch (_) { return "-"; }
+  }
+
+  List<Map<String, dynamic>> _filtrarCondicionesPeso(List<Map<String, dynamic>> condiciones) {
+    final porTipo = condiciones.where((c) {
+      final tipo = (c["tipo"] ?? c["tipo_condicion"] ?? c["id_tipo_condicion"])?.toString().toLowerCase() ?? "";
+      return tipo.contains("peso");
+    }).toList();
+    if (porTipo.isNotEmpty) return porTipo;
+    return condiciones.where((c) {
+      final nombre = (c["nombre"] ?? "").toString().toLowerCase();
+      return nombre.contains("peso") || nombre.contains("sobrepeso") || nombre.contains("obes");
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _filtrarCondicionesTalla(List<Map<String, dynamic>> condiciones) {
+    final porTipo = condiciones.where((c) {
+      final tipo = (c["tipo"] ?? c["tipo_condicion"] ?? c["id_tipo_condicion"])?.toString().toLowerCase() ?? "";
+      return tipo.contains("talla");
+    }).toList();
+    if (porTipo.isNotEmpty) return porTipo;
+    return condiciones.where((c) {
+      final nombre = (c["nombre"] ?? "").toString().toLowerCase();
+      return nombre.contains("talla") || nombre.contains("estatura");
+    }).toList();
   }
 
   void _mostrarExpedienteMaestroDialog() {

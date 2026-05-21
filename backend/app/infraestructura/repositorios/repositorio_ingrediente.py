@@ -375,8 +375,9 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                 where_clause += " and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))"
                 params.append(list(sub_prohibidos))
 
-            # Ajuste de limite: si no hay consulta, devolver mas para cargar catálogo
-            final_limit = limite if consulta else 200
+            # Respetar el límite solicitado. Para validaciones internas (recomendador)
+            # se invocan límites altos y no debe recortarse a 200.
+            final_limit = limite if limite and limite > 0 else 200
 
             sql = f"""
                 select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
