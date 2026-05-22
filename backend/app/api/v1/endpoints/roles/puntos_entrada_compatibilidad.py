@@ -89,7 +89,8 @@ def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutrici
                 pi.fecha_programada as fecha,
                 pi.id_momento,
                 pi.id_receta,
-                r.nombre as nombre_receta
+                r.nombre as nombre_receta,
+                r.imagen_url as imagen_url
             from interaccion.plan_item pi
             join nutricion.receta r on r.id = pi.id_receta
             where pi.id_plan = %s
@@ -222,6 +223,58 @@ def obtener_estado_validacion_control_mensual(
             "mes": hoy.month,
             "confirmado": confirmado,
         }
+
+
+@router.get("/pacientes/{id_paciente}/prefetch-planificacion")
+def prefetch_planificacion_paciente(
+    id_paciente: str,
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    """
+    Precarga en una sola llamada lo necesario para plan manual:
+    - estado de validación nutricional
+    - diagnóstico y expediente mínimo
+    - ingredientes seguros
+    - ingredientes recomendados (potenciadores)
+    - condiciones separadas por peso/talla para la validación clínica
+    """
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+
+    expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
+    estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
+
+    repo_ing = RepositorioIngredientePostgres()
+    ingredientes_seguros = repo_ing.buscar_ingredientes_filtrados(id_paciente, consulta="", limite=300)
+    ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
+
+    condiciones = RepositorioPerfilPostgres().obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+    condiciones_peso = []
+    condiciones_talla = []
+    for c in condiciones:
+        nombre = (c.get("nombre") or "").lower()
+        if ("peso" in nombre) or ("sobrepeso" in nombre) or ("obes" in nombre):
+            condiciones_peso.append(c)
+        if ("talla" in nombre) or ("estatura" in nombre):
+            condiciones_talla.append(c)
+
+    if not condiciones_peso:
+        condiciones_peso = condiciones
+    if not condiciones_talla:
+        condiciones_talla = condiciones
+
+    return {
+        "estado_validacion": estado_validacion,
+        "expediente": expediente,
+        "diagnostico": expediente.get("diagnostico") if isinstance(expediente, dict) else {},
+        "ingredientes_seguros": ingredientes_seguros,
+        "ingredientes_recomendados": ingredientes_recomendados,
+        "condiciones": {
+            "peso": condiciones_peso,
+            "talla": condiciones_talla,
+        },
+    }
 
 
 @router.post("/pacientes/{id_paciente}/control-mensual-actual/confirmar")
@@ -479,6 +532,34 @@ def guardar_plan_manual(
 
     from app.core.db import db_cursor
     with db_cursor() as cur:
+        # Resolver usuario interno para trazabilidad y FKs de recomendaciones
+        id_profesional_interno = None
+        cur.execute(
+            """
+            select id
+            from usuarios.usuario
+            where auth_user_id::text = %s or id::text = %s
+            limit 1
+            """,
+            (user.user_id, user.user_id),
+        )
+        row_user = cur.fetchone()
+        if row_user:
+            id_profesional_interno = row_user[0]
+        else:
+            cur.execute(
+                """
+                select id
+                from usuarios.usuario
+                where lower(email) = lower(%s)
+                limit 1
+                """,
+                (user.email or "",),
+            )
+            row_user = cur.fetchone()
+            if row_user:
+                id_profesional_interno = row_user[0]
+
         id_plan = None
         if plan_items:
             # Regla de seguridad nutricional para semáforo amarillo:
@@ -539,6 +620,117 @@ def guardar_plan_manual(
             if "tipo_plan" in cols_plan:
                 cols.append("tipo_plan")
                 vals.append("MANUAL")
+            if "id_tipo_plan" in cols_plan:
+                id_tipo_plan = payload.get("id_tipo_plan")
+                if not id_tipo_plan:
+                    cur.execute(
+                        """
+                        select c.column_name
+                        from information_schema.columns c
+                        where c.table_schema = 'interaccion'
+                          and c.table_name in ('catalogo_tipo_plan', 'tipo_plan')
+                        limit 1
+                        """
+                    )
+                    has_catalog = cur.fetchone()
+                    if has_catalog:
+                        try:
+                            cur.execute(
+                                """
+                                select id from interaccion.catalogo_tipo_plan
+                                where upper(nombre) in ('MANUAL', 'PLAN MANUAL')
+                                order by id
+                                limit 1
+                                """
+                            )
+                            row_tipo = cur.fetchone()
+                            if not row_tipo:
+                                cur.execute("select min(id) from interaccion.catalogo_tipo_plan")
+                                row_tipo = cur.fetchone()
+                            if row_tipo and row_tipo[0] is not None:
+                                id_tipo_plan = int(row_tipo[0])
+                        except Exception:
+                            cur.execute(
+                                """
+                                select id from interaccion.tipo_plan
+                                where upper(nombre) in ('MANUAL', 'PLAN MANUAL')
+                                order by id
+                                limit 1
+                                """
+                            )
+                            row_tipo = cur.fetchone()
+                            if not row_tipo:
+                                cur.execute("select min(id) from interaccion.tipo_plan")
+                                row_tipo = cur.fetchone()
+                            if row_tipo and row_tipo[0] is not None:
+                                id_tipo_plan = int(row_tipo[0])
+                if not id_tipo_plan:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No se pudo determinar id_tipo_plan para guardar el plan manual.",
+                    )
+                cols.append("id_tipo_plan")
+                vals.append(id_tipo_plan)
+            if "id_origen_plan" in cols_plan:
+                id_origen_plan = payload.get("id_origen_plan")
+                if not id_origen_plan:
+                    for tabla in ("catalogo_origen_plan", "origen_plan"):
+                        try:
+                            cur.execute(
+                                f"""
+                                select id
+                                from interaccion.{tabla}
+                                where upper(nombre) in ('NUTRICIONISTA', 'MANUAL', 'NUTRICION')
+                                order by id
+                                limit 1
+                                """
+                            )
+                            row_origen = cur.fetchone()
+                            if not row_origen:
+                                cur.execute(f"select min(id) from interaccion.{tabla}")
+                                row_origen = cur.fetchone()
+                            if row_origen and row_origen[0] is not None:
+                                id_origen_plan = int(row_origen[0])
+                                break
+                        except Exception:
+                            continue
+                if not id_origen_plan:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No se pudo determinar id_origen_plan para guardar el plan manual.",
+                    )
+                cols.append("id_origen_plan")
+                vals.append(id_origen_plan)
+            if "id_estado_plan" in cols_plan:
+                id_estado_plan = payload.get("id_estado_plan")
+                if not id_estado_plan:
+                    for tabla in ("catalogo_estado_plan", "estado_plan"):
+                        try:
+                            cur.execute(
+                                f"""
+                                select id
+                                from interaccion.{tabla}
+                                where upper(nombre) in ('VIGENTE', 'ACTIVO', 'ACTIVA')
+                                order by id
+                                limit 1
+                                """
+                            )
+                            row_estado = cur.fetchone()
+                            if not row_estado:
+                                cur.execute(f"select min(id) from interaccion.{tabla}")
+                                row_estado = cur.fetchone()
+                            if row_estado and row_estado[0] is not None:
+                                id_estado_plan = int(row_estado[0])
+                                break
+                        except Exception:
+                            continue
+                if not id_estado_plan:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No se pudo determinar id_estado_plan para guardar el plan manual.",
+                    )
+                cols.append("id_estado_plan")
+                vals.append(id_estado_plan)
             if "origen_plan" in cols_plan:
                 cols.append("origen_plan")
                 vals.append("NUTRICIONISTA")
@@ -614,12 +806,17 @@ def guardar_plan_manual(
         """, (id_paciente,))
         
         # 2. Insertar nuevos potenciadores
+        if boosters and id_profesional_interno is None:
+            raise HTTPException(
+                status_code=400,
+                detail="No se pudo resolver el profesional autenticado para guardar potenciadores.",
+            )
         for ing_id in boosters:
             cur.execute("""
                 insert into clinico.recomendacion_ingrediente 
                 (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad)
                 values (%s, %s, %s, 3, 'Potenciador de Plan Mensual', 3)
-            """, (id_paciente, ing_id, user.user_id))
+            """, (id_paciente, ing_id, id_profesional_interno))
             
     return {"success": True, "message": "Plan y potenciadores activados", "id_plan": id_plan}
 

@@ -15,8 +15,42 @@ from app.api.v1.dtos.nutricion import (
     RecetasPermitidasRequest, RecetasPermitidasResponse,
     RecomendacionIngredienteRequest
 )
+from app.core.db import db_cursor
 
 router = APIRouter(tags=["Nutricionista"])
+
+
+def _resolver_id_profesional_interno(auth_user_id: str, email: str | None) -> str:
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select id::text
+            from usuarios.usuario
+            where auth_user_id::text = %s or id::text = %s
+            limit 1
+            """,
+            (auth_user_id, auth_user_id),
+        )
+        row = cur.fetchone()
+        if row and row[0]:
+            return row[0]
+        if email:
+            cur.execute(
+                """
+                select id::text
+                from usuarios.usuario
+                where lower(email) = lower(%s)
+                limit 1
+                """,
+                (email,),
+            )
+            row = cur.fetchone()
+            if row and row[0]:
+                return row[0]
+    raise HTTPException(
+        status_code=400,
+        detail="No se pudo resolver el profesional autenticado en usuarios.usuario",
+    )
 
 @router.post("/ingredientes/recomendar")
 def recomendar_ingrediente(
@@ -29,11 +63,12 @@ def recomendar_ingrediente(
         # El id_rol depende de si es nutricionista (3) o medico (2)
         role_map = {"admin": 1, "medico": 2, "nutricionista": 3, "tutor": 4}
         rol_id = role_map.get(user.role, 3) 
+        id_profesional_interno = _resolver_id_profesional_interno(user.user_id, user.email)
         
         success = caso_uso.recomendar_ingrediente(
             payload.id_paciente,
             payload.id_ingrediente,
-            user.user_id,
+            id_profesional_interno,
             rol_id,
             payload.motivo,
             payload.prioridad
