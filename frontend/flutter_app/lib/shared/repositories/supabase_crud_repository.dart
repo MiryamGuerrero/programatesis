@@ -201,6 +201,17 @@ class SupabaseCrudRepository {
     return _toRows(response.data);
   }
 
+  Future<List<Map<String, dynamic>>> fetchShoppingList(String idPaciente, {DateTime? start, DateTime? end}) async {
+    final s = (start ?? DateTime.now()).toIso8601String().split("T").first;
+    final e = (end ?? DateTime.now().add(const Duration(days: 7))).toIso8601String().split("T").first;
+    final response = await _dio.get(
+      "tutor/lista-compras/$idPaciente", 
+      queryParameters: {"fecha_inicio": s, "fecha_fin": e}, 
+      options: _authorizedOptions()
+    );
+    return _toRows(response.data);
+  }
+
   Future<void> deletePatient(String idPaciente) async {
     await _dio.delete("pacientes/$idPaciente", options: _authorizedOptions());
   }

@@ -62,6 +62,7 @@ if (-not $healthy) {
 Set-Location $frontendDir
 flutter pub get
 
+
 if ([string]::IsNullOrWhiteSpace($DeviceId)) {
   $devicesJson = flutter devices --machine | Out-String
   $devices = @()
@@ -86,6 +87,7 @@ if ([string]::IsNullOrWhiteSpace($DeviceId)) {
     throw "No hay dispositivo movil detectado (Android/iOS). Conecta tu celular o inicia un emulador."
   }
 }
+
 
 flutter run -d $DeviceId -t lib/main_tutor_mobile.dart `
   --dart-define=SUPABASE_URL=$($cfg["SUPABASE_URL"]) `

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import 'tutor_home_page.dart';
 
-class MisPacientesPage extends StatefulWidget {
+class MisPacientesPage extends ConsumerStatefulWidget {
   const MisPacientesPage({super.key});
 
   @override
-  State<MisPacientesPage> createState() => _MisPacientesPageState();
+  ConsumerState<MisPacientesPage> createState() => _MisPacientesPageState();
 }
 
-class _MisPacientesPageState extends State<MisPacientesPage> {
+class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -22,36 +24,36 @@ class _MisPacientesPageState extends State<MisPacientesPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final patientsAsync = ref.watch(misPacientesProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                
-                Text(
-                  "Mis Pacientes",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 12),
-                
-                Text(
-                  "Gestiona el seguimiento y bienestar de tus pacientes asignados.",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // SEARCH BAR M3
-                SearchBar(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              
+              Text(
+                "Mis Pacientes",
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 12),
+              
+              Text(
+                "Gestiona el seguimiento y bienestar de tus pacientes asignados.",
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: SearchBar(
                   controller: _searchController,
                   hintText: "Buscar paciente...",
                   leading: const Icon(Icons.search_outlined),
@@ -69,38 +71,78 @@ class _MisPacientesPageState extends State<MisPacientesPage> {
                   backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
                   padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16)),
                 ),
-                
-                const SizedBox(height: 32),
-              
-              const _PatientCard(
-                nombre: "Carlos Ruiz",
-                diagnostico: "AIJ Oligoarticular",
-                estadoValor: "Estable",
-                planEstado: "Plan activo",
-                edad: "8 años",
-              ),
-              const SizedBox(height: 16),
-              const _PatientCard(
-                nombre: "Sofía Méndez",
-                diagnostico: "AIJ Poliarticular",
-                estadoValor: "En observación",
-                planEstado: "Plan activo",
-                edad: "6 años",
-              ),
-              const SizedBox(height: 16),
-              const _PatientCard(
-                nombre: "Juan Pérez",
-                diagnostico: "AIJ Sistémica",
-                estadoValor: "Estable",
-                planEstado: "Plan activo",
-                edad: "10 años",
               ),
               
+              const SizedBox(height: 24),
+              
+              Expanded(
+                child: patientsAsync.when(
+                  data: (patients) {
+                    final filtered = patients.where((p) {
+                      final name = p["nombre_completo"]?.toString().toLowerCase() ?? "";
+                      return name.contains(_searchController.text.toLowerCase());
+                    }).toList();
+
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_search_outlined, size: 64, color: colorScheme.outline.withOpacity(0.3)),
+                            const SizedBox(height: 16),
+                            Text("No se encontraron pacientes", style: TextStyle(color: colorScheme.outline)),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final p = filtered[index];
+                        final String id = p["id"].toString();
+                        final String nombre = p["nombre_completo"] ?? "Sin nombre";
+                        final String parentesco = p["parentesco"] ?? "Asignado";
+                        final String fechaNac = p["fecha_nacimiento"] ?? "";
+                        
+                        String edad = "Edad no disponible";
+                        if (fechaNac.isNotEmpty) {
+                          try {
+                            final birth = DateTime.parse(fechaNac);
+                            final now = DateTime.now();
+                            int years = now.year - birth.year;
+                            if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
+                              years--;
+                            }
+                            edad = "$years años";
+                          } catch (_) {}
+                        }
+
+                        return _PatientCard(
+                          nombre: nombre,
+                          diagnostico: "AIJ", // En una app real vendría de la BD
+                          relacion: parentesco,
+                          edad: edad,
+                          onTap: () {
+                            ref.read(selectedPatientIdProvider.notifier).state = id;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const TutorHomePage()),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) => Center(child: Text("Error: $err")),
+                ),
+              ),
               const SizedBox(height: 40),
             ],
           ),
         ),
-      ),
       ),
     );
   }
@@ -109,16 +151,16 @@ class _MisPacientesPageState extends State<MisPacientesPage> {
 class _PatientCard extends StatelessWidget {
   final String nombre;
   final String diagnostico;
-  final String estadoValor;
-  final String planEstado;
+  final String relacion;
   final String edad;
+  final VoidCallback onTap;
 
   const _PatientCard({
     required this.nombre,
     required this.diagnostico,
-    required this.estadoValor,
-    required this.planEstado,
+    required this.relacion,
     required this.edad,
+    required this.onTap,
   });
 
   @override
@@ -127,19 +169,9 @@ class _PatientCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Card(
-      margin: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TutorHomePage(
-                idPaciente: "1",
-                nombrePaciente: nombre,
-              ),
-            ),
-          );
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -148,7 +180,6 @@ class _PatientCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // AVATAR M3 STYLE
                   Container(
                     width: 56,
                     height: 56,
@@ -182,23 +213,20 @@ class _PatientCard extends StatelessWidget {
                               size: 18,
                             ),
                             const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                diagnostico,
-                                style: theme.textTheme.bodyMedium,
-                              ),
+                            Text(
+                              diagnostico,
+                              style: theme.textTheme.bodyMedium,
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         
                         Text(
-                          "Estado: $estadoValor",
+                          "Relación: $relacion",
                           style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
                         ),
                         const SizedBox(height: 12),
                         
-                        // BADGE M3 STYLE
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -208,14 +236,10 @@ class _PatientCard extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.check_circle_outline,
-                                color: AppTema.verdeSalud,
-                                size: 14,
-                              ),
+                              const Icon(Icons.check_circle_outline, color: AppTema.verdeSalud, size: 14),
                               const SizedBox(width: 6),
                               Text(
-                                planEstado,
+                                "Seguimiento Activo",
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: AppTema.verdeSalud,

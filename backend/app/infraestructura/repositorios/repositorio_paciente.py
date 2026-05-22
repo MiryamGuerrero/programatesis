@@ -148,6 +148,22 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def listar_pacientes_por_tutor(self, auth_user_id: str) -> List[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select p.id, p.nombre_completo, p.fecha_nacimiento, p.cedula, p.id_sexo,
+                       tp.id_parentesco, par.nombre as parentesco
+                from usuarios.paciente p
+                join usuarios.tutor_paciente tp on tp.id_paciente = p.id
+                join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                join usuarios.parentesco par on par.id = tp.id_parentesco
+                where u.auth_user_id::text = %s and p.activo = true
+                order by p.nombre_completo
+            """
+            cur.execute(sql, (auth_user_id,))
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
         from app.core.auth_onboarding import provision_auth_user_with_password_setup, delete_auth_user
         tutor = payload.get("tutor", {}); paciente = payload.get("paciente", {}); salud = payload.get("salud", {})

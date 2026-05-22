@@ -185,6 +185,10 @@ class IRepositorioSeguimiento(ABC):
     def obtener_reporte_adherencia_medico(self, id_medico: str) -> List[dict]:
         pass
 
+    @abstractmethod
+    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> List[dict]:
+        pass
+
 class IRepositorioPlan(ABC):
     @abstractmethod
     def guardar_plan_manual(self, id_paciente: str, items: List[Dict], replicate: bool = False) -> bool:

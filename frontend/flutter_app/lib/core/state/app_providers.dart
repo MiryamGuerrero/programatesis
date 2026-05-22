@@ -323,6 +323,16 @@ final patientExpedienteProvider = FutureProvider.family<Map<String, dynamic>, St
   return await repo.fetchExpedienteCompleto(idPaciente);
 });
 
+final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, DateTime fecha})>((ref, arg) async {
+  final repo = ref.watch(supabaseCrudRepositoryProvider);
+  return await repo.fetchPlanItemsByPaciente(arg.idPaciente, fecha: arg.fecha);
+});
+
+final listaComprasProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
+  final repo = ref.watch(supabaseCrudRepositoryProvider);
+  return await repo.fetchShoppingList(arg.idPaciente, start: arg.start, end: arg.end);
+});
+
 // NAVEGACIÓN INTERNA MÉDICO
 enum MedicoView { list, register, control, fixedEdit }
 final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);
