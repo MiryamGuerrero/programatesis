@@ -111,21 +111,21 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           // SECCIÓN DE MARCA ESTÁTICA (ESTILO LOGIN)
           Container(
             width: isWide ? 280 : 200,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
                 IconButton(
                   icon: const Icon(Icons.menu_rounded, color: brandBlue, size: 28),
                   onPressed: () => setState(() => _isMenuExpanded = !_isMenuExpanded),
                 ),
-                const SizedBox(width: 10),
-                Image.asset("assets/images/logo sin.png", width: 40, height: 40),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
+                Image.asset("assets/images/logo sin.png", width: 32, height: 32),
+                const SizedBox(width: 8),
                 Expanded(
                   child: RichText(
                     overflow: TextOverflow.clip,
                     text: TextSpan(
-                      style: GoogleFonts.montserrat(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                      style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5),
                       children: const [
                         TextSpan(text: "Nutri", style: TextStyle(color: brandBlue)),
                         TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
@@ -188,7 +188,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 return InkWell(
                   onTap: () => setState(() => _index = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     decoration: BoxDecoration(
                       color: active ? selectionGreen : Colors.transparent,
                       border: active ? const Border(left: BorderSide(color: Colors.white, width: 4)) : null,
@@ -197,7 +197,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                       children: [
                         Icon(modules[i].icon, color: Colors.white, size: 24),
                         if (_isMenuExpanded) ...[
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               modules[i].title, 
@@ -218,7 +218,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             duration: const Duration(milliseconds: 200),
             opacity: _isMenuExpanded ? 1.0 : 0.0,
             child: Container(
-              width: _isMenuExpanded ? 280 : 0,
+              width: double.infinity,
               padding: const EdgeInsets.all(16.0),
               child: _isMenuExpanded 
                 ? Text(
