@@ -53,3 +53,13 @@ def obtener_estadisticas_adherencia(
     _=Depends(require_roles("tutor", "admin"))
 ):
     return caso_uso.obtener_estadisticas_adherencia(id_paciente, dias)
+
+@router.get("/lista-compras/{id_paciente}")
+def obtener_lista_compras(
+    id_paciente: str,
+    fecha_inicio: date = date.today(),
+    fecha_fin: date = date.today(),
+    caso_uso: CasoUsoGestionarSeguimiento = Depends(obtener_caso_uso_gestionar_seguimiento),
+    _=Depends(require_roles("tutor", "admin"))
+):
+    return caso_uso.obtener_lista_compras(id_paciente, fecha_inicio, fecha_fin)
