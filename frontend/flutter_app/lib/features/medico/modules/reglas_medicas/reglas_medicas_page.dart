@@ -26,17 +26,22 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   final Set<String> _selectedObjetivos = {};
   int? _filtroCondicion;
   int? _filtroAccion;
+  int _currentPage = 1;
+  int _itemsPerPage = 5; // Paginación de 5 registros
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      setState(() {
-        _filtroCondicion = null;
-        _filtroAccion = null;
-        _selectedObjetivos.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _filtroCondicion = null;
+          _filtroAccion = null;
+          _selectedObjetivos.clear();
+          _currentPage = 1;
+        });
+      }
     });
     _loadData();
   }
@@ -48,6 +53,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
@@ -70,271 +76,570 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   List<dynamic> get _filtradas {
     final int selectedTab = _tabController.index;
     
-    return _rules.where((r) {
+    final filtered = _rules.where((r) {
       final tipos = (r['tipos_condicion'] as List? ?? []);
       bool matchType = false;
       if (selectedTab == 0) matchType = tipos.contains("Clínica");
-      else if (selectedTab == 1) matchType = tipos.contains("Temporal");
-      else matchType = tipos.contains("Nutricional");
+      else matchType = tipos.contains("Temporal");
 
       if (!matchType) return false;
 
       final targetName = _getTargetName(r).toLowerCase();
       final matchesSearch = targetName.contains(_searchQuery.toLowerCase());
+      
       final matchesTipo = _selectedObjetivos.isEmpty || _selectedObjetivos.contains(r["objetivo_codigo"]);
+      
       final condicionesIds = (r["id_condiciones"] as List).cast<int>();
       final matchesCondicion = _filtroCondicion == null || condicionesIds.contains(_filtroCondicion);
+      
       final matchesAccion = _filtroAccion == null || r["id_accion"] == _filtroAccion;
       
       return matchesSearch && matchesTipo && matchesCondicion && matchesAccion;
     }).toList();
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTema.grisLienzo,
-      body: _loading 
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
+      backgroundColor: AppTema.grisFondo,
+      body: Scrollbar(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(40, 32, 40, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopBar(),
-                    const SizedBox(height: 24),
-                    _buildTabBar(),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFilterBar(),
-                      const SizedBox(height: 24),
-                      _buildTable(),
-                    ],
-                  ),
-                ),
-              ),
+              _buildHeader(),
+              const SizedBox(height: 24),
+              _buildSearchBarAndAddButton(),
+              const SizedBox(height: 24),
+              _buildTabs(),
+              const SizedBox(height: 24),
+              _buildFilterBar(),
+              const SizedBox(height: 24),
+              _buildMainContent(),
             ],
           ),
+        ),
+      ),
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Gestión de Reglas Médicas", 
-          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Configuración de restricciones nutricionales según diagnóstico médico.", 
           style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 55,
-                decoration: BoxDecoration(
-                  color: AppTema.grisLienzo,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: TextField(
-                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: "Buscar por alimento o ingrediente objetivo...",
-                    hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBarAndAddButton() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
             ),
-            const SizedBox(width: 20),
-            SizedBox(
-              height: 55,
-              child: FilledButton.icon(
-                onPressed: () => _showForm(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTema.verdeSalud,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                ),
-                icon: const Icon(Icons.add_moderator_rounded, size: 20, color: Colors.white),
-                label: Text("NUEVA REGLA", 
-                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+            child: TextField(
+              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por alimento o ingrediente objetivo...",
+                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
+              onChanged: (v) => setState(() {
+                _searchQuery = v;
+                _currentPage = 1;
+              }),
             ),
-          ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _showForm(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_moderator_rounded, size: 20, color: Colors.white),
+            label: Text("Nueva regla", 
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildTabBar() {
-    return TabBar(
-      controller: _tabController,
-      labelColor: AppTema.azulPrincipal,
-      unselectedLabelColor: Colors.blueGrey,
-      indicatorColor: AppTema.verdeSalud,
-      indicatorWeight: 4,
-      labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
-      unselectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 13),
-      tabs: const [
-        Tab(text: "REGLAS CLÍNICAS"),
-        Tab(text: "SÍNTOMAS TEMPORALES"),
-        Tab(text: "REGLAS NUTRICIONALES"),
-      ],
+  Widget _buildTabs() {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: false,
+        indicatorColor: AppTema.verdeSalud,
+        indicatorWeight: 3,
+        labelColor: AppTema.verdeSalud,
+        unselectedLabelColor: Colors.blueGrey,
+        labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 14),
+        tabs: const [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.assignment_outlined, size: 18),
+                SizedBox(width: 8),
+                Text("Enfermedades Reumáticas"),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.access_time_outlined, size: 18),
+                SizedBox(width: 8),
+                Text("Síntomas temporales"),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildFilterBar() {
-    final tipos = ["INGREDIENTE", "GRUPO", "SUBGRUPO", "ETIQUETA"];
-    
-    // Filtrar condiciones según el Tab activo
     final int selectedIdx = _tabController.index;
-    final int tipoEsperado = selectedIdx == 0 ? 1 : (selectedIdx == 1 ? 2 : 3);
+    final int tipoEsperado = selectedIdx == 0 ? 1 : 2;
     
     final condicionesFiltradas = (_formData["condiciones"] ?? [])
         .where((c) => (c['id_tipo_condicion'] ?? c['id_tipo']) == tipoEsperado)
         .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text("OBJETIVO:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
-            const SizedBox(width: 16),
-            _filterChip("TODOS", _selectedObjetivos.isEmpty, () => setState(() => _selectedObjetivos.clear())),
-            const SizedBox(width: 12),
-            ...tipos.map((t) => Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _filterChip(t, _selectedObjetivos.contains(t), () => setState(() => _selectedObjetivos.contains(t) ? _selectedObjetivos.remove(t) : _selectedObjetivos.add(t))),
-            )),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("DIAGNÓSTICO:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    key: ValueKey("tab_${_tabController.index}"),
-                    isExpanded: true,
-                    initialValue: _filtroCondicion,
-                    style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
-                    decoration: InputDecoration(
-                      filled: true, fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          // FILA 1: TIPO DE ENFERMEDAD Y LIMPIAR
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Tipo de enfermedad", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      key: ValueKey("tab_${_tabController.index}"),
+                      isExpanded: true,
+                      value: _filtroCondicion,
+                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                      decoration: InputDecoration(
+                        filled: true, fillColor: AppTema.grisLienzo,
+                        prefixIcon: const Icon(Icons.health_and_safety_outlined, color: AppTema.verdeSalud, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text("Todos los tipos de enfermedad")),
+                        ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"]?.toString() ?? "CONDICIÓN", overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _filtroCondicion = v),
                     ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text("TODOS LOS DIAGNÓSTICOS")),
-                      ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"]?.toString().toUpperCase() ?? "CONDICIÓN", overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setState(() => _filtroCondicion = v),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("ACCIÓN MÉDICA:", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    initialValue: _filtroAccion,
-                    style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
-                    decoration: InputDecoration(
-                      filled: true, fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+              const Spacer(flex: 3),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() {
+                    _filtroCondicion = null;
+                    _filtroAccion = null;
+                    _selectedObjetivos.clear();
+                    _searchQuery = "";
+                    _currentPage = 1;
+                  }),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text("Limpiar filtros", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blueGrey,
+                    side: BorderSide(color: Colors.grey.shade200),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // FILA 2: ACCIÓN MÉDICA Y TIPO DE OBJETIVO
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Acción médica", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _actionChip("Todos", null, Icons.list_rounded, Colors.grey),
+                        const SizedBox(width: 8),
+                        _actionChip("Priorizar", 1, Icons.arrow_upward_rounded, AppTema.verdeSalud),
+                        const SizedBox(width: 8),
+                        _actionChip("Disminuir", 2, Icons.arrow_downward_rounded, Colors.orange),
+                        const SizedBox(width: 8),
+                        _actionChip("Eliminar", 3, Icons.delete_outline_rounded, Colors.redAccent),
+                      ],
                     ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text("TODAS LAS ACCIONES")),
-                      ...(_formData["acciones"] ?? []).map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setState(() => _filtroAccion = v),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _filterChip(String label, bool isSelected, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTema.azulPrincipal : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
-        ),
-        child: Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : Colors.grey.shade600)),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Tipo de objetivo", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _objectiveChip("Todos", "TODOS", null),
+                        const SizedBox(width: 6),
+                        _objectiveChip("Ingrediente", "INGREDIENTE", Icons.egg_alt_outlined),
+                        const SizedBox(width: 6),
+                        _objectiveChip("Grupo", "GRUPO", Icons.groups_2_outlined),
+                        const SizedBox(width: 6),
+                        _objectiveChip("Subgrupo", "SUBGRUPO", Icons.layers_outlined),
+                        const SizedBox(width: 6),
+                        _objectiveChip("Etiqueta", "ETIQUETA", Icons.sell_outlined),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTable() {
-    return NutriTableContainer(
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-        ),
-        child: PaginatedDataTable(
-          header: null,
-          rowsPerPage: 5,
-          showFirstLastButtons: true,
-          availableRowsPerPage: const [5],
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          columns: [
-            _col("ACCIÓN"),
-            _col("TIPO"),
-            _col("OBJETIVO"),
-            _col("DIAGNÓSTICOS"),
-            _col("ESTRICTA"),
-            _col("ACCIONES"),
-          ],
-          source: _ReglasMedicasDataSource(
-            rules: _filtradas,
-            formData: _formData,
-            onEdit: _showForm,
-            onDelete: _deleteRule,
-            context: context,
+  Widget _actionChip(String label, int? val, IconData icon, Color color) {
+    final bool sel = _filtroAccion == val;
+    // Si está seleccionado se torna gris, si no, usa su color de identidad
+    final Color activeColor = sel ? Colors.blueGrey : color;
+    final Color bgColor = sel ? Colors.blueGrey.withOpacity(0.1) : color.withOpacity(0.05);
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() {
+          _filtroAccion = val;
+          _currentPage = 1;
+        }),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 48,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: activeColor.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: activeColor),
+              const SizedBox(width: 6),
+              Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: activeColor)),
+            ],
           ),
         ),
       ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(
-    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))
-  );
+  Widget _objectiveChip(String label, String code, IconData? icon) {
+    final bool sel = code == "TODOS" ? _selectedObjetivos.isEmpty : _selectedObjetivos.contains(code);
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() {
+          if (code == "TODOS") {
+            _selectedObjetivos.clear();
+          } else {
+            if (_selectedObjetivos.contains(code)) _selectedObjetivos.remove(code);
+            else _selectedObjetivos.add(code);
+          }
+          _currentPage = 1;
+        }),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 48,
+          decoration: BoxDecoration(
+            color: sel ? AppTema.azulPrincipal.withOpacity(0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? AppTema.azulPrincipal : Colors.grey.shade200),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) Icon(icon, size: 14, color: sel ? AppTema.azulPrincipal : Colors.blueGrey),
+              Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700, color: sel ? AppTema.azulPrincipal : Colors.blueGrey)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    if (_loading) {
+      return const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Sincronizando reglas..."));
+    }
+
+    final filtered = _filtradas;
+    final totalItems = filtered.length;
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = startIndex + _itemsPerPage > totalItems ? totalItems : startIndex + _itemsPerPage;
+    final currentItems = (totalItems > 0) ? filtered.sublist(startIndex, endIndex) : [];
+
+    return Column(
+      children: [
+        NutriTableContainer(
+          child: Column(
+            children: [
+              _buildTableHead(),
+              if (currentItems.isEmpty)
+                const Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron reglas configuradas.")))
+              else
+                ...currentItems.map((r) => _buildTableRow(r)),
+            ],
+          ),
+        ),
+        if (totalItems > 0) ...[
+          const SizedBox(height: 24),
+          _buildPagination(totalItems, startIndex + 1, endIndex),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTableHead() {
+    return Container(
+      color: const Color(0xFFF8FAFC),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(flex: 4, child: _tableHeaderLabel("Diagnóstico")),
+          Expanded(flex: 3, child: _tableHeaderLabel("Acción")),
+          Expanded(flex: 4, child: _tableHeaderLabel("Objetivo")),
+          Expanded(flex: 2, child: Center(child: _tableHeaderLabel("Estricta"))),
+          Expanded(flex: 3, child: Center(child: _tableHeaderLabel("Acciones"))),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeaderLabel(String label) {
+    return Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
+  }
+
+  Widget _buildTableRow(Map<String, dynamic> r) {
+    final condicionesIds = r["id_condiciones"] as List;
+    final nombresCondiciones = condicionesIds.map((id) {
+      final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
+      return c != null ? (c["nombre"]?.toString() ?? "C-$id") : "C-$id";
+    }).join(", ");
+
+    final bool isTemporalTab = _tabController.index == 1;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+      ),
+      child: Row(
+        children: [
+          // DIAGNÓSTICO
+          Expanded(
+            flex: 4, 
+            child: Row(
+              children: [
+                Image.asset(
+                  isTemporalTab ? "assets/images/rule_temporal_icon.png" : "assets/images/rule_joint_icon.png", 
+                  width: 20, height: 20, fit: BoxFit.contain
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(nombresCondiciones, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
+              ],
+            )
+          ),
+          
+          // ACCIÓN
+          Expanded(flex: 3, child: _accionBadgeMock(r['accion_codigo']?.toString() ?? "-")),
+          
+          // OBJETIVO
+          Expanded(
+            flex: 4, 
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(r["objetivo_codigo"]?.toString() ?? "Ingrediente", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+                Text(_getTargetName(r), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+              ],
+            )
+          ),
+          
+          // ESTRICTA
+          Expanded(
+            flex: 2, 
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(r["es_estricta"] == true ? Icons.lock_rounded : Icons.lock_open_rounded, 
+                    color: r["es_estricta"] == true ? AppTema.verdeSalud : Colors.grey.shade400, size: 14),
+                  const SizedBox(width: 4),
+                  Text(r["es_estricta"] == true ? "Sí" : "No", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+                ],
+              )
+            )
+          ),
+          
+          // ACCIONES
+          Expanded(
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _actionButton(
+                  icon: Icons.edit_outlined, 
+                  label: "Editar", 
+                  color: Colors.orange,
+                  onTap: () => _showForm(r)
+                ),
+                const SizedBox(width: 16),
+                _actionButton(
+                  icon: Icons.delete_outline_rounded, 
+                  label: "Eliminar", 
+                  color: Colors.red,
+                  onTap: () => _deleteRule(r["id"])
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _accionBadgeMock(String label) {
+    Color color = AppTema.verdeSalud;
+    IconData icon = Icons.arrow_upward_rounded;
+    String text = "Priorizar";
+    
+    if (label == 'ELIMINAR') { color = Colors.redAccent; icon = Icons.delete_outline_rounded; text = "Eliminar"; }
+    else if (label == 'DISMINUIR') { color = Colors.orange; icon = Icons.arrow_downward_rounded; text = "Disminuir"; }
+
+    return UnconstrainedBox(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(text, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return _HoverActionButton(icon: icon, label: label, color: color, onTap: onTap);
+  }
+
+  Widget _buildPagination(int total, int start, int end) {
+    final totalPages = (total / _itemsPerPage).ceil();
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text("Mostrando $start a $end de $total reglas", 
+          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+        Row(
+          children: [
+            _pageButton(Icons.chevron_left, _currentPage > 1 ? () => setState(() => _currentPage--) : null),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTema.azulPrincipal,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text("$_currentPage", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 8),
+            _pageButton(Icons.chevron_right, _currentPage < totalPages ? () => setState(() => _currentPage++) : null),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _pageButton(IconData icon, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Icon(icon, size: 20, color: onTap == null ? Colors.grey.shade300 : Colors.black),
+      ),
+    );
+  }
 
   String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre']?.toString() ?? r['grupo_nombre']?.toString() ?? r['subgrupo_nombre']?.toString() ?? r['etiqueta_nombre']?.toString() ?? "Objetivo";
 
@@ -364,81 +669,53 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   }
 }
 
-class _ReglasMedicasDataSource extends DataTableSource {
-  final List<dynamic> rules;
-  final Map<String, List<dynamic>> formData;
-  final Function(Map<String, dynamic>) onEdit;
-  final Function(int) onDelete;
-  final BuildContext context;
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-  _ReglasMedicasDataSource({
-    required this.rules,
-    required this.formData,
-    required this.onEdit,
-    required this.onDelete,
-    required this.context,
-  });
+  const _HoverActionButton({required this.icon, required this.label, required this.color, required this.onTap});
 
   @override
-  DataRow? getRow(int index) {
-    if (index >= rules.length) return null;
-    final r = rules[index];
-    
-    final condicionesIds = r["id_condiciones"] as List;
-    final nombresCondiciones = condicionesIds.map((id) {
-      final c = formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
-      return c != null ? (c["nombre"]?.toString() ?? "C-$id") : "C-$id";
-    }).join(", ");
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
 
-    final tipos = (r['tipos_condicion'] as List? ?? []);
-    final tipoPrincipal = tipos.contains("Clínica") ? "Clínica" : (tipos.isNotEmpty ? tipos.first : "Clínica");
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
 
-    return DataRow(cells: [
-      DataCell(_accionBadge(r['accion_codigo']?.toString() ?? "-")),
-      DataCell(_tipoBadge(tipoPrincipal)),
-      DataCell(Text(_getTargetName(r), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700))),
-      DataCell(SizedBox(width: 250, child: Text(nombresCondiciones, style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey), overflow: TextOverflow.ellipsis))),
-      DataCell(Icon(r["es_estricta"] == true ? Icons.lock_rounded : Icons.lock_open_rounded, color: r["es_estricta"] == true ? Colors.redAccent : Colors.grey.shade400, size: 18)),
-      DataCell(Row(
-        children: [
-          IconButton(tooltip: "Editar", icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 22), onPressed: () => onEdit(r)),
-          IconButton(tooltip: "Eliminar", icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => onDelete(r["id"])),
-        ],
-      )),
-    ]);
-  }
-
-  Widget _tipoBadge(String label) {
-    Color bg = const Color(0xFFE0F2FE); Color tx = const Color(0xFF0369A1);
-    if (label == 'Temporal') { bg = const Color(0xFFF3E8FF); tx = const Color(0xFF7E22CE); }
-    if (label == 'Nutricional') { bg = const Color(0xFFDCFCE7); tx = const Color(0xFF15803D); }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withOpacity(0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered ? widget.color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _isHovered ? widget.color.withOpacity(0.2) : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 18),
+              const SizedBox(height: 4),
+              Text(widget.label, 
+                textAlign: TextAlign.center,
+                style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+            ],
+          ),
+        ),
+      ),
     );
   }
-
-  Widget _accionBadge(String label) {
-    Color bg = const Color(0xFFF1F5F9); Color tx = Colors.blueGrey;
-    if (label == 'ELIMINAR') { bg = const Color(0xFFFEE2E2); tx = const Color(0xFFB91C1C); }
-    else if (label == 'PRIORIZAR') { bg = const Color(0xFFDCFCE7); tx = const Color(0xFF15803D); }
-    else if (label == 'DISMINUIR') { bg = const Color(0xFFFEF3C7); tx = const Color(0xFFB45309); }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
-    );
-  }
-
-  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre']?.toString() ?? r['grupo_nombre']?.toString() ?? r['subgrupo_nombre']?.toString() ?? r['etiqueta_nombre']?.toString() ?? "Objetivo";
-
-  @override
-  bool get isRowCountApproximate => false;
-  @override
-  int get rowCount => rules.length;
-  @override
-  int get selectedRowCount => 0;
 }
 
 class _MedicalRuleFormDialog extends ConsumerStatefulWidget {
@@ -479,19 +756,19 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
     else if (_idObjetivo == 4) targetList = widget.formData["subgroups"] ?? widget.formData["subgrupos"] ?? [];
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titlePadding: EdgeInsets.zero,
       title: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20))),
         child: Row(children: [
-          const Icon(Icons.rule_folder_outlined, color: Colors.white, size: 22),
+          const Icon(Icons.rule_folder_outlined, color: Colors.white, size: 20),
           const SizedBox(width: 12),
-          Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
         ]),
       ),
       content: SizedBox(
-        width: 500,
+        width: 480,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -500,7 +777,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                 DropdownButtonFormField<int>(
                   initialValue: _idObjetivo,
                   decoration: _modalDecor("Tipo de Objetivo*", Icons.track_changes),
-                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"]?.toString().toUpperCase() ?? "OBJETIVO", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"]?.toString().toUpperCase() ?? "OBJETIVO", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
                 ),
                 if (_idObjetivo != null) ...[
@@ -508,7 +785,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                   DropdownButtonFormField<int>(
                     initialValue: _idTarget,
                     decoration: _modalDecor("Seleccionar Item*", Icons.ads_click),
-                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"]?.toString().toUpperCase() ?? "ITEM", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"]?.toString().toUpperCase() ?? "ITEM", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
                     onChanged: (v) => setState(() => _idTarget = v),
                   ),
                 ],
@@ -518,37 +795,48 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                 DropdownButtonFormField<int>(
                   initialValue: _idAccion,
                   decoration: _modalDecor("Acción Médica*", Icons.gavel),
-                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
                   onChanged: (v) => setState(() => _idAccion = v),
                 ),
-                SwitchListTile(title: Text("Restricción Estricta", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600)), value: _esEstricta, onChanged: (v) => setState(() => _esEstricta = v)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text("Restricción Estricta", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), 
+                  value: _esEstricta, 
+                  onChanged: (v) => setState(() => _esEstricta = v)
+                ),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildFieldSection("APLICABILIDAD", [
                 Container(
-                  height: 120, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(title: Text(c["nombre"]?.toString() ?? "Condición", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, onChanged: (v) => setState(() { if(v!) {
-                    _selectedCondiciones.add(c["id"]);
-                  } else {
-                    _selectedCondiciones.remove(c["id"]);
-                  } }), dense: true)).toList()),
+                  height: 110, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+                  child: Scrollbar(
+                    child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      title: Text(c["nombre"]?.toString() ?? "Condición", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)), 
+                      value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, 
+                      onChanged: (v) => setState(() { if(v!) {
+                      _selectedCondiciones.add(c["id"]);
+                    } else {
+                      _selectedCondiciones.remove(c["id"]);
+                    } }), dense: true)).toList()),
+                  ),
                 ),
               ]),
               const SizedBox(height: 16),
-              TextFormField(controller: _mensajeController, maxLines: 2, style: GoogleFonts.montserrat(fontSize: 13), decoration: _modalDecor("Observación / Justificación", Icons.chat_bubble_outline)),
+              TextFormField(controller: _mensajeController, maxLines: 2, style: GoogleFonts.montserrat(fontSize: 12), decoration: _modalDecor("Observación / Justificación", Icons.chat_bubble_outline)),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey))),
-        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? "..." : "GUARDAR REGLA", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold))),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 11))),
+        FilledButton(onPressed: _saving ? null : _save, style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Text(_saving ? "..." : "GUARDAR REGLA", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 11))),
       ],
     );
   }
 
-  Widget _buildFieldSection(String title, List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)), const SizedBox(height: 8), ...children]);
-  InputDecoration _modalDecor(String l, IconData i) => InputDecoration(labelText: l, prefixIcon: Icon(i, size: 18), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none));
+  Widget _buildFieldSection(String title, List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)), const SizedBox(height: 8), ...children]);
+  InputDecoration _modalDecor(String l, IconData i) => InputDecoration(labelText: l, labelStyle: GoogleFonts.montserrat(fontSize: 12), prefixIcon: Icon(i, size: 16), filled: true, fillColor: const Color(0xFFF1F5F9), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none));
 
   Future<void> _save() async {
     if (_idAccion == null || _idObjetivo == null || _idTarget == null || _selectedCondiciones.isEmpty) return;

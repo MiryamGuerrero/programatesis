@@ -50,66 +50,40 @@ class _ListaPacientesView extends ConsumerStatefulWidget {
 
 class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   String _searchQuery = "";
+  int _currentPage = 1;
+  final int _itemsPerPage = 10;
+
+  String _formatName(String fullName) {
+    if (fullName.isEmpty) return "-";
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 3) {
+      return "${parts[0]} ${parts[parts.length > 2 ? 2 : 1]}";
+    } else if (parts.length == 2) {
+      return "${parts[0]} ${parts[1]}";
+    }
+    return fullName;
+  }
 
   @override
   Widget build(BuildContext context) {
     final patientsAsync = ref.watch(medicoPatientsProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 32),
-          _buildStatsRow(patientsAsync.valueOrNull ?? []),
-          const SizedBox(height: 32),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 55,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: TextField(
-                    style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
-                    decoration: InputDecoration(
-                      hintText: "Buscar por nombre o cédula...",
-                      hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              SizedBox(
-                height: 55,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    ref.read(selectedPatientProvider.notifier).state = null;
-                    ref.read(medicoNavProvider.notifier).state = MedicoView.register;
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTema.verdeSalud,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                  ),
-                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-                  label: Text("NUEVO PACIENTE", 
-                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildPatientsTable(patientsAsync),
-        ],
+    return Scaffold(
+      backgroundColor: AppTema.grisFondo,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 24),
+            _buildStatsRow(patientsAsync.valueOrNull ?? []),
+            const SizedBox(height: 24),
+            _buildSearchBarAndAddButton(),
+            const SizedBox(height: 16),
+            _buildPatientsTable(patientsAsync),
+          ],
+        ),
       ),
     );
   }
@@ -119,8 +93,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Gestión de Pacientes", 
-          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Consistencia clínica estandarizada bajo parámetros OMS.", 
+          style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        Text("Administre expedientes clínicos y monitoree niveles de severidad bajo estándares OMS.", 
           style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
@@ -128,9 +102,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
   Widget _buildStatsRow(List<Map<String, dynamic>> patients) {
     final int total = patients.length;
-    final int brotes = patients.where((p) => p['severidad'].toString().toLowerCase().contains("brote") || p['severidad'].toString().toLowerCase().contains("alta")).length;
+    final int brotes = patients.where((p) {
+      final s = p['severidad'].toString().toLowerCase();
+      return s.contains("brote") || s.contains("alta") || s.contains("grave");
+    }).length;
     
-    // Contar patologías
     final Map<String, int> counts = {};
     for (var p in patients) {
       final name = p['enfermedad_principal'] ?? "OTRA";
@@ -139,13 +115,91 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final principal = sorted.isNotEmpty ? sorted.first.key : "N/A";
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 20.0;
+        return Row(
+          children: [
+            Expanded(
+              child: _KPICard(
+                title: "Total pacientes",
+                value: "$total",
+                color: AppTema.azulPrincipal,
+                imagePath: "assets/images/kpi_total.png",
+              ),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: _KPICard(
+                title: "En brote / alta",
+                value: "$brotes",
+                color: Colors.red,
+                icon: Icons.notifications_none_rounded,
+              ),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: _KPICard(
+                title: "Patología principal",
+                value: principal,
+                color: const Color(0xFF10B981),
+                imagePath: "assets/images/kpi_joint.png",
+                isLargeValue: true,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchBarAndAddButton() {
     return Row(
       children: [
-        Expanded(child: NutriResumenCard(titulo: "TOTAL PACIENTES", valor: "$total", icon: Icons.child_care_rounded)),
-        const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "EN BROTE / ALTA ACTIVIDAD", valor: "$brotes", colorValor: Colors.red, icon: Icons.warning_amber_rounded)),
-        const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "PATOLOGÍA PREDOMINANTE", valor: principal, colorValor: AppTema.azulOscuro, icon: Icons.medical_services_outlined)),
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre o cédula del paciente...",
+                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: (v) => setState(() {
+                _searchQuery = v;
+                _currentPage = 1;
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () {
+              ref.read(selectedPatientProvider.notifier).state = null;
+              ref.read(medicoNavProvider.notifier).state = MedicoView.register;
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
+            label: Text("Nuevo paciente", 
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+          ),
+        ),
       ],
     );
   }
@@ -161,36 +215,26 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
         if (filtered.isEmpty) return const NutriTableContainer(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron registros pediátricos."))));
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return NutriTableContainer(
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-                      columnSpacing: 20,
-                      horizontalMargin: 16,
-                      columns: [
-                        _col("IDENTIDAD Y PACIENTE"),
-                        _col("CÉDULA"),
-                        _col("ENFERMEDAD"),
-                        _col("SEVERIDAD"),
-                        _col("EDAD"),
-                        _col("ACCIONES"),
-                      ],
-                      rows: filtered.map((p) => _PatientsDataSource(context, filtered, ref, (p) => _confirmarEliminar(p)).getRowFromData(p)).toList(),
-                    ),
-                  ),
-                ),
+        final totalItems = filtered.length;
+        final startIndex = (_currentPage - 1) * _itemsPerPage;
+        final endIndex = startIndex + _itemsPerPage > totalItems ? totalItems : startIndex + _itemsPerPage;
+        final currentItems = filtered.sublist(startIndex, endIndex);
+
+        return Column(
+          children: [
+            NutriTableContainer(
+              child: Column(
+                children: [
+                  _buildTableHead(),
+                  ...currentItems.map((p) => _buildTableRow(p)),
+                ],
               ),
-            );
-          }
+            ),
+            if (totalItems > 0) ...[
+              const SizedBox(height: 16),
+              _buildPagination(totalItems, startIndex + 1, endIndex),
+            ],
+          ],
         );
       },
       loading: () => const NutriLoading(mensaje: "Sincronizando expedientes..."),
@@ -198,9 +242,200 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
   }
 
-  DataColumn _col(String l) => DataColumn(
-    label: Text(l, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 10, color: AppTema.azulOscuro))
-  );
+  Widget _buildTableHead() {
+    return Container(
+      color: const Color(0xFFF8FAFC),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: _tableHeaderLabel("Nombre del Paciente")),
+          Expanded(flex: 2, child: _tableHeaderLabel("Cédula")),
+          Expanded(flex: 3, child: _tableHeaderLabel("Enfermedad")),
+          Expanded(flex: 2, child: _tableHeaderLabel("Severidad")),
+          Expanded(flex: 1, child: _tableHeaderLabel("Edad")),
+          Expanded(flex: 3, child: Center(child: _tableHeaderLabel("Acciones"))),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeaderLabel(String label) {
+    return Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
+  }
+
+  Widget _buildTableRow(Map<String, dynamic> p) {
+    final bool isSelected = ref.watch(selectedPatientProvider)?['id'] == p['id'];
+
+    return InkWell(
+      onTap: () => ref.read(selectedPatientProvider.notifier).state = p,
+      hoverColor: AppTema.azulPrincipal.withOpacity(0.02),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTema.azulPrincipal.withOpacity(0.08) : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade100),
+            left: BorderSide(color: isSelected ? AppTema.azulPrincipal : Colors.transparent, width: 4),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  _buildAvatar(p["nombre_completo"]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_formatName(p["nombre_completo"] ?? ""), 
+                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(flex: 2, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(flex: 3, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.montserrat(fontSize: 11, color: AppTema.azulPrincipal, fontWeight: FontWeight.w600))),
+            Expanded(flex: 2, child: _buildSeverityBadge(p["severidad"])),
+            Expanded(flex: 1, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(
+              flex: 3,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _actionButton(
+                    icon: Icons.calendar_month_outlined, 
+                    label: "Control", 
+                    color: AppTema.azulPrincipal,
+                    onTap: () {
+                      ref.read(selectedPatientProvider.notifier).state = p;
+                      ref.read(medicoNavProvider.notifier).state = MedicoView.control;
+                    }
+                  ),
+                  const SizedBox(width: 16),
+                  _actionButton(
+                    icon: Icons.edit_outlined, 
+                    label: "Editar", 
+                    color: Colors.orange,
+                    onTap: () {
+                      ref.read(selectedPatientProvider.notifier).state = p;
+                      ref.read(medicoNavProvider.notifier).state = MedicoView.fixedEdit;
+                    }
+                  ),
+                  const SizedBox(width: 16),
+                  _actionButton(
+                    icon: Icons.delete_outline_rounded, 
+                    label: "Eliminar", 
+                    color: Colors.red,
+                    onTap: () => _confirmarEliminar(p)
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? name) {
+    final initials = name != null && name.isNotEmpty 
+        ? name.trim().split(' ').take(2).map((e) => e[0].toUpperCase()).join()
+        : "P";
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: AppTema.azulPrincipal.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(initials, style: GoogleFonts.montserrat(color: AppTema.azulPrincipal, fontWeight: FontWeight.w800, fontSize: 11)),
+      ),
+    );
+  }
+
+  Widget _buildSeverityBadge(dynamic sev) {
+    final s = sev?.toString().toLowerCase() ?? "";
+    IconData icon = Icons.remove_circle_outline;
+    Color color = Colors.orange;
+    String label = "Moderada";
+
+    if (s.contains("alta") || s.contains("brote") || s.contains("grave")) {
+      icon = Icons.warning_amber_rounded;
+      color = Colors.red;
+      label = "Grave";
+    } else if (s.contains("moderada")) {
+      icon = Icons.remove_circle_outline;
+      color = Colors.orange;
+      label = "Moderada";
+    } else {
+      icon = Icons.check_circle_outline;
+      color = Colors.green;
+      label = "Estable";
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 6),
+        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      ],
+    );
+  }
+
+  Widget _actionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return _HoverActionButton(icon: icon, label: label, color: color, onTap: onTap);
+  }
+
+  Widget _buildPagination(int total, int start, int end) {
+    final totalPages = (total / _itemsPerPage).ceil();
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text("Mostrando $start a $end de $total pacientes", 
+          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+        Row(
+          children: [
+            _pageButton(Icons.chevron_left, _currentPage > 1 ? () => setState(() => _currentPage--) : null),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTema.azulPrincipal,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text("$_currentPage", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 8),
+            _pageButton(Icons.chevron_right, _currentPage < totalPages ? () => setState(() => _currentPage++) : null),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _pageButton(IconData icon, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Icon(icon, size: 20, color: onTap == null ? Colors.grey.shade300 : Colors.black),
+      ),
+    );
+  }
 
   Future<void> _confirmarEliminar(Map<String, dynamic> p) async {
     final confirm = await showDialog<bool>(
@@ -227,116 +462,120 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 }
 
-class _PatientsDataSource extends DataTableSource {
-  final BuildContext context;
-  final List<Map<String, dynamic>> patients;
-  final WidgetRef ref;
-  final Function(Map<String, dynamic>) onDelete;
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-  _PatientsDataSource(this.context, this.patients, this.ref, this.onDelete);
+  const _HoverActionButton({required this.icon, required this.label, required this.color, required this.onTap});
 
-  DataRow getRowFromData(Map<String, dynamic> p) {
-    return DataRow(
-      cells: [
-        DataCell(SizedBox(
-          width: 180,
-          child: InkWell(
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => PatientDetailModal(idPaciente: p["id"].toString()),
-              );
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Row(
-                children: [
-                  _getStatusIcon(p["severidad"]),
-                  const SizedBox(width: 8),
-                  NutriAvatar(nombreCompleto: p["nombre_completo"] ?? "P", radio: 14),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(p["nombre_completo"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-                ],
-              ),
-            ),
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withOpacity(0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? widget.color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _isHovered ? widget.color.withOpacity(0.2) : Colors.transparent),
           ),
-        )),
-        DataCell(SizedBox(width: 100, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),
-        DataCell(SizedBox(width: 120, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis))),
-        DataCell(NutriBadge(
-          label: (p["severidad"] ?? "ESTABLE").toString().toUpperCase(), 
-          type: _getSeverityBadgeType(p["severidad"])
-        )),
-        DataCell(SizedBox(width: 60, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.lato(fontSize: 11, color: const Color(0xFF1E293B))))),
-        DataCell(Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(tooltip: "Analítica", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.analytics_rounded, color: AppTema.azulPrincipal, size: 18), onPressed: () {
-              ref.read(selectedPatientProvider.notifier).state = p;
-              ref.read(medicoNavProvider.notifier).state = MedicoView.control;
-            }),
-            const SizedBox(width: 8),
-            IconButton(tooltip: "Editar Datos Fijos", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 20), onPressed: () {
-              ref.read(selectedPatientProvider.notifier).state = p;
-              ref.read(medicoNavProvider.notifier).state = MedicoView.fixedEdit;
-            }),
-            const SizedBox(width: 8),
-            IconButton(tooltip: "Borrar", padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18), onPressed: () => onDelete(p)),
-          ],
-        )),
-      ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 20),
+              const SizedBox(height: 4),
+              Text(widget.label, 
+                textAlign: TextAlign.center,
+                style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+            ],
+          ),
+        ),
+      ),
     );
   }
+}
+
+class _KPICard extends StatelessWidget {
+  const _KPICard({
+    required this.title, 
+    required this.value, 
+    required this.color, 
+    this.icon,
+    this.imagePath,
+    this.isLargeValue = false,
+  });
+
+  final String title;
+  final String value;
+  final Color color;
+  final IconData? icon;
+  final String? imagePath;
+  final bool isLargeValue;
 
   @override
-  DataRow? getRow(int index) {
-    if (index >= patients.length) return null;
-    return getRowFromData(patients[index]);
+  Widget build(BuildContext context) {
+    return Container(
+      height: 100, 
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: color, width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 50,
+            child: Center(
+              child: imagePath != null 
+                ? Image.asset(imagePath!, width: 42, height: 42, fit: BoxFit.contain)
+                : Icon(icon, size: 36, color: color),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(title, 
+                  style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+                ),
+                const SizedBox(height: 4),
+                Text(value, 
+                  style: GoogleFonts.montserrat(
+                    fontSize: isLargeValue ? 14 : 24, 
+                    fontWeight: FontWeight.w800, 
+                    color: AppTema.azulOscuro,
+                    letterSpacing: -0.5,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
-  Widget _getStatusIcon(dynamic sev) {
-    final s = sev?.toString().toLowerCase() ?? "";
-    IconData icon = Icons.circle;
-    Color color = Colors.green;
-    
-    if (s.contains("alta") || s.contains("brote")) {
-      icon = Icons.warning_rounded;
-      color = Colors.red;
-    } else if (s.contains("moderada")) {
-      icon = Icons.pause_circle_filled_rounded;
-      color = Colors.orange;
-    } else if (s.contains("leve")) {
-      icon = Icons.info_rounded;
-      color = Colors.blue;
-    }
-    
-    return Icon(icon, size: 14, color: color);
-  }
-
-  String _getSeverityBadgeType(dynamic sev) {
-    if (sev == null) return "info";
-    final s = sev.toString().toLowerCase();
-    if (s.contains("estable")) return "success";
-    if (s.contains("leve")) return "info";
-    if (s.contains("moderada")) return "warning";
-    if (s.contains("alta") || s.contains("brote")) return "danger";
-    return "info";
-  }
-
-  String _getBadgeType(dynamic estado) {
-    if (estado == null) return "info";
-    final e = estado.toString().toLowerCase();
-    if (e.contains("eutrófico") || e.contains("normal")) return "success";
-    if (e.contains("sobrepeso") || e.contains("desnutrición") || e.contains("riesgo")) return "warning";
-    if (e.contains("obesidad") || e.contains("severa") || e.contains("delgadez")) return "danger";
-    return "info";
-  }
-
-  @override
-  bool get isRowCountApproximate => false;
-  @override
-  int get rowCount => patients.length;
-  @override
-  int get selectedRowCount => 0;
 }

@@ -24,36 +24,20 @@ class NutriResumenCard extends StatelessWidget {
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: colorValor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: colorValor, size: 20),
+          Text(
+            titulo.toUpperCase(), 
+            style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 0.8),
+            overflow: TextOverflow.visible,
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  titulo.toUpperCase(), 
-                  style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 0.8),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  valor, 
-                  style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), letterSpacing: -0.5),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+          const SizedBox(height: 4),
+          Text(
+            valor, 
+            style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: colorValor, letterSpacing: -0.5),
+            overflow: TextOverflow.visible,
           ),
         ],
       ),
