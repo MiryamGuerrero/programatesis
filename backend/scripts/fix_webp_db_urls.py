@@ -31,17 +31,17 @@ def fix_db_urls():
                 """)
                 rows_receta_png = cur.rowcount
                 
-                # 2. Actualizar receta_imagen (esquema public)
-                print("Actualizando receta_imagen...")
+                # 2. Actualizar receta_imagen (esquema nutricion)
+                print("Actualizando nutricion.receta_imagen...")
                 cur.execute("""
-                    UPDATE public.receta_imagen 
+                    UPDATE nutricion.receta_imagen 
                     SET imagen_url = REPLACE(imagen_url, '.jpg', '.webp')
                     WHERE imagen_url LIKE '%.jpg';
                 """)
                 rows_ri_jpg = cur.rowcount
 
                 cur.execute("""
-                    UPDATE public.receta_imagen 
+                    UPDATE nutricion.receta_imagen 
                     SET imagen_url = REPLACE(imagen_url, '.png', '.webp')
                     WHERE imagen_url LIKE '%.png';
                 """)

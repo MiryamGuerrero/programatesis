@@ -31,13 +31,17 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
     final colorScheme = theme.colorScheme;
     
     final idPaciente = ref.watch(selectedPatientIdProvider);
-    final today = DateTime.now();
+    
+    // NORMALIZAR FECHAS: Evita bucles infinitos por cambio de milisegundos
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final nextWeek = today.add(const Duration(days: 7));
     
     final comprasAsync = idPaciente != null
         ? ref.watch(listaComprasProvider((
             idPaciente: idPaciente, 
             start: today, 
-            end: today.add(const Duration(days: 7))
+            end: nextWeek
           )))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 

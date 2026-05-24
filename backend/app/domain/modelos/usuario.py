@@ -16,6 +16,7 @@ class PerfilUsuario(BaseModel):
     cedula: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    parentesco: Optional[str] = None
 
 
     @computed_field

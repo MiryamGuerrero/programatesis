@@ -40,6 +40,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 r.porciones,
                 r.tiempo_preparacion_min,
                 r.tiempo_coccion_min,
+                r.tiempo_total_min,
+                r.calorias_por_porcion,
                 r.activa,
                 r.imagen_url,
                 r.created_at,
@@ -50,14 +52,6 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.grasa_total_g, 0))::numeric, 2), 0) AS grasas_totales,
                 COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.fibra_vegetal_g, 0))::numeric, 2), 0) AS fibra_totales,
                 COALESCE(ROUND(SUM(COALESCE(ri.peso_en_gramos, 0))::numeric, 2), 0) AS peso_total,
-                COALESCE(
-                    ROUND(
-                        SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.energia_kcal, 0))::numeric
-                        / GREATEST(COALESCE(r.porciones, 1), 1),
-                        2
-                    ),
-                    0
-                ) AS calorias_por_porcion,
                 (
                     SELECT STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre)
                     FROM nutricion.receta_momento rm
@@ -297,7 +291,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 3. Traer todas las recetas del momento (o todas si id_momento es None)
             sql = """
-                select r.id, r.nombre, r.imagen_url,
+                select r.id, r.nombre, r.imagen_url, r.tiempo_total_min, r.dificultad, r.calorias_por_porcion,
                        coalesce(round(sum((coalesce(ri.peso_en_gramos, 0)::numeric / 100) * coalesce(ic.energia_kcal, 0))::numeric, 2), 0) as calorias_totales,
                        coalesce(round(sum((coalesce(ri.peso_en_gramos, 0)::numeric / 100) * coalesce(ic.proteinas_g, 0))::numeric, 2), 0) as proteinas_totales,
                        coalesce(array_agg(ri.id_ingrediente) filter (where ri.id_ingrediente is not null), '{}') as ingredientes_ids,
@@ -305,7 +299,12 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                        coalesce(array_agg(i.id_grupo_alimentario) filter (where i.id_grupo_alimentario is not null), '{}') as grupos_ids,
                        coalesce(array_agg(i.id_subgrupo_alimentario) filter (where i.id_subgrupo_alimentario is not null), '{}') as subgrupos_ids,
                        coalesce(array_agg(distinct e.codigo) filter (where e.codigo is not null), '{}') as etiquetas_codigos,
-                       coalesce(array_agg(distinct rtp.id_tipo_plato) filter (where rtp.id_tipo_plato is not null), '{}') as tipos_plato_ids
+                       coalesce(array_agg(distinct rtp.id_tipo_plato) filter (where rtp.id_tipo_plato is not null), '{}') as tipos_plato_ids,
+                       coalesce((
+                           select array_agg(distinct rm_inner.id_momento)
+                           from nutricion.receta_momento rm_inner
+                           where rm_inner.id_receta = r.id
+                       ), '{}'::int[]) as momentos_ids
                 from nutricion.receta r
                 left join nutricion.receta_ingrediente ri on ri.id_receta = r.id
                 left join nutricion.ingrediente i on i.id = ri.id_ingrediente
@@ -328,7 +327,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 params.append(id_tipo_plato)
             sql += " where " + " and ".join(filtros)
             
-            sql += " group by r.id, r.nombre, r.imagen_url"
+            sql += " group by r.id, r.nombre, r.imagen_url, r.calorias_por_porcion"
             
             cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]

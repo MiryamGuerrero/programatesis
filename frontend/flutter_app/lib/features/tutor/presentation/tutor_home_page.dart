@@ -7,6 +7,8 @@ import 'tutor_calendario_page.dart';
 import 'tutor_recetas_page.dart';
 import 'tutor_compras_page.dart';
 
+import 'tutor_receta_detalle_page.dart';
+
 class TutorHomePage extends ConsumerStatefulWidget {
   const TutorHomePage({super.key});
 
@@ -18,17 +20,24 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
   int _bottomNavIndex = 0;
   int _oldBottomNavIndex = 0; 
   
-  late final AnimationController _selectorController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 350),
-  );
-  late final Animation<double> _selectorAnimation = CurvedAnimation(
-    parent: _selectorController,
-    curve: Curves.easeOutBack, 
-  );
+  late AnimationController _selectorController;
+  late Animation<double> _selectorAnimation;
   
   final _overlayController = OverlayPortalController();
   final _layerLink = LayerLink();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _selectorAnimation = CurvedAnimation(
+      parent: _selectorController,
+      curve: Curves.easeOutBack, 
+    );
+  }
 
   @override
   void dispose() {
@@ -232,53 +241,101 @@ class _DashboardView extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
     final planAsync = idPaciente != null
-        ? ref.watch(planDiarioProvider((idPaciente: idPaciente!, fecha: DateTime.now())))
+        ? ref.watch(planDiarioProvider((idPaciente: idPaciente!, fecha: today)))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16), 
-          Row(
+    return planAsync.when(
+      data: (meals) {
+        if (meals.isEmpty) {
+          return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay plan nutricional para hoy")));
+        }
+
+        // AGRUPAR POR MOMENTO PARA DETERMINAR CUÁL ES EL PRIMERO
+        final Map<int, List<Map<String, dynamic>>> grouped = {};
+        final List<int> momentOrder = [];
+        
+        for (var m in meals) {
+          final idMom = m["id_momento"] as int;
+          if (!grouped.containsKey(idMom)) {
+            grouped[idMom] = [];
+            momentOrder.add(idMom);
+          }
+          grouped[idMom]!.add(m);
+        }
+
+        final currentMomentId = momentOrder.first;
+        final featuredMeals = grouped[currentMomentId]!;
+        final remainingMomentIds = momentOrder.skip(1).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.schedule, color: colorScheme.primary, size: 20),
-              const SizedBox(width: 8),
-              const Text("Hoy", style: TextStyle(fontWeight: FontWeight.bold)),
+              // SECCIÓN: MOMENTO ACTUAL (TODAS LAS RECETAS EN GRANDE)
+              Row(
+                children: [
+                  Icon(Icons.stars, color: colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    (featuredMeals.first["momento_nombre"] ?? "ACTUAL").toString().toUpperCase(),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold, 
+                      letterSpacing: 1.1,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...featuredMeals.map((m) => Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: _FeaturedMealCard(meal: m),
+              )),
+
+              // SECCIONES SIGUIENTES (EN PEQUEÑO)
+              if (remainingMomentIds.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.only(top: 12, bottom: 8),
+                  child: Divider(),
+                ),
+                ...remainingMomentIds.map((momId) {
+                  final momentMeals = grouped[momId]!;
+                  final momentName = momentMeals.first["momento_nombre"] ?? "Siguiente";
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16, bottom: 12),
+                        child: Text(
+                          momentName.toString().toUpperCase(),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ),
+                      ...momentMeals.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _UpcomingMealCard(meal: m),
+                      )),
+                    ],
+                  );
+                }),
+              ],
+              const SizedBox(height: 40),
             ],
           ),
-          const SizedBox(height: 16),
-          planAsync.when(
-            data: (meals) {
-              if (meals.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay plan asignado para hoy")));
-              
-              final featured = meals.first;
-              final upcoming = meals.skip(1).toList();
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _FeaturedMealCard(meal: featured),
-                  const SizedBox(height: 24),
-                  if (upcoming.isNotEmpty) ...[
-                    const Text("Próximas Comidas", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    ...upcoming.map((m) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _UpcomingMealCard(meal: m),
-                    )),
-                  ],
-                ],
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text("Error: $err")),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text("Error: $err")),
     );
   }
 }
@@ -291,27 +348,131 @@ class _FeaturedMealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final String url = meal["receta_url_imagen"] ?? "";
 
     return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            height: 160, decoration: const BoxDecoration(color: Color(0xFFE2E8F0), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-            child: const Icon(Icons.restaurant, size: 64, color: Colors.white),
+            height: 200,
+            color: const Color(0xFFE2E8F0),
+            child: url.isNotEmpty
+                ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.restaurant, size: 48, color: Colors.white))
+                : const Icon(Icons.restaurant, size: 64, color: Colors.white),
           ),
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(meal["momento_nombre"] ?? "Comida", style: theme.textTheme.labelLarge?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(meal["receta_nombre"] ?? "Sin nombre", style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(onPressed: () {}, child: const Text("Ver Receta")),
+                Text(
+                  meal["receta_nombre"] ?? "Sin nombre", 
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24, // Título más grande
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                if (meal["receta_descripcion"] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      meal["receta_descripcion"],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                // Botones de acción ...
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double btnWidth = (constraints.maxWidth - 12) / 2;
+                    final double fontSize = btnWidth < 140 ? 11 : 13;
+                    
+                    return Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              final idReceta = meal["id_receta"];
+                              if (idReceta != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text("Ver Receta Completa"),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: btnWidth,
+                              child: FilledButton.tonal(
+                                onPressed: () {},
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTema.verdeSalud,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.check, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        "Consumida",
+                                        style: TextStyle(fontSize: fontSize),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: btnWidth,
+                              child: OutlinedButton(
+                                onPressed: () {},
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.autorenew, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        "Cambiar",
+                                        style: TextStyle(fontSize: fontSize),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -328,13 +489,40 @@ class _UpcomingMealCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String url = meal["receta_url_imagen"] ?? "";
+    final theme = Theme.of(context);
+    
     return Card(
       margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
+        onTap: () {
+          final idReceta = meal["id_receta"];
+          if (idReceta != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int),
+              ),
+            );
+          }
+        },
         contentPadding: const EdgeInsets.all(12),
-        leading: Container(width: 50, height: 50, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.fastfood, color: Colors.grey)),
-        title: Text(meal["momento_nombre"] ?? ""),
-        subtitle: Text(meal["receta_nombre"] ?? "", maxLines: 1, overflow: TextOverflow.ellipsis),
+        leading: Container(
+          width: 54, height: 54, 
+          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+          clipBehavior: Clip.antiAlias,
+          child: url.isNotEmpty
+              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
+              : const Icon(Icons.fastfood, color: Colors.grey),
+        ),
+        title: Text(
+          meal["receta_nombre"] ?? "Sin nombre",
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: meal["receta_descripcion"] != null 
+            ? Text(meal["receta_descripcion"], maxLines: 1, overflow: TextOverflow.ellipsis)
+            : null,
         trailing: const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
       ),
     );

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
-
-// ESTADOS LÓGICOS DE UNA COMIDA
-enum EstadoComida { pasado, enCurso, pendiente }
+import 'tutor_receta_detalle_page.dart';
 
 class TutorCalendarioPage extends ConsumerStatefulWidget {
   const TutorCalendarioPage({super.key});
@@ -15,63 +14,40 @@ class TutorCalendarioPage extends ConsumerStatefulWidget {
 }
 
 class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
-  bool _isLoadingState = true;
   late DateTime _selectedDate;
-  // Alineado con el contexto de sesión: viernes, 22 de mayo de 2026
-  final DateTime _today = DateTime(2026, 5, 22); 
-  late int _currentMonthIndex; 
+  late DateTime _displayedMonth; // Para el título del header
+  final DateTime _today = DateTime.now();
   
   final ScrollController _scrollController = ScrollController();
-  late PageController _weekPageController;
   late PageController _monthPageController;
+  late PageController _weekPageController;
+
+  // Base para scroll infinito (índice central)
+  final int _baseIndex = 1200;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime(_today.year, _today.month, _today.day);
-    _currentMonthIndex = _today.month - 4; 
+    _displayedMonth = _selectedDate;
     
-    final int initialWeekPage = _getWeekPageIndex(_today);
-    _weekPageController = PageController(initialPage: initialWeekPage);
-    _monthPageController = PageController(initialPage: _currentMonthIndex);
-
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() => _isLoadingState = false);
-    });
-  }
-
-  int _getWeekPageIndex(DateTime date) {
-    final firstDayOfMonth = DateTime(date.year, date.month, 1);
-    final diff = date.difference(firstDayOfMonth).inDays;
-    return ((diff + firstDayOfMonth.weekday - 1) / 7).floor();
+    _monthPageController = PageController(initialPage: _baseIndex);
+    _weekPageController = PageController(initialPage: _baseIndex);
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _weekPageController.dispose();
     _monthPageController.dispose();
+    _weekPageController.dispose();
     super.dispose();
   }
 
   void _onDateTapped(DateTime date) {
     setState(() {
       _selectedDate = date;
+      _displayedMonth = date;
     });
-    _syncHorizontalCalendar(date.day);
-  }
-
-  void _syncHorizontalCalendar(int day) {
-    if (!mounted || !_weekPageController.hasClients) return;
-    int targetPage = (day <= 3) ? 0 : (day <= 10) ? 1 : (day <= 17) ? 2 : (day <= 24) ? 3 : 4;
-    if (_weekPageController.page?.round() != targetPage) {
-      _weekPageController.animateToPage(targetPage, duration: const Duration(milliseconds: 300), curve: Curves.fastOutSlowIn);
-    }
-  }
-
-  EstadoComida _evaluarEstado(Map<String, dynamic> meal) {
-    // Por ahora simplificado
-    return EstadoComida.pendiente;
   }
 
   @override
@@ -103,16 +79,17 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
           slivers: [
             SliverPersistentHeader(
               pinned: true,
-              delegate: _TeamsCalendarHeaderDelegate(
+              delegate: _ExpandableCalendarHeaderDelegate(
                 colorAcento: colorScheme.primary,
                 colorTitulo: colorScheme.onSurface,
                 selectedDay: _selectedDate,
                 today: _today,
-                currentMonthName: ["Abril", "Mayo", "Junio", "Julio", "Agosto"][_currentMonthIndex],
+                displayedMonth: _displayedMonth,
                 monthPageController: _monthPageController,
                 weekPageController: _weekPageController,
+                baseIndex: _baseIndex,
                 onDaySelected: _onDateTapped,
-                onMonthChanged: (index) => setState(() => _currentMonthIndex = index),
+                onMonthPageChanged: (date) => setState(() => _displayedMonth = date),
                 onToggleExpand: () {
                   final target = _scrollController.offset > 110 ? 0.0 : 220.0;
                   _scrollController.animateTo(target, duration: const Duration(milliseconds: 350), curve: Curves.fastOutSlowIn);
@@ -121,7 +98,6 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                   final newOffset = (_scrollController.offset - details.delta.dy).clamp(0.0, 1000.0);
                   _scrollController.jumpTo(newOffset);
                 },
-                hasDataPredicate: (date) => true,
               ),
             ),
 
@@ -133,16 +109,49 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                     child: _buildEmptyState(context),
                   );
                 }
+
+                final Map<int, List<Map<String, dynamic>>> grouped = {};
+                final List<int> momentOrder = [];
+                for (var m in meals) {
+                  final idMom = m["id_momento"] as int;
+                  if (!grouped.containsKey(idMom)) {
+                    grouped[idMom] = [];
+                    momentOrder.add(idMom);
+                  }
+                  grouped[idMom]!.add(m);
+                }
+
                 return SliverPadding(
-                  padding: const EdgeInsets.only(top: 20, bottom: 100),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final meal = meals[index];
-                        final estado = _evaluarEstado(meal);
-                        return _buildMealItem(context, meal, estado);
+                        final momId = momentOrder[index];
+                        final momentMeals = grouped[momId]!;
+                        final momentName = momentMeals.first["momento_nombre"] ?? "Comida";
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16, bottom: 12),
+                              child: Text(
+                                momentName.toString().toUpperCase(),
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade600,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ),
+                            ...momentMeals.map((m) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _CompactRecipeCard(meal: m),
+                            )),
+                          ],
+                        );
                       },
-                      childCount: meals.length,
+                      childCount: momentOrder.length,
                     ),
                   ),
                 );
@@ -161,110 +170,54 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.calendar_today_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+          Icon(Icons.no_food_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text(
-            "No hay un plan nutricional para este día",
+            "Sin plan para este día",
             style: GoogleFonts.montserrat(color: Colors.grey, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Text("Selecciona otra fecha en el calendario", style: Theme.of(context).textTheme.bodySmall),
+          const Text("Selecciona otra fecha", style: TextStyle(color: Colors.grey, fontSize: 13)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMealItem(BuildContext context, Map<String, dynamic> meal, EstadoComida estado) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    final String titulo = meal["receta_nombre"] ?? "Comida";
-    final String momento = meal["momento_nombre"] ?? "Momento";
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: InkWell(
-        onTap: () {
-          print("Navegando a receta ID: ${meal["id_receta"]}");
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  Text(
-                    momento,
-                    style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Icon(Icons.upcoming_outlined, size: 14, color: colorScheme.primary),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              const SizedBox(height: 40, child: VerticalDivider(width: 1)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(titulo, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const Text("Programada", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
-          ),
-        ),
       ),
     );
   }
 }
 
-class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
+class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Color colorAcento;
   final Color colorTitulo;
   final DateTime selectedDay;
   final DateTime today;
-  final String currentMonthName;
+  final DateTime displayedMonth;
   final PageController monthPageController;
   final PageController weekPageController;
+  final int baseIndex;
   final Function(DateTime) onDaySelected;
-  final Function(int) onMonthChanged;
+  final Function(DateTime) onMonthPageChanged;
   final Function(DragUpdateDetails) onDragUpdate;
   final VoidCallback onToggleExpand;
-  final bool Function(DateTime) hasDataPredicate;
 
-  _TeamsCalendarHeaderDelegate({
+  _ExpandableCalendarHeaderDelegate({
     required this.colorAcento,
     required this.colorTitulo,
     required this.selectedDay,
     required this.today,
-    required this.currentMonthName,
+    required this.displayedMonth,
     required this.monthPageController,
     required this.weekPageController,
+    required this.baseIndex,
     required this.onDaySelected,
-    required this.onMonthChanged,
+    required this.onMonthPageChanged,
     required this.onDragUpdate,
     required this.onToggleExpand,
-    required this.hasDataPredicate,
   });
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final theme = Theme.of(context);
     final double collapsePercent = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final String currentMonthName = DateFormat('MMMM yyyy', 'es').format(displayedMonth);
     
     return Container(
       decoration: BoxDecoration(
@@ -281,7 +234,7 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("$currentMonthName 2026", style: theme.textTheme.titleLarge),
+                  Text(currentMonthName.toUpperCase(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                   Icon(Icons.calendar_month_outlined, color: colorAcento, size: 20),
                 ],
               ),
@@ -291,18 +244,25 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
           Expanded(
             child: Stack(
               children: [
+                // VISTA MENSUAL (PageView)
                 IgnorePointer(
                   ignoring: collapsePercent > 0.5,
                   child: Opacity(
                     opacity: (1 - collapsePercent * 2).clamp(0.0, 1.0),
                     child: PageView.builder(
                       controller: monthPageController,
-                      onPageChanged: onMonthChanged,
-                      itemCount: 5,
-                      itemBuilder: (context, index) => _buildMonthGrid(context, index),
+                      onPageChanged: (index) {
+                        final newMonth = DateTime(today.year, today.month + (index - baseIndex), 1);
+                        onMonthPageChanged(newMonth);
+                      },
+                      itemBuilder: (context, index) {
+                        final monthDate = DateTime(today.year, today.month + (index - baseIndex), 1);
+                        return _buildMonthGrid(context, monthDate);
+                      },
                     ),
                   ),
                 ),
+                // VISTA SEMANAL (PageView)
                 Center(
                   child: IgnorePointer(
                     ignoring: collapsePercent < 0.5,
@@ -313,14 +273,13 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
                         child: PageView.builder(
                           controller: weekPageController,
                           onPageChanged: (index) {
-                            final firstDayOfWeek = _getDatesForWeek(2026, today.month, index)[0];
-                            if (firstDayOfWeek.month != today.month) {
-                              onMonthChanged(firstDayOfWeek.month - 4);
-                            }
+                            final firstDayOfWeek = today.subtract(Duration(days: today.weekday - 1)).add(Duration(days: (index - baseIndex) * 7));
+                            onMonthPageChanged(firstDayOfWeek);
                           },
-                          itemCount: 5,
                           itemBuilder: (context, index) {
-                            return _buildCalendarRow(context, _getDatesForWeek(2026, 5, index));
+                            final firstDayOfWeek = today.subtract(Duration(days: today.weekday - 1)).add(Duration(days: (index - baseIndex) * 7));
+                            final weekDates = List.generate(7, (i) => firstDayOfWeek.add(Duration(days: i)));
+                            return _buildCalendarRow(context, weekDates, isMonthView: false);
                           },
                         ),
                       ),
@@ -346,26 +305,20 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
-  Widget _buildMonthGrid(BuildContext context, int monthIndex) {
-    final int month = 4 + monthIndex; 
+  Widget _buildMonthGrid(BuildContext context, DateTime baseDate) {
+    final firstDayOfMonth = DateTime(baseDate.year, baseDate.month, 1);
+    final firstMonday = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
+    
     return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
       child: Column(
-        children: [
-          _buildCalendarRow(context, _getDatesForWeek(2026, month, 0)),
-          _buildCalendarRow(context, _getDatesForWeek(2026, month, 1)),
-          _buildCalendarRow(context, _getDatesForWeek(2026, month, 2)),
-          _buildCalendarRow(context, _getDatesForWeek(2026, month, 3)),
-          _buildCalendarRow(context, _getDatesForWeek(2026, month, 4)),
-        ],
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(5, (weekIdx) {
+          final weekDates = List.generate(7, (dayIdx) => firstMonday.add(Duration(days: (weekIdx * 7) + dayIdx)));
+          return _buildCalendarRow(context, weekDates, currentMonth: baseDate.month);
+        }),
       ),
     );
-  }
-
-  List<DateTime> _getDatesForWeek(int year, int month, int weekIndex) {
-    final firstDayOfMonth = DateTime(year, month, 1);
-    final firstMonday = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
-    return List.generate(7, (i) => firstMonday.add(Duration(days: (weekIndex * 7) + i)));
   }
 
   Widget _buildDaysHeader(BuildContext context) {
@@ -377,19 +330,19 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
-  Widget _buildCalendarRow(BuildContext context, List<DateTime> dates) {
+  Widget _buildCalendarRow(BuildContext context, List<DateTime> dates, {int? currentMonth, bool isMonthView = true}) {
     final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(7, (index) {
-          final dateForDay = dates[index];
+        children: dates.map((dateForDay) {
           final bool isSelected = dateForDay.year == selectedDay.year && dateForDay.month == selectedDay.month && dateForDay.day == selectedDay.day;
           final bool isTodayDate = dateForDay.year == today.year && dateForDay.month == today.month && dateForDay.day == today.day;
-          final bool isSameMonth = currentMonthName.toLowerCase().contains(_getNombreMes(dateForDay.month).toLowerCase());
-          final bool hasData = hasDataPredicate(dateForDay);
+          
+          // En vista mes, atenuamos los días que no son del mes actual
+          final bool isLeadingTrailing = currentMonth != null && dateForDay.month != currentMonth;
 
           return Expanded(
             child: GestureDetector(
@@ -398,48 +351,87 @@ class _TeamsCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Container(
                 height: 44,
                 alignment: Alignment.center,
-                color: Colors.transparent, 
-                child: Stack(
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: isSelected ? BoxDecoration(color: colorAcento, shape: BoxShape.circle) : isTodayDate ? BoxDecoration(color: colorAcento.withOpacity(0.15), shape: BoxShape.circle) : null,
                   alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 36, height: 36,
-                      decoration: isSelected ? BoxDecoration(color: colorAcento, shape: BoxShape.circle) : isTodayDate ? BoxDecoration(color: colorAcento.withOpacity(0.15), shape: BoxShape.circle) : null,
-                      alignment: Alignment.center,
-                      child: Text(
-                        dateForDay.day.toString(),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: isSelected ? Colors.white : isTodayDate ? colorAcento : (isSameMonth ? colorTitulo : const Color(0xFFCBD5E1)),
-                          fontWeight: (isSelected || isTodayDate) ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
+                  child: Text(
+                    dateForDay.day.toString(),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: isSelected ? Colors.white : isTodayDate ? colorAcento : (isLeadingTrailing ? const Color(0xFFCBD5E1) : colorTitulo),
+                      fontWeight: (isSelected || isTodayDate) ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14,
                     ),
-                    if (hasData && !isSelected)
-                      Positioned(
-                        bottom: 2, 
-                        child: Container(width: 4, height: 4, decoration: BoxDecoration(color: isTodayDate ? colorAcento : Colors.grey.shade400, shape: BoxShape.circle))
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
           );
-        }),
+        }).toList(),
       ),
     );
   }
 
-  String _getNombreMes(int month) {
-    return ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][month - 1];
-  }
-
   @override
-  double get maxExtent => 380.0;
+  double get maxExtent => 340.0;
   @override
   double get minExtent => 160.0;
   @override
-  bool shouldRebuild(covariant _TeamsCalendarHeaderDelegate oldDelegate) {
-    return oldDelegate.selectedDay != selectedDay || oldDelegate.today != today || oldDelegate.currentMonthName != currentMonthName;
+  bool shouldRebuild(covariant _ExpandableCalendarHeaderDelegate oldDelegate) {
+    return oldDelegate.selectedDay != selectedDay || oldDelegate.today != today || oldDelegate.displayedMonth != displayedMonth;
+  }
+}
+
+class _CompactRecipeCard extends StatelessWidget {
+  final Map<String, dynamic> meal;
+  const _CompactRecipeCard({required this.meal});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final String url = meal["receta_url_imagen"] ?? "";
+    final String nombre = meal["receta_nombre"] ?? "Sin nombre";
+    final String? desc = meal["receta_descripcion"];
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        onTap: () {
+          final idReceta = meal["id_receta"];
+          if (idReceta != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int),
+              ),
+            );
+          }
+        },
+        contentPadding: const EdgeInsets.all(12),
+        leading: Container(
+          width: 54, height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: url.isNotEmpty
+              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
+              : const Icon(Icons.fastfood, color: Colors.grey),
+        ),
+        title: Text(
+          nombre,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: desc != null
+            ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))
+            : null,
+        trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFFCBD5E1)),
+      ),
+    );
   }
 }

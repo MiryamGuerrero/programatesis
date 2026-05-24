@@ -152,11 +152,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         with db_cursor() as cur:
             sql = """
                 select p.id, p.nombre_completo, p.fecha_nacimiento, p.cedula, p.id_sexo,
-                       tp.id_parentesco, par.nombre as parentesco
+                       tp.id_parentesco, par.nombre as parentesco,
+                       c.nombre as diagnostico
                 from usuarios.paciente p
                 join usuarios.tutor_paciente tp on tp.id_paciente = p.id
                 join usuarios.usuario u on u.id = tp.id_usuario_tutor
                 join usuarios.parentesco par on par.id = tp.id_parentesco
+                left join clinico.diagnostico_paciente dp on dp.id_paciente = p.id and dp.esta_activo = true
+                left join heuristico.condicion c on c.id = dp.id_condicion
                 where u.auth_user_id::text = %s and p.activo = true
                 order by p.nombre_completo
             """

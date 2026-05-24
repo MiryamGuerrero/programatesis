@@ -30,20 +30,28 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             sql = """
                 select 
                     pi.id as id_plan_item,
+                    m.id as id_momento,
                     m.nombre as momento_nombre,
-                    r.nombre as receta_nombre,
+                    m.hora_inicio as momento_hora_inicio,
+                    m.hora_fin as momento_hora_fin,
+                    coalesce(r.nombre, 'Receta no encontrada') as receta_nombre,
                     r.id as id_receta,
+                    (select imagen_url from nutricion.receta_imagen where id_receta = r.id limit 1) as receta_url_imagen,
+                    r.descripcion as receta_descripcion,
                     s.id_estado_consumo,
                     s.fecha_consumo
                 from interaccion.plan_nutricional p
                 join interaccion.plan_item pi on pi.id_plan = p.id
                 join nutricion.momento_comida m on m.id = pi.id_momento
-                join nutricion.receta r on r.id = pi.id_receta
+                left join nutricion.receta r on r.id = pi.id_receta
                 left join interaccion.seguimiento_plan_item s on s.id_plan_item = pi.id
-                where p.id_paciente = %s and pi.fecha_programada = %s
-                order by m.orden
+                where p.id_paciente = %s 
+                  and pi.fecha_programada = %s
+                  and %s >= p.fecha_inicio 
+                  and %s <= p.fecha_fin
+                order by m.orden, pi.id
             """
-            cur.execute(sql, (id_paciente, fecha))
+            cur.execute(sql, (id_paciente, fecha, fecha, fecha))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 

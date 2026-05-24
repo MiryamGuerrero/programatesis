@@ -404,7 +404,7 @@ def ingredientes_lista_compat(
     limit: int = Query(default=10),
     offset: int = Query(default=0),
     caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
-    _=Depends(require_roles("admin", "nutricionista", "medico"))
+    _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
 ):
     """Soporte para la tabla principal de ingredientes con datos enriquecidos."""
     # Obtener ingredientes con filtros aplicados directamente en el caso de uso
@@ -434,7 +434,7 @@ def ingredientes_lista_compat(
 @router.get("/paciente-perfil/{id_paciente}")
 def obtener_perfil_detallado_paciente(
     id_paciente: str,
-    _=Depends(require_roles("admin", "nutricionista", "medico"))
+    _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
 ):
     """Retorna la ficha clínica completa para el planificador manual."""
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
@@ -455,7 +455,7 @@ def obtener_perfil_detallado_paciente(
 @router.post("/recetas-permitidas", response_model=RecetasPermitidasResponse)
 def listar_recetas_seguras(
     payload: RecetasPermitidasRequest,
-    _=Depends(require_roles("admin", "nutricionista", "medico"))
+    _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
 ):
     """
     Motor de Inferencia KBRS - Heurística de Exclusión y Priorización.
@@ -791,12 +791,6 @@ def guardar_plan_manual(
                     f"insert into interaccion.plan_item ({', '.join(icols)}) values ({', '.join(iph)})",
                     tuple(iparams),
                 )
-
-            cur.execute(
-                "update interaccion.plan_nutricional set vigente = false where id_paciente = %s and id <> %s",
-                (id_paciente, id_plan),
-            )
-
 
         # 1. Limpiar recomendaciones previas de la nutri para este paciente (opcional, según lógica de negocio)
         # Aquí asumimos que las recomendaciones del plan mensual reemplazan las anteriores de la nutri
