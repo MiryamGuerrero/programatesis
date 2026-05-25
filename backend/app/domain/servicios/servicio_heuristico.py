@@ -19,9 +19,6 @@ class ServicioMotorHeuristico:
         etiquetas_prohibidas: Set[int] = set()
         recetas_prohibidas: Set[int] = set()
         
-        recomendaciones: Dict[int, str] = {}
-        recomendaciones_etiquetas: Dict[int, str] = {}
-
         # 1. Separar reglas base por objetivo
         for regla in reglas:
             if regla.accion == TipoAccion.ELIMINAR:
@@ -30,11 +27,6 @@ class ServicioMotorHeuristico:
                 elif regla.tipo_objetivo == TipoObjetivo.GRUPO: grupos_prohibidos.add(regla.id_objetivo)
                 elif regla.tipo_objetivo == TipoObjetivo.ETIQUETA: etiquetas_prohibidas.add(regla.id_objetivo)
                 elif regla.tipo_objetivo == TipoObjetivo.RECETA: recetas_prohibidas.add(regla.id_objetivo)
-            elif regla.accion in [TipoAccion.PRIORIZAR, TipoAccion.DISMINUIR]:
-                if regla.tipo_objetivo == TipoObjetivo.INGREDIENTE:
-                    recomendaciones[regla.id_objetivo] = regla.accion.value
-                elif regla.tipo_objetivo == TipoObjetivo.ETIQUETA:
-                    recomendaciones_etiquetas[regla.id_objetivo] = regla.accion.value
 
         # 2. Expansión: Grupos, Subgrupos y Etiquetas -> Ingredientes
         todos_ingredientes = self.repo_ingrediente.listar_todos_activos()
@@ -77,8 +69,8 @@ class ServicioMotorHeuristico:
             "ingredientes_prohibidos": list(ingredientes_prohibidos),
             "recetas_prohibidas": list(recetas_prohibidas),
             "preferencias_receta": preferencias_receta,
-            "recomendaciones": recomendaciones,
-            "recomendaciones_etiquetas": recomendaciones_etiquetas,
+            "recomendaciones": {},
+            "recomendaciones_etiquetas": {},
             "reglas": reglas
         }
 

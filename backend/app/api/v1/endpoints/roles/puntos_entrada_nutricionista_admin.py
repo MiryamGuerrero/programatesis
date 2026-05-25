@@ -44,6 +44,15 @@ class LabelCreateRequest(BaseModel):
 
 # --- ENDPOINTS INGREDIENTES ---
 
+@router.get("/subgrupos/catalogo-simple")
+def list_subgroups_simple_catalog(
+    _=Depends(require_roles("admin", "nutricionista", "medico")),
+) -> list[dict[str, Any]]:
+    with db_cursor() as cur:
+        cur.execute("select id, nombre from nutricion.subgrupo_alimentario order by nombre")
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
 @router.get("/ingredientes/catalogo-simple")
 def list_ingredients_simple_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),

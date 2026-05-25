@@ -1,0 +1,80 @@
+REPORTE POST-LIMPIEZA REGLAS TEMPORALES/NUTRICIONALES
+==============================================================
+Fecha: 2026-05-23 18:02:49
+
+Resumen por tipo/accion
+- TEMPORAL | Disminuir | 78
+- TEMPORAL | Eliminar | 53
+- TEMPORAL | Priorizar | 102
+- NUTRICIONAL | Disminuir | 32
+- NUTRICIONAL | Eliminar | 9
+- NUTRICIONAL | Priorizar | 87
+
+Detalle por condicion
+- TEMPORAL | id=9 | Estreñimiento temporal | estreñimiento_temporal | Disminuir | 6
+- TEMPORAL | id=9 | Estreñimiento temporal | estreñimiento_temporal | Eliminar | 4
+- TEMPORAL | id=9 | Estreñimiento temporal | estreñimiento_temporal | Priorizar | 17
+- TEMPORAL | id=10 | Reflujo o acidez temporal | reflujo_o_acidez_temporal | Disminuir | 14
+- TEMPORAL | id=10 | Reflujo o acidez temporal | reflujo_o_acidez_temporal | Eliminar | 8
+- TEMPORAL | id=10 | Reflujo o acidez temporal | reflujo_o_acidez_temporal | Priorizar | 10
+- TEMPORAL | id=20 | Diarrea leve a moderada | diarrea_leve_a_moderada | Disminuir | 9
+- TEMPORAL | id=20 | Diarrea leve a moderada | diarrea_leve_a_moderada | Eliminar | 5
+- TEMPORAL | id=20 | Diarrea leve a moderada | diarrea_leve_a_moderada | Priorizar | 12
+- TEMPORAL | id=21 | Náuseas y vómitos | náuseas_y_vómitos | Disminuir | 11
+- TEMPORAL | id=21 | Náuseas y vómitos | náuseas_y_vómitos | Eliminar | 7
+- TEMPORAL | id=21 | Náuseas y vómitos | náuseas_y_vómitos | Priorizar | 11
+- TEMPORAL | id=36 | Infección de garganta | infección_de_garganta | Disminuir | 8
+- TEMPORAL | id=36 | Infección de garganta | infección_de_garganta | Eliminar | 6
+- TEMPORAL | id=36 | Infección de garganta | infección_de_garganta | Priorizar | 13
+- TEMPORAL | id=37 | Falta de apetito | falta_de_apetito | Disminuir | 7
+- TEMPORAL | id=37 | Falta de apetito | falta_de_apetito | Eliminar | 5
+- TEMPORAL | id=37 | Falta de apetito | falta_de_apetito | Priorizar | 16
+- TEMPORAL | id=38 | Retención de líquidos temporal | retención_de_líquidos_temporal | Disminuir | 13
+- TEMPORAL | id=38 | Retención de líquidos temporal | retención_de_líquidos_temporal | Eliminar | 10
+- TEMPORAL | id=38 | Retención de líquidos temporal | retención_de_líquidos_temporal | Priorizar | 10
+- TEMPORAL | id=39 | Heridas bucales o aftas | heridas_bucales_o_aftas | Disminuir | 10
+- TEMPORAL | id=39 | Heridas bucales o aftas | heridas_bucales_o_aftas | Eliminar | 8
+- TEMPORAL | id=39 | Heridas bucales o aftas | heridas_bucales_o_aftas | Priorizar | 13
+- NUTRICIONAL | id=27 | Bajo peso severo | WFA | Disminuir | 2
+- NUTRICIONAL | id=27 | Bajo peso severo | WFA | Priorizar | 7
+- NUTRICIONAL | id=28 | Bajo peso | WFA | Disminuir | 2
+- NUTRICIONAL | id=28 | Bajo peso | WFA | Priorizar | 6
+- NUTRICIONAL | id=29 | Peso normal para la edad | WFA | Disminuir | 2
+- NUTRICIONAL | id=29 | Peso normal para la edad | WFA | Priorizar | 4
+- NUTRICIONAL | id=30 | Peso elevado para la edad | WFA | Disminuir | 2
+- NUTRICIONAL | id=30 | Peso elevado para la edad | WFA | Eliminar | 1
+- NUTRICIONAL | id=30 | Peso elevado para la edad | WFA | Priorizar | 3
+- NUTRICIONAL | id=100 | Emaciación severa | desnutrición_severa | Disminuir | 1
+- NUTRICIONAL | id=100 | Emaciación severa | desnutrición_severa | Eliminar | 1
+- NUTRICIONAL | id=100 | Emaciación severa | desnutrición_severa | Priorizar | 5
+- NUTRICIONAL | id=101 | Emaciación | desnutrición_moderada | Disminuir | 1
+- NUTRICIONAL | id=101 | Emaciación | desnutrición_moderada | Priorizar | 5
+- NUTRICIONAL | id=104 | Sobrepeso | BMI | Disminuir | 3
+- NUTRICIONAL | id=104 | Sobrepeso | BMI | Eliminar | 1
+- NUTRICIONAL | id=104 | Sobrepeso | BMI | Priorizar | 5
+- NUTRICIONAL | id=105 | Obesidad | BMI | Disminuir | 2
+- NUTRICIONAL | id=105 | Obesidad | BMI | Eliminar | 2
+- NUTRICIONAL | id=105 | Obesidad | BMI | Priorizar | 4
+- NUTRICIONAL | id=110 | Normal | BMI | Disminuir | 2
+- NUTRICIONAL | id=110 | Normal | BMI | Priorizar | 5
+- NUTRICIONAL | id=111 | Posible riesgo de sobrepeso | BMI | Disminuir | 2
+- NUTRICIONAL | id=111 | Posible riesgo de sobrepeso | BMI | Eliminar | 1
+- NUTRICIONAL | id=111 | Posible riesgo de sobrepeso | BMI | Priorizar | 3
+- NUTRICIONAL | id=112 | Talla normal | HFA | Disminuir | 1
+- NUTRICIONAL | id=112 | Talla normal | HFA | Priorizar | 5
+- NUTRICIONAL | id=117 | Talla alta | HFA | Disminuir | 2
+- NUTRICIONAL | id=117 | Talla alta | HFA | Priorizar | 3
+- NUTRICIONAL | id=118 | Delgadez severa | BMI | Disminuir | 1
+- NUTRICIONAL | id=118 | Delgadez severa | BMI | Priorizar | 5
+- NUTRICIONAL | id=119 | Delgadez | BMI | Disminuir | 1
+- NUTRICIONAL | id=119 | Delgadez | BMI | Priorizar | 5
+- NUTRICIONAL | id=122 | Sobrepeso | BMI | Disminuir | 3
+- NUTRICIONAL | id=122 | Sobrepeso | BMI | Eliminar | 1
+- NUTRICIONAL | id=122 | Sobrepeso | BMI | Priorizar | 5
+- NUTRICIONAL | id=123 | Obesidad | BMI | Disminuir | 2
+- NUTRICIONAL | id=123 | Obesidad | BMI | Eliminar | 2
+- NUTRICIONAL | id=123 | Obesidad | BMI | Priorizar | 4
+- NUTRICIONAL | id=124 | Talla baja severa | HFA | Disminuir | 1
+- NUTRICIONAL | id=124 | Talla baja severa | HFA | Priorizar | 6
+- NUTRICIONAL | id=125 | Talla baja | HFA | Disminuir | 2
+- NUTRICIONAL | id=125 | Talla baja | HFA | Priorizar | 7

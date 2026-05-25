@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
@@ -28,6 +28,41 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   int? _filtroAccion;
   int _currentPage = 1;
   int _itemsPerPage = 5; // Paginación de 5 registros
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
+  }
+
+  int? _accionIdPorNombre(String nombre) {
+    final buscado = nombre.trim().toUpperCase();
+    for (final a in (_formData["acciones"] ?? [])) {
+      final actual = (a["nombre"] ?? "").toString().trim().toUpperCase();
+      if (actual == buscado) return _toInt(a["id"]);
+    }
+    return null;
+  }
+
+  String _norm(dynamic value) {
+    final s = (value ?? "").toString();
+    return s
+        .replaceAll('Ã¡', 'á')
+        .replaceAll('Ã©', 'é')
+        .replaceAll('Ã­', 'í')
+        .replaceAll('Ã³', 'ó')
+        .replaceAll('Ãº', 'ú')
+        .replaceAll('Ã±', 'ñ')
+        .replaceAll('Ã', 'Á')
+        .replaceAll('Ã‰', 'É')
+        .replaceAll('Ã', 'Í')
+        .replaceAll('Ã“', 'Ó')
+        .replaceAll('Ãš', 'Ú')
+        .replaceAll('Ã‘', 'Ñ')
+        .replaceAll('Â°', '°')
+        .replaceAll('Â¿', '¿')
+        .replaceAll('Â¡', '¡');
+  }
 
   @override
   void initState() {
@@ -75,22 +110,27 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
 
   List<dynamic> get _filtradas {
     final int selectedTab = _tabController.index;
+    final int tipoEsperado = selectedTab == 0 ? 1 : 2;
     
     final filtered = _rules.where((r) {
-      final tipos = (r['tipos_condicion'] as List? ?? []);
-      bool matchType = false;
-      if (selectedTab == 0) matchType = tipos.contains("Clínica");
-      else matchType = tipos.contains("Temporal");
-
-      if (!matchType) return false;
+      final listCondiciones = (r['id_condiciones'] as List? ?? []).cast<int>();
+      final bool matchTab = listCondiciones.any((idCond) {
+        final cond = (_formData["condiciones"] ?? []).cast<dynamic>().firstWhere(
+          (c) => _toInt(c["id"]) == idCond,
+          orElse: () => null,
+        );
+        if (cond == null) return false;
+        final idTipo = _toInt(cond["id_tipo_condicion"] ?? cond["id_tipo"]);
+        return idTipo == tipoEsperado;
+      });
+      if (!matchTab) return false;
 
       final targetName = _getTargetName(r).toLowerCase();
       final matchesSearch = targetName.contains(_searchQuery.toLowerCase());
       
       final matchesTipo = _selectedObjetivos.isEmpty || _selectedObjetivos.contains(r["objetivo_codigo"]);
       
-      final condicionesIds = (r["id_condiciones"] as List).cast<int>();
-      final matchesCondicion = _filtroCondicion == null || condicionesIds.contains(_filtroCondicion);
+      final matchesCondicion = _filtroCondicion == null || listCondiciones.contains(_filtroCondicion);
       
       final matchesAccion = _filtroAccion == null || r["id_accion"] == _filtroAccion;
       
@@ -230,8 +270,18 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     final int tipoEsperado = selectedIdx == 0 ? 1 : 2;
     
     final condicionesFiltradas = (_formData["condiciones"] ?? [])
-        .where((c) => (c['id_tipo_condicion'] ?? c['id_tipo']) == tipoEsperado)
+        .where((c) => _toInt(c['id_tipo_condicion'] ?? c['id_tipo']) == tipoEsperado)
         .toList();
+    final idsCondicionValidos = condicionesFiltradas
+        .map<int?>((c) => _toInt(c["id"]))
+        .whereType<int>()
+        .toSet();
+    final int? valueCondicionSeguro = (_filtroCondicion != null && idsCondicionValidos.contains(_filtroCondicion))
+        ? _filtroCondicion
+        : null;
+    final int? accionPriorizar = _accionIdPorNombre("PRIORIZAR");
+    final int? accionDisminuir = _accionIdPorNombre("DISMINUIR");
+    final int? accionEliminar = _accionIdPorNombre("ELIMINAR");
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -259,7 +309,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                     DropdownButtonFormField<int>(
                       key: ValueKey("tab_${_tabController.index}"),
                       isExpanded: true,
-                      value: _filtroCondicion,
+                      value: valueCondicionSeguro,
                       style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
                       decoration: InputDecoration(
                         filled: true, fillColor: AppTema.grisLienzo,
@@ -270,9 +320,12 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                       ),
                       items: [
                         const DropdownMenuItem(value: null, child: Text("Todos los tipos de enfermedad")),
-                        ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(c["nombre"]?.toString() ?? "CONDICIÓN", overflow: TextOverflow.ellipsis))),
+                        ...condicionesFiltradas.map((c) => DropdownMenuItem<int>(value: c["id"], child: Text(_norm(c["nombre"]), overflow: TextOverflow.ellipsis))),
                       ],
-                      onChanged: (v) => setState(() => _filtroCondicion = v),
+                      onChanged: (v) => setState(() {
+                        _filtroCondicion = v;
+                        _currentPage = 1;
+                      }),
                     ),
                   ],
                 ),
@@ -315,11 +368,11 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                       children: [
                         _actionChip("Todos", null, Icons.list_rounded, Colors.grey),
                         const SizedBox(width: 8),
-                        _actionChip("Priorizar", 1, Icons.arrow_upward_rounded, AppTema.verdeSalud),
+                        _actionChip("Priorizar", accionPriorizar, Icons.arrow_upward_rounded, AppTema.verdeSalud),
                         const SizedBox(width: 8),
-                        _actionChip("Disminuir", 2, Icons.arrow_downward_rounded, Colors.orange),
+                        _actionChip("Disminuir", accionDisminuir, Icons.arrow_downward_rounded, Colors.orange),
                         const SizedBox(width: 8),
-                        _actionChip("Eliminar", 3, Icons.delete_outline_rounded, Colors.redAccent),
+                        _actionChip("Eliminar", accionEliminar, Icons.delete_outline_rounded, Colors.redAccent),
                       ],
                     ),
                   ],
@@ -339,7 +392,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                         const SizedBox(width: 6),
                         _objectiveChip("Ingrediente", "INGREDIENTE", Icons.egg_alt_outlined),
                         const SizedBox(width: 6),
-                        _objectiveChip("Grupo", "GRUPO", Icons.groups_2_outlined),
+                        _objectiveChip("Grupo", "GRUPO", Icons.set_meal_outlined),
                         const SizedBox(width: 6),
                         _objectiveChip("Subgrupo", "SUBGRUPO", Icons.layers_outlined),
                         const SizedBox(width: 6),
@@ -431,7 +484,9 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
 
     final filtered = _filtradas;
     final totalItems = filtered.length;
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _itemsPerPage).ceil();
+    final safePage = _currentPage > totalPages ? totalPages : (_currentPage < 1 ? 1 : _currentPage);
+    final startIndex = (safePage - 1) * _itemsPerPage;
     final endIndex = startIndex + _itemsPerPage > totalItems ? totalItems : startIndex + _itemsPerPage;
     final currentItems = (totalItems > 0) ? filtered.sublist(startIndex, endIndex) : [];
 
@@ -450,7 +505,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
         ),
         if (totalItems > 0) ...[
           const SizedBox(height: 24),
-          _buildPagination(totalItems, startIndex + 1, endIndex),
+          _buildPagination(totalItems, startIndex + 1, endIndex, safePage),
         ],
       ],
     );
@@ -480,7 +535,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     final condicionesIds = r["id_condiciones"] as List;
     final nombresCondiciones = condicionesIds.map((id) {
       final c = _formData["condiciones"]?.firstWhere((c) => c["id"] == id, orElse: () => null);
-      return c != null ? (c["nombre"]?.toString() ?? "C-$id") : "C-$id";
+      return c != null ? _norm(c["nombre"]) : "C-$id";
     }).join(", ");
 
     final bool isTemporalTab = _tabController.index == 1;
@@ -566,12 +621,27 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   }
 
   Widget _accionBadgeMock(String label) {
+    final normalized = _norm(label).trim().toUpperCase();
     Color color = AppTema.verdeSalud;
     IconData icon = Icons.arrow_upward_rounded;
     String text = "Priorizar";
     
-    if (label == 'ELIMINAR') { color = Colors.redAccent; icon = Icons.delete_outline_rounded; text = "Eliminar"; }
-    else if (label == 'DISMINUIR') { color = Colors.orange; icon = Icons.arrow_downward_rounded; text = "Disminuir"; }
+    if (normalized == 'ELIMINAR') {
+      color = Colors.redAccent;
+      icon = Icons.delete_outline_rounded;
+      text = "Eliminar";
+    } else if (normalized == 'DISMINUIR') {
+      color = Colors.orange;
+      icon = Icons.arrow_downward_rounded;
+      text = "Disminuir";
+    } else if (normalized == 'PRIORIZAR') {
+      color = AppTema.verdeSalud;
+      icon = Icons.arrow_upward_rounded;
+      text = "Priorizar";
+    } else {
+      // fallback defensivo para valores no estandarizados
+      text = _norm(label).isEmpty ? "Priorizar" : _norm(label);
+    }
 
     return UnconstrainedBox(
       alignment: Alignment.centerLeft,
@@ -598,7 +668,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     return _HoverActionButton(icon: icon, label: label, color: color, onTap: onTap);
   }
 
-  Widget _buildPagination(int total, int start, int end) {
+  Widget _buildPagination(int total, int start, int end, int safePage) {
     final totalPages = (total / _itemsPerPage).ceil();
     
     return Row(
@@ -608,7 +678,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
           style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         Row(
           children: [
-            _pageButton(Icons.chevron_left, _currentPage > 1 ? () => setState(() => _currentPage--) : null),
+            _pageButton(Icons.chevron_left, safePage > 1 ? () => setState(() => _currentPage = safePage - 1) : null),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -616,10 +686,10 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                 color: AppTema.azulPrincipal,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text("$_currentPage", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text("$safePage", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
-            _pageButton(Icons.chevron_right, _currentPage < totalPages ? () => setState(() => _currentPage++) : null),
+            _pageButton(Icons.chevron_right, safePage < totalPages ? () => setState(() => _currentPage = safePage + 1) : null),
           ],
         ),
       ],
@@ -641,7 +711,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
     );
   }
 
-  String _getTargetName(Map<String, dynamic> r) => r['ingrediente_nombre']?.toString() ?? r['grupo_nombre']?.toString() ?? r['subgrupo_nombre']?.toString() ?? r['etiqueta_nombre']?.toString() ?? "Objetivo";
+  String _getTargetName(Map<String, dynamic> r) => _norm(r['ingrediente_nombre'] ?? r['grupo_nombre'] ?? r['subgrupo_nombre'] ?? r['etiqueta_nombre'] ?? "Objetivo");
 
   void _showForm([Map<String, dynamic>? rule]) {
     showDialog(context: context, builder: (ctx) => _MedicalRuleFormDialog(formData: _formData, initialRule: rule, onSaved: _loadData));
@@ -734,11 +804,32 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
   late bool _esEstricta;
   bool _saving = false;
 
+  String _norm(dynamic value) {
+    final s = (value ?? "").toString();
+    return s
+        .replaceAll('Ã¡', 'á')
+        .replaceAll('Ã©', 'é')
+        .replaceAll('Ã­', 'í')
+        .replaceAll('Ã³', 'ó')
+        .replaceAll('Ãº', 'ú')
+        .replaceAll('Ã±', 'ñ')
+        .replaceAll('Ã', 'Á')
+        .replaceAll('Ã‰', 'É')
+        .replaceAll('Ã', 'Í')
+        .replaceAll('Ã“', 'Ó')
+        .replaceAll('Ãš', 'Ú')
+        .replaceAll('Ã‘', 'Ñ')
+        .replaceAll('Â°', '°')
+        .replaceAll('Â¿', '¿')
+        .replaceAll('Â¡', '¡');
+  }
+
   @override
   void initState() {
     super.initState();
     final r = widget.initialRule;
-    _idAccion = r?["id_accion"]; _idObjetivo = r?["id_tipo_objetivo"];
+    _idAccion = r?["id_accion"]; 
+    _idObjetivo = r?["id_tipo_objetivo"];
     _idTarget = r?["id_ingrediente"] ?? r?["id_grupo_alimentario"] ?? r?["id_subgrupo_alimentario"] ?? r?["id_etiqueta"];
     _mensajeController = TextEditingController(text: r?["mensaje_error"]?.toString());
     _selectedCondiciones = List<int>.from(r?["id_condiciones"] ?? []);
@@ -755,88 +846,275 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
     else if (_idObjetivo == 3) targetList = widget.formData["etiquetas"]!;
     else if (_idObjetivo == 4) targetList = widget.formData["subgroups"] ?? widget.formData["subgrupos"] ?? [];
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: EdgeInsets.zero,
-      title: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20))),
-        child: Row(children: [
-          const Icon(Icons.rule_folder_outlined, color: Colors.white, size: 20),
-          const SizedBox(width: 12),
-          Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-        ]),
-      ),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildFieldSection("OBJETIVO", [
-                DropdownButtonFormField<int>(
-                  initialValue: _idObjetivo,
-                  decoration: _modalDecor("Tipo de Objetivo*", Icons.track_changes),
-                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(value: o["id"], child: Text(o["nombre"]?.toString().toUpperCase() ?? "OBJETIVO", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
-                  onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
-                ),
-                if (_idObjetivo != null) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: _idTarget,
-                    decoration: _modalDecor("Seleccionar Item*", Icons.ads_click),
-                    items: targetList.map((t) => DropdownMenuItem<int>(value: t["id"], child: Text(t["nombre"]?.toString().toUpperCase() ?? "ITEM", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
-                    onChanged: (v) => setState(() => _idTarget = v),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 1000,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // HEADER
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              color: AppTema.azulPrincipal,
+              child: Row(
+                children: [
+                  const Icon(Icons.settings_suggest_rounded, color: Colors.white, size: 24),
+                  const SizedBox(width: 12),
+                  Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA", 
+                    style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 24),
                   ),
                 ],
-              ]),
-              const SizedBox(height: 16),
-              _buildFieldSection("ACCIÓN", [
-                DropdownButtonFormField<int>(
-                  initialValue: _idAccion,
-                  decoration: _modalDecor("Acción Médica*", Icons.gavel),
-                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(value: a["id"], child: Text(a["nombre"]?.toString().toUpperCase() ?? "ACCIÓN", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)))).toList(),
-                  onChanged: (v) => setState(() => _idAccion = v),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text("Restricción Estricta", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)), 
-                  value: _esEstricta, 
-                  onChanged: (v) => setState(() => _esEstricta = v)
-                ),
-              ]),
-              const SizedBox(height: 12),
-              _buildFieldSection("APLICABILIDAD", [
-                Container(
-                  height: 110, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: Scrollbar(
-                    child: ListView(children: (widget.formData["condiciones"] ?? []).map((c) => CheckboxListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      title: Text(c["nombre"]?.toString() ?? "Condición", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600)), 
-                      value: _selectedCondiciones.contains(c["id"]), activeColor: AppTema.azulPrincipal, 
-                      onChanged: (v) => setState(() { if(v!) {
-                      _selectedCondiciones.add(c["id"]);
-                    } else {
-                      _selectedCondiciones.remove(c["id"]);
-                    } }), dense: true)).toList()),
+              ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // COLUMNA IZQUIERDA
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _formCard(
+                              icon: Icons.track_changes_rounded,
+                              title: "Objetivo",
+                              children: [
+                                _fieldLabel("Tipo de objetivo*"),
+                                DropdownButtonFormField<int>(
+                                  value: _idObjetivo,
+                                  decoration: _inputDecor(Icons.pentagon_outlined),
+                                  items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(
+                                    value: o["id"], 
+                                    child: Text(_norm(o["nombre"]).toUpperCase(), 
+                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                  onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
+                                ),
+                                const SizedBox(height: 20),
+                                _fieldLabel("Seleccionar item*"),
+                                DropdownButtonFormField<int>(
+                                  value: _idTarget,
+                                  isExpanded: true,
+                                  decoration: _inputDecor(Icons.opacity_rounded),
+                                  items: targetList.map((t) => DropdownMenuItem<int>(
+                                    value: t["id"], 
+                                    child: Text(_norm(t["nombre"]).toUpperCase(), 
+                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                  onChanged: (v) => setState(() => _idTarget = v),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            _formCard(
+                              icon: Icons.gavel_rounded,
+                              title: "Acción médica",
+                              children: [
+                                _fieldLabel("Acción médica*"),
+                                DropdownButtonFormField<int>(
+                                  value: _idAccion,
+                                  decoration: _inputDecor(Icons.delete_outline_rounded, iconColor: Colors.green),
+                                  items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(
+                                    value: a["id"], 
+                                    child: Text(_norm(a["nombre"]).toUpperCase(), 
+                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                  onChanged: (v) => setState(() => _idAccion = v),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      // COLUMNA DERECHA
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 22),
+                                  const SizedBox(width: 12),
+                                  Text("Restricción estricta", 
+                                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                  const Spacer(),
+                                  Switch.adaptive(
+                                    value: _esEstricta, 
+                                    activeColor: AppTema.verdeSalud,
+                                    onChanged: (v) => setState(() => _esEstricta = v),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _formCard(
+                              icon: Icons.assignment_turned_in_outlined,
+                              title: "Aplicabilidad por condición médica",
+                              customHeader: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.assignment_ind_outlined, color: AppTema.azulPrincipal, size: 22),
+                                      const SizedBox(width: 12),
+                                      Text("Aplicabilidad por condición médica", 
+                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 34),
+                                    child: Text("Seleccione las condiciones médicas para las que se aplicará esta regla clínica.", 
+                                      style: GoogleFonts.montserrat(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                  ),
+                                ],
+                              ),
+                              children: [
+                                const SizedBox(height: 16),
+                                Container(
+                                  height: 200,
+                                  child: ListView(
+                                    children: (widget.formData["condiciones"] ?? []).map((c) {
+                                      final bool isSel = _selectedCondiciones.contains(c["id"]);
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          decoration: BoxDecoration(
+                                            color: isSel ? AppTema.azulPrincipal.withOpacity(0.02) : Colors.white,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: isSel ? AppTema.azulPrincipal : Colors.grey.shade200),
+                                          ),
+                                          child: CheckboxListTile(
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                            title: Text(_norm(c["nombre"]).isEmpty ? "Condición" : _norm(c["nombre"]), 
+                                              style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? AppTema.azulPrincipal : Colors.blueGrey)), 
+                                            value: isSel, 
+                                            activeColor: AppTema.azulPrincipal, 
+                                            onChanged: (v) => setState(() { if(v!) {
+                                              _selectedCondiciones.add(c["id"]);
+                                            } else {
+                                              _selectedCondiciones.remove(c["id"]);
+                                            } }), 
+                                            dense: true,
+                                            controlAffinity: ListTileControlAffinity.trailing,
+                                            checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              TextFormField(controller: _mensajeController, maxLines: 2, style: GoogleFonts.montserrat(fontSize: 12), decoration: _modalDecor("Observación / Justificación", Icons.chat_bubble_outline)),
-            ],
-          ),
+                  const SizedBox(height: 24),
+                  // OBSERVACION
+                  _formCard(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: "Observación / Justificación",
+                    children: [
+                      TextFormField(
+                        controller: _mensajeController, 
+                        maxLines: 3, 
+                        style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600), 
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppTema.grisLienzo,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  // FOOTER BUTTONS
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context), 
+                        child: Text("Cancelar", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.blueGrey, fontSize: 13))),
+                      const SizedBox(width: 24),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton.icon(
+                          onPressed: _saving ? null : _save, 
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTema.azulPrincipal,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                          ),
+                          icon: const Icon(Icons.save_outlined, size: 20),
+                          label: Text(_saving ? "GUARDANDO..." : "Guardar regla", 
+                            style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13))),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 11))),
-        FilledButton(onPressed: _saving ? null : _save, style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Text(_saving ? "..." : "GUARDAR REGLA", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 11))),
-      ],
     );
   }
 
-  Widget _buildFieldSection(String title, List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)), const SizedBox(height: 8), ...children]);
-  InputDecoration _modalDecor(String l, IconData i) => InputDecoration(labelText: l, labelStyle: GoogleFonts.montserrat(fontSize: 12), prefixIcon: Icon(i, size: 16), filled: true, fillColor: const Color(0xFFF1F5F9), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none));
+  Widget _formCard({required IconData icon, required String title, Widget? customHeader, required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          customHeader ?? Row(
+            children: [
+              Icon(icon, color: AppTema.azulPrincipal, size: 22),
+              const SizedBox(width: 12),
+              Text(title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String l) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(l, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+  );
+
+  InputDecoration _inputDecor(IconData i, {Color? iconColor}) => InputDecoration(
+    prefixIcon: Icon(i, size: 18, color: iconColor ?? Colors.blueGrey),
+    filled: true, 
+    fillColor: AppTema.grisLienzo, 
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  );
 
   Future<void> _save() async {
     if (_idAccion == null || _idObjetivo == null || _idTarget == null || _selectedCondiciones.isEmpty) return;
@@ -853,3 +1131,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
     } finally { if (mounted) setState(() => _saving = false); }
   }
 }
+
+
+
+

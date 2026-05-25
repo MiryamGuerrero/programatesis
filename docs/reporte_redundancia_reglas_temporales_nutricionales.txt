@@ -1,0 +1,130 @@
+REPORTE REDUNDANCIA REGLAS TEMPORALES Y NUTRICIONALES
+==================================================================
+Fecha: 2026-05-23 18:00:02
+Total reglas analizadas: 405
+
+1) DUPLICADOS EXACTOS (MISMA CONDICION + MISMO OBJETIVO + MISMO MENSAJE)
+------------------------------------------------------------------
+- key=(2, 9, 'Priorizar', 'Etiqueta nutricional', None, None, None, 72, False, '[atención] estreñimiento temporal: priorizar recetas altas en fibra para favorecer el tránsito intestinal.') | reglas=[1805, 1836]
+- key=(2, 9, 'Priorizar', 'Etiqueta nutricional', None, None, None, 195, False, '[atención] estreñimiento temporal: priorizar preparaciones hidratantes para ayudar a ablandar las heces.') | reglas=[1806, 1837]
+- key=(2, 9, 'Priorizar', 'Grupo alimentario', None, 3, None, None, False, '[atención] estreñimiento temporal: priorizar verduras y hortalizas por su aporte de fibra.') | reglas=[1807, 1839]
+- key=(2, 9, 'Priorizar', 'Grupo alimentario', None, 4, None, None, False, '[atención] estreñimiento temporal: priorizar frutas frescas por su aporte de fibra y líquidos.') | reglas=[1808, 1840]
+- key=(2, 9, 'Priorizar', 'Subgrupo alimentario', None, None, 17, None, False, '[atención] estreñimiento temporal: priorizar frutas frescas en porciones adecuadas.') | reglas=[1810, 1842]
+- key=(2, 9, 'Disminuir', 'Etiqueta nutricional', None, None, None, 142, False, '[atención] estreñimiento temporal: disminuir alimentos refinados porque aportan poca fibra.') | reglas=[1811, 1843]
+- key=(2, 10, 'Priorizar', 'Etiqueta nutricional', None, None, None, 114, False, '[atención] reflujo o acidez temporal: priorizar recetas no irritantes.') | reglas=[1814, 1847]
+- key=(2, 10, 'Disminuir', 'Etiqueta nutricional', None, None, None, 107, False, '[atención] reflujo o acidez temporal: disminuir preparaciones moderadamente irritantes.') | reglas=[1818, 1851]
+
+2) DUPLICADOS POR OBJETIVO EN UNA MISMA CONDICION (CAMBIA SOLO MENSAJE)
+------------------------------------------------------------------
+- key=(2, 9, 'Priorizar', 'Etiqueta nutricional', None, None, None, 72, False) | reglas=[1805, 1836] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar recetas altas en fibra para favorecer el tránsito intestinal.', '[ATENCIÓN] Estreñimiento temporal: Priorizar recetas altas en fibra para favorecer el tránsito intestinal.']
+- key=(2, 9, 'Priorizar', 'Etiqueta nutricional', None, None, None, 195, False) | reglas=[1806, 1837] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar preparaciones hidratantes para ayudar a ablandar las heces.', '[ATENCIÓN] Estreñimiento temporal: Priorizar preparaciones hidratantes para ayudar a ablandar las heces.']
+- key=(2, 9, 'Priorizar', 'Grupo alimentario', None, 3, None, None, False) | reglas=[1807, 1839] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar verduras y hortalizas por su aporte de fibra.', '[ATENCIÓN] Estreñimiento temporal: Priorizar verduras y hortalizas por su aporte de fibra.']
+- key=(2, 9, 'Priorizar', 'Grupo alimentario', None, 4, None, None, False) | reglas=[1808, 1840] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar frutas frescas por su aporte de fibra y líquidos.', '[ATENCIÓN] Estreñimiento temporal: Priorizar frutas frescas por su aporte de fibra y líquidos.']
+- key=(2, 9, 'Priorizar', 'Subgrupo alimentario', None, None, 95, None, False) | reglas=[1809, 1841] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar legumbres secas por su fibra, si el paciente las tolera.', '[ATENCIÓN] Estreñimiento temporal: Priorizar legumbres secas por su fibra.']
+- key=(2, 9, 'Priorizar', 'Subgrupo alimentario', None, None, 17, None, False) | reglas=[1810, 1842] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Priorizar frutas frescas en porciones adecuadas.', '[ATENCIÓN] Estreñimiento temporal: Priorizar frutas frescas en porciones adecuadas.']
+- key=(2, 9, 'Disminuir', 'Etiqueta nutricional', None, None, None, 142, False) | reglas=[1811, 1843] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Disminuir alimentos refinados porque aportan poca fibra.', '[ATENCIÓN] Estreñimiento temporal: Disminuir alimentos refinados porque aportan poca fibra.']
+- key=(2, 9, 'Eliminar', 'Etiqueta nutricional', None, None, None, 138, True) | reglas=[1812, 1845] | mensajes=['[ATENCIÓN] Estreñimiento temporal: Eliminar ultraprocesados durante el episodio para evitar baja calidad nutricional.', '[ATENCIÓN] Estreñimiento temporal: Eliminar ultraprocesados.']
+- key=(2, 10, 'Priorizar', 'Etiqueta nutricional', None, None, None, 137, False) | reglas=[1813, 1846] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Priorizar dieta suave para reducir irritación gástrica.', '[ATENCIÓN] Reflujo o acidez temporal: Priorizar dieta suave.']
+- key=(2, 10, 'Priorizar', 'Etiqueta nutricional', None, None, None, 114, False) | reglas=[1814, 1847] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Priorizar recetas no irritantes.', '[ATENCIÓN] Reflujo o acidez temporal: Priorizar recetas no irritantes.']
+- key=(2, 10, 'Priorizar', 'Etiqueta nutricional', None, None, None, 90, False) | reglas=[1815, 1848] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Priorizar recetas bajas en grasa para mejorar tolerancia.', '[ATENCIÓN] Reflujo o acidez temporal: Priorizar recetas bajas en grasa.']
+- key=(2, 10, 'Disminuir', 'Etiqueta nutricional', None, None, None, 80, False) | reglas=[1816, 1849] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir recetas altas en grasa porque pueden empeorar la acidez.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir recetas altas en grasa.']
+- key=(2, 10, 'Eliminar', 'Etiqueta nutricional', None, None, None, 79, True) | reglas=[1817, 1850] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Eliminar alimentos altamente irritantes durante el episodio.', '[ATENCIÓN] Reflujo o acidez temporal: Eliminar alimentos altamente irritantes.']
+- key=(2, 10, 'Disminuir', 'Etiqueta nutricional', None, None, None, 107, False) | reglas=[1818, 1851] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir preparaciones moderadamente irritantes.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir preparaciones moderadamente irritantes.']
+- key=(2, 10, 'Disminuir', 'Grupo alimentario', None, 10, None, None, False) | reglas=[1819, 1852] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir condimentos y salsas por posible irritación.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir condimentos y salsas.']
+- key=(2, 10, 'Disminuir', 'Subgrupo alimentario', None, None, 41, None, False) | reglas=[1820, 1853] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir condimentos fuertes o irritantes.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir condimentos fuertes.']
+- key=(2, 10, 'Disminuir', 'Subgrupo alimentario', None, None, 115, None, False) | reglas=[1821, 1854] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir salsas comerciales, aunque no tengan lácteos.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir salsas comerciales.']
+- key=(2, 10, 'Disminuir', 'Subgrupo alimentario', None, None, 51, None, False) | reglas=[1822, 1855] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir café e infusiones estimulantes si empeoran la acidez.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir café e infusiones.']
+- key=(2, 10, 'Disminuir', 'Subgrupo alimentario', None, None, 53, None, False) | reglas=[1823, 1856] | mensajes=['[ATENCIÓN] Reflujo o acidez temporal: Disminuir zumos comerciales por acidez o azúcar.', '[ATENCIÓN] Reflujo o acidez temporal: Disminuir zumos comerciales.']
+- key=(2, 20, 'Priorizar', 'Etiqueta nutricional', None, None, None, 146, False) | reglas=[1824, 1857] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Priorizar dieta astringente durante 24 a 72 horas.', '[ATENCIÓN] Diarrea: Priorizar dieta astringente.']
+- key=(2, 20, 'Priorizar', 'Etiqueta nutricional', None, None, None, 137, False) | reglas=[1825, 1858] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Priorizar preparaciones suaves y de fácil digestión.', '[ATENCIÓN] Diarrea: Priorizar preparaciones suaves.']
+- key=(2, 20, 'Priorizar', 'Etiqueta nutricional', None, None, None, 195, False) | reglas=[1826, 1859] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Aumentar preparaciones hidratantes para prevenir deshidratación.', '[ATENCIÓN] Diarrea: Aumentar preparaciones hidratantes.']
+- key=(2, 20, 'Priorizar', 'Etiqueta nutricional', None, None, None, 90, False) | reglas=[1827, 1861] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Priorizar recetas bajas en grasa.', '[ATENCIÓN] Diarrea: Priorizar recetas bajas en grasa.']
+- key=(2, 20, 'Disminuir', 'Etiqueta nutricional', None, None, None, 72, False) | reglas=[1828, 1862] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Disminuir temporalmente fibra alta si aumenta las deposiciones.', '[ATENCIÓN] Diarrea: Disminuir temporalmente fibra alta.']
+- key=(2, 20, 'Disminuir', 'Etiqueta nutricional', None, None, None, 80, False) | reglas=[1829, 1863] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Disminuir recetas altas en grasa porque pueden empeorar el cuadro.', '[ATENCIÓN] Diarrea: Disminuir recetas altas en grasa.']
+- key=(2, 20, 'Disminuir', 'Subgrupo alimentario', None, None, 98, None, False) | reglas=[1830, 1864] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Disminuir leche con lactosa durante el episodio.', '[ATENCIÓN] Diarrea: Disminuir leche con lactosa.']
+- key=(2, 20, 'Disminuir', 'Subgrupo alimentario', None, None, 100, None, False) | reglas=[1831, 1865] | mensajes=['[ATENCIÓN] Diarrea leve a moderada: Disminuir natas y cremas por grasa y lactosa.', '[ATENCIÓN] Diarrea: Disminuir natas y cremas.']
+
+3) REDUNDANCIA ESTRUCTURAL NUTRICIONAL POR INDICADOR (CONDICIONES DUPLICADAS)
+------------------------------------------------------------------
+- Indicador WFA: 4 condiciones => [(27, 'Bajo peso severo'), (28, 'Bajo peso'), (29, 'Peso normal para la edad'), (30, 'Peso elevado para la edad')]
+- Indicador BMI: 8 condiciones => [(104, 'Sobrepeso'), (105, 'Obesidad'), (110, 'Normal'), (111, 'Posible riesgo de sobrepeso'), (118, 'Delgadez severa'), (119, 'Delgadez'), (122, 'Sobrepeso'), (123, 'Obesidad')]
+- Indicador HFA: 4 condiciones => [(112, 'Talla normal'), (117, 'Talla alta'), (124, 'Talla baja severa'), (125, 'Talla baja')]
+
+4) FIRMAS DE REGLA REPETIDAS DENTRO DEL MISMO INDICADOR NUTRICIONAL
+------------------------------------------------------------------
+- Indicador WFA: 2 firmas repetidas
+  * ('Eliminar', 'Etiqueta nutricional', None, None, None, 130, False) -> repetida 2 veces
+  * ('Priorizar', 'Grupo alimentario', None, 3, None, None, False) -> repetida 2 veces
+- Indicador BMI: 22 firmas repetidas
+  * ('Priorizar', 'Subgrupo alimentario', None, None, 13, None, False) -> repetida 2 veces
+  * ('Priorizar', 'Grupo alimentario', None, 3, None, None, False) -> repetida 6 veces
+  * ('Priorizar', 'Grupo alimentario', None, 4, None, None, False) -> repetida 3 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 125, False) -> repetida 2 veces
+  * ('Disminuir', 'Grupo alimentario', None, 1, None, None, False) -> repetida 3 veces
+  * ('Eliminar', 'Grupo alimentario', None, 11, None, None, False) -> repetida 4 veces
+  * ('Disminuir', 'Subgrupo alimentario', None, None, 109, None, False) -> repetida 2 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 154, False) -> repetida 2 veces
+  * ('Disminuir', 'Etiqueta nutricional', None, None, None, 80, False) -> repetida 2 veces
+  * ('Eliminar', 'Etiqueta nutricional', None, None, None, 138, False) -> repetida 2 veces
+  * ('Eliminar', 'Etiqueta nutricional', None, None, None, 130, False) -> repetida 2 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 72, False) -> repetida 3 veces
+  * ('Priorizar', 'Grupo alimentario', None, 8, None, None, False) -> repetida 2 veces
+  * ('Eliminar', 'Grupo alimentario', None, 13, None, None, False) -> repetida 3 veces
+  * ('Disminuir', 'Grupo alimentario', None, 9, None, None, False) -> repetida 2 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 157, False) -> repetida 2 veces
+  * ('Disminuir', 'Etiqueta nutricional', None, None, None, 152, False) -> repetida 2 veces
+  * ('Eliminar', 'Etiqueta nutricional', None, None, None, 78, False) -> repetida 2 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 155, False) -> repetida 2 veces
+  * ('Priorizar', 'Grupo alimentario', None, 2, None, None, False) -> repetida 2 veces
+- Indicador HFA: 6 firmas repetidas
+  * ('Priorizar', 'Grupo alimentario', None, 5, None, None, False) -> repetida 4 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 76, False) -> repetida 3 veces
+  * ('Priorizar', 'Grupo alimentario', None, 2, None, None, False) -> repetida 2 veces
+  * ('Priorizar', 'Grupo alimentario', None, 7, None, None, False) -> repetida 2 veces
+  * ('Priorizar', 'Etiqueta nutricional', None, None, None, 150, False) -> repetida 3 veces
+  * ('Disminuir', 'Grupo alimentario', None, 11, None, None, False) -> repetida 2 veces
+
+5) OBJETIVOS TEMPORALES REUTILIZADOS EN 3+ CONDICIONES
+------------------------------------------------------------------
+- target=('Etiqueta nutricional', None, None, None, 137, 'Priorizar') | condiciones=6 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 80, None, None, None, 'Priorizar') | condiciones=6 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (38, 'Retención de líquidos temporal'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 530, None, None, None, 'Eliminar') | condiciones=6 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 535, None, None, None, 'Eliminar') | condiciones=6 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Etiqueta nutricional', None, None, None, 195, 'Priorizar') | condiciones=5 -> [(9, 'Estreñimiento temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (38, 'Retención de líquidos temporal')]
+- target=('Ingrediente', 526, None, None, None, 'Priorizar') | condiciones=5 -> [(9, 'Estreñimiento temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (38, 'Retención de líquidos temporal')]
+- target=('Etiqueta nutricional', None, None, None, 79, 'Eliminar') | condiciones=5 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Grupo alimentario', None, 10, None, None, 'Disminuir') | condiciones=5 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (38, 'Retención de líquidos temporal'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 75, None, None, None, 'Priorizar') | condiciones=5 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Etiqueta nutricional', None, None, None, 114, 'Priorizar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Etiqueta nutricional', None, None, None, 90, 'Priorizar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta')]
+- target=('Ingrediente', 103, None, None, None, 'Priorizar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (36, 'Infección de garganta'), (38, 'Retención de líquidos temporal'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 272, None, None, None, 'Priorizar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 471, None, None, None, 'Disminuir') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 447, None, None, None, 'Eliminar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 461, None, None, None, 'Eliminar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 462, None, None, None, 'Eliminar') | condiciones=4 -> [(10, 'Reflujo o acidez temporal'), (21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 178, None, None, None, 'Priorizar') | condiciones=4 -> [(21, 'Náuseas y vómitos'), (36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Grupo alimentario', None, 12, None, None, 'Disminuir') | condiciones=4 -> [(36, 'Infección de garganta'), (37, 'Falta de apetito'), (38, 'Retención de líquidos temporal'), (39, 'Heridas bucales o aftas')]
+- target=('Etiqueta nutricional', None, None, None, 138, 'Eliminar') | condiciones=3 -> [(9, 'Estreñimiento temporal'), (20, 'Diarrea leve a moderada'), (37, 'Falta de apetito')]
+- target=('Etiqueta nutricional', None, None, None, 95, 'Priorizar') | condiciones=3 -> [(9, 'Estreñimiento temporal'), (20, 'Diarrea leve a moderada'), (38, 'Retención de líquidos temporal')]
+- target=('Ingrediente', 5, None, None, None, 'Priorizar') | condiciones=3 -> [(9, 'Estreñimiento temporal'), (10, 'Reflujo o acidez temporal'), (37, 'Falta de apetito')]
+- target=('Ingrediente', 169, None, None, None, 'Priorizar') | condiciones=3 -> [(9, 'Estreñimiento temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos')]
+- target=('Ingrediente', 827, None, None, None, 'Eliminar') | condiciones=3 -> [(9, 'Estreñimiento temporal'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+- target=('Etiqueta nutricional', None, None, None, 80, 'Disminuir') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos')]
+- target=('Etiqueta nutricional', None, None, None, 107, 'Disminuir') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Subgrupo alimentario', None, None, 53, None, 'Disminuir') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (38, 'Retención de líquidos temporal'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 2, None, None, None, 'Priorizar') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos')]
+- target=('Ingrediente', 383, None, None, None, 'Priorizar') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 166, None, None, None, 'Disminuir') | condiciones=3 -> [(10, 'Reflujo o acidez temporal'), (36, 'Infección de garganta'), (39, 'Heridas bucales o aftas')]
+- target=('Ingrediente', 528, None, None, None, 'Priorizar') | condiciones=3 -> [(20, 'Diarrea leve a moderada'), (21, 'Náuseas y vómitos'), (38, 'Retención de líquidos temporal')]
+- target=('Subgrupo alimentario', None, None, 102, None, 'Priorizar') | condiciones=3 -> [(36, 'Infección de garganta'), (37, 'Falta de apetito'), (39, 'Heridas bucales o aftas')]
+
+6) PROPUESTA DE LIMPIEZA (SIN BORRADO AUTOMATICO)
+------------------------------------------------------------------
+A. Nutricional: consolidar condiciones duplicadas por indicador en una condici?n can?nica por indicador:
+   - WFA: mantener 1 condici?n por estado cl?nico real o mover l?gica a severidad; evitar r?plica por IDs m?ltiples.
+   - BMI: hay duplicidad clara (Sobrepeso/Obesidad aparecen en m?s de un ID).
+   - HFA: hay m?ltiples IDs con firmas repetidas; fusionar donde corresponda.
+B. Temporal: revisar objetivos compartidos en 3+ condiciones y convertirlos en plantillas reutilizables (no copiar reglas).
+C. Mensajes: estandarizar mensajes por criterio para no multiplicar variantes de la misma regla.
+D. Antes de borrar: remapear condici?n_regla a nuevas condiciones can?nicas y luego depurar reglas hu?rfanas.

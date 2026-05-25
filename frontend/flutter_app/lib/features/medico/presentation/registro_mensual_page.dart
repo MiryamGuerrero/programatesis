@@ -1,4 +1,4 @@
-import "dart:async";
+﻿import "dart:async";
 import "dart:math";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -46,14 +46,37 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   double _inflamacion = 0;
   double _fatiga = 10;
   bool _brote = false;
+  bool _lactosa = false;
+  List<String> _restriccionesAlimentarias = [];
+  List<Map<String, dynamic>> _alergiasSubgrupos = [];
+  List<Map<String, dynamic>> _alergiasIngredientes = [];
+  int? _idPatologiaBase;
+  String _estadoEnfermedad = "Seguimiento";
+  final List<String> _estadosClinicos = [
+    "Estable en remisión",
+    "Estable con actividad baja",
+    "Activa moderada",
+    "Activa grave (alta actividad)",
+    "Seguimiento"
+  ];
+
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
   final List<Map<String, dynamic>> _condicionesTemp = [];
   List<Map<String, dynamic>> _recomendacionesIng = [];
   List<dynamic> _condicionesTemporalesCat = [];
+  List<dynamic> _patologiasCat = [];
   List<dynamic> _ingredientesCat = [];
+  List<dynamic> _subgruposCat = [];
+  List<dynamic> _restriccionesAlimentariasCat = [];
 
   final _ingRecomSearchCtrl = TextEditingController();
   final _ingRecomFocus = FocusNode();
+  
+  final _subgrupoSearchCtrl = TextEditingController();
+  final _subgrupoFocus = FocusNode();
+  
+  final _ingredienteAlergiaSearchCtrl = TextEditingController();
+  final _ingredienteAlergiaFocus = FocusNode();
 
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
@@ -78,12 +101,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get("catalogos/condiciones");
+      final resRegistro = await dio.get("registro/paciente-integral/catalogos");
       final resIng = await dio.get("nutricionista/ingredientes/catalogo-simple");
+      final resSubs = await dio.get("nutricionista/subgrupos/catalogo-simple");
       
       if (mounted) {
         setState(() {
-          _condicionesTemporalesCat = (res.data as List).where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2).toList();
+          final allCond = res.data as List;
+          _condicionesTemporalesCat = allCond.where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2).toList();
+          _patologiasCat = allCond.where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1).toList();
           _ingredientesCat = resIng.data as List? ?? [];
+          _subgruposCat = resSubs.data as List? ?? [];
+          _restriccionesAlimentariasCat = (resRegistro.data as Map<String, dynamic>)["restricciones_alimentarias"] as List? ?? [];
         });
       }
     } catch (e) {
@@ -97,6 +126,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     _debounceOMS?.cancel();
     _ingRecomSearchCtrl.dispose();
     _ingRecomFocus.dispose();
+    _subgrupoSearchCtrl.dispose();
+    _subgrupoFocus.dispose();
+    _ingredienteAlergiaSearchCtrl.dispose();
+    _ingredienteAlergiaFocus.dispose();
+    _peso.dispose();
+    _talla.dispose();
+    _pcr.dispose();
+    _vsg.dispose();
+    _artInflam.dispose();
+    _artDolor.dispose();
+    _rigidez.dispose();
+    _notas.dispose();
     super.dispose();
   }
 
@@ -114,6 +155,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       setState(() { 
         _expediente = data; 
         _yaEvaluadoHoy = evaluadoHoy;
+        _idPatologiaBase = data['diagnostico']?['id_condicion'];
+        
+        final al = data['alergias'] ?? {};
+        _alergiasSubgrupos = List<Map<String, dynamic>>.from(al['subgrupos'] ?? []);
+        _alergiasIngredientes = List<Map<String, dynamic>>.from(al['ingredientes'] ?? []);
+        _restriccionesAlimentarias = List<String>.from(al['restricciones_codigos'] ?? []);
+        _lactosa = _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA");
+        
         _loading = false; 
       });
     } catch (e) {
@@ -195,6 +244,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       _inflamacion = (h['escala_inflamacion'] ?? 0).toDouble();
       _fatiga = (h['nivel_fatiga'] ?? 10).toDouble();
       _brote = h['en_brote'] ?? false;
+      _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ?? DateTime.now().add(const Duration(days: 30));
       
       if (_expediente != null && _expediente!['recomendaciones'] != null) {
@@ -211,14 +261,28 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     try {
       final dio = ref.read(dioProvider);
       final payload = {
-        "peso_kg": _peso.text, "talla_cm": _talla.text,
-        "puntos_dolor": _dolor.toInt(), "escala_inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
-        "valor_pcr": _pcr.text, "valor_vsg": _vsg.text, "articulaciones_inflamadas": _artInflam.text,
-        "articulaciones_dolorosas": _artDolor.text, "minutos_rigidez": _rigidez.text,
-        "en_brote": _brote, "estado_enfermedad": "Seguimiento",
-        "nota_evolucion": _notas.text, "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first,
+        "peso_kg": _peso.text, 
+        "talla_cm": _talla.text,
+        "puntos_dolor": _dolor.toInt(), 
+        "escala_inflamacion": _inflamacion.toInt(), 
+        "fatiga": _fatiga.toInt(),
+        "valor_pcr": _pcr.text, 
+        "valor_vsg": _vsg.text, 
+        "articulaciones_inflamadas": _artInflam.text,
+        "articulaciones_dolorosas": _artDolor.text, 
+        "minutos_rigidez": _rigidez.text,
+        "en_brote": _brote, 
+        "estado_enfermedad": _estadoEnfermedad,
+        "nota_evolucion": _notas.text, 
+        "fecha_proxima_cita": _proximaCita.toIso8601String().split("T").first,
         "condiciones_temporales": _condicionesTemp,
-        "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList()
+        "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList(),
+        
+        // Nuevos campos de Alergias e Intolerancias (para actualizar record permanente)
+        "alergias_subgrupos": _alergiasSubgrupos.map((e) => e['id']).toList(),
+        "alergias_ingredientes": _alergiasIngredientes.map((e) => e['id']).toList(),
+        "restricciones_alimentarias": _restriccionesAlimentarias,
+        "es_intolerante_lactosa": _lactosa
       };
       if (_idControlEditando == null) {
         await dio.post("pacientes/${widget.paciente['id']}/control-mensual", data: payload);
@@ -255,47 +319,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     } catch (_) { return "-"; }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          backgroundColor: AppTema.grisLienzo,
-          body: Row(
-            children: [
-              _buildLeftSummary(),
-              Expanded(
-                child: Column(children: [
-                  _buildTopBar(),
-                  Expanded(child: TabBarView(controller: _tabController, children: [_buildFormTab(), _buildHistoryTab()]))
-                ]),
-              ),
-            ],
-          ),
-        ),
-        if (_loading) _buildLoadingOverlay(),
-      ],
-    );
-  }
-
-  Widget _buildLoadingOverlay() {
-    return Container(
-      color: Colors.white,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: greenBrand, strokeWidth: 4),
-            const SizedBox(height: 24),
-            Text(
-              "CARGANDO CONTROL MENSUAL...",
-              style: GoogleFonts.montserrat(color: const Color(0xFF0F172A), fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
   Widget _buildLeftSummary() {
     if (_expediente == null) return const SizedBox(width: 350, child: Center(child: CircularProgressIndicator()));
      
@@ -427,6 +450,55 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     )
   );
 
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: AppTema.grisLienzo,
+          body: Row(
+            children: [
+              _buildLeftSummary(),
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildTopBar(),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [_buildFormTab(), _buildHistoryTab()]
+                      )
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_loading) _buildLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: greenBrand, strokeWidth: 4),
+            const SizedBox(height: 24),
+            Text(
+              "CARGANDO CONTROL MENSUAL...",
+              style: GoogleFonts.montserrat(color: const Color(0xFF0F172A), fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopBar() {
     return Column(
       children: [
@@ -443,8 +515,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       IconButton.filledTonal(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16), onPressed: () => ref.read(medicoNavProvider.notifier).state = MedicoView.list),
       const SizedBox(width: 24),
       Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text("Consola de Valoración Clínica", style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: -0.5)),
-        Text("Gestión integral de evolución pediátrica reumatológica.", style: GoogleFonts.montserrat(color: const Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500))
+        Text("Seguimiento Clínico del Paciente", style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: -0.5)),
+        Text("Módulo para registro mensual y monitoreo de evolución del paciente pediátrico reumatológico.", style: GoogleFonts.montserrat(color: const Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500))
       ])
     ])
   );
@@ -464,13 +536,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _buildFormTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _buildOMSStatusCard(),
         if (_yaEvaluadoHoy && _idControlEditando == null) ...[
-          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.orange.withOpacity(0.3))),
             child: Row(children: [
               const Icon(Icons.info_outline, color: Colors.orange),
@@ -479,132 +550,505 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
             ]),
           ),
         ],
-        const SizedBox(height: 48),
+        
+        // 1. SIGNOS VITALES Y ANTROPOMETRÍA
         _sectionHeader("1. SIGNOS VITALES Y ANTROPOMETRÍA", Icons.monitor_weight_outlined),
         const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: _field(_peso, "Peso Actual (kg)*", Icons.scale_outlined, onChanged: (_) => _debouncedOMS())),
-          const SizedBox(width: 20),
-          Expanded(child: _field(_talla, "Talla Actual (cm)*", Icons.height_rounded, onChanged: (_) => _debouncedOMS())),
-        ]),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(children: [
+            Row(children: [
+              Expanded(child: _field(_peso, "Peso Actual (kg)*", Icons.scale_outlined, onChanged: (_) => _debouncedOMS())),
+              const SizedBox(width: 20),
+              Expanded(child: _field(_talla, "Talla Actual (cm)*", Icons.height_rounded, onChanged: (_) => _debouncedOMS())),
+            ]),
+            const SizedBox(height: 24),
+            _buildOMSDiagnosisRow(),
+          ]),
+        ),
         const SizedBox(height: 48),
+
+        // 2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA
         _sectionHeader("2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA", Icons.healing_outlined),
         const SizedBox(height: 24),
-        EscalaSelector(
-          titulo: _dolor == 0 ? 'SIN DOLOR' : _dolor <= 3 ? 'LEVE' : _dolor <= 6 ? 'MODERADO' : _dolor <= 8 ? 'INTENSO' : 'INSOPORTABLE',
-          descripcion: _dolor == 0 ? 'Sin molestias reportadas' : _dolor <= 3 ? 'Molestia ligera ocasional' : _dolor <= 6 ? 'Dolor que interfiere con actividades' : _dolor <= 8 ? 'Dolor fuerte y persistente' : 'Dolor extremo, requiere atención',
-          min: 0, max: 10, value: _dolor.toInt(),
-          icons: const [Icons.sentiment_very_satisfied_outlined, Icons.sentiment_satisfied_outlined, Icons.sentiment_neutral_outlined, Icons.sentiment_dissatisfied_outlined, Icons.sentiment_very_dissatisfied_outlined, Icons.sentiment_neutral_outlined, Icons.sentiment_dissatisfied_outlined, Icons.sentiment_very_dissatisfied_outlined, Icons.mood_bad_outlined, Icons.sick_outlined, Icons.personal_injury_outlined],
-          etiquetas: [EscalaEtiqueta('Leve', 3), EscalaEtiqueta('Moderado', 4), EscalaEtiqueta('Severo', 4)],
-          colorActivo: _dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red,
-          colorFondoActivo: (_dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red).withOpacity(0.1),
-          onChanged: (v) => setState(() => _dolor = v.toDouble()),
-          puntajeLabel: '${_dolor.toInt()}/10',
-          headerIcon: Icon(_dolor == 0 ? Icons.sentiment_very_satisfied_rounded : _dolor <= 3 ? Icons.sentiment_satisfied_rounded : _dolor <= 6 ? Icons.sentiment_neutral_rounded : _dolor <= 8 ? Icons.sentiment_dissatisfied_rounded : Icons.sentiment_very_dissatisfied_rounded, color: _dolor == 0 ? greenBrand : _dolor <= 3 ? Colors.blue : _dolor <= 6 ? Colors.orange : Colors.red, size: 32),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: EscalaSelector(
+                titulo: "DOLOR",
+                descripcion: "",
+                min: 0,
+                max: 10,
+                value: _dolor.toInt(),
+                icons: const [
+                  Icons.sentiment_very_satisfied_rounded,
+                  Icons.sentiment_satisfied_rounded,
+                  Icons.sentiment_satisfied_rounded,
+                  Icons.sentiment_neutral_rounded,
+                  Icons.sentiment_neutral_rounded,
+                  Icons.sentiment_dissatisfied_rounded,
+                  Icons.sentiment_dissatisfied_rounded,
+                  Icons.sentiment_very_dissatisfied_rounded,
+                  Icons.sentiment_very_dissatisfied_rounded,
+                  Icons.sick_rounded,
+                  Icons.sick_rounded
+                ],
+                etiquetas: [EscalaEtiqueta("Leve", 3), EscalaEtiqueta("Moderado", 4), EscalaEtiqueta("Severo", 4)],
+                colorActivo: Colors.red,
+                colorFondoActivo: Colors.red,
+                backgroundColor: const Color(0xFFF8FAFC),
+                showIdentityRow: false,
+                onChanged: (v) => setState(() => _dolor = v.toDouble()),
+                puntajeLabel: "${_dolor.toInt()}/10",
+                headerIcon: const Icon(Icons.healing_rounded, color: Colors.red, size: 28),
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: _buildEVACard(
+                "INFLAMACIÓN",
+                _inflamacion,
+                3,
+                (v) => setState(() => _inflamacion = v),
+                icon: Icons.verified_user_outlined,
+                labels: ["0 = Sin inflamación", "1 = Leve", "2 = Moderada", "3 = Severa / Activa"],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 32),
-        EscalaSelector(
-          titulo: _inflamacion == 0 ? 'SIN INFLAMACIÓN' : _inflamacion == 1 ? 'LEVE / DISCRETA' : _inflamacion == 2 ? 'MODERADA' : 'SEVERA / ACTIVA',
-          descripcion: _inflamacion == 0 ? 'Sin signos de inflamación' : _inflamacion == 1 ? 'Hinchazón mínima detectable' : _inflamacion == 2 ? 'Inflamación visible y limitante' : 'Inflamación severa y sistémica',
-          min: 0, max: 3, value: _inflamacion.toInt(),
-          icons: const [Icons.health_and_safety_outlined, Icons.healing_outlined, Icons.report_problem_outlined, Icons.local_fire_department_outlined],
-          etiquetas: [EscalaEtiqueta('Leve', 1), EscalaEtiqueta('Moderada', 2), EscalaEtiqueta('Severa / Activa', 1)],
-          colorActivo: _inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red,
-          colorFondoActivo: (_inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red).withOpacity(0.1),
-          onChanged: (v) => setState(() => _inflamacion = v.toDouble()),
-          puntajeLabel: '${_inflamacion.toInt()}/3',
-          headerIcon: Icon(_inflamacion == 0 ? Icons.verified_user_rounded : _inflamacion == 1 ? Icons.healing_rounded : _inflamacion == 2 ? Icons.warning_rounded : Icons.whatshot_rounded, color: _inflamacion == 0 ? greenBrand : _inflamacion == 1 ? Colors.blue : _inflamacion == 2 ? Colors.orange : Colors.red, size: 32),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildEVACard(
+                "FATIGA",
+                _fatiga,
+                10,
+                (v) => setState(() => _fatiga = v),
+                icon: Icons.battery_full_rounded,
+                labels: ["0-3 = Agotamiento", "4-7 = Intermedio", "8-10 = Alta energía"],
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                children: [
+                  Row(children: [
+                    Expanded(child: _buildCounterField("Art. Inflamadas", _artInflam, Icons.track_changes_outlined)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)),
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildBroteToggle(),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 32),
-        EscalaSelector(
-          titulo: _fatiga >= 8 ? 'MUCHA ENERGÍA' : _fatiga >= 5 ? 'NORMAL' : _fatiga >= 3 ? 'FATIGA LEVE' : 'AGOTAMIENTO',
-          descripcion: _fatiga >= 8 ? 'Paciente con vitalidad máxima' : _fatiga >= 5 ? 'Energía estable para el día' : _fatiga >= 3 ? 'Cansancio superior al normal' : 'Falta total de energía basal',
-          min: 0, max: 10, value: _fatiga.toInt(),
-          icons: const [Icons.battery_0_bar_outlined, Icons.battery_1_bar_outlined, Icons.battery_2_bar_outlined, Icons.battery_3_bar_outlined, Icons.battery_4_bar_outlined, Icons.battery_5_bar_outlined, Icons.battery_6_bar_outlined, Icons.battery_full_outlined, Icons.bolt_outlined, Icons.flash_on_outlined, Icons.star_outline_rounded],
-          etiquetas: [EscalaEtiqueta('Agotamiento', 3), EscalaEtiqueta('Intermedio', 5), EscalaEtiqueta('Alta energía', 3)],
-          colorActivo: _fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red,
-          colorFondoActivo: (_fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red).withOpacity(0.1),
-          onChanged: (v) => setState(() => _fatiga = v.toDouble()),
-          puntajeLabel: '${_fatiga.toInt()}/10',
-          headerIcon: Icon(_fatiga >= 8 ? Icons.battery_full_rounded : _fatiga >= 5 ? Icons.battery_charging_full_rounded : _fatiga >= 3 ? Icons.battery_alert_rounded : Icons.battery_0_bar_rounded, color: _fatiga >= 8 ? greenBrand : _fatiga >= 5 ? Colors.blue : _fatiga >= 3 ? Colors.orange : Colors.red, size: 32),
-        ),
         const SizedBox(height: 48),
-        Row(children: [
-          Expanded(child: _field(_artInflam, "Art. Inflamadas", Icons.adjust)),
-          const SizedBox(width: 16),
-          Expanded(child: _field(_artDolor, "Art. Dolorosas", Icons.pan_tool_alt)),
-          const SizedBox(width: 16),
-          Expanded(child: _field(_rigidez, "Rigidez (min)", Icons.timer)),
-        ]),
-        const SizedBox(height: 32),
-        _sectionHeader("3. LABORATORIO Y ESTADO CLÍNICO", Icons.biotech_outlined),
-        const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: _field(_pcr, "PCR (mg/L)", Icons.science_outlined, helper: "Normal < 5")),
-          const SizedBox(width: 20),
-          Expanded(child: _field(_vsg, "VSG (mm/h)", Icons.bloodtype_outlined, helper: "Normal < 15")),
-        ]),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: _brote ? Colors.red.shade50 : Colors.green.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: _brote ? Colors.red : greenBrand)),
-          child: SwitchListTile(title: Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: TextStyle(fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)), subtitle: const Text("Indique si el paciente presenta crisis hoy"), value: _brote, onChanged: (v) => setState(() => _brote = v), activeThumbColor: Colors.red),
-        ),
-        const SizedBox(height: 48),
-        _sectionHeader("4. SÍNTOMAS AGUDOS TEMPORALES", Icons.event_note_rounded),
+
+        _sectionHeader("3. SÍNTOMAS AGUDOS TEMPORALES", Icons.event_note_rounded),
         const SizedBox(height: 24),
         _buildSintomasTemporalesGrid(),
         const SizedBox(height: 48),
-        _sectionHeader("5. RECOMENDACIÓN DE INGREDIENTES", Icons.thumb_up_alt_outlined),
+
+        _sectionHeader("4. RECOMENDACIÓN DE INGREDIENTES", Icons.thumb_up_alt_outlined),
         const SizedBox(height: 24),
         _buildRecomendacionesSelector(),
         const SizedBox(height: 48),
-        _sectionHeader("6. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
-        const SizedBox(height: 24),
-        Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: ListTile(leading: const Icon(Icons.calendar_month, color: greenBrand), title: const Text("Próxima Cita*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), subtitle: Text(DateFormat('EEEE, dd/MM/yyyy', 'es').format(_proximaCita).toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: greenBrand)), onTap: () async { final d = await showDatePicker(context: context, initialDate: _proximaCita, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 180))); if (d != null) setState(() => _proximaCita = d); })
-        ),
+
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _sectionHeader("5. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+              child: ListTile(leading: const Icon(Icons.calendar_month, color: greenBrand), title: const Text("Próxima Cita*", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), subtitle: Text(DateFormat('EEEE, dd/MM/yyyy', 'es').format(_proximaCita).toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: greenBrand)), onTap: () async { final d = await showDatePicker(context: context, initialDate: _proximaCita, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 180))); if (d != null) setState(() => _proximaCita = d); })
+            ),
+          ])),
+        ]),
         const SizedBox(height: 24),
         _field(_notas, "Observaciones Médicas", Icons.edit_note, maxLines: 4),
         const SizedBox(height: 48),
+
         SizedBox(width: double.infinity, height: 60, child: FilledButton.icon(onPressed: _loading ? null : _guardarConsulta, icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save_rounded), label: Text(_idControlEditando == null ? "REGISTRAR VALORACIÓN" : "GUARDAR CAMBIOS", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), style: FilledButton.styleFrom(backgroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
       ]),
     );
   }
 
-  Widget _buildSintomasTemporalesGrid() {
-    if (_condicionesTemporalesCat.isEmpty) return const SizedBox.shrink();
-    return Column(
-      children: _condicionesTemporalesCat.map<Widget>((c) {
-        final id = c['id'] as int;
-        final index = _condicionesTemp.indexWhere((s) => s['id'] == id);
-        final sel = index != -1;
-        final duracionSugerida = c['duracion_dias_sugerida'] ?? 7;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(color: sel ? greenBrand.withOpacity(0.02) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: sel ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0))),
-          child: ExpansionTile(
-            key: Key("temp_ctrl_$id"), initiallyExpanded: sel, shape: const Border(),
-            leading: Checkbox(activeColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)), value: sel, onChanged: (v) {
-              if (v == true) {
-                final ini = DateTime.now();
-                setState(() => _condicionesTemp.add({"id": id, "nombre": c['nombre'], "fecha_inicio": ini.toIso8601String().split('T')[0], "fecha_fin": ini.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0]}));
-              } else { setState(() => _condicionesTemp.removeAt(index)); }
-            }),
-            title: Text(c['nombre']?.toString() ?? "Condición", style: GoogleFonts.inter(fontSize: 14, fontWeight: sel ? FontWeight.w700 : FontWeight.w600, color: sel ? greenBrand : const Color(0xFF1E293B))),
-            subtitle: Text(sel ? "Activa por $duracionSugerida días sugeridos" : "Sugerencia: $duracionSugerida días", style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B))),
-            children: sel ? [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: Row(children: [Expanded(child: _datePickerSmall("DESDE", _condicionesTemp[index]['fecha_inicio'], (d) => setState(() { _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0]; _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0]; }))), const SizedBox(width: 12), Expanded(child: _datePickerSmall("HASTA (ESTIMADO)", _condicionesTemp[index]['fecha_fin'], (d) => setState(() => _condicionesTemp[index]['fecha_fin'] = d.toIso8601String().split('T')[0])))]))] : [],
+  Widget _lactoseCard(bool val, String title, String desc) {
+    final bool sel = _lactosa == val;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() {
+          _lactosa = val;
+          if (val) { if (!_restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA")) _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA"); }
+          else _restriccionesAlimentarias.remove("INTOLERANCIA_LACTOSA");
+        }),
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: sel ? (val ? Colors.green.shade50 : Colors.white) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: sel ? greenBrand : Colors.grey.shade200, width: sel ? 2 : 1),
+            boxShadow: [if (sel) BoxShadow(color: greenBrand.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
           ),
-        );
-      }).toList(),
+          child: Row(
+            children: [
+              Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: sel ? greenBrand : Colors.grey.shade400, size: 24),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: sel ? greenBrand : const Color(0xFF0F172A))),
+                    const SizedBox(height: 4),
+                    Text(desc, style: GoogleFonts.montserrat(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
+
+  Widget _restrictionChip(String name, String code, bool isSel) {
+    IconData icon = Icons.restaurant_outlined;
+    if (code.contains("GLUTEN")) icon = Icons.grain_outlined;
+    else if (code.contains("CELIAQUIA")) icon = Icons.grass_outlined;
+    else if (code.contains("FRUCTOSA")) icon = Icons.apple_outlined;
+    else if (code.contains("HISTAMINA")) icon = Icons.science_outlined;
+    else if (code.contains("HUEVO")) icon = Icons.egg_outlined;
+    else if (code.contains("SOYA")) icon = Icons.spa_outlined;
+    else if (code.contains("FRUTOS")) icon = Icons.bakery_dining_outlined;
+    else if (code.contains("PESCADO")) icon = Icons.set_meal_outlined;
+    else if (code.contains("DIABETES")) icon = Icons.monitor_heart_outlined;
+    else if (code.contains("SULFITOS")) icon = Icons.biotech_outlined;
+    else if (code.contains("SORBITOL")) icon = Icons.icecream_outlined;
+
+    return InkWell(
+      onTap: () => setState(() => isSel ? _restriccionesAlimentarias.remove(code) : _restriccionesAlimentarias.add(code)),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSel ? greenBrand.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSel ? greenBrand : Colors.grey.shade200, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSel ? greenBrand : Colors.blueGrey),
+            const SizedBox(width: 10),
+            Text(name, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: isSel ? greenBrand : Colors.blueGrey)),
+            if (isSel) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.check, size: 14, color: greenBrand),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultiSelector(String label, List items, List<Map<String, dynamic>> selectedList, TextEditingController searchCtrl, FocusNode focusNode) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      StatefulBuilder(builder: (context, setInternalState) {
+        final q = searchCtrl.text.toLowerCase().trim();
+        final matches = items.where((e) {
+          if (q.isEmpty) return false;
+          final name = (e['nombre'] ?? "").toString().toLowerCase();
+          return name.contains(q);
+        }).toList();
+        return Column(children: [
+          TextFormField(
+            controller: searchCtrl, focusNode: focusNode, 
+            onChanged: (v) => setInternalState(() {}), 
+            decoration: InputDecoration(labelText: label, prefixIcon: const Icon(Icons.search))
+          ),
+          if (matches.isNotEmpty && focusNode.hasFocus) Container(
+            constraints: const BoxConstraints(maxHeight: 200), 
+            margin: const EdgeInsets.only(top: 8), 
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]), 
+            child: ListView.separated(
+              shrinkWrap: true, itemCount: min(matches.length, 50), 
+              separatorBuilder: (_, __) => const Divider(height: 1), 
+              itemBuilder: (ctx, i) {
+                final item = matches[i]; final id = item['id'];
+                final isSel = selectedList.any((ing) => ing['id'] == id);
+                return ListTile(
+                  dense: true, title: Text(item['nombre'] ?? ""), 
+                  trailing: Icon(isSel ? Icons.check_circle : Icons.add_circle_outline, color: isSel ? Colors.red : null), 
+                  onTap: () { 
+                    setState(() { 
+                      if (!isSel) selectedList.add(Map<String, dynamic>.from(item)); 
+                      else selectedList.removeWhere((ing) => ing['id'] == id); 
+                    }); 
+                    setInternalState(() {}); 
+                  }
+                );
+              }
+            )
+          )
+        ]);
+      }),
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: selectedList.map((e) => Chip(
+        label: Text(e['nombre'] ?? "", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)), 
+        onDeleted: () => setState(() => selectedList.remove(e)), 
+        backgroundColor: Colors.red.shade50, deleteIconColor: Colors.red, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+      )).toList())
+    ]);
+  }
+
+  Widget _buildSintomasTemporalesGrid() {
+    if (_condicionesTemporalesCat.isEmpty) return const SizedBox.shrink();
+    final ordenadas = [..._condicionesTemporalesCat]
+      ..sort((a, b) => (a['nombre'] ?? '').toString().toLowerCase().compareTo((b['nombre'] ?? '').toString().toLowerCase()));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Wrap(
+          spacing: 20,
+          runSpacing: 20,
+          children: ordenadas.map<Widget>((c) {
+            final id = c['id'] as int;
+            final index = _condicionesTemp.indexWhere((s) => s['id'] == id);
+            final sel = index != -1;
+            final duracionSugerida = (c['duracion_dias_sugerida'] ?? c['dias_duracion_estandar'] ?? 7) as int;
+
+            return Container(
+              width: (constraints.maxWidth - 40) / 3,
+              decoration: BoxDecoration(
+                color: Colors.white, 
+                borderRadius: BorderRadius.circular(16), 
+                border: Border.all(color: sel ? greenBrand.withOpacity(0.3) : const Color(0xFFE2E8F0))
+              ),
+              child: ExpansionTile(
+                key: Key("temp_ctrl_$id"), 
+                initiallyExpanded: sel, 
+                shape: const Border(),
+                leading: Checkbox(
+                  activeColor: greenBrand, 
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)), 
+                  value: sel, 
+                  onChanged: (v) {
+                    if (v == true) {
+                      final ini = DateTime.now();
+                      setState(() => _condicionesTemp.add({
+                        "id": id, 
+                        "nombre": c['nombre'], 
+                        "fecha_inicio": ini.toIso8601String().split('T')[0], 
+                        "fecha_fin": ini.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0]
+                      }));
+                    } else { 
+                      setState(() => _condicionesTemp.removeAt(index)); 
+                    }
+                  }
+                ),
+                title: Text(c['nombre']?.toString() ?? "Condición", 
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: sel ? FontWeight.w700 : FontWeight.w600, color: sel ? greenBrand : const Color(0xFF1E293B))),
+                subtitle: Text(sel ? "Activa por $duracionSugerida días" : "Sugerencia: $duracionSugerida días", 
+                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B))),
+                children: sel ? [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _buildTemporalDatesRow(index, duracionSugerida),
+                  )
+                ] : [],
+              ),
+            );
+          }).toList(),
+        );
+      }
+    );
+  }
+
+  Widget _buildTemporalDatesRow(int index, int duracionSugerida) {
+    final inicio = _condicionesTemp[index]['fecha_inicio']?.toString() ?? DateTime.now().toIso8601String().split('T')[0];
+    final fin = _condicionesTemp[index]['fecha_fin']?.toString() ?? DateTime.now().add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0];
+    final finDate = DateTime.tryParse(fin) ?? DateTime.now();
+    final restantes = finDate.difference(DateTime.now()).inDays;
+    final diasRestantes = restantes < 0 ? 0 : restantes;
+    return Row(
+      children: [
+        Expanded(
+          child: _datePickerSmall("INICIO", inicio, (d) => setState(() {
+            _condicionesTemp[index]['fecha_inicio'] = d.toIso8601String().split('T')[0];
+            _condicionesTemp[index]['fecha_fin'] = d.add(Duration(days: duracionSugerida)).toIso8601String().split('T')[0];
+          })),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _dateStaticSmall("FIN", fin),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Text(
+              "Quedan $diasRestantes días",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOMSDiagnosisRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("DIAGNÓSTICO NUTRICIONAL OMS", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF475569))),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _omsDiagItem("Diagnóstico de peso", _omsStatusPeso, Icons.scale_rounded)),
+          const SizedBox(width: 20),
+          Expanded(child: _omsDiagItem("Diagnóstico de talla", _omsStatusTalla, Icons.height_rounded)),
+        ]),
+        if (_resumenClinico.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: _omsColor.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: _omsColor.withOpacity(0.1))),
+            child: _richSummary(_resumenClinico, _omsColor),
+          )
+        ]
+      ],
+    );
+  }
+
+  Widget _omsDiagItem(String label, String value, IconData icon) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade100)),
+    child: Row(children: [
+      Icon(icon, size: 18, color: Colors.blueGrey),
+      const SizedBox(width: 12),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Text(value.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
+      ]),
+      const Spacer(),
+      if (_calculandoOMS) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: greenBrand))
+      else Container(width: 12, height: 12, decoration: BoxDecoration(color: _omsColor, shape: BoxShape.circle))
+    ]),
+  );
+
+  Widget _subHeader(String t, IconData i) => Row(children: [Icon(i, size: 18, color: greenBrand), const SizedBox(width: 12), Text(t, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF0F172A), letterSpacing: 0.5))]);
+
+  Widget _buildEVACard(String title, double val, int max, Function(double) onC, {required IconData icon, required List<String> labels}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: greenBrand.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: greenBrand, size: 20)),
+            const SizedBox(width: 12),
+            Text(title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+          ]),
+          Text("${val.toInt()}/$max", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: greenBrand)),
+        ]),
+        const SizedBox(height: 24),
+        Row(children: List.generate(max + 1, (index) {
+          final isSel = val.toInt() == index;
+          return Expanded(child: InkWell(onTap: () => onC(index.toDouble()), child: AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 2), height: 36, decoration: BoxDecoration(color: isSel ? greenBrand : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: isSel ? greenBrand : Colors.grey.shade200)), child: Center(child: Text("$index", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: isSel ? Colors.white : Colors.blueGrey))))));
+        })),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: labels.map((l) => Text(l, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.blueGrey))).toList()),
+      ]),
+    );
+  }
+
+  Widget _buildCounterField(String label, TextEditingController ctrl, IconData icon) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+      const SizedBox(height: 8),
+      Container(height: 48, decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [
+        const SizedBox(width: 12),
+        Icon(icon, size: 18, color: Colors.blueGrey),
+        Expanded(child: TextField(controller: ctrl, textAlign: TextAlign.center, keyboardType: TextInputType.number, style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700), decoration: const InputDecoration(border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.zero))),
+        IconButton(onPressed: () { int v = int.tryParse(ctrl.text) ?? 0; if (v > 0) ctrl.text = (v - 1).toString(); setState(() {}); }, icon: const Icon(Icons.remove, size: 16)),
+        IconButton(onPressed: () { int v = int.tryParse(ctrl.text) ?? 0; ctrl.text = (v + 1).toString(); setState(() {}); }, icon: const Icon(Icons.add, size: 16)),
+      ])),
+    ]);
+  }
+
+  Widget _buildBroteToggle() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _brote ? Colors.red.withOpacity(0.05) : greenBrand.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: _brote ? Colors.red.withOpacity(0.1) : greenBrand.withOpacity(0.1))),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _brote ? Colors.red : greenBrand, shape: BoxShape.circle), child: Icon(_brote ? Icons.warning_amber_rounded : Icons.check_rounded, color: Colors.white, size: 20)),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("¿TIENE BROTE ACTIVO?", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: _brote ? Colors.red.shade900 : Colors.green.shade900)),
+          Text("Indique si el paciente presenta un brote en este momento.", style: GoogleFonts.montserrat(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+        ])),
+        Switch.adaptive(value: _brote, activeColor: Colors.red, onChanged: (v) => setState(() => _brote = v)),
+      ]),
+    );
+  }
+
+  Widget _buildActiveStatusBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      decoration: BoxDecoration(color: _brote ? Colors.red.withOpacity(0.1) : greenBrand.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: _brote ? Colors.red.withOpacity(0.2) : greenBrand.withOpacity(0.2))),
+      child: Row(children: [
+        Icon(_brote ? Icons.error_outline : Icons.verified_outlined, color: _brote ? Colors.red : greenBrand),
+        const SizedBox(width: 16),
+        Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w900, color: _brote ? Colors.red : greenBrand)),
+        const Spacer(),
+        Switch.adaptive(value: _brote, activeColor: Colors.red, onChanged: (v) => setState(() => _brote = v)),
+      ]),
+    );
+  }
+
+  Widget _dropdown(String l, List items, int? val, Function(int?) onC, {String? hint}) => DropdownButtonFormField<int>(
+    value: val, 
+    isExpanded: true,
+    hint: hint != null ? Text(hint, style: GoogleFonts.montserrat(fontSize: 13, color: Colors.grey.shade400, fontWeight: FontWeight.w500)) : null,
+    items: items.map((e) => DropdownMenuItem<int>(
+      value: e['id'], 
+      child: Text(e['nombre'] ?? e['descripcion'] ?? "", 
+        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
+    )).toList(), 
+    onChanged: onC, 
+    decoration: InputDecoration(labelText: l)
+  );
 
   Widget _datePickerSmall(String l, String v, Function(DateTime) onP) => InkWell(
     onTap: () async { final d = await showDatePicker(context: context, initialDate: DateTime.parse(v), firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now().add(const Duration(days: 90))); if (d != null) onP(d); }, 
     child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 9, color: Colors.blueGrey, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(v, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: greenBrand))]))
+  );
+
+  Widget _dateStaticSmall(String l, String v) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE2E8F0))),
+    child: Row(children: [
+      const Icon(Icons.event_available_rounded, size: 14, color: Color(0xFF64748B)),
+      const SizedBox(width: 6),
+      Expanded(child: Text("$l: ${DateFormat('EEEE, d MMMM y', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}", style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155), fontWeight: FontWeight.w600))),
+    ]),
   );
 
   Widget _richSummary(String text, Color color) {
@@ -617,27 +1061,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     return RichText(text: TextSpan(style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color, height: 1.4, fontFamily: GoogleFonts.montserrat().fontFamily), children: spans));
   }
 
-  Widget _buildOMSStatusCard() {
-    return Container(
-      padding: const EdgeInsets.all(28), decoration: BoxDecoration(color: _omsColor.withOpacity(0.06), borderRadius: BorderRadius.circular(24), border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)), 
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [Icon(Icons.analytics_rounded, color: _omsColor, size: 22), const SizedBox(width: 12), Text("DIAGNÓSTICO NUTRICIONAL OMS", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF475569)))]),
-          if (_calculandoOMS) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: greenBrand))
-          else IconButton(onPressed: _calculateOMS, icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.blueGrey), tooltip: "Recalcular")
-        ]),
-        const SizedBox(height: 24),
-        Text("${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-        if (_resumenClinico.isNotEmpty) ...[const SizedBox(height: 12), _richSummary(_resumenClinico, _omsColor)],
-        const Divider(height: 40),
-        Row(children: [_metaItem("PESO IDEAL", "${_pesoIdeal.toStringAsFixed(1)} kg", Icons.scale_rounded), const SizedBox(width: 24), _metaItem("TALLA IDEAL", "${_tallaIdeal.toStringAsFixed(1)} cm", Icons.height_rounded)]),
-        const SizedBox(height: 20),
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: Row(children: [Icon(_estadoPeso == "aumentar" ? Icons.trending_up_rounded : _estadoPeso == "disminuir" ? Icons.trending_down_rounded : Icons.trending_flat_rounded, color: _omsColor), const SizedBox(width: 16), Expanded(child: Text(_estadoPeso == "mantener" ? (_gananciaTalla > 0.5 ? "EL PACIENTE TIENE UN PESO ADECUADO, PERO PRESENTA RETRASO DE TALLA (${_gananciaTalla.toStringAsFixed(1)} CM)." : "EL PACIENTE TIENE UN PESO ADECUADO.") : (_gananciaTalla > 0.5 ? "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG Y CRECER ${_gananciaTalla.toStringAsFixed(1)} CM." : "EL PACIENTE DEBE ${_estadoPeso.toUpperCase()} ${_gananciaPeso.abs().toStringAsFixed(1)} KG."), style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))))])),
-      ])
-    );
-  }
+  Widget _sectionHeader(String t, IconData i) => Row(children: [Icon(i, size: 18, color: greenBrand), const SizedBox(width: 12), Text(t, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF0F172A), letterSpacing: 0.5))]);
 
-  Widget _metaItem(String l, String v, IconData i) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(i, size: 14, color: Colors.blueGrey), const SizedBox(width: 8), Text(l, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blueGrey))]), const SizedBox(height: 4), Text(v, style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))]));
+  Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1, Function(String)? onChanged, bool enabled = true, String? helper}) => TextFormField(controller: c, maxLines: maxLines, enabled: enabled, onChanged: onChanged, decoration: InputDecoration(labelText: l, helperText: helper, prefixIcon: Icon(i, size: 18), border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)))));
 
   Widget _buildHistoryTab() {
     if (_loading && _expediente == null) return const Center(child: CircularProgressIndicator());
@@ -651,7 +1077,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         const SizedBox(height: 24), _sectionHeader("1. MONITOREO DE SÍNTOMAS (EVA 0-10) - DOLOR Y ENERGÍA", Icons.healing_outlined), const SizedBox(height: 16), _buildSymptomsChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "symptoms"), _buildChartExplanation("¿Qué significa esta gráfica?", "• DOLOR (EVA 0-10): 0=Sin dolor, 10=Dolor insoportable.\n• ENERGÍA / FATIGA (0-10): 10=Energía máxima, 0=Agotado.\n✅ OBJETIVO: Remisión de síntomas (Dolor <=2, Energía/Bienestar >=7).", Colors.orange),
         const SizedBox(height: 40), _sectionHeader("2. ACTIVIDAD DE LA ENFERMEDAD (0-10) - INFLAMACIÓN ARTICULAR", Icons.coronavirus_outlined), const SizedBox(height: 16), _buildInflammationChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "inflammation_scale"), _buildChartExplanation("¿Qué significa esta gráfica?", "• INFLAMACIÓN (0-10): Grado de actividad inflamatoria sistémica percibida.\n✅ OBJETIVO: Mantener nivel de inflamación en 0.", Colors.red),
         const SizedBox(height: 40), _sectionHeader("3. CONTEOS ARTICULARES - AIJ", Icons.adjust), const SizedBox(height: 16), _buildJointCountChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "joints"), _buildChartExplanation("¿Qué significa esta gráfica?", "• ARTICULACIONES INFLAMADAS/DOLOROSAS: Signos de sinovitis activa.\n✅ OBJETIVO: Cero articulaciones inflamadas.", Colors.red),
-        const SizedBox(height: 40), _sectionHeader("3. MARCADORES DE LABORATORIO - PCR Y VSG", Icons.biotech_outlined), const SizedBox(height: 16), _buildLabTrendsChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "labs"), _buildChartExplanation("¿Qué significa esta gráfica?", "• PCR (<5) y VSG (<15): Marcadores de inflamación sistémica.\n✅ OBJETIVO: PCR <3 mg/L y VSG <10 mm/h.", Colors.red),
         const SizedBox(height: 56), _buildSectionHeader("NUTRICIÓN", "Estado nutricional según OMS, objetivos de peso y talla para el crecimiento", Icons.restaurant_menu, Colors.green),
         const SizedBox(height: 24), _sectionHeader("4. MONITOR Z-SCORE BMI/EDAD (OMS)", Icons.analytics_outlined), const SizedBox(height: 16), _buildZScoreChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "z_score"), _buildChartExplanation("¿Qué significa esta gráfica?", "• Z-SCORE BMI/EDAD: 0 = promedio. Rango normal: -2.0 a +2.0.\n✅ OBJETIVO: Mantener Z-Score entre -1 y +1.", Colors.green),
         const SizedBox(height: 40), _sectionHeader("5. TERMÓMETROS DE PROGRESO - PESO Y TALLA", Icons.thermostat_rounded), const SizedBox(height: 16), _buildThermometerGauges(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "thermometers"),
@@ -663,7 +1088,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _buildChartExplanation(String title, String content, Color color) => Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.03), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.15))), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lightbulb_outline, color: color, size: 20), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5)), const SizedBox(height: 8), Text(content, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.blueGrey, height: 1.6))]))]));
   Widget _buildSectionHeader(String title, String subtitle, IconData icon, Color color) => Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.2))), child: Row(children: [Icon(icon, color: color, size: 28), const SizedBox(width: 16), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 16, color: color)), Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.blueGrey))]))]));
-  Widget _sectionHeader(String t, IconData i) => Row(children: [Icon(i, size: 18, color: greenBrand), const SizedBox(width: 12), Text(t, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF0F172A), letterSpacing: 0.5))]);
 
   Widget _buildZScoreChart(List<dynamic> history) => Container(height: 350, padding: const EdgeInsets.fromLTRB(10, 32, 32, 10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200)), child: LineChart(LineChartData(minY: -3, maxY: 3, gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (v) => v == 0 ? FlLine(color: Colors.green.withOpacity(0.5), strokeWidth: 2) : (v.abs() == 2 ? FlLine(color: Colors.orange.withOpacity(0.3), strokeWidth: 1, dashArray: [5, 5]) : (v.abs() == 3 ? FlLine(color: Colors.red.withOpacity(0.3), strokeWidth: 1, dashArray: [5, 5]) : FlLine(color: Colors.grey.shade100, strokeWidth: 1)))), titlesData: FlTitlesData(rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (v, meta) => v.toInt() >= 0 && v.toInt() < history.length ? Text(DateFormat('dd/MM').format(DateTime.parse(history[v.toInt()]['fecha_control'])), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)) : const Text(""))), leftTitles: AxisTitles(axisNameWidget: const Text("Z-SCORE BMI", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, meta) => Text(v.toStringAsFixed(1), style: TextStyle(fontSize: 10, color: v == 0 ? Colors.green : (v.abs() == 2 ? Colors.orange : (v.abs() == 3 ? Colors.red : Colors.grey)), fontWeight: FontWeight.bold))))), borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade200)), lineBarsData: [LineChartBarData(spots: history.asMap().entries.map((e) => FlSpot(e.key.toDouble(), (e.value['z_score_bmi'] ?? 0).toDouble())).toList(), isCurved: true, color: const Color(0xFF2563EB), barWidth: 4, dotData: const FlDotData(show: true), belowBarData: BarAreaData(show: true, color: const Color(0xFF2563EB).withOpacity(0.05)))])));
 
@@ -743,8 +1167,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _dateBadge(DateTime d) => Container(width: 50, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: greenBrand.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Column(children: [Text(DateFormat('dd').format(d), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: greenBrand)), Text(DateFormat('MMM').format(d).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 9, color: greenBrand))]));
 
-  Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1, Function(String)? onChanged, bool enabled = true, String? helper}) => TextFormField(controller: c, maxLines: maxLines, enabled: enabled, onChanged: onChanged, decoration: InputDecoration(labelText: l, helperText: helper, prefixIcon: Icon(i, size: 18), border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)))));
-
   Widget _buildClinicalTimeline(List<dynamic> history) => Container(height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade100)), child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.all(24), itemCount: history.length, itemBuilder: (context, index) { final h = history[index]; return SizedBox(width: 160, child: Column(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: (h['en_brote'] == true) ? Colors.red : greenBrand, shape: BoxShape.circle), child: Icon((h['en_brote'] == true) ? Icons.warning : Icons.check, color: Colors.white, size: 18)), const SizedBox(height: 12), Text(DateFormat('dd MMM yyyy').format(DateTime.parse(h['fecha_control'])), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900))])); }));
 
   void _autoRecomendarDerivados(String nombreSeleccionado) {
@@ -791,3 +1213,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     ]);
   }
 }
+
+
+

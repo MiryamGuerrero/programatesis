@@ -518,7 +518,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                   child: Center(
                     child: isClinica 
                       ? Image.asset("assets/images/modal_icon_mi.png", width: 45, height: 45, fit: BoxFit.contain)
-                      : Image.asset("assets/images/rule_temporal_icon.png", width: 45, height: 45, fit: BoxFit.contain),
+                      : const Icon(Icons.flash_on_rounded, size: 38, color: AppTema.verdeSalud),
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -605,7 +605,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                         child: Text(
                           condicion["descripcion"] ?? "Información no disponible.",
                           style: GoogleFonts.montserrat(
-                            fontSize: 12, 
+                            fontSize: 13, 
                             color: const Color(0xFF475569),
                             height: 1.5,
                             fontWeight: FontWeight.w500,
@@ -641,9 +641,9 @@ class _DetalleCondicionModal extends StatelessWidget {
                             border: Border.all(color: mainColor.withOpacity(0.05)),
                           ),
                           child: Text(
-                            "${condicion["duracion_dias_sugerida"] ?? 'Indefinida'} días de seguimiento recomendado.",
+                            "${condicion["duracion_dias_sugerida"] ?? '5'} días de seguimiento recomendado.",
                             style: GoogleFonts.montserrat(
-                              fontSize: 12,
+                              fontSize: 13, 
                               color: const Color(0xFF475569),
                               height: 1.5,
                               fontWeight: FontWeight.w500,
@@ -714,7 +714,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                         _aspectItem(
                           icon: Icons.verified_user_outlined,
                           title: "Cuidados y recomendaciones",
-                          desc: "Evitar alimentos grasosos, irritantes y muy abundantes.",
+                          desc: "Evitar alimentos grasosos, irritantes y muy abundantes. Seguir indicaciones médicas.",
                         ),
                       ],
                     ],
@@ -723,7 +723,7 @@ class _DetalleCondicionModal extends StatelessWidget {
               ],
             ),
             
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             
             // FOOTER
             Center(

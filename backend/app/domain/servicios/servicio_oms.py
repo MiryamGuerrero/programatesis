@@ -301,6 +301,10 @@ class ServicioOMS:
         res_talla: Dict[str, Any],
         res_wfa: Dict[str, Any],
     ) -> str:
+        anios = edad_meses // 12
+        meses_restantes = edad_meses % 12
+        edad_txt = f"{anios} años y {meses_restantes} meses" if anios > 0 else f"{meses_restantes} meses"
+        
         nombre_peso = cls.INDICADOR_NOMBRE_CLINICO.get(indicador_peso, indicador_peso)
         nombre_talla = cls.INDICADOR_NOMBRE_CLINICO.get(indicador_talla, indicador_talla)
         diagnostico_peso = res_peso.get("diagnostico_heuristico") or res_peso["diagnostico"]
@@ -308,44 +312,40 @@ class ServicioOMS:
 
         partes = [
             (
-                f"Paciente {sexo_txt} de {edad_meses} meses, con peso de {peso_kg:g} kg "
+                f"Paciente {sexo_txt} de {edad_txt}, evaluado con peso de {peso_kg:g} kg "
                 f"y talla de {talla_cm:g} cm."
             ),
             (
-                f"El diagnostico principal de peso se realiza con {nombre_peso} "
-                f"({indicador_peso}) y clasifica como {diagnostico_peso}."
-            ),
-            (
-                f"El diagnostico de talla se realiza con {nombre_talla} "
-                f"({indicador_talla}) y clasifica como {diagnostico_talla}."
+                f"Estado nutricional: {diagnostico_peso.upper()} (basado en {nombre_peso}). "
+                f"Crecimiento lineal: {diagnostico_talla.upper()} (basado en {nombre_talla})."
             ),
         ]
 
+        # Casos especiales de importancia clínica
         talla_baja = res_talla.get("id_condicion") in {124, 125}
         peso_adecuado = res_peso.get("id_condicion") == 110
-        if talla_baja and peso_adecuado and indicador_peso in {"WFL", "WFH"}:
+        
+        if talla_baja and peso_adecuado:
             partes.append(
-                "El paciente tiene talla baja para su edad, pero su peso es adecuado "
-                "para su talla actual. No debe clasificarse como bajo peso solo por edad."
+                "Nota: Se observa un retraso en el crecimiento lineal (talla baja), "
+                "sin embargo, el peso actual es proporcional a su estatura. "
+                "No debe interpretarse como desnutrición aguda."
             )
 
-        if edad_meses == 24 and indicador_peso == "WFH":
-            partes.append(
-                "Para 24 meses, el peso se evalua con peso para talla, no con peso para edad."
-            )
-        elif indicador_peso in {"WFL", "WFH"}:
-            partes.append(
-                "El peso para edad no se usa como diagnostico principal porque no distingue "
-                "si el paciente es bajo, alto, delgado o tiene exceso de peso."
-            )
+        z_peso = res_peso.get("z_score")
+        if z_peso is not None:
+            if z_peso > 2:
+                partes.append("Alerta: El paciente presenta indicadores de exceso de peso significativo.")
+            elif z_peso < -2:
+                partes.append("Alerta: Se detecta un déficit ponderal que requiere intervención nutricional.")
 
-        if res_wfa.get("id_condicion") and res_wfa.get("id_condicion_heuristico") is None:
-            partes.append(
-                "El indicador WFA queda solo como alerta complementaria y no se envia como "
-                "condicion nutricional principal."
-            )
+        if res_wfa["z_score"] is not None and abs(res_wfa["z_score"] - (z_peso or 0)) > 1.5:
+             partes.append(
+                 "Existe una discrepancia significativa entre el peso para la edad y el indicador principal; "
+                 "esto confirma la importancia de no usar el peso para la edad como único criterio diagnóstico."
+             )
 
-        partes.append("Se recomienda seguimiento segun criterio clinico.")
+        partes.append("Se recomienda seguimiento clínico periódico para monitorear la evolución de las curvas de crecimiento.")
         return " ".join(partes)
 
     @classmethod

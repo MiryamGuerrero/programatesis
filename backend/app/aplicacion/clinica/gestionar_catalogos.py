@@ -11,6 +11,27 @@ class CasoUsoGestionarCatalogos:
 
     def obtener_catalogos_registro_paciente(self) -> Dict[str, List[Dict[str, Any]]]:
         condiciones = self.repo_perfil.obtener_catalogo("heuristico", "condicion")
+        ingredientes = self.repo_perfil.obtener_catalogo("nutricion", "ingrediente")
+        subgrupos = self.repo_perfil.obtener_catalogo("nutricion", "subgrupo_alimentario")
+        restricciones = catalogo_restricciones(subgrupos, ingredientes)
+        try:
+            catalogo_bd = self.repo_perfil.obtener_catalogo("clinico", "catalogo_restriccion_alimentaria")
+            if catalogo_bd:
+                restricciones = [
+                    {
+                        "codigo": r.get("codigo"),
+                        "nombre": r.get("nombre") or r.get("codigo"),
+                        "ids_subgrupos": [],
+                        "ids_ingredientes": [],
+                        "etiquetas_bloqueadas": [r.get("etiqueta_bloqueante_codigo")] if r.get("etiqueta_bloqueante_codigo") else [],
+                        "etiquetas_positivas": [],
+                    }
+                    for r in catalogo_bd
+                    if r.get("activa", True)
+                ]
+        except Exception:
+            # Fallback al catalogo estático cuando la tabla clínica aún no existe.
+            pass
         return {
             "parentescos": self.repo_perfil.obtener_catalogo("usuarios", "parentesco"),
             "sexos": self.repo_perfil.obtener_catalogo("usuarios", "catalogo_sexo"),
@@ -22,9 +43,9 @@ class CasoUsoGestionarCatalogos:
                 c for c in condiciones
                 if (c.get("id_tipo") or c.get("id_tipo_condicion")) == 2
             ],
-            "ingredientes": self.repo_perfil.obtener_catalogo("nutricion", "ingrediente"),
+            "ingredientes": ingredientes,
             "cantones": self.repo_perfil.obtener_catalogo("usuarios", "canton"),
             "parroquias": self.repo_perfil.obtener_catalogo("usuarios", "parroquia"),
-            "subgrupos": self.repo_perfil.obtener_catalogo("nutricion", "subgrupo_alimentario"),
-            "restricciones_alimentarias": catalogo_restricciones(),
+            "subgrupos": subgrupos,
+            "restricciones_alimentarias": restricciones,
         }

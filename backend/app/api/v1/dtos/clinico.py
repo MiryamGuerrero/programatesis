@@ -70,8 +70,6 @@ class SaludRegistroIntegral(BaseModel):
     id_patologia_base: int
     peso_kg: Optional[Any] = None
     talla_cm: Optional[Any] = None
-    valor_pcr: Optional[Any] = None
-    valor_vsg: Optional[Any] = None
     articulaciones_inflamadas: Optional[Any] = None
     articulaciones_dolorosas: Optional[Any] = None
     minutos_rigidez: Optional[Any] = None
@@ -94,8 +92,6 @@ class SaludFijaUpdate(BaseModel):
     id_patologia_base: int
     peso_kg: Optional[Any] = None
     talla_cm: Optional[Any] = None
-    valor_pcr: Optional[Any] = None
-    valor_vsg: Optional[Any] = None
     articulaciones_inflamadas: Optional[Any] = None
     articulaciones_dolorosas: Optional[Any] = None
     minutos_rigidez: Optional[Any] = None

@@ -128,7 +128,7 @@ def actualizar_control_mensual_actual_desde_nutri(
         _asegurar_tabla_validacion_nutri(cur)
         cur.execute(
             """
-            select id, peso_kg, talla_cm, valor_pcr, valor_vsg, puntos_dolor, escala_inflamacion,
+            select id, peso_kg, talla_cm, puntos_dolor, escala_inflamacion,
                    nivel_fatiga, articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
                    en_brote, estado_enfermedad, nota_evolucion, fecha_proxima_cita
             from clinico.control_paciente
@@ -146,18 +146,16 @@ def actualizar_control_mensual_actual_desde_nutri(
         datos = {
             "peso_kg": payload.get("peso_kg", row[1]),
             "talla_cm": payload.get("talla_cm", row[2]),
-            "valor_pcr": payload.get("valor_pcr", row[3]),
-            "valor_vsg": payload.get("valor_vsg", row[4]),
-            "puntos_dolor": payload.get("puntos_dolor", row[5]),
-            "escala_inflamacion": payload.get("escala_inflamacion", row[6]),
-            "fatiga": payload.get("fatiga", row[7]),
-            "articulaciones_inflamadas": payload.get("articulaciones_inflamadas", row[8]),
-            "articulaciones_dolorosas": payload.get("articulaciones_dolorosas", row[9]),
-            "minutos_rigidez": payload.get("minutos_rigidez", row[10]),
-            "en_brote": payload.get("en_brote", row[11]),
-            "estado_enfermedad": payload.get("estado_enfermedad", row[12]),
-            "nota_evolucion": payload.get("nota_evolucion", row[13]),
-            "fecha_proxima_cita": payload.get("fecha_proxima_cita", row[14]),
+            "puntos_dolor": payload.get("puntos_dolor", row[3]),
+            "escala_inflamacion": payload.get("escala_inflamacion", row[4]),
+            "fatiga": payload.get("fatiga", row[5]),
+            "articulaciones_inflamadas": payload.get("articulaciones_inflamadas", row[6]),
+            "articulaciones_dolorosas": payload.get("articulaciones_dolorosas", row[7]),
+            "minutos_rigidez": payload.get("minutos_rigidez", row[8]),
+            "en_brote": payload.get("en_brote", row[9]),
+            "estado_enfermedad": payload.get("estado_enfermedad", row[10]),
+            "nota_evolucion": payload.get("nota_evolucion", row[11]),
+            "fecha_proxima_cita": payload.get("fecha_proxima_cita", row[12]),
             "id_condicion_nutricional_peso": payload.get("id_condicion_nutricional_peso"),
             "id_condicion_nutricional_talla": payload.get("id_condicion_nutricional_talla"),
             "condiciones_temporales": payload.get("condiciones_temporales", []),
@@ -228,6 +226,7 @@ def obtener_estado_validacion_control_mensual(
 @router.get("/pacientes/{id_paciente}/prefetch-planificacion")
 def prefetch_planificacion_paciente(
     id_paciente: str,
+    include_ingredientes: bool = Query(default=False),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """
@@ -245,9 +244,12 @@ def prefetch_planificacion_paciente(
     expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
 
-    repo_ing = RepositorioIngredientePostgres()
-    ingredientes_seguros = repo_ing.buscar_ingredientes_filtrados(id_paciente, consulta="", limite=300)
-    ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
+    ingredientes_seguros = []
+    ingredientes_recomendados = []
+    if include_ingredientes:
+        repo_ing = RepositorioIngredientePostgres()
+        ingredientes_seguros = repo_ing.buscar_ingredientes_filtrados(id_paciente, consulta="", limite=300)
+        ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
 
     condiciones = RepositorioPerfilPostgres().obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
     condiciones_peso = []
@@ -491,6 +493,20 @@ def listar_recetas_seguras(
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/recetas-permitidas/tipos-disponibles")
+def listar_tipos_disponibles_recetas_seguras(
+    id_paciente: str,
+    id_momento: int | None = None,
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
+):
+    if not id_paciente:
+        raise HTTPException(status_code=400, detail="ID de paciente requerido")
+    repo_receta = RepositorioRecetaPostgres()
+    return repo_receta.listar_tipos_plato_disponibles_para_paciente(
+        id_paciente=id_paciente,
+        id_momento=id_momento,
+    )
 
 @router.post("/plan-manual")
 def guardar_plan_manual(
@@ -917,15 +933,38 @@ def guardar_receta_completa(payload: dict):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     import traceback
     import sys
+    import json
     repo = RepositorioRecetaPostgres()
     try:
         id_receta = repo.guardar_receta(payload)
-        return {"success": True, "id": id_receta}
+        return {
+            "success": True,
+            "id": id_receta,
+            "estado": "APTA_REUMATICA",
+            "permitir_guardado": True,
+            "mostrar_motivo": False,
+        }
     except Exception as e:
-        error_msg = f"Error guardando receta: {str(e)}"
+        raw_msg = str(e)
+        if raw_msg.startswith("__REUMA_BLOCK__"):
+            try:
+                violaciones = json.loads(raw_msg.replace("__REUMA_BLOCK__", "", 1))
+            except Exception:
+                violaciones = [raw_msg.replace("__REUMA_BLOCK__", "", 1)]
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "success": False,
+                    "estado": "NO_APTA_REUMATICA",
+                    "permitir_guardado": False,
+                    "mostrar_motivo": True,
+                    "motivos": violaciones,
+                    "opciones": ["DESCARTAR_RECETA", "CAMBIAR_INGREDIENTE"],
+                },
+            )
+        error_msg = f"Error guardando receta: {raw_msg}"
         print(error_msg, file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=error_msg)
 
 @router.delete("/crud/recetas/{id_receta}")

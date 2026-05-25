@@ -1,0 +1,67 @@
+REGLAS CLINICAS ACTUALES (extraidas de BD)
+=========================================
+
+TOTAL REGLAS: 53
+
+CONDICION: GENERAL_REUMATICOS (total=19)
+------------------------------------------------------------------------------------------
+regla_id=2305 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:70:Grasas trans elevadas | estricta=True | mensaje=No apta: grasas trans elevadas
+regla_id=2306 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:94:Contiene grasas trans | estricta=True | mensaje=No apta: contiene grasas trans
+regla_id=2307 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:138:Ultraprocesado | estricta=True | mensaje=No apta: ultraprocesado
+regla_id=2308 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:78:Altamente inflamatorio | estricta=True | mensaje=No apta: altamente inflamatorio
+regla_id=2309 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:118:Proinflamatorio | estricta=True | mensaje=No apta: proinflamatorio
+regla_id=2310 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:112:Muy alto en sodio | estricta=True | mensaje=No apta: muy alto en sodio
+regla_id=2311 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:37:Salazones de pescado | estricta=True | mensaje=No apta: salazones de pescado
+regla_id=2312 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:35:Pescados ahumados | estricta=True | mensaje=No apta: pescados ahumados
+regla_id=2313 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:109:Embutidos curados (sin gluten) | estricta=True | mensaje=No apta: embutidos curados
+regla_id=2314 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:110:Embutidos frescos y cocidos (pueden contener gluten) | estricta=True | mensaje=No apta: embutidos frescos y cocidos
+regla_id=2315 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:130:Alto en azúcar añadido | estricta=True | mensaje=No apta: alto en azucar anadido
+regla_id=2316 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:211:Bebida azucarada | estricta=True | mensaje=No apta: bebida azucarada
+regla_id=2317 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:133:Calorías vacías | estricta=True | mensaje=No apta: calorias vacias
+regla_id=2318 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:53:Zumos y néctares comerciales | estricta=True | mensaje=No apta: zumos y nectares comerciales
+regla_id=2319 | accion=ELIMINAR | tipo=SUBGRUPO ALIMENTARIO | objetivo=SUBGRUPO:49:Bebidas isotónicas | estricta=True | mensaje=No apta: bebidas isotonicas
+regla_id=2320 | accion=ELIMINAR | tipo=INGREDIENTE | objetivo=INGREDIENTE:420:Aceite de palma | estricta=True | mensaje=No apta: aceite de palma
+regla_id=2321 | accion=ELIMINAR | tipo=INGREDIENTE | objetivo=INGREDIENTE:423:Mantequilla | estricta=True | mensaje=No apta: mantequilla
+regla_id=2322 | accion=ELIMINAR | tipo=INGREDIENTE | objetivo=INGREDIENTE:426:Margarina | estricta=True | mensaje=No apta: margarina
+regla_id=2323 | accion=ELIMINAR | tipo=INGREDIENTE | objetivo=INGREDIENTE:433:Manteca de cerdo | estricta=True | mensaje=No apta: manteca de cerdo
+
+CONDICION: artritis_idiopatica_juvenil (total=19)
+------------------------------------------------------------------------------------------
+regla_id=2373 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:125:Baja densidad calórica | estricta=False | mensaje=AIJ condicional: disminuir baja densidad calorica si riesgo nutricional
+regla_id=2374 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:177:Salado | estricta=False | mensaje=AIJ condicional: disminuir receta dificil en brote
+regla_id=2375 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:178:Completo | estricta=False | mensaje=AIJ condicional: disminuir volumen/complejidad si inapetencia
+regla_id=2376 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:76:Alta fuente de proteína | estricta=False | mensaje=AIJ: priorizar crecimiento y masa muscular
+regla_id=2377 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:154:Proteína magra | estricta=False | mensaje=AIJ: priorizar proteina magra
+regla_id=2378 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:104:Media fuente de proteína | estricta=False | mensaje=AIJ: priorizar fuente media de proteina
+regla_id=2379 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:179:Nutritivo | estricta=False | mensaje=AIJ: priorizar nutritivo
+regla_id=2380 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:71:Alta fuente de calcio | estricta=False | mensaje=AIJ: priorizar salud osea (calcio)
+regla_id=2381 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:150:Alta fuente de vitamina D | estricta=False | mensaje=AIJ: priorizar salud osea (vitamina D alta)
+regla_id=2382 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:151:Media fuente de vitamina D | estricta=False | mensaje=AIJ: priorizar salud osea (vitamina D media)
+regla_id=2383 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:75:Rico en omega 3 | estricta=False | mensaje=AIJ: priorizar omega 3
+regla_id=2384 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:98:Ligera fuente de omega 3 | estricta=False | mensaje=AIJ: priorizar ligera fuente omega 3
+regla_id=2385 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:93:Balance de omegas favorable | estricta=False | mensaje=AIJ: priorizar balance de omegas
+regla_id=2386 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:183:Textura suave | estricta=False | mensaje=AIJ: priorizar textura suave
+regla_id=2387 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:204:Textura blanda | estricta=False | mensaje=AIJ: priorizar textura blanda
+regla_id=2388 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:171:Fácil de consumir | estricta=False | mensaje=AIJ: priorizar facil de consumir
+regla_id=2389 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:201:Buena tolerancia digestiva | estricta=False | mensaje=AIJ: priorizar tolerancia digestiva
+regla_id=2390 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:209:Densidad energética alta nutritiva | estricta=False | mensaje=AIJ condicional: priorizar densidad energetica nutritiva
+regla_id=2391 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:212:Alimento terapeutico nutricional | estricta=False | mensaje=AIJ condicional: priorizar alimento terapeutico nutricional
+
+CONDICION: lupus_eritematoso_sistemico (total=15)
+------------------------------------------------------------------------------------------
+regla_id=2358 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:9001:Contiene alfalfa o L-canavanina | estricta=True | mensaje=LES: evitar alfalfa/L-canavanina
+regla_id=2359 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:83:Riesgo de retención de líquidos | estricta=False | mensaje=LES: disminuir por retencion de liquidos
+regla_id=2360 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:119:Riesgo moderado de retención | estricta=False | mensaje=LES: disminuir por riesgo moderado de retencion
+regla_id=2361 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:160:Alto en fósforo | estricta=False | mensaje=LES condicional: disminuir si nefritis/restriccion fosforo
+regla_id=2362 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:158:Alto en potasio | estricta=False | mensaje=LES condicional: disminuir si nefritis/restriccion potasio
+regla_id=2363 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:110:Muy alta fuente de proteína | estricta=False | mensaje=LES condicional: disminuir exceso proteico si dano renal
+regla_id=2364 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:71:Alta fuente de calcio | estricta=False | mensaje=LES: priorizar salud osea (calcio)
+regla_id=2365 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:150:Alta fuente de vitamina D | estricta=False | mensaje=LES: priorizar salud osea (vitamina D alta)
+regla_id=2366 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:151:Media fuente de vitamina D | estricta=False | mensaje=LES: priorizar salud osea (vitamina D media)
+regla_id=2367 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:95:Equilibrio de líquidos ideal | estricta=False | mensaje=LES: priorizar proteccion cardiorrenal
+regla_id=2368 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:157:Bajo índice glucémico | estricta=False | mensaje=LES: priorizar bajo indice glucemico
+regla_id=2369 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:194:Energía estable | estricta=False | mensaje=LES: priorizar energia estable
+regla_id=2370 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:82:Alto poder antioxidante | estricta=False | mensaje=LES: priorizar antioxidantes
+regla_id=2371 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:75:Rico en omega 3 | estricta=False | mensaje=LES: priorizar omega 3
+regla_id=2372 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:93:Balance de omegas favorable | estricta=False | mensaje=LES: priorizar balance de omegas
+

@@ -1,0 +1,131 @@
+REPORTE DE REGLAS Y ETIQUETAS REUMATICAS
+====================================================
+Fecha de generacion: 2026-05-23 17:51:25
+
+1) ETIQUETAS ELIMINADAS FORZADO (ALERGIAS)
+----------------------------------------------------
+- CONTIENE_HUEVO
+- SIN_HUEVO
+- CONTIENE_SOJA
+- SIN_SOJA
+- CONTIENE_FRUTOS_SECOS
+- SIN_FRUTOS_SECOS
+- CONTIENE_PESCADO
+- SIN_PESCADO
+- CONTIENE_MARISCOS
+- SIN_MARISCOS
+
+2) ETIQUETAS CLAVE VIGENTES (INTOLERANCIAS/DIABETES/LES)
+----------------------------------------------------
+- id=225 | ALTO_AZUCAR | Alto en azucar
+- id=227 | APTO_DIABETICOS | Apto para diabeticos
+- id=228 | BAJO_AZUCAR | Bajo en azucar
+- id=230 | CARBOHIDRATO_CONTROLADO | Carbohidrato controlado
+- id=213 | CONTIENE_GLUTEN | Contiene gluten
+- id=148 | CONTIENE_LACTOSA | Contiene lactosa
+- id=9001 | E9001_ALFALFA_L_CANAVANINA | Contiene alfalfa o L-canavanina
+- id=226 | NO_APTO_DIABETICOS | No apto para diabeticos
+- id=229 | SIN_AZUCAR_ANADIDA | Sin azucar anadida
+- id=214 | SIN_GLUTEN | Sin gluten
+- id=149 | SIN_LACTOSA | Sin lactosa
+
+3) CATALOGO ESPERADO EN PUNTO 2 (BACKEND)
+----------------------------------------------------
+- DIABETES
+- INTOLERANCIA_LACTOSA
+- INTOLERANCIA_GLUTEN
+- CELIAQUIA
+- INTOLERANCIA_FRUCTOSA
+- INTOLERANCIA_HISTAMINA
+- INTOLERANCIA_SORBITOL_SACAROSA
+- INTOLERANCIA_SULFITOS
+
+4) RESUMEN REGLAS CLINICAS ACTIVAS
+----------------------------------------------------
+- condicion=artritis_idiopatica_juvenil | accion=Disminuir | total=3
+- condicion=artritis_idiopatica_juvenil | accion=Priorizar | total=16
+- condicion=GENERAL_REUMATICOS | accion=Disminuir | total=7
+- condicion=GENERAL_REUMATICOS | accion=Eliminar | total=19
+- condicion=GENERAL_REUMATICOS | accion=Priorizar | total=16
+- condicion=lupus_eritematoso_sistemico | accion=Disminuir | total=5
+- condicion=lupus_eritematoso_sistemico | accion=Eliminar | total=1
+- condicion=lupus_eritematoso_sistemico | accion=Priorizar | total=9
+
+5) DETALLE REGLAS CLINICAS ACTIVAS
+----------------------------------------------------
+- cond=artritis_idiopatica_juvenil | regla_id=2525 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=125 | estricta=False | msg=AIJ condicional: disminuir baja densidad energ?tica si riesgo nutricional
+- cond=artritis_idiopatica_juvenil | regla_id=2526 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=177 | estricta=False | msg=AIJ condicional: disminuir si dificultad de consumo en brote
+- cond=artritis_idiopatica_juvenil | regla_id=2527 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=178 | estricta=False | msg=AIJ condicional: disminuir exceso de volumen en inapetencia
+- cond=artritis_idiopatica_juvenil | regla_id=2528 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=76 | estricta=False | msg=AIJ: priorizar crecimiento y masa muscular
+- cond=artritis_idiopatica_juvenil | regla_id=2529 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=104 | estricta=False | msg=AIJ: priorizar crecimiento y masa muscular
+- cond=artritis_idiopatica_juvenil | regla_id=2530 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=154 | estricta=False | msg=AIJ: priorizar crecimiento y masa muscular
+- cond=artritis_idiopatica_juvenil | regla_id=2531 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=179 | estricta=False | msg=AIJ: priorizar crecimiento y masa muscular
+- cond=artritis_idiopatica_juvenil | regla_id=2532 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=71 | estricta=False | msg=AIJ: priorizar salud ?sea
+- cond=artritis_idiopatica_juvenil | regla_id=2533 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=150 | estricta=False | msg=AIJ: priorizar salud ?sea
+- cond=artritis_idiopatica_juvenil | regla_id=2534 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=151 | estricta=False | msg=AIJ: priorizar salud ?sea
+- cond=artritis_idiopatica_juvenil | regla_id=2535 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=75 | estricta=False | msg=AIJ: priorizar omega 3 pedi?trico
+- cond=artritis_idiopatica_juvenil | regla_id=2536 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=98 | estricta=False | msg=AIJ: priorizar omega 3 pedi?trico
+- cond=artritis_idiopatica_juvenil | regla_id=2537 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=93 | estricta=False | msg=AIJ: priorizar omega 3 pedi?trico
+- cond=artritis_idiopatica_juvenil | regla_id=2538 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=183 | estricta=False | msg=AIJ: priorizar f?cil consumo y adherencia
+- cond=artritis_idiopatica_juvenil | regla_id=2539 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=204 | estricta=False | msg=AIJ: priorizar f?cil consumo y adherencia
+- cond=artritis_idiopatica_juvenil | regla_id=2540 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=171 | estricta=False | msg=AIJ: priorizar f?cil consumo y adherencia
+- cond=artritis_idiopatica_juvenil | regla_id=2541 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=201 | estricta=False | msg=AIJ: priorizar f?cil consumo y adherencia
+- cond=artritis_idiopatica_juvenil | regla_id=2542 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=209 | estricta=False | msg=AIJ condicional: priorizar densidad energ?tica nutritiva
+- cond=artritis_idiopatica_juvenil | regla_id=2543 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=212 | estricta=False | msg=AIJ condicional: priorizar densidad energ?tica nutritiva
+- cond=GENERAL_REUMATICOS | regla_id=2468 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=70 | estricta=True | msg=No apta: grasas trans elevadas
+- cond=GENERAL_REUMATICOS | regla_id=2469 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=94 | estricta=True | msg=No apta: contiene grasas trans
+- cond=GENERAL_REUMATICOS | regla_id=2470 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=138 | estricta=True | msg=No apta: ultraprocesado
+- cond=GENERAL_REUMATICOS | regla_id=2471 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=78 | estricta=True | msg=No apta: altamente inflamatorio
+- cond=GENERAL_REUMATICOS | regla_id=2472 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=118 | estricta=True | msg=No apta: proinflamatorio
+- cond=GENERAL_REUMATICOS | regla_id=2473 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=112 | estricta=True | msg=No apta: muy alto en sodio
+- cond=GENERAL_REUMATICOS | regla_id=2474 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=130 | estricta=True | msg=No apta: alto en azucar a?adido
+- cond=GENERAL_REUMATICOS | regla_id=2475 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=211 | estricta=True | msg=No apta: bebida azucarada
+- cond=GENERAL_REUMATICOS | regla_id=2476 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=133 | estricta=True | msg=No apta: calorias vacias
+- cond=GENERAL_REUMATICOS | regla_id=2477 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=37 | etq=None | estricta=True | msg=No apta: salazones de pescado
+- cond=GENERAL_REUMATICOS | regla_id=2478 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=35 | etq=None | estricta=True | msg=No apta: pescados ahumados
+- cond=GENERAL_REUMATICOS | regla_id=2479 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=109 | etq=None | estricta=True | msg=No apta: embutidos curados
+- cond=GENERAL_REUMATICOS | regla_id=2480 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=110 | etq=None | estricta=True | msg=No apta: embutidos frescos y cocidos
+- cond=GENERAL_REUMATICOS | regla_id=2481 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=53 | etq=None | estricta=True | msg=No apta: zumos y nectares comerciales
+- cond=GENERAL_REUMATICOS | regla_id=2482 | accion=Eliminar | tipo=Subgrupo alimentario | ing=None | sub=49 | etq=None | estricta=True | msg=No apta: bebidas isot?nicas
+- cond=GENERAL_REUMATICOS | regla_id=2483 | accion=Eliminar | tipo=Ingrediente | ing=420 | sub=None | etq=None | estricta=True | msg=No apta: aceite de palma
+- cond=GENERAL_REUMATICOS | regla_id=2484 | accion=Eliminar | tipo=Ingrediente | ing=423 | sub=None | etq=None | estricta=True | msg=No apta: mantequilla
+- cond=GENERAL_REUMATICOS | regla_id=2485 | accion=Eliminar | tipo=Ingrediente | ing=426 | sub=None | etq=None | estricta=True | msg=No apta: margarina
+- cond=GENERAL_REUMATICOS | regla_id=2486 | accion=Eliminar | tipo=Ingrediente | ing=433 | sub=None | etq=None | estricta=True | msg=No apta: manteca de cerdo
+- cond=GENERAL_REUMATICOS | regla_id=2487 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=81 | estricta=False | msg=General: disminuir por sodio no cr?tico
+- cond=GENERAL_REUMATICOS | regla_id=2488 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=109 | estricta=False | msg=General: disminuir por sodio no cr?tico
+- cond=GENERAL_REUMATICOS | regla_id=2489 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=152 | estricta=False | msg=General: disminuir por grasa saturada/total elevada
+- cond=GENERAL_REUMATICOS | regla_id=2490 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=111 | estricta=False | msg=General: disminuir por grasa saturada/total elevada
+- cond=GENERAL_REUMATICOS | regla_id=2491 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=156 | estricta=False | msg=General: disminuir por refinado o ?ndice gluc?mico alto
+- cond=GENERAL_REUMATICOS | regla_id=2492 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=142 | estricta=False | msg=General: disminuir por refinado o ?ndice gluc?mico alto
+- cond=GENERAL_REUMATICOS | regla_id=2493 | accion=Disminuir | tipo=Subgrupo alimentario | ing=None | sub=36 | etq=None | estricta=False | msg=General: disminuir por pescado en conserva (sodio)
+- cond=GENERAL_REUMATICOS | regla_id=2494 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=77 | estricta=False | msg=General: priorizar patr?n antiinflamatorio
+- cond=GENERAL_REUMATICOS | regla_id=2495 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=84 | estricta=False | msg=General: priorizar patr?n antiinflamatorio
+- cond=GENERAL_REUMATICOS | regla_id=2496 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=99 | estricta=False | msg=General: priorizar patr?n antiinflamatorio
+- cond=GENERAL_REUMATICOS | regla_id=2497 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=75 | estricta=False | msg=General: priorizar omega 3 y grasas saludables
+- cond=GENERAL_REUMATICOS | regla_id=2498 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=93 | estricta=False | msg=General: priorizar omega 3 y grasas saludables
+- cond=GENERAL_REUMATICOS | regla_id=2499 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=170 | estricta=False | msg=General: priorizar omega 3 y grasas saludables
+- cond=GENERAL_REUMATICOS | regla_id=2500 | accion=Priorizar | tipo=Subgrupo alimentario | ing=None | sub=33 | etq=None | estricta=False | msg=General: priorizar pescado azul
+- cond=GENERAL_REUMATICOS | regla_id=2501 | accion=Priorizar | tipo=Ingrediente | ing=418 | sub=None | etq=None | estricta=False | msg=General: priorizar aceite de oliva virgen extra
+- cond=GENERAL_REUMATICOS | regla_id=2502 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=82 | estricta=False | msg=General: priorizar antioxidantes/fibra/alimento fresco
+- cond=GENERAL_REUMATICOS | regla_id=2503 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=72 | estricta=False | msg=General: priorizar antioxidantes/fibra/alimento fresco
+- cond=GENERAL_REUMATICOS | regla_id=2504 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=155 | estricta=False | msg=General: priorizar antioxidantes/fibra/alimento fresco
+- cond=GENERAL_REUMATICOS | regla_id=2505 | accion=Priorizar | tipo=Subgrupo alimentario | ing=None | sub=13 | etq=None | estricta=False | msg=General: priorizar verduras y frutas frescas
+- cond=GENERAL_REUMATICOS | regla_id=2506 | accion=Priorizar | tipo=Subgrupo alimentario | ing=None | sub=17 | etq=None | estricta=False | msg=General: priorizar verduras y frutas frescas
+- cond=GENERAL_REUMATICOS | regla_id=2507 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=91 | estricta=False | msg=General: priorizar bajo sodio y buena calidad de grasa
+- cond=GENERAL_REUMATICOS | regla_id=2508 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=153 | estricta=False | msg=General: priorizar bajo sodio y buena calidad de grasa
+- cond=GENERAL_REUMATICOS | regla_id=2509 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=97 | estricta=False | msg=General: priorizar bajo sodio y buena calidad de grasa
+- cond=lupus_eritematoso_sistemico | regla_id=2510 | accion=Eliminar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=9001 | estricta=True | msg=LES: evitar alfalfa/L-canavanina
+- cond=lupus_eritematoso_sistemico | regla_id=2511 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=83 | estricta=False | msg=LES: disminuir por retenci?n de l?quidos
+- cond=lupus_eritematoso_sistemico | regla_id=2512 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=119 | estricta=False | msg=LES: disminuir por retenci?n de l?quidos
+- cond=lupus_eritematoso_sistemico | regla_id=2513 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=160 | estricta=False | msg=LES condicional: disminuir si nefritis/restricci?n renal
+- cond=lupus_eritematoso_sistemico | regla_id=2514 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=158 | estricta=False | msg=LES condicional: disminuir si nefritis/restricci?n renal
+- cond=lupus_eritematoso_sistemico | regla_id=2515 | accion=Disminuir | tipo=Etiqueta nutricional | ing=None | sub=None | etq=110 | estricta=False | msg=LES condicional: disminuir exceso proteico si da?o renal
+- cond=lupus_eritematoso_sistemico | regla_id=2516 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=71 | estricta=False | msg=LES: priorizar salud ?sea
+- cond=lupus_eritematoso_sistemico | regla_id=2517 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=150 | estricta=False | msg=LES: priorizar salud ?sea
+- cond=lupus_eritematoso_sistemico | regla_id=2518 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=151 | estricta=False | msg=LES: priorizar salud ?sea
+- cond=lupus_eritematoso_sistemico | regla_id=2519 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=95 | estricta=False | msg=LES: priorizar protecci?n cardiorrenal/metab?lica
+- cond=lupus_eritematoso_sistemico | regla_id=2520 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=157 | estricta=False | msg=LES: priorizar protecci?n cardiorrenal/metab?lica
+- cond=lupus_eritematoso_sistemico | regla_id=2521 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=194 | estricta=False | msg=LES: priorizar protecci?n cardiorrenal/metab?lica
+- cond=lupus_eritematoso_sistemico | regla_id=2522 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=82 | estricta=False | msg=LES: priorizar antioxidantes y omega 3
+- cond=lupus_eritematoso_sistemico | regla_id=2523 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=75 | estricta=False | msg=LES: priorizar antioxidantes y omega 3
+- cond=lupus_eritematoso_sistemico | regla_id=2524 | accion=Priorizar | tipo=Etiqueta nutricional | ing=None | sub=None | etq=93 | estricta=False | msg=LES: priorizar antioxidantes y omega 3

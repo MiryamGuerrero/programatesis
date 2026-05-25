@@ -5,8 +5,10 @@ from ...domain.repositorios.interfaces import IRepositorioRegla
 
 class RepositorioReglaPostgres(IRepositorioRegla):
     def obtener_reglas_por_condiciones(self, ids_condiciones: List[int]) -> List[Regla]:
-        if not ids_condiciones: return []
+        if not ids_condiciones:
+            return []
         with db_cursor() as cur:
+            ids_objetivo = self._expandir_condiciones_con_general_reumaticos(cur, ids_condiciones)
             sql = """
                 select r.id, cr.id_condicion, r.origen_regla, a.nombre as accion_nombre, t.nombre as objetivo_nombre, 
                        r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta, r.id_receta,
@@ -17,8 +19,46 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
                 where cr.id_condicion = any(%s)
             """
-            cur.execute(sql, (ids_condiciones,))
+            cur.execute(sql, (ids_objetivo,))
             return [self._mapear_fila_a_regla(r) for r in cur.fetchall()]
+
+    def _expandir_condiciones_con_general_reumaticos(self, cur, ids_condiciones: List[int]) -> List[int]:
+        ids_base = set(ids_condiciones or [])
+        if not ids_base:
+            return []
+
+        # Resolver IDs por indicador_codigo y nombre para robustez entre ambientes.
+        cur.execute(
+            """
+            select id, indicador_codigo, lower(nombre) as nombre
+            from heuristico.condicion
+            where activa = true
+            """
+        )
+        filas = cur.fetchall()
+        if not filas:
+            return list(ids_base)
+
+        general_id = None
+        ids_reuma = set()
+        for cid, indicador, nombre in filas:
+            indicador_up = (indicador or "").upper()
+            nombre_low = (nombre or "").strip()
+            if indicador_up == "GENERAL_REUMATICOS" or nombre_low == "general reumaticos":
+                general_id = cid
+            if (
+                "LUPUS" in indicador_up
+                or "ARTRITIS_IDIOPATICA_JUVENIL" in indicador_up
+                or "lupus" in nombre_low
+                or "artritis idiopatica juvenil" in nombre_low
+                or "aij" == nombre_low
+                or "aij " in f"{nombre_low} "
+            ):
+                ids_reuma.add(cid)
+
+        if general_id and (ids_base & ids_reuma):
+            ids_base.add(general_id)
+        return list(ids_base)
 
     def obtener_alergias_por_paciente(self, id_paciente: str) -> List[Regla]:
         with db_cursor() as cur:

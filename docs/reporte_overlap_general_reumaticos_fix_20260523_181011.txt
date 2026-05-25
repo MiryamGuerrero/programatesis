@@ -1,0 +1,25 @@
+REPORTE CONTROL OVERLAP VS GENERAL_REUMATICOS
+====================================================
+Fecha: 2026-05-23 18:10:11
+Modo: fix
+
+Resumen antes
+- TEMPORAL | Disminuir | 72
+- TEMPORAL | Eliminar | 53
+- TEMPORAL | Priorizar | 102
+- NUTRICIONAL | Disminuir | 26
+- NUTRICIONAL | Eliminar | 9
+- NUTRICIONAL | Priorizar | 87
+
+Overlaps detectados: 0
+
+Links eliminados: 0
+Reglas huerfanas eliminadas: 0
+
+Resumen despues
+- TEMPORAL | Disminuir | 72
+- TEMPORAL | Eliminar | 53
+- TEMPORAL | Priorizar | 102
+- NUTRICIONAL | Disminuir | 26
+- NUTRICIONAL | Eliminar | 9
+- NUTRICIONAL | Priorizar | 87

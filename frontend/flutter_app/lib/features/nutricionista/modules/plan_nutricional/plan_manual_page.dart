@@ -102,11 +102,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     
     try {
       final dio = ref.read(dioProvider);
-      final prefetch = await dio.get("pacientes/${patient['id']}/prefetch-planificacion");
+      final prefetch = await dio.get(
+        "pacientes/${patient['id']}/prefetch-planificacion",
+        queryParameters: {"include_ingredientes": false},
+      );
       final payload = (prefetch.data ?? {}) as Map<String, dynamic>;
       _patientProfile = (payload["expediente"] ?? {}) as Map<String, dynamic>;
       _ingredientesSegurosCache = List<Map<String, dynamic>>.from(payload["ingredientes_seguros"] ?? []);
       _recomendacionesCache = List<Map<String, dynamic>>.from(payload["ingredientes_recomendados"] ?? []);
+      if (_recomendacionesCache.isEmpty) {
+        try {
+          final recoRes = await dio.get("ingredientes/recomendados/${patient['id']}");
+          _recomendacionesCache = List<Map<String, dynamic>>.from(recoRes.data ?? []);
+        } catch (_) {}
+      }
       _boostersSeleccionados = _recomendacionesCache
           .map((r) => (r["id_ingrediente"] as num?)?.toInt())
           .whereType<int>()
@@ -1725,44 +1734,23 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
   Future<void> _fetch() async {
     try {
       final dio = ref.read(dioProvider);
-      final tiposRes = await dio.get("nutricionista/tipos-factibles/por-momento/${widget.momentId}");
+      final tiposRes = await dio.get(
+        "recetas-permitidas/tipos-disponibles",
+        queryParameters: {
+          "id_paciente": widget.idPaciente,
+          "id_momento": widget.momentId,
+        },
+      );
       final tipos = List<Map<String, dynamic>>.from(tiposRes.data ?? []);
       final tipoInicial = tipos.isNotEmpty ? (tipos.first["id_tipo_plato"] as num?)?.toInt() : null;
-      final res = await dio.post("recetas-permitidas", data: {
-        "id_paciente": widget.idPaciente,
-        "id_momento": widget.momentId,
-        "id_tipo_plato": null,
-      });
-      final todas = List<dynamic>.from(res.data["recetas"] ?? []);
-      _cachePorTipo[null] = todas;
-
-      final idsTipos = tipos
-          .map((t) => (t["id_tipo_plato"] as num?)?.toInt())
-          .whereType<int>()
-          .toSet()
-          .toList();
-      for (final idTipo in idsTipos) {
-        _cachePorTipo[idTipo] = todas.where((r) {
-          final tiposReceta = List<dynamic>.from(r["tipos_plato_ids"] ?? const []);
-          final idsReceta = tiposReceta
-              .map((x) => int.tryParse(x.toString()))
-              .whereType<int>()
-              .toSet();
-          return idsReceta.contains(idTipo);
-        }).toList();
-      }
-
-      final recetasIniciales = _cachePorTipo[tipoInicial] ?? _cachePorTipo[null] ?? <dynamic>[];
+      final recetasIniciales = await _obtenerRecetasPorTipo(tipoInicial);
       if (mounted) {
         setState(() { 
           _tipos = tipos;
           _tipoSeleccionado = tipoInicial;
           _recipes = recetasIniciales; 
           _filtered = _recipes;
-          final prefsRaw = {};
-          if (prefsRaw != null && prefsRaw is Map) {
-            _preferences = (prefsRaw as Map).map((k, v) => MapEntry(int.parse(k.toString()), v as bool));
-          }
+          _preferences = {};
           _loading = false; 
         });
       }
@@ -1771,9 +1759,26 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     }
   }
 
+  Future<List<dynamic>> _obtenerRecetasPorTipo(int? idTipo) async {
+    if (_cachePorTipo.containsKey(idTipo)) {
+      return _cachePorTipo[idTipo] ?? <dynamic>[];
+    }
+    final dio = ref.read(dioProvider);
+    final res = await dio.post("recetas-permitidas", data: {
+      "id_paciente": widget.idPaciente,
+      "id_momento": widget.momentId,
+      "id_tipo_plato": idTipo,
+    });
+    final recetas = List<dynamic>.from(res.data["recetas"] ?? []);
+    _cachePorTipo[idTipo] = recetas;
+    return recetas;
+  }
+
   Future<void> _cargarPorTipo(int? idTipo) async {
-    if (!mounted) return;
-    final recetas = _cachePorTipo[idTipo] ?? <dynamic>[];
+    if (!mounted) {
+      return;
+    }
+    final recetas = await _obtenerRecetasPorTipo(idTipo);
     setState(() {
       _tipoSeleccionado = idTipo;
       _recipes = recetas;
@@ -1819,6 +1824,17 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                       onSelected: (_) => _cargarPorTipo(id),
                     );
                   }).toList(),
+                ),
+              ),
+            ),
+          if (!_loading && _tipos.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "No hay tipos de comida aptos para este momento con las reglas actuales.",
+                  style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.w600),
                 ),
               ),
             ),

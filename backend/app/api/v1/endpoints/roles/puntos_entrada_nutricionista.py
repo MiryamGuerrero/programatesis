@@ -143,11 +143,19 @@ def route_evaluar_reglas(
 @router.get("/buscar-pacientes")
 def buscar_pacientes_nutri(
     q: str = Query(default=""), 
-    limit: int = 50, 
+    limit: int = Query(10, ge=1, le=50), 
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     return caso_uso.buscar(q, limit)
+
+@router.get("/nutricionista/subgrupos/catalogo-simple")
+def list_subgroups_simple_catalog_alt(
+    _=Depends(require_roles("admin", "nutricionista", "medico")),
+):
+    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    repo = RepositorioPerfilPostgres()
+    return repo.obtener_catalogo("nutricion", "subgrupo_alimentario")
 
 @router.post("/gestion-pacientes/registrar")
 def registrar_paciente_nutri(

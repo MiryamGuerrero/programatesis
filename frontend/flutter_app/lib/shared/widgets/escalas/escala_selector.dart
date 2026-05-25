@@ -20,6 +20,9 @@ class EscalaSelector extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final String? puntajeLabel;
   final Widget headerIcon; // El icono grande del cuadro izquierdo
+  final Color backgroundColor;
+  final EdgeInsetsGeometry margin;
+  final bool showIdentityRow;
 
   const EscalaSelector({
     super.key,
@@ -35,15 +38,18 @@ class EscalaSelector extends StatelessWidget {
     required this.onChanged,
     this.puntajeLabel,
     required this.headerIcon,
+    this.backgroundColor = const Color(0xFFF8FAFC),
+    this.margin = EdgeInsets.zero,
+    this.showIdentityRow = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final int count = max - min + 1;
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: margin,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
@@ -90,44 +96,47 @@ class EscalaSelector extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
+            if (showIdentityRow) ...[
+              Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(child: headerIcon),
                   ),
-                  child: Center(child: headerIcon),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        titulo,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: colorActivo,
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titulo,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: colorActivo,
+                          ),
                         ),
-                      ),
-                      Text(
-                        descripcion,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF94A3B8),
+                        Text(
+                          descripcion,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF94A3B8),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ] else
+              const SizedBox(height: 8),
             // Number Row
             Row(
               children: List.generate(count, (i) {
