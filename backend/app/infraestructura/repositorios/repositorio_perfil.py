@@ -29,7 +29,13 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         sql = f"""
             select u.id, u.email, u.nombre_completo, u.username, r.nombre as rol_nombre,
                    {self.ROL_CODIGO_SQL} as rol_codigo, u.id_rol, u.activo,
-                   u.cedula, u.telefono, u.direccion
+                   u.cedula, u.telefono, u.direccion,
+                   (
+                       select string_agg(distinct par.nombre, ', ')
+                       from usuarios.tutor_paciente tp
+                       join usuarios.parentesco par on par.id = tp.id_parentesco
+                       where tp.id_usuario_tutor = u.id and tp.activo = true
+                   ) as parentesco
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
             where u.auth_user_id::text = %s
@@ -50,7 +56,8 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             activo=datos.get("activo"),
             cedula=datos.get("cedula"),
             telefono=datos.get("telefono"),
-            direccion=datos.get("direccion")
+            direccion=datos.get("direccion"),
+            parentesco=datos.get("parentesco")
         )
 
     def actualizar_datos_perfil(self, auth_id: str, datos: dict) -> bool:
@@ -76,7 +83,13 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         sql = f"""
             select u.id, u.email, u.nombre_completo, u.username, u.cedula,
                    r.nombre as rol_nombre, {self.ROL_CODIGO_SQL} as rol_codigo,
-                   u.id_rol, u.telefono, u.direccion, u.activo
+                   u.id_rol, u.telefono, u.direccion, u.activo,
+                   (
+                       select string_agg(distinct par.nombre, ', ')
+                       from usuarios.tutor_paciente tp
+                       join usuarios.parentesco par on par.id = tp.id_parentesco
+                       where tp.id_usuario_tutor = u.id and tp.activo = true
+                   ) as parentesco
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
             where u.auth_user_id::text = %s or u.id::text = %s

@@ -83,11 +83,11 @@ def migrate_images():
                     except Exception as db_e:
                         print(f"  [DB Warning] No se pudo actualizar nutricion.receta: {db_e}")
 
-                    # Actualizar en tabla receta_imagen (esquema public por defecto)
+                    # Actualizar en tabla receta_imagen (esquema nutricion)
                     try:
-                        supabase.table("receta_imagen").update({"imagen_url": new_url}).eq("imagen_url", old_url).execute()
+                        supabase.schema("nutricion").table("receta_imagen").update({"imagen_url": new_url}).eq("imagen_url", old_url).execute()
                     except Exception as db_e:
-                        print(f"  [DB Warning] No se pudo actualizar receta_imagen: {db_e}")
+                        print(f"  [DB Warning] No se pudo actualizar nutricion.receta_imagen: {db_e}")
 
                     # 5. Borrar original si el nuevo es diferente
                     if new_name != name:

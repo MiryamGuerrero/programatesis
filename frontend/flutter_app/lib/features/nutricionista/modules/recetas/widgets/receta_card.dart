@@ -131,7 +131,7 @@ class RecetaCard extends StatelessWidget {
                       const SizedBox(width: 20),
                       _buildMetadataBlock(
                         Icons.access_time_rounded,
-                        '${receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0} min',
+                        '${receta['tiempo_total_min'] ?? ((receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0) + (receta['tiempo_coccion_min'] ?? receta['tiempo_coccion'] ?? 0))} min',
                       ),
                     ],
                   ),

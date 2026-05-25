@@ -110,14 +110,15 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       body: perfilAsync.when(
         data: (profile) {
           _initializeFields(profile);
-          final String role = profile["rol_nombre"]?.toString() ?? "Tutor";
+          // Obtenemos el parentesco real desde el backend (ya configurado en el repositorio)
+          final String parentesco = profile["parentesco"]?.toString() ?? "Tutor";
           final String iniciales = (_nombresController.text.isNotEmpty ? _nombresController.text[0] : "") + 
                                    (_apellidosController.text.isNotEmpty ? _apellidosController.text[0] : "");
 
           return SingleChildScrollView(
             child: Column(
               children: [
-                _buildProfileHeader(context, iniciales, role),
+                _buildProfileHeader(context, iniciales, parentesco),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
                   child: Column(
@@ -141,7 +142,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, String iniciales, String role) {
+  Widget _buildProfileHeader(BuildContext context, String iniciales, String parentesco) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -182,7 +183,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              role.toUpperCase(),
+              parentesco.toUpperCase(),
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: colorScheme.primary,
