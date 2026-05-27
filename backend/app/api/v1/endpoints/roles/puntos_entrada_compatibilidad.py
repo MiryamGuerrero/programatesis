@@ -254,11 +254,13 @@ def prefetch_planificacion_paciente(
                 p.fecha_inicio::text,
                 p.fecha_fin::text,
                 p.vigente,
-                p.tipo_plan::text,
-                p.origen_plan::text,
+                coalesce(ctp.nombre, p.id_tipo_plan::text, 'MANUAL') as tipo_plan,
+                coalesce(cop.nombre, p.id_origen_plan::text, 'NUTRICIONISTA') as origen_plan,
                 p.comidas_por_dia,
                 p.created_at::text
             from interaccion.plan_nutricional p
+            left join interaccion.catalogo_tipo_plan ctp on ctp.id = p.id_tipo_plan
+            left join interaccion.catalogo_origen_plan cop on cop.id = p.id_origen_plan
             where p.id_paciente = %s
               and coalesce(p.vigente, false) = true
             order by p.created_at desc nulls last, p.id desc
