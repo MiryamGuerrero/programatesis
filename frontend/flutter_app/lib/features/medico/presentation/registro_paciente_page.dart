@@ -5,6 +5,7 @@ import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:intl/intl.dart";
+import "package:dio/dio.dart";
 
 import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
@@ -385,7 +386,55 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   bool _validateCurrentStep(int step) {
     if (step == 0) return _tutNombre.text.isNotEmpty && _tutCedula.text.isNotEmpty && _tutParentesco != null && _tutEmail.text.isNotEmpty;
     if (step == 1) return _pacNombre.text.isNotEmpty && _pacCedula.text.isNotEmpty && _pacSexo != null && _pacFechaNac != null;
-    return _idPatologiaBase != null && _lactosa != null;
+    return _idPatologiaBase != null && _lactosa != null && _restriccionesAlimentariasCat.isNotEmpty;
+  }
+
+  bool _validateAlergiasIntolerancias() {
+    if (_lactosa == null) {
+      NutriSnack.show(
+        context,
+        "Debe indicar si presenta intolerancia a la lactosa.",
+        isError: true,
+        ref: ref,
+      );
+      return false;
+    }
+
+    if (_lactosa == true) {
+      _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA");
+    } else {
+      _restriccionesAlimentarias.remove("INTOLERANCIA_LACTOSA");
+    }
+
+    if (_tieneAlergiaSub && _alergiasSub.isEmpty) {
+      NutriSnack.show(
+        context,
+        "Marcó alergias por subgrupo, pero no seleccionó ninguna.",
+        isError: true,
+        ref: ref,
+      );
+      return false;
+    }
+
+    if (!_tieneAlergiaSub) {
+      _alergiasSub.clear();
+    }
+
+    if (_tieneAlergiaIng && _selectedIngredientes.isEmpty) {
+      NutriSnack.show(
+        context,
+        "Marcó alergias por ingrediente, pero no seleccionó ninguna.",
+        isError: true,
+        ref: ref,
+      );
+      return false;
+    }
+
+    if (!_tieneAlergiaIng) {
+      _selectedIngredientes.clear();
+    }
+
+    return true;
   }
 
   Future<void> _finish() async {
@@ -424,6 +473,37 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
     setState(() => _sending = true);
     try {
+      if (_restriccionesAlimentariasCat.isEmpty) {
+        NutriSnack.show(
+          context,
+          "No se pudo cargar el catálogo de restricciones. Intente recargar antes de guardar.",
+          isError: true,
+          ref: ref,
+        );
+        setState(() => _sending = false);
+        return;
+      }
+
+      if (!_validateAlergiasIntolerancias()) {
+        setState(() => _sending = false);
+        return;
+      }
+
+      final validCodes = _restriccionesAlimentariasCat
+          .map((e) => (e['codigo'] ?? '').toString())
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      final sanitizedRestricciones = _restriccionesAlimentarias
+          .where(validCodes.contains)
+          .toSet();
+      if (sanitizedRestricciones.length != _restriccionesAlimentarias.length &&
+          mounted) {
+        NutriSnack.show(
+          context,
+          "Se removieron restricciones no validas del catalogo actual.",
+          ref: ref,
+        );
+      }
       final payload = {
         "tutor": {
           "nombre": _tutNombre.text, "cedula": _tutCedula.text, "email": _tutEmail.text,
@@ -442,7 +522,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           "escala_inflamacion": _inflamacion.toInt(), "fatiga": _fatiga.toInt(),
           "en_brote": _brote, "estado_enfermedad": _estadoEnfermedad, "observaciones": _clinNotas.text,
           "es_intolerante_lactosa": _lactosa,
-          "restricciones_alimentarias": _restriccionesAlimentarias.toList(),
+          "restricciones_alimentarias": sanitizedRestricciones.toList(),
           "alergias_subgrupos": _alergiasSub,
           "alergias_ingredientes": _selectedIngredientes.map((e) => e['id']).toList(),
           "recomendaciones_ingredientes": _recomendacionesIng.map((e) => e['id']).toList(),
@@ -462,8 +542,32 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       ref.invalidate(medicoPatientsProvider);
       if (mounted) ref.read(medicoNavProvider.notifier).state = MedicoView.list;
     } catch (e) {
-      if (mounted) NutriSnack.show(context, "Error al guardar: $e", isError: true, ref: ref);
+      if (mounted) {
+        NutriSnack.show(
+          context,
+          "Error al guardar: ${_mensajeError(e)}",
+          isError: true,
+          ref: ref,
+        );
+      }
     } finally { if (mounted) setState(() => _sending = false); }
+  }
+
+  String _mensajeError(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final detail = data["detail"];
+        if (detail is String && detail.trim().isNotEmpty) return detail;
+        if (detail is Map) {
+          final motivo = detail["detail"] ?? detail["message"] ?? detail["error"];
+          if (motivo is String && motivo.trim().isNotEmpty) return motivo;
+        }
+      }
+      final msg = error.message;
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    }
+    return error.toString();
   }
 
   Widget _credItem(String l, String v, IconData i) => Row(children: [Icon(i, size: 18, color: greenBrand), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)), Text(v, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900))])]);
@@ -893,7 +997,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         const SizedBox(height: 20),
         CheckboxListTile(
           value: _tieneAlergiaSub,
-          onChanged: (v) => setState(() => _tieneAlergiaSub = v ?? false),
+          onChanged: (v) => setState(() {
+            _tieneAlergiaSub = v ?? false;
+            if (!_tieneAlergiaSub) {
+              _alergiasSub.clear();
+              _subgrupoSearchCtrl.clear();
+            }
+          }),
           contentPadding: EdgeInsets.zero,
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
@@ -923,7 +1033,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         const SizedBox(height: 16),
         CheckboxListTile(
           value: _tieneAlergiaIng,
-          onChanged: (v) => setState(() => _tieneAlergiaIng = v ?? false),
+          onChanged: (v) => setState(() {
+            _tieneAlergiaIng = v ?? false;
+            if (!_tieneAlergiaIng) {
+              _selectedIngredientes.clear();
+              _ingredienteAlergiaSearchCtrl.clear();
+            }
+          }),
           contentPadding: EdgeInsets.zero,
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
@@ -1317,7 +1433,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _restrictionChip(String name, String code, bool isSel) {
     IconData icon = Icons.restaurant_outlined;
     if (code.contains("GLUTEN")) icon = Icons.grain_outlined;
-    else if (code.contains("CELIAQUIA")) icon = Icons.grass_outlined;
     else if (code.contains("FRUCTOSA")) icon = Icons.apple_outlined;
     else if (code.contains("HISTAMINA")) icon = Icons.science_outlined;
     else if (code.contains("HUEVO")) icon = Icons.egg_outlined;
@@ -1325,6 +1440,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     else if (code.contains("FRUTOS")) icon = Icons.bakery_dining_outlined;
     else if (code.contains("PESCADO")) icon = Icons.set_meal_outlined;
     else if (code.contains("DIABETES")) icon = Icons.monitor_heart_outlined;
+    else if (code.contains("VEGETARIANA")) icon = Icons.eco_outlined;
     else if (code.contains("SULFITOS")) icon = Icons.biotech_outlined;
     else if (code.contains("SORBITOL")) icon = Icons.icecream_outlined;
 
@@ -1862,6 +1978,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   Widget _sectionHeader(String t, IconData i) => Row(children: [Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: greenBrand.withOpacity(0.12), borderRadius: BorderRadius.circular(12)), child: Icon(i, size: 20, color: greenBrand)), const SizedBox(width: 18), Text(t, style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF0F172A), letterSpacing: 0.8))]);
 }
+
 
 
 

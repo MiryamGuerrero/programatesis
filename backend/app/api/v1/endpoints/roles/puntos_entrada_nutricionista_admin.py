@@ -105,7 +105,7 @@ def list_labels_catalog(
     _=Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> list[dict[str, Any]]:
     with db_cursor() as cur:
-        sql = "select id, nombre_visible, descripcion, created_at from nutricion.etiqueta_nutricional"
+        sql = "select id, nombre_visible, codigo, descripcion, created_at from nutricion.etiqueta_nutricional"
         params: list[Any] = []
         if q and q.strip():
             sql += " where nombre_visible ilike %s"

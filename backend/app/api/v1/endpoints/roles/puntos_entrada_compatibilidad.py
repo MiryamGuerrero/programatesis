@@ -240,9 +240,35 @@ def prefetch_planificacion_paciente(
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    from app.core.db import db_cursor
 
     expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
+
+    plan_vigente = None
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select
+                p.id,
+                p.fecha_inicio::text,
+                p.fecha_fin::text,
+                p.vigente,
+                p.tipo_plan::text,
+                p.origen_plan::text,
+                p.comidas_por_dia,
+                p.created_at::text
+            from interaccion.plan_nutricional p
+            where p.id_paciente = %s
+              and coalesce(p.vigente, false) = true
+            order by p.created_at desc nulls last, p.id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_plan = cur.fetchone()
+        if row_plan:
+            plan_vigente = dict(zip([d[0] for d in cur.description], row_plan))
 
     ingredientes_seguros = []
     ingredientes_recomendados = []
@@ -270,6 +296,7 @@ def prefetch_planificacion_paciente(
         "estado_validacion": estado_validacion,
         "expediente": expediente,
         "diagnostico": expediente.get("diagnostico") if isinstance(expediente, dict) else {},
+        "plan_vigente": plan_vigente,
         "ingredientes_seguros": ingredientes_seguros,
         "ingredientes_recomendados": ingredientes_recomendados,
         "condiciones": {

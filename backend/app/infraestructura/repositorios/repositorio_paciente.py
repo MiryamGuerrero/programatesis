@@ -209,10 +209,26 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
                 
                 # 2. Insertar Paciente
+                cedula_paciente = str(paciente.get("cedula") or "").strip()
+                if cedula_paciente:
+                    cur.execute(
+                        """
+                        select id
+                        from usuarios.paciente
+                        where trim(cedula) = %s
+                        limit 1
+                        """,
+                        (cedula_paciente,),
+                    )
+                    paciente_existente = cur.fetchone()
+                    if paciente_existente:
+                        raise ValueError(
+                            f"__PACIENTE_CEDULA_DUP__La cédula {cedula_paciente} ya está registrada para otro paciente."
+                        )
                 cur.execute("""
                     insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_canton, id_parroquia, cedula, activo) 
                     values (%s, %s, %s, %s, %s, %s, true) returning id
-                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), paciente.get("cedula")))
+                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), cedula_paciente))
                 paciente_id = cur.fetchone()[0]
                 
                 # 3. Relación Tutor-Paciente
@@ -271,8 +287,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     restricciones.add("INTOLERANCIA_LACTOSA")
 
                 subs = set(salud.get("alergias_subgrupos", []))
-                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                subs.update(sub_restricciones)
                 self._guardar_restricciones_alimentarias(cur, str(paciente_id), restricciones)
                 
                 for sid in subs:
@@ -280,7 +294,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                     cur,
-                    set(salud.get("alergias_ingredientes", [])) | ing_restricciones,
+                    set(salud.get("alergias_ingredientes", [])),
                     subs,
                 )
                 for iid in ingredientes_finales:
@@ -354,8 +368,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         restricciones.add("INTOLERANCIA_LACTOSA")
 
                     subs = set(datos.get("alergias_subgrupos", []))
-                    sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                    subs.update(sub_restricciones)
                     self._guardar_restricciones_alimentarias(cur, str(id_paciente), restricciones)
                     
                     for sid in subs:
@@ -363,7 +375,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     
                     ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                         cur,
-                        set(datos.get("alergias_ingredientes", [])) | ing_restricciones,
+                        set(datos.get("alergias_ingredientes", [])),
                         subs,
                     )
                     for iid in ingredientes_finales:
@@ -424,7 +436,57 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def buscar_pacientes(self, query: str, limite: int = 50) -> List[dict]:
         with db_cursor() as cur:
-            sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id where v.nombre_completo ilike %s or v.cedula ilike %s order by v.nombre_completo limit %s"
+            sql = """
+                select
+                    v.*,
+                    p.id_sexo,
+                    exists (
+                        select 1
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                    ) as plan_activo,
+                    (
+                        select pn.id
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_id,
+                    (
+                        select pn.fecha_inicio::text
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_inicio,
+                    (
+                        select pn.fecha_fin::text
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_fin,
+                    coalesce((
+                        select vc.confirmado
+                        from clinico.control_paciente cp
+                        left join clinico.validacion_control_nutricional_mensual vc
+                          on vc.id_control = cp.id
+                         and vc.anio = extract(year from current_date)::int
+                         and vc.mes = extract(month from current_date)::int
+                        where cp.id_paciente = v.id
+                        order by cp.fecha_control desc, cp.id desc
+                        limit 1
+                    ), false) as validacion_confirmada
+                from usuarios.vista_gestion_pacientes v
+                join usuarios.paciente p on p.id = v.id
+                where v.nombre_completo ilike %s or v.cedula ilike %s
+                order by v.nombre_completo
+                limit %s
+            """
             cur.execute(sql, (f"%{query}%", f"%{query}%", limite))
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -475,8 +537,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     restricciones.add("INTOLERANCIA_LACTOSA")
 
                 subs = set(salud.get("alergias_subgrupos", []))
-                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                subs.update(sub_restricciones)
                 self._guardar_restricciones_alimentarias(cur, str(id_paciente), restricciones)
                 
                 for sid in subs:
@@ -484,7 +544,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                     cur,
-                    set(salud.get("alergias_ingredientes", [])) | ing_restricciones,
+                    set(salud.get("alergias_ingredientes", [])),
                     subs,
                 )
                 for iid in ingredientes_finales:

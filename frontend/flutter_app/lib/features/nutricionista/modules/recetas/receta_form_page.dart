@@ -27,6 +27,97 @@ class RecetaFormPage extends ConsumerStatefulWidget {
 }
 
 class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
+  static const Set<String> _codigosCriticosAmarillos = {
+    'NO_APTO_DIABETICOS',
+    'NO_APTO_INTOLERANCIA_FRUCTOSA',
+    'NO_APTO_PARA_INTOLERANTES_A_LACTOSA',
+    'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN',
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITO',
+    'NO_APTO_VEGETARIANOS',
+  };
+
+  static const Map<String, List<String>> _patronesCriticosPorCodigo = {
+    'NO_APTO_PARA_INTOLERANTES_A_LACTOSA': [
+      'leche',
+      'lacteo',
+      'lacteos',
+      'yogur',
+      'queso',
+      'nata',
+      'crema',
+      'mantequilla',
+      'suero',
+    ],
+    'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN': [
+      'trigo',
+      'cebada',
+      'centeno',
+      'cuscus',
+      'couscous',
+      'pasta',
+      'galleta',
+      'pan',
+    ],
+    'NO_APTO_INTOLERANCIA_FRUCTOSA': [
+      'fructosa',
+      'miel',
+      'jarabe',
+      'sirope',
+      'manzana',
+      'pera',
+      'mango',
+      'sandia',
+      'sandía',
+      'uva',
+      'pasas',
+      'higo',
+      'datil',
+      'dátil',
+    ],
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITO': [
+      'sulfito',
+      'vino',
+      'pasas',
+      'fruta deshidratada',
+      'frutos secos',
+      'conserva',
+      'encurtido',
+      'vinagre',
+    ],
+    'NO_APTO_VEGETARIANOS': [
+      'carne',
+      'pollo',
+      'cerdo',
+      'res',
+      'ternera',
+      'pescado',
+      'atun',
+      'atún',
+      'marisco',
+      'jamon',
+      'jamón',
+      'chorizo',
+      'salami',
+      'huevo',
+      'gelatina',
+    ],
+    'NO_APTO_DIABETICOS': [
+      'azucar',
+      'azúcar',
+      'panela',
+      'miel',
+      'jarabe',
+      'sirope',
+      'caramelo',
+      'mermelada',
+      'dulce de leche',
+      'gaseosa',
+      'refresco',
+      'chocolate blanco',
+      'chocolate con leche',
+    ],
+  };
+
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _initializing = true;
@@ -52,16 +143,21 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   List<Map<String, dynamic>> _ingredientes = [];
   List<Map<String, dynamic>> _pasos = [];
   List<Map<String, dynamic>> _etiquetasSeleccionadas = [];
+  List<Map<String, dynamic>> _etiquetasSugeridas = [];
+  final Set<int> _etiquetasDescartadas = {};
+  final Map<int, List<Map<String, dynamic>>> _etiquetasIngredienteCache = {};
 
   // Catálogos
   List<dynamic> _momentosDisponibles = [];
   List<int> _momentosSeleccionados = [];
   List<dynamic> _tiposPlatoDisponibles = [];
   List<int> _tiposPlatoSeleccionados = [];
+  List<Map<String, dynamic>>? _catalogoEtiquetasCache;
 
   // Búsqueda de Etiquetas
   List<dynamic> _etiquetasBuscadas = [];
   bool _loadingEtiquetas = false;
+  bool _sugiriendoEtiquetas = false;
 
   @override
   void initState() {
@@ -126,6 +222,12 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       if (_pasos.isEmpty) {
         _pasos.add({'paso': 1, 'descripcion': '', 'tiempo': '', 'nota': ''});
       }
+
+      if (_ingredientes.isNotEmpty || _etiquetasSeleccionadas.isNotEmpty) {
+        await _actualizarSugerenciasDesdeIngredientes(
+          extras: _etiquetasSeleccionadas,
+        );
+      }
     } catch (e) {
       debugPrint("Error inicializando formulario: $e");
     } finally {
@@ -187,6 +289,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       return;
     }
 
+    final etiquetasValidadas =
+        await _validarEtiquetasConfirmadasContraCatalogo();
+    if (etiquetasValidadas == null) return;
+
     setState(() => _loading = true);
     try {
       String? finalImageUrl = _imagenUrl;
@@ -219,7 +325,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         'activa': _activa,
         'ingredientes': _ingredientes,
         'preparacion': _pasos,
-        'etiquetas_salud': _etiquetasSeleccionadas,
+        'etiquetas_salud': etiquetasValidadas,
         'momentos': _momentosSeleccionados,
         'tipos_plato': _tiposPlatoSeleccionados,
       };
@@ -231,10 +337,137 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       NutriSnack.show(context, 'Receta guardada con éxito');
       widget.onBack();
     } catch (e) {
-      NutriSnack.show(context, 'Error al guardar: $e', isError: true);
+      await _manejarErrorGuardar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _manejarErrorGuardar(Object error) async {
+    final motivos = _motivosBloqueoClinico(error);
+    if (motivos != null && mounted) {
+      await _mostrarBloqueoClinico(motivos);
+      return;
+    }
+    if (mounted) {
+      NutriSnack.show(context, _mensajeErrorGuardar(error), isError: true);
+    }
+  }
+
+  List<String>? _motivosBloqueoClinico(Object error) {
+    try {
+      final dynamic data = (error as dynamic).response?.data;
+      if (data is! Map) return null;
+      final detail = data['detail'];
+      if (detail is! Map) return null;
+      if (detail['estado']?.toString() != 'NO_APTA_REUMATICA') return null;
+      final motivos = detail['motivos'];
+      if (motivos is! List)
+        return [
+          'Esta receta no es apta para el filtro clinico base reumatico.'
+        ];
+      final salida = motivos
+          .map((m) => m?.toString().trim() ?? '')
+          .where((m) => m.isNotEmpty)
+          .toList();
+      return salida.isEmpty
+          ? ['Esta receta no es apta para el filtro clinico base reumatico.']
+          : salida;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _mostrarBloqueoClinico(List<String> motivos) async {
+    final accion = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.health_and_safety_outlined,
+                color: Color(0xFFB45309)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Receta no apta',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Esta receta no se puede guardar porque contiene un ingrediente o grupo bloqueado por el filtro clinico base reumatico.',
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: Colors.blueGrey.shade700),
+              ),
+              const SizedBox(height: 16),
+              ...motivos.map(
+                (motivo) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(
+                        child: Text(
+                          motivo,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTema.azulOscuro,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'descartar'),
+            child: const Text('DESCARTAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'modificar'),
+            child: const Text('MODIFICAR RECETA'),
+          ),
+        ],
+      ),
+    );
+
+    if (accion == 'descartar' && mounted) {
+      widget.onBack();
+    }
+  }
+
+  String _mensajeErrorGuardar(Object error) {
+    try {
+      final dynamic data = (error as dynamic).response?.data;
+      if (data is Map) {
+        final detail = data['detail'];
+        if (detail is Map) {
+          final motivos = detail['motivos'];
+          if (motivos is List && motivos.isNotEmpty) {
+            return 'No se puede guardar: ${motivos.join(' | ')}';
+          }
+          final estado = detail['estado'];
+          if (estado != null) return 'No se puede guardar: $estado';
+        }
+        if (detail is String && detail.trim().isNotEmpty) return detail;
+      }
+    } catch (_) {}
+    return 'Error al guardar: $error';
   }
 
   @override
@@ -587,8 +820,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
               .map((entry) => _normalizarPasoJson(entry.key, entry.value))
               .toList();
         }
-        if (etiquetasNormalizadas.isNotEmpty)
-          _etiquetasSeleccionadas = etiquetasNormalizadas;
+        _agregarEtiquetasSugeridas(etiquetasNormalizadas);
 
         _momentosSeleccionados = _normalizarIdsSeleccionados(
             decoded['momentos'] ?? decoded['momentos_comida'],
@@ -599,6 +831,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             _tiposPlatoDisponibles,
             _tiposPlatoSeleccionados);
       });
+      await _actualizarSugerenciasDesdeIngredientes(
+        extras: etiquetasNormalizadas,
+      );
 
       final sinId = ingredientesNormalizados
           .where((ing) => ing['id_ingrediente'] == null)
@@ -680,6 +915,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       if (id != null) 'id': id,
       'titulo': nombre,
       'nombre_visible': nombre,
+      if (item['codigo'] != null) 'codigo': item['codigo'],
     };
   }
 
@@ -699,13 +935,14 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           if (base.isEmpty) return base;
           final nombre =
               _texto(base['titulo'] ?? item['etiqueta'], fallback: '');
-          final match = porNombre[_normalizarTextoBusqueda(nombre)];
-          return {
-            if (_entero(base['id'] ?? match?['id']) != null)
-              'id': _entero(base['id'] ?? match?['id']),
-            'titulo': match?['nombre_visible']?.toString() ?? nombre,
-            'nombre_visible': match?['nombre_visible']?.toString() ?? nombre,
-          };
+          final id = _entero(base['id']);
+          final match = catalogo.cast<Map<String, dynamic>?>().firstWhere(
+                (etq) => _entero(etq?['id']) == id,
+                orElse: () => porNombre[_normalizarTextoBusqueda(nombre)],
+              );
+          return match == null
+              ? <String, dynamic>{}
+              : _normalizarEtiquetaCatalogo(match);
         })
         .where((e) => e.isNotEmpty)
         .toList();
@@ -760,15 +997,204 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Future<List<Map<String, dynamic>>> _cargarCatalogoEtiquetas() async {
+    if (_catalogoEtiquetasCache != null) return _catalogoEtiquetasCache!;
     try {
       final dio = ref.read(dioProvider);
       final resp =
           await dio.get('nutricionista/etiquetas', queryParameters: {'q': ''});
-      return List<Map<String, dynamic>>.from(resp.data);
+      _catalogoEtiquetasCache = List<Map<String, dynamic>>.from(resp.data);
+      return _catalogoEtiquetasCache!;
     } catch (e) {
       debugPrint('No se pudo cargar catalogo de etiquetas: $e');
       return [];
     }
+  }
+
+  Map<String, dynamic> _normalizarEtiquetaCatalogo(Map<String, dynamic> etq) {
+    return {
+      'id': _entero(etq['id'] ?? etq['id_etiqueta']),
+      'titulo': etq['nombre_visible']?.toString() ??
+          etq['titulo']?.toString() ??
+          etq['nombre']?.toString() ??
+          '',
+      'nombre_visible': etq['nombre_visible']?.toString() ??
+          etq['titulo']?.toString() ??
+          etq['nombre']?.toString() ??
+          '',
+      'codigo': etq['codigo']?.toString() ?? '',
+    };
+  }
+
+  Future<List<Map<String, dynamic>>?>
+      _validarEtiquetasConfirmadasContraCatalogo() async {
+    final catalogo = await _cargarCatalogoEtiquetas();
+    if (catalogo.isEmpty && _etiquetasSeleccionadas.isNotEmpty) {
+      NutriSnack.show(
+        context,
+        'No se pudo validar el catÃ¡logo de etiquetas. Intenta guardar nuevamente.',
+        isError: true,
+      );
+      return null;
+    }
+
+    final idsCatalogo = {
+      for (final etq in catalogo) _entero(etq['id'] ?? etq['id_etiqueta'])
+    }..remove(null);
+    final validadas = <Map<String, dynamic>>[];
+    final invalidas = <Map<String, dynamic>>[];
+
+    for (final etiqueta in _etiquetasSeleccionadas) {
+      final id = _entero(etiqueta['id']);
+      if (id == null || !idsCatalogo.contains(id)) {
+        invalidas.add(etiqueta);
+        continue;
+      }
+      final catalogoItem = catalogo
+          .firstWhere((etq) => _entero(etq['id'] ?? etq['id_etiqueta']) == id);
+      validadas.add(_normalizarEtiquetaCatalogo(catalogoItem));
+    }
+
+    if (invalidas.isNotEmpty) {
+      setState(() {
+        _etiquetasSeleccionadas = validadas;
+      });
+      NutriSnack.show(
+        context,
+        'Se retiraron ${invalidas.length} etiqueta(s) fuera del catÃ¡logo backend. Revisa y guarda nuevamente.',
+        isError: true,
+      );
+      return null;
+    }
+
+    return validadas;
+  }
+
+  void _agregarEtiquetasSugeridas(List<Map<String, dynamic>> etiquetas) {
+    for (final etiqueta in etiquetas) {
+      final id = _entero(etiqueta['id']);
+      if (id == null) continue;
+      if (_etiquetasDescartadas.contains(id)) continue;
+      final yaSeleccionada =
+          _etiquetasSeleccionadas.any((actual) => _entero(actual['id']) == id);
+      if (!yaSeleccionada) {
+        _etiquetasSeleccionadas.add(etiqueta);
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _cargarEtiquetasIngrediente(
+      int idIngrediente) async {
+    final cache = _etiquetasIngredienteCache[idIngrediente];
+    if (cache != null) return cache;
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get('nutricionista/ingredientes/$idIngrediente');
+      final data = resp.data;
+      if (data is! Map || data['etiquetas'] is! List) return [];
+      final etiquetas = List<Map<String, dynamic>>.from(data['etiquetas'])
+          .map(_normalizarEtiquetaCatalogo)
+          .where((etq) => _entero(etq['id']) != null)
+          .toList();
+      _etiquetasIngredienteCache[idIngrediente] = etiquetas;
+      return etiquetas;
+    } catch (e) {
+      debugPrint("Error al sugerir etiquetas por ingrediente: $e");
+      return [];
+    }
+  }
+
+  Future<void> _actualizarSugerenciasDesdeIngredientes({
+    List<Map<String, dynamic>> extras = const [],
+  }) async {
+    final ids = _ingredientes
+        .map((ing) => _entero(ing['id_ingrediente']))
+        .whereType<int>()
+        .toSet()
+        .toList();
+    if (ids.isEmpty && extras.isEmpty) {
+      if (mounted) setState(() => _etiquetasSugeridas = []);
+      return;
+    }
+
+    if (mounted) setState(() => _sugiriendoEtiquetas = true);
+    final catalogoEtiquetas = await _cargarCatalogoEtiquetas();
+    final etiquetasCatalogoPorCodigo = <String, Map<String, dynamic>>{
+      for (final etq in catalogoEtiquetas)
+        _normalizarCodigoEtiqueta(etq['codigo'] ??
+            etq['titulo'] ??
+            etq['nombre_visible'] ??
+            etq['nombre']): _normalizarEtiquetaCatalogo(etq),
+    };
+
+    final sugeridas = <Map<String, dynamic>>[...extras];
+    final etiquetasPorIngrediente = await Future.wait(
+      ids.map(_cargarEtiquetasIngrediente),
+    );
+    for (final lista in etiquetasPorIngrediente) {
+      sugeridas.addAll(lista);
+    }
+
+    sugeridas.addAll(
+      _etiquetasCriticasLocalesDesdeIngredientes(
+        etiquetasCatalogoPorCodigo: etiquetasCatalogoPorCodigo,
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _etiquetasSugeridas = [];
+      _agregarEtiquetasSugeridas(sugeridas);
+      _sugiriendoEtiquetas = false;
+    });
+  }
+
+  void _confirmarEtiqueta(Map<String, dynamic> etiqueta) {
+    final id = _entero(etiqueta['id']);
+    if (id == null) return;
+    setState(() {
+      _etiquetasDescartadas.remove(id);
+      if (!_etiquetasSeleccionadas
+          .any((actual) => _entero(actual['id']) == id)) {
+        _etiquetasSeleccionadas.add(etiqueta);
+      }
+      _etiquetasSugeridas.removeWhere((actual) => _entero(actual['id']) == id);
+    });
+  }
+
+  List<Map<String, dynamic>> _etiquetasCriticasLocalesDesdeIngredientes({
+    required Map<String, Map<String, dynamic>> etiquetasCatalogoPorCodigo,
+  }) {
+    final textosIngredientes = _ingredientes
+        .map((ing) => [
+              ing['nombre'],
+              ing['nombre_ingrediente'],
+              ing['subgrupo_nombre'],
+              ing['categoria'],
+              ing['grupo_nombre'],
+            ].map(_normalizarTextoBusqueda).join(' '))
+        .where((txt) => txt.trim().isNotEmpty)
+        .join(' | ');
+
+    if (textosIngredientes.isEmpty) return [];
+
+    final resultado = <Map<String, dynamic>>[];
+    for (final entry in _patronesCriticosPorCodigo.entries) {
+      final codigo = entry.key;
+      if (!_codigosCriticosAmarillos.contains(codigo)) continue;
+      final catalogoEtiqueta = etiquetasCatalogoPorCodigo[codigo];
+      if (catalogoEtiqueta == null) continue;
+
+      final patrones = entry.value
+          .map(_normalizarTextoBusqueda)
+          .where((p) => p.isNotEmpty)
+          .toList();
+      final coincide =
+          patrones.any((patron) => textosIngredientes.contains(patron));
+      if (coincide) {
+        resultado.add(catalogoEtiqueta);
+      }
+    }
+    return resultado;
   }
 
   String _normalizarTextoBusqueda(dynamic value) {
@@ -1008,9 +1434,6 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                 activeColor: AppTema.verdeSalud,
                 onChanged: (v) {
                   setState(() => _ingredientes[index]['es_principal'] = v);
-                  if (v == true && ing['id_ingrediente'] != null) {
-                    _fetchAndAddEtiquetas(ing['id_ingrediente']);
-                  }
                 },
               ),
             ),
@@ -1020,7 +1443,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             child: IconButton(
               icon: const Icon(Icons.close_rounded,
                   color: Colors.redAccent, size: 18),
-              onPressed: () => setState(() => _ingredientes.removeAt(index)),
+              onPressed: () {
+                setState(() => _ingredientes.removeAt(index));
+                _actualizarSugerenciasDesdeIngredientes();
+              },
             ),
           ),
         ],
@@ -1139,13 +1565,19 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTituloSeccion('Etiquetas'),
+          const SizedBox(height: 16),
+          _buildAdvertenciaClinicaEtiquetas(),
           const SizedBox(height: 8),
           Text(
-              'Las etiquetas inteligentes se heredan de los ingredientes principales. Puedes gestionarlas manualmente aquí.',
+              'Las etiquetas sugeridas se agregan automaticamente. Quita con la x las que no correspondan antes de guardar.',
               style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey)),
           const SizedBox(height: 24),
           _buildEtiquetaBuscador(),
           const SizedBox(height: 24),
+          if (_sugiriendoEtiquetas) ...[
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 24),
+          ],
           if (_etiquetasSeleccionadas.isEmpty)
             Container(
               width: double.infinity,
@@ -1173,13 +1605,46 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     );
   }
 
+  Widget _buildAdvertenciaClinicaEtiquetas() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.health_and_safety_outlined,
+              color: Color(0xFFB45309), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'advertencia clínica: revisa si falta o están demás estas etiquetas críticas: no_apto_intolerancia_fructosa, no_apto_para_intolerantes_a_lactosa, no_apto_para_intolerantes_al_gluten, no_apto_para_intolerantes_a_sulfito, no_apto_vegetarianos.',
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF78350F),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTagChip(Map<String, dynamic> e) {
+    final isAlerta = _isEtiquetaAlertaIntolerancia(e);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: isAlerta ? const Color(0xFFFFF8E1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+              color:
+                  isAlerta ? const Color(0xFFF6C453) : const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withOpacity(0.02),
@@ -1189,16 +1654,29 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.tag_rounded, size: 14, color: AppTema.azulPrincipal),
+          Icon(
+            isAlerta ? Icons.warning_amber_rounded : Icons.tag_rounded,
+            size: 14,
+            color: isAlerta ? const Color(0xFF9A6700) : AppTema.azulPrincipal,
+          ),
           const SizedBox(width: 8),
-          Text((e['titulo'] ?? e['nombre_visible'])?.toString() ?? '-',
+          Text(
+              (e['titulo'] ?? e['nombre_visible'] ?? e['nombre'])?.toString() ??
+                  '-',
               style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTema.azulOscuro)),
+                  color:
+                      isAlerta ? const Color(0xFF7A5200) : AppTema.azulOscuro)),
           const SizedBox(width: 8),
           InkWell(
-            onTap: () => setState(() => _etiquetasSeleccionadas.remove(e)),
+            onTap: () {
+              final id = _entero(e['id']);
+              setState(() {
+                if (id != null) _etiquetasDescartadas.add(id);
+                _etiquetasSeleccionadas.remove(e);
+              });
+            },
             child: Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
@@ -1210,6 +1688,36 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         ],
       ),
     );
+  }
+
+  bool _isEtiquetaAlertaIntolerancia(Map<String, dynamic> etiqueta) {
+    final valores = [
+      etiqueta['codigo'],
+      etiqueta['titulo'],
+      etiqueta['nombre_visible'],
+      etiqueta['nombre'],
+    ].map(_normalizarCodigoEtiqueta).where((v) => v.isNotEmpty);
+
+    return valores.any((valor) => _codigosCriticosAmarillos.any(
+        (codigoCritico) =>
+            valor == codigoCritico || valor.contains(codigoCritico)));
+  }
+
+  String _normalizarCodigoEtiqueta(dynamic value) {
+    return value
+            ?.toString()
+            .trim()
+            .toUpperCase()
+            .replaceAll('Á', 'A')
+            .replaceAll('É', 'E')
+            .replaceAll('Í', 'I')
+            .replaceAll('Ó', 'O')
+            .replaceAll('Ú', 'U')
+            .replaceAll('Ñ', 'N')
+            .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+            .replaceAll(RegExp(r'_+'), '_')
+            .replaceAll(RegExp(r'^_|_$'), '') ??
+        '';
   }
 
   Widget _buildEtiquetaBuscador() {
@@ -1286,14 +1794,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                           icon: const Icon(Icons.add_circle_rounded,
                               color: AppTema.azulPrincipal, size: 24),
                           onPressed: () {
-                            setState(() {
-                              _etiquetasSeleccionadas.add({
-                                'id': tag['id'],
-                                'titulo': tag['nombre_visible'],
-                                'nombre_visible': tag['nombre_visible']
-                              });
-                              _etiquetasBuscadas = [];
-                            });
+                            _confirmarEtiqueta(_normalizarEtiquetaCatalogo(
+                                Map<String, dynamic>.from(tag)));
+                            setState(() => _etiquetasBuscadas = []);
                           }),
                 );
               },
@@ -1427,30 +1930,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       setState(() {
         _ingredientes.addAll(seleccion);
       });
-    }
-  }
-
-  Future<void> _fetchAndAddEtiquetas(int idIngrediente) async {
-    try {
-      final dio = ref.read(dioProvider);
-      final resp = await dio.get('nutricionista/ingredientes/$idIngrediente');
-      final ingDetalle = resp.data;
-      if (ingDetalle != null && ingDetalle['etiquetas'] != null) {
-        final List<dynamic> etqs = ingDetalle['etiquetas'];
-        setState(() {
-          for (var etq in etqs) {
-            if (!_etiquetasSeleccionadas.any((e) => e['id'] == etq['id'])) {
-              _etiquetasSeleccionadas.add({
-                'id': etq['id'],
-                'titulo': etq['nombre_visible'],
-                'nombre_visible': etq['nombre_visible']
-              });
-            }
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint("Error al heredar etiquetas inteligentes: $e");
+      await _actualizarSugerenciasDesdeIngredientes();
     }
   }
 

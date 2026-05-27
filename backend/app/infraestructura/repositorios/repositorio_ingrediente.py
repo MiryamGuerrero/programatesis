@@ -1,6 +1,10 @@
 from typing import List, Dict, Set
 from ...core.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioIngrediente
+from ...domain.servicios.restricciones_alimentarias import (
+    RESTRICCIONES_ALIMENTARIAS,
+    resolver_codigo_restriccion,
+)
 
 # Subgrupos que contienen lactosa (para deteccion automatica de intolerancia)
 SUBGRUPOS_CON_LACTOSA: Set[int] = {
@@ -17,6 +21,58 @@ SUBGRUPOS_CON_LACTOSA: Set[int] = {
 }
 
 class RepositorioIngredientePostgres(IRepositorioIngrediente):
+    def _expandir_restricciones_paciente(self, cur, id_paciente: str) -> tuple[set[int], set[int]]:
+        cur.execute("select to_regclass('clinico.restriccion_paciente')")
+        if not cur.fetchone()[0]:
+            return set(), set()
+
+        cur.execute(
+            """
+            select codigo_restriccion
+            from clinico.restriccion_paciente
+            where id_paciente = %s and activa = true
+            """,
+            (id_paciente,),
+        )
+        codigos = {str(r[0]).strip().upper() for r in cur.fetchall() if r and r[0]}
+        subgrupos: set[int] = set()
+        ingredientes: set[int] = set()
+
+        for codigo in codigos:
+            restriccion = RESTRICCIONES_ALIMENTARIAS.get(resolver_codigo_restriccion(codigo))
+            if not restriccion:
+                continue
+            subgrupos.update(restriccion.subgrupos_ids)
+            ingredientes.update(restriccion.ingredientes_ids)
+
+            for patron in restriccion.patrones_subgrupo:
+                cur.execute(
+                    "select id from nutricion.subgrupo_alimentario where lower(nombre) like %s",
+                    (f"%{patron.lower()}%",),
+                )
+                subgrupos.update(r[0] for r in cur.fetchall())
+
+            for patron in restriccion.patrones_ingrediente:
+                cur.execute(
+                    "select id from nutricion.ingrediente where lower(nombre) like %s",
+                    (f"%{patron.lower()}%",),
+                )
+                ingredientes.update(r[0] for r in cur.fetchall())
+
+            if restriccion.etiquetas_bloqueadas:
+                cur.execute(
+                    """
+                    select distinct ie.id_ingrediente
+                    from nutricion.ingrediente_etiqueta ie
+                    join nutricion.etiqueta_nutricional e on e.id = ie.id_etiqueta
+                    where e.codigo = any(%s)
+                    """,
+                    (list(restriccion.etiquetas_bloqueadas),),
+                )
+                ingredientes.update(r[0] for r in cur.fetchall())
+
+        return subgrupos, ingredientes
+
     def listar_todos_activos(self) -> List[dict]:
         with db_cursor() as cur:
             cur.execute("select id, nombre, id_grupo_alimentario, id_subgrupo_alimentario from nutricion.ingrediente where activo = true")
@@ -336,6 +392,9 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                     (id_paciente,)
                 )
                 sub_prohibidos = {r[0] for r in cur.fetchall()}
+                sub_restricciones, ing_restricciones = self._expandir_restricciones_paciente(cur, id_paciente)
+                sub_prohibidos |= sub_restricciones
+                ing_prohibidos |= ing_restricciones
 
                 # 2. Obtener recomendaciones actuales
                 cur.execute(
@@ -343,12 +402,6 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
                     (id_paciente,)
                 )
                 ing_recomendados = {r[0] for r in cur.fetchall()}
-
-                # 3. Detectar intolerancia a la lactosa:
-                # Si el paciente tiene prohibido CUALQUIER subgrupo con lactosa,
-                # consideramos que es intolerante y bloqueamos TODOS los subgrupos con lactosa
-                if sub_prohibidos & SUBGRUPOS_CON_LACTOSA:
-                    sub_prohibidos |= SUBGRUPOS_CON_LACTOSA
 
             # 4. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
             where_clause = "i.activo = true"

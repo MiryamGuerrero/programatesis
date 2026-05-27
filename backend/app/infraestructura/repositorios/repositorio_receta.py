@@ -76,10 +76,16 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 r.id_subgrupo_alimentario,
                 r.id_etiqueta,
                 r.id_receta,
-                coalesce(r.mensaje_error, 'Incumple regla clinica general reumatica') as mensaje
+                coalesce(r.mensaje_error, 'Incumple regla clinica general reumatica') as mensaje,
+                i.nombre as ingrediente_nombre,
+                g.nombre as grupo_nombre,
+                s.nombre as subgrupo_nombre
             from heuristico.regla r
             join heuristico.catalogo_accion a on a.id = r.id_accion
             join heuristico.condicion_regla cr on cr.id_regla = r.id
+            left join nutricion.ingrediente i on i.id = r.id_ingrediente
+            left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
+            left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
             where cr.id_condicion = %s
               and upper(a.nombre) = 'ELIMINAR'
             """,
@@ -112,28 +118,25 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 if sid is not None:
                     subgrupos_payload.add(int(sid))
 
-        etiquetas_payload = {
-            int(e["id"])
-            for e in (datos.get("etiquetas_salud", []) or [])
-            if e and e.get("id") is not None
-        }
-
         violaciones: list[str] = []
-        for rid_ing, rid_grp, rid_sub, rid_etq, rid_rec, msg in reglas:
+        for rid_ing, rid_grp, rid_sub, rid_etq, rid_rec, msg, ing_nombre, grp_nombre, sub_nombre in reglas:
             if rid_rec is not None and datos.get("id") and int(datos["id"]) == int(rid_rec):
-                violaciones.append(msg)
+                violaciones.append(f"Esta receta está bloqueada clínicamente. Sugerencia: Revisa los criterios clínicos o descarta la receta.")
                 continue
             if rid_ing is not None and int(rid_ing) in ingredientes_payload:
-                violaciones.append(msg)
+                nombre = ing_nombre or f"ingrediente #{rid_ing}"
+                violaciones.append(f"No apta para el filtro base reumático debido al ingrediente: {nombre}. Sugerencia: Sustituye el ingrediente o descarta la receta.")
                 continue
             if rid_grp is not None and int(rid_grp) in grupos_payload:
-                violaciones.append(msg)
+                nombre = grp_nombre or f"grupo #{rid_grp}"
+                violaciones.append(f"No apta para el filtro base reumático debido al grupo alimentario: {nombre}. Sugerencia: Elimina ingredientes de este grupo o descarta la receta.")
                 continue
             if rid_sub is not None and int(rid_sub) in subgrupos_payload:
-                violaciones.append(msg)
+                nombre = sub_nombre or f"subgrupo #{rid_sub}"
+                violaciones.append(f"No apta para el filtro base reumático debido al subgrupo: {nombre}. Sugerencia: Sustituye los ingredientes de este subgrupo o descarta la receta.")
                 continue
-            if rid_etq is not None and int(rid_etq) in etiquetas_payload:
-                violaciones.append(msg)
+            # Las etiquetas NO_APTO_* son advertencias/segmentacion clinica de la receta.
+            # No deben impedir crear la receta; el filtrado por paciente se aplica despues.
 
         vistos = set()
         unicos: list[str] = []
@@ -359,7 +362,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
 
             # 4. Etiquetas de salud
             cur.execute("""
-                SELECT e.id, e.nombre_visible as titulo, e.descripcion as explicacion 
+                SELECT e.id, e.nombre_visible as titulo, e.descripcion as explicacion, e.codigo
                 FROM nutricion.receta_etiqueta re
                 JOIN nutricion.etiqueta_nutricional e ON e.id = re.id_etiqueta
                 WHERE re.id_receta = %s
@@ -464,6 +467,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   group by r.id, r.nombre, r.imagen_url
                 ),
                 conds as (
+                  select id as id_condicion from heuristico.condicion 
+                  where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
+                  union
                   select distinct id_condicion
                   from clinico.diagnostico_paciente
                   where id_paciente = %s::uuid and coalesce(esta_activo,false)=true
@@ -481,7 +487,32 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   join heuristico.catalogo_accion ca on ca.id = r.id_accion
                   join heuristico.condicion_regla cr on cr.id_regla = r.id
                   where cr.id_condicion in (select id_condicion from conds)
-                     or cr.id_condicion = 164
+                ),
+                restricciones_bloqueantes as (
+                  select distinct
+                    coalesce(
+                      cra.etiqueta_bloqueante_codigo,
+                      case upper(coalesce(rp.codigo_restriccion, ''))
+                        when 'INTOLERANCIA_LACTOSA' then 'NO_APTO_PARA_INTOLERANTES_A_LACTOSA'
+                        when 'INTOLERANCIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'CELIAQUIA' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'ALERGIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'INTOLERANCIA_FRUCTOSA' then 'NO_APTO_INTOLERANCIA_FRUCTOSA'
+                        when 'INTOLERANCIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                        when 'ALERGIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                        when 'VEGETARIANO' then 'NO_APTO_VEGETARIANOS'
+                        when 'VEGETARIANA' then 'NO_APTO_VEGETARIANOS'
+                        when 'DIABETES' then 'NO_APTO_DIABETICOS'
+                        when 'DIABETES_MELLITUS' then 'NO_APTO_DIABETICOS'
+                        else null
+                      end
+                    ) as codigo
+                  from clinico.restriccion_paciente rp
+                  left join clinico.catalogo_restriccion_alimentaria cra
+                    on cra.codigo = rp.codigo_restriccion
+                   and coalesce(cra.activa,false)=true
+                  where rp.id_paciente = %s::uuid
+                    and coalesce(rp.activa,false)=true
                 ),
                 bloqueadas as (
                   select distinct rec.id
@@ -502,13 +533,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   )
                   or exists (
                     select 1
-                    from clinico.restriccion_paciente rp
-                    join clinico.catalogo_restriccion_alimentaria cra
-                      on cra.codigo = rp.codigo_restriccion
-                    where rp.id_paciente = %s::uuid
-                      and coalesce(rp.activa,false)=true
-                      and coalesce(cra.activa,false)=true
-                      and cra.etiqueta_bloqueante_codigo = any(rec.etiquetas_codigos)
+                    from restricciones_bloqueantes rb
+                    where rb.codigo is not null
+                      and rb.codigo = any(rec.etiquetas_codigos)
                   )
                   or exists (
                     select 1
@@ -591,8 +618,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 order by
                   case
                     when c.tiene_priorizar or c.es_potenciada then 0
-                    when c.tiene_disminuir then 1
-                    else 2
+                    when c.tiene_disminuir then 2
+                    else 1
                   end,
                   c.nombre
                 """,
@@ -601,7 +628,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     id_tipo_plato, id_tipo_plato,
                     id_momento, id_tipo_plato, id_momento, id_tipo_plato,
                     id_paciente, id_paciente,
-                    id_paciente, id_paciente, id_paciente,
+                    id_paciente,
+                    id_paciente, id_paciente,
                     id_paciente,
                 ),
             )
@@ -639,6 +667,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   group by r.id
                 ),
                 conds as (
+                  select id as id_condicion from heuristico.condicion 
+                  where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
+                  union
                   select distinct id_condicion
                   from clinico.diagnostico_paciente
                   where id_paciente = %s::uuid and coalesce(esta_activo,false)=true
@@ -656,7 +687,32 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   join heuristico.catalogo_accion ca on ca.id = r.id_accion
                   join heuristico.condicion_regla cr on cr.id_regla = r.id
                   where cr.id_condicion in (select id_condicion from conds)
-                     or cr.id_condicion = 164
+                ),
+                restricciones_bloqueantes as (
+                  select distinct
+                    coalesce(
+                      cra.etiqueta_bloqueante_codigo,
+                      case upper(coalesce(rp.codigo_restriccion, ''))
+                        when 'INTOLERANCIA_LACTOSA' then 'NO_APTO_PARA_INTOLERANTES_A_LACTOSA'
+                        when 'INTOLERANCIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'CELIAQUIA' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'ALERGIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                        when 'INTOLERANCIA_FRUCTOSA' then 'NO_APTO_INTOLERANCIA_FRUCTOSA'
+                        when 'INTOLERANCIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                        when 'ALERGIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                        when 'VEGETARIANO' then 'NO_APTO_VEGETARIANOS'
+                        when 'VEGETARIANA' then 'NO_APTO_VEGETARIANOS'
+                        when 'DIABETES' then 'NO_APTO_DIABETICOS'
+                        when 'DIABETES_MELLITUS' then 'NO_APTO_DIABETICOS'
+                        else null
+                      end
+                    ) as codigo
+                  from clinico.restriccion_paciente rp
+                  left join clinico.catalogo_restriccion_alimentaria cra
+                    on cra.codigo = rp.codigo_restriccion
+                   and coalesce(cra.activa,false)=true
+                  where rp.id_paciente = %s::uuid
+                    and coalesce(rp.activa,false)=true
                 ),
                 recetas_seguras as (
                   select rb.id
@@ -677,13 +733,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   )
                   and not exists (
                     select 1
-                    from clinico.restriccion_paciente rp
-                    join clinico.catalogo_restriccion_alimentaria cra
-                      on cra.codigo = rp.codigo_restriccion
-                    where rp.id_paciente = %s::uuid
-                      and coalesce(rp.activa,false)=true
-                      and coalesce(cra.activa,false)=true
-                      and cra.etiqueta_bloqueante_codigo = any(rb.etiquetas_codigos)
+                    from restricciones_bloqueantes rbl
+                    where rbl.codigo is not null
+                      and rbl.codigo = any(rb.etiquetas_codigos)
                   )
                   and not exists (
                     select 1
@@ -718,7 +770,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 (
                     id_momento, id_momento,
                     id_paciente, id_paciente,
-                    id_paciente, id_paciente, id_paciente,
+                    id_paciente,
+                    id_paciente, id_paciente,
                     id_momento, id_momento,
                 ),
             )
@@ -867,8 +920,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 for etq in datos.get("etiquetas_salud", [])
                 if etq.get("id")
             }
-            etiquetas_inferidas = self._inferir_etiquetas_por_ingredientes(cur, id_receta)
-            etiquetas_ids = sorted(etiquetas_manuales | etiquetas_inferidas)
+            etiquetas_ids = sorted(etiquetas_manuales)
             if etiquetas_ids:
                 etq_values = [(id_receta, eid) for eid in etiquetas_ids]
                 cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING", etq_values)

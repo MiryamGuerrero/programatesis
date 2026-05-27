@@ -1,3 +1,4 @@
+import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../core/state/app_providers.dart";
@@ -225,11 +226,33 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e"), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error al guardar: ${_mensajeError(e)}"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _mensajeError(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final detail = data["detail"];
+        if (detail is String && detail.trim().isNotEmpty) return detail;
+        if (detail is Map) {
+          final motivo = detail["detail"] ?? detail["message"] ?? detail["error"];
+          if (motivo is String && motivo.trim().isNotEmpty) return motivo;
+        }
+      }
+      final msg = error.message;
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    }
+    return error.toString();
   }
 
   @override

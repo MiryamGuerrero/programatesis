@@ -260,6 +260,22 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
+      final validCodes = _restriccionesAlimentariasCat
+          .map((e) => (e['codigo'] ?? '').toString())
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      final sanitizedRestricciones = _restriccionesAlimentarias
+          .where(validCodes.contains)
+          .toSet()
+          .toList();
+      if (sanitizedRestricciones.length != _restriccionesAlimentarias.length &&
+          mounted) {
+        NutriSnack.show(
+          context,
+          "Se removieron restricciones no validas del catalogo actual.",
+          ref: ref,
+        );
+      }
       final payload = {
         "peso_kg": _peso.text, 
         "talla_cm": _talla.text,
@@ -281,7 +297,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         // Nuevos campos de Alergias e Intolerancias (para actualizar record permanente)
         "alergias_subgrupos": _alergiasSubgrupos.map((e) => e['id']).toList(),
         "alergias_ingredientes": _alergiasIngredientes.map((e) => e['id']).toList(),
-        "restricciones_alimentarias": _restriccionesAlimentarias,
+        "restricciones_alimentarias": sanitizedRestricciones,
         "es_intolerante_lactosa": _lactosa
       };
       if (_idControlEditando == null) {
@@ -723,7 +739,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   Widget _restrictionChip(String name, String code, bool isSel) {
     IconData icon = Icons.restaurant_outlined;
     if (code.contains("GLUTEN")) icon = Icons.grain_outlined;
-    else if (code.contains("CELIAQUIA")) icon = Icons.grass_outlined;
     else if (code.contains("FRUCTOSA")) icon = Icons.apple_outlined;
     else if (code.contains("HISTAMINA")) icon = Icons.science_outlined;
     else if (code.contains("HUEVO")) icon = Icons.egg_outlined;
@@ -731,6 +746,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     else if (code.contains("FRUTOS")) icon = Icons.bakery_dining_outlined;
     else if (code.contains("PESCADO")) icon = Icons.set_meal_outlined;
     else if (code.contains("DIABETES")) icon = Icons.monitor_heart_outlined;
+    else if (code.contains("VEGETARIANA")) icon = Icons.eco_outlined;
     else if (code.contains("SULFITOS")) icon = Icons.biotech_outlined;
     else if (code.contains("SORBITOL")) icon = Icons.icecream_outlined;
 
@@ -1213,6 +1229,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     ]);
   }
 }
+
 
 
 
