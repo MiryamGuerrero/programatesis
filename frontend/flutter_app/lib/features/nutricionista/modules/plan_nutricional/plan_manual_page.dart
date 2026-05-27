@@ -41,6 +41,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<dynamic> _patientPlans = []; // Historial de planes
   bool _isLoading = false;
   bool _viewingHistory = true; // Nueva bandera de estado
+  bool _recomendadorAbierto = false;
 
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
@@ -316,6 +317,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         },
       ),
     );
+  }
+
+  Future<void> _abrirRecomendadorIngredientes() async {
+    if (_selectedPatient == null || _isLoading || _recomendadorAbierto) return;
+    setState(() => _recomendadorAbierto = true);
+    try {
+      await _modalRecomendacionesNutri(_selectedPatient!["id"].toString());
+    } finally {
+      if (mounted) {
+        setState(() => _recomendadorAbierto = false);
+      } else {
+        _recomendadorAbierto = false;
+      }
+    }
   }
 
   Future<void> _aplicarPotenciadoresAutomaticos(String idPaciente) async {
@@ -615,49 +630,47 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<dynamic> _findRecipe(List<dynamic> items, int momentId) {
     final match = items.where((i) => i["id_momento"] == momentId).toList();
     if (match.isEmpty) return [];
-    return [
-      {
-        "id": match.first["id_receta"],
-        "nombre": match.first["nombre_receta"],
-        "imagen_url": match.first["imagen_url"],
-        "semaforo": match.first["semaforo"] ?? "neutral",
-      }
-    ];
+    return match
+        .map((item) => {
+              "id": item["id_receta"],
+              "nombre": item["nombre_receta"],
+              "imagen_url": item["imagen_url"],
+              "semaforo": item["semaforo"] ?? "neutral",
+            })
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _selectedPatient != null) {
-      return _buildBowlLoader();
-    }
-
-    return Scaffold(
+    final body = Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: _selectedPatient == null
           ? _buildPatientSelection()
           : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
     );
-  }
 
-  Widget _buildBowlLoader() {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.restaurant, size: 80, color: Colors.orange),
-            const SizedBox(height: 24),
-            Text(
-              "Calculando recetas seguras para ${_selectedPatient!["nombre_completo"]}...",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              textAlign: TextAlign.center,
+    if (_isLoading && _selectedPatient != null) {
+      return Stack(
+        children: [
+          body,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: Colors.white.withOpacity(0.70),
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(color: Colors.orange),
-          ],
-        ),
-      ),
-    );
+          ),
+        ],
+      );
+    }
+
+    return body;
   }
 
   Widget _buildPatientSelection() {
@@ -1056,11 +1069,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
           const SizedBox(width: 12),
           OutlinedButton.icon(
-            onPressed: () async {
-              if (_selectedPatient == null) return;
-              await _modalRecomendacionesNutri(
-                  _selectedPatient!["id"].toString());
-            },
+            onPressed: _abrirRecomendadorIngredientes,
             icon: const Icon(Icons.eco_outlined),
             label: const Text("Seccion Recomendador"),
           ),
@@ -1093,11 +1102,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   "Selecciona ingredientes seguros para potenciar el algoritmo.",
               icon: Icons.eco_outlined,
               primary: false,
-              onTap: () async {
-                if (_selectedPatient == null) return;
-                await _modalRecomendacionesNutri(
-                    _selectedPatient!["id"].toString());
-              },
+              onTap: _abrirRecomendadorIngredientes,
             ),
           ),
         ],
@@ -1192,11 +1197,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   icon: const Icon(Icons.add),
                   label: const Text("Seccion Plan Manual")),
               OutlinedButton.icon(
-                onPressed: () async {
-                  if (_selectedPatient == null) return;
-                  await _modalRecomendacionesNutri(
-                      _selectedPatient!["id"].toString());
-                },
+                onPressed: _abrirRecomendadorIngredientes,
                 icon: const Icon(Icons.eco_outlined),
                 label: const Text("Seccion Recomendador"),
               ),
@@ -2427,13 +2428,7 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     try {
       final dio = ref.read(dioProvider);
       final responses = await Future.wait<dynamic>([
-        dio.get(
-          "recetas-permitidas/tipos-disponibles",
-          queryParameters: {
-            "id_paciente": widget.idPaciente,
-            "id_momento": widget.momentId,
-          },
-        ),
+        dio.get("crud/tipos-plato"),
         dio.post("recetas-permitidas", data: {
           "id_paciente": widget.idPaciente,
           "id_momento": widget.momentId,
@@ -2441,9 +2436,33 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
       ]);
       final tiposRes = responses[0];
       final recetasRes = responses[1];
-      final tipos = List<Map<String, dynamic>>.from(tiposRes.data ?? []);
+      final catalogoTipos = List<Map<String, dynamic>>.from(tiposRes.data ?? []);
       final todasLasRecetas =
           List<dynamic>.from(recetasRes.data["recetas"] ?? []);
+      final conteosPorTipo = <int, int>{};
+      for (final receta in todasLasRecetas) {
+        final ids = receta["tipos_plato_ids"];
+        if (ids is! Iterable) continue;
+        final idsUnicos = ids
+            .map((id) => (id as num?)?.toInt())
+            .whereType<int>()
+            .toSet();
+        for (final idTipo in idsUnicos) {
+          conteosPorTipo[idTipo] = (conteosPorTipo[idTipo] ?? 0) + 1;
+        }
+      }
+      final tipos = catalogoTipos
+          .where((t) {
+            final id = (t["id"] as num?)?.toInt();
+            return id != null && conteosPorTipo.containsKey(id);
+          })
+          .map((t) => {
+                "id_tipo_plato": (t["id"] as num?)?.toInt(),
+                "tipo_plato_nombre": (t["nombre"] ?? "Tipo").toString(),
+                "total_recetas":
+                    conteosPorTipo[(t["id"] as num?)?.toInt()] ?? 0,
+              })
+          .toList();
       _cachePorTipo
         ..clear()
         ..[null] = todasLasRecetas;

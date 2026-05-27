@@ -36,6 +36,14 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     'NO_APTO_VEGETARIANOS',
   };
 
+  static const Set<String> _codigosCriticosRojos = {
+    'E9001_ALFALFA_L_CANAVANINA',
+  };
+
+  static const Map<String, String> _nombresCriticosAmigables = {
+    'E9001_ALFALFA_L_CANAVANINA': 'LES: alfalfa / L-canavanina',
+  };
+
   static const Map<String, List<String>> _patronesCriticosPorCodigo = {
     'NO_APTO_PARA_INTOLERANTES_A_LACTOSA': [
       'leche',
@@ -83,6 +91,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       'conserva',
       'encurtido',
       'vinagre',
+    ],
+    'E9001_ALFALFA_L_CANAVANINA': [
+      'alfalfa',
+      'l-canavanina',
+      'l canavanina',
     ],
     'NO_APTO_VEGETARIANOS': [
       'carne',
@@ -1011,18 +1024,25 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Map<String, dynamic> _normalizarEtiquetaCatalogo(Map<String, dynamic> etq) {
+    final codigo = etq['codigo']?.toString() ?? '';
+    final nombreVisible = _nombreAmigableEtiqueta(
+      codigo,
+      etq['nombre_visible']?.toString() ??
+          etq['titulo']?.toString() ??
+          etq['nombre']?.toString() ??
+          '',
+    );
     return {
       'id': _entero(etq['id'] ?? etq['id_etiqueta']),
-      'titulo': etq['nombre_visible']?.toString() ??
-          etq['titulo']?.toString() ??
-          etq['nombre']?.toString() ??
-          '',
-      'nombre_visible': etq['nombre_visible']?.toString() ??
-          etq['titulo']?.toString() ??
-          etq['nombre']?.toString() ??
-          '',
-      'codigo': etq['codigo']?.toString() ?? '',
+      'titulo': nombreVisible,
+      'nombre_visible': nombreVisible,
+      'codigo': codigo,
     };
+  }
+
+  String _nombreAmigableEtiqueta(String codigo, String fallback) {
+    final normalizado = _normalizarCodigoEtiqueta(codigo);
+    return _nombresCriticosAmigables[normalizado] ?? fallback;
   }
 
   Future<List<Map<String, dynamic>>?>
@@ -1180,7 +1200,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     final resultado = <Map<String, dynamic>>[];
     for (final entry in _patronesCriticosPorCodigo.entries) {
       final codigo = entry.key;
-      if (!_codigosCriticosAmarillos.contains(codigo)) continue;
+      if (!_codigosCriticosAmarillos.contains(codigo) &&
+          !_codigosCriticosRojos.contains(codigo)) {
+        continue;
+      }
       final catalogoEtiqueta = etiquetasCatalogoPorCodigo[codigo];
       if (catalogoEtiqueta == null) continue;
 
@@ -1636,15 +1659,21 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Widget _buildTagChip(Map<String, dynamic> e) {
-    final isAlerta = _isEtiquetaAlertaIntolerancia(e);
+    final isRoja = _isEtiquetaCriticaRoja(e);
+    final isAlerta = !isRoja && _isEtiquetaAlertaIntolerancia(e);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: isAlerta ? const Color(0xFFFFF8E1) : Colors.white,
+          color: isRoja
+              ? const Color(0xFFFFD6D6)
+              : (isAlerta ? const Color(0xFFFFF8E1) : Colors.white),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color:
-                  isAlerta ? const Color(0xFFF6C453) : const Color(0xFFE2E8F0)),
+              color: isRoja
+                  ? const Color(0xFFD32F2F)
+                  : (isAlerta
+                      ? const Color(0xFFF6C453)
+                      : const Color(0xFFE2E8F0))),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withOpacity(0.02),
@@ -1655,19 +1684,26 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isAlerta ? Icons.warning_amber_rounded : Icons.tag_rounded,
+            isRoja
+                ? Icons.dangerous_rounded
+                : (isAlerta ? Icons.warning_amber_rounded : Icons.tag_rounded),
             size: 14,
-            color: isAlerta ? const Color(0xFF9A6700) : AppTema.azulPrincipal,
+            color: isRoja
+                ? const Color(0xFFB71C1C)
+                : (isAlerta
+                    ? const Color(0xFF9A6700)
+                    : AppTema.azulPrincipal),
           ),
           const SizedBox(width: 8),
-          Text(
-              (e['titulo'] ?? e['nombre_visible'] ?? e['nombre'])?.toString() ??
-                  '-',
+          Text(_textoEtiquetaVisible(e),
               style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color:
-                      isAlerta ? const Color(0xFF7A5200) : AppTema.azulOscuro)),
+                  color: isRoja
+                      ? const Color(0xFFB71C1C)
+                      : (isAlerta
+                          ? const Color(0xFF7A5200)
+                          : AppTema.azulOscuro))),
           const SizedBox(width: 8),
           InkWell(
             onTap: () {
@@ -1691,6 +1727,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   bool _isEtiquetaAlertaIntolerancia(Map<String, dynamic> etiqueta) {
+    if (_isEtiquetaCriticaRoja(etiqueta)) return false;
     final valores = [
       etiqueta['codigo'],
       etiqueta['titulo'],
@@ -1701,6 +1738,33 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     return valores.any((valor) => _codigosCriticosAmarillos.any(
         (codigoCritico) =>
             valor == codigoCritico || valor.contains(codigoCritico)));
+  }
+
+  bool _isEtiquetaCriticaRoja(Map<String, dynamic> etiqueta) {
+    final id = _entero(etiqueta['id']);
+    if (id == 9001) return true;
+    final valores = [
+      etiqueta['codigo'],
+      etiqueta['titulo'],
+      etiqueta['nombre_visible'],
+      etiqueta['nombre'],
+    ].map(_normalizarCodigoEtiqueta).where((v) => v.isNotEmpty);
+
+    return valores.any((valor) =>
+        _codigosCriticosRojos.any((codigoCritico) =>
+            valor == codigoCritico || valor.contains(codigoCritico)) ||
+        valor.contains('ALFALFA') ||
+        valor.contains('L_CANAVANINA'));
+  }
+
+  String _textoEtiquetaVisible(Map<String, dynamic> etiqueta) {
+    final codigo = _normalizarCodigoEtiqueta(etiqueta['codigo']);
+    if (_nombresCriticosAmigables.containsKey(codigo)) {
+      return _nombresCriticosAmigables[codigo]!;
+    }
+    return (etiqueta['titulo'] ?? etiqueta['nombre_visible'] ?? etiqueta['nombre'])
+            ?.toString() ??
+        '-';
   }
 
   String _normalizarCodigoEtiqueta(dynamic value) {

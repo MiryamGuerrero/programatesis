@@ -39,6 +39,14 @@ class PatientSummaryPanel extends StatelessWidget {
     final ingredientes = (al['ingredientes'] as List? ?? [])
         .map((e) => e['nombre'].toString())
         .toList();
+    final restriccionesTexto = restriccionesActivas
+        .map((res) => _prettyClinicalLabel(res.nombre))
+        .toList();
+    final tieneDiabetes = restriccionesActivas.any(
+      (res) => res.codigo.contains('DIABETES') || res.nombre.toUpperCase().contains('DIABETES'),
+    );
+    final restriccionesLabel =
+        tieneDiabetes ? 'INTOLERANCIAS / RESTRICCIONES / DIABETES' : 'INTOLERANCIAS / RESTRICCIONES';
 
     return Container(
       width: width,
@@ -129,22 +137,18 @@ class PatientSummaryPanel extends StatelessWidget {
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Divider(),
                   ),
-                  ...restriccionesActivas.map(
-                    (res) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _SummaryCard(
-                        label: 'RESTRICCION CLINICA',
-                        value: "SI (${res.nombre.toUpperCase()})",
-                        icon: res.icon,
-                        iconColor: res.color,
-                        isFullWidth: true,
-                      ),
+                  if (restriccionesTexto.isNotEmpty) ...[
+                    _ListSummaryCard(
+                      label: restriccionesLabel,
+                      items: restriccionesTexto,
+                      icon: Icons.health_and_safety_outlined,
+                      iconColor: Colors.deepPurple,
                     ),
-                  ),
+                  ],
                   if (subgrupos.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     _ListSummaryCard(
-                      label: 'ALERGIAS (SUBGRUPOS)',
+                      label: 'ALERGIAS / SUBGRUPOS',
                       items: subgrupos,
                       icon: Icons.warning_amber_rounded,
                       iconColor: Colors.orange,
@@ -153,7 +157,7 @@ class PatientSummaryPanel extends StatelessWidget {
                   if (ingredientes.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     _ListSummaryCard(
-                      label: 'ALERGIAS (ESPECIFICAS)',
+                      label: 'ALERGIAS / ESPECIFICAS',
                       items: ingredientes,
                       icon: Icons.security_rounded,
                       iconColor: Colors.orange,
@@ -191,6 +195,30 @@ class PatientSummaryPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+String _prettyClinicalLabel(String raw) {
+  final value = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final upper = value.toUpperCase();
+  if (upper.contains('INTOLERANCIA') && upper.contains('LACTOSA')) {
+    return 'Intolerancia a la lactosa';
+  }
+  if (upper.contains('INTOLERANCIA') && upper.contains('GLUTEN')) {
+    return 'Intolerancia al gluten';
+  }
+  if (upper.contains('INTOLERANCIA') && upper.contains('FRUCTOSA')) {
+    return 'Intolerancia a la fructosa';
+  }
+  if (upper.contains('INTOLERANCIA') && upper.contains('SULFITO')) {
+    return 'Intolerancia a sulfitos';
+  }
+  if (upper.contains('VEGETARIAN')) {
+    return 'Vegetarianos';
+  }
+  if (upper.contains('DIABETES')) {
+    return 'Diabetes';
+  }
+  return value.replaceAll('_', ' ');
 }
 
 List<_RestriccionActiva> _buildRestriccionesActivas(

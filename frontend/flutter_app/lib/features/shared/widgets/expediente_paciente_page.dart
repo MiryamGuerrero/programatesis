@@ -284,7 +284,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                       children: [
                         Icon(Icons.health_and_safety_outlined, color: Colors.deepPurple),
                         SizedBox(width: 12),
-                        Text("RESTRICCIONES CLINICAS ACTIVAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text("INTOLERANCIAS / RESTRICCIONES / DIABETES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -292,7 +292,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                       spacing: 8,
                       runSpacing: 8,
                       children: restricciones.map((r) => Chip(
-                        label: Text(r['nombre']?.toString() ?? r['codigo']?.toString() ?? "Restriccion", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text((r['nombre']?.toString() ?? r['codigo']?.toString() ?? "Restriccion").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         backgroundColor: Colors.deepPurple.shade50,
                         side: BorderSide(color: Colors.deepPurple.shade100),
                       )).toList(),
@@ -313,7 +313,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     children: [
                       const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                       const SizedBox(width: 12),
-                      const Text("ALERGIAS A GRUPOS BLOQUEADOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text("ALERGIAS / SUBGRUPOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const Spacer(),
                       TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
                     ],
@@ -322,7 +322,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: subgrupos.map((s) => Chip(
-                      label: Text(s['nombre']?.toString() ?? "Grupo", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text((s['nombre']?.toString() ?? "Grupo").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade200),
                     )).toList(),
@@ -343,7 +343,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     children: [
                       const Icon(Icons.block_flipped, color: Colors.red),
                       const SizedBox(width: 12),
-                      const Text("INGREDIENTES PROHIBIDOS ESPECÍFICOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text("ALERGIAS / ESPECIFICAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const Spacer(),
                       TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
                     ],
@@ -352,7 +352,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: ingredientes.map((i) => Chip(
-                      label: Text(i['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text((i['nombre']?.toString() ?? "Ingrediente").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.red.shade50,
                       side: BorderSide(color: Colors.red.shade200),
                     )).toList(),

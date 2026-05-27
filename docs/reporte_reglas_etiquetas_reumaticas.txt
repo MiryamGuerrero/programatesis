@@ -23,11 +23,11 @@ Fecha de generacion: 2026-05-23 17:51:25
 - id=230 | CARBOHIDRATO_CONTROLADO | Carbohidrato controlado
 - id=213 | CONTIENE_GLUTEN | Contiene gluten
 - id=148 | CONTIENE_LACTOSA | Contiene lactosa
-- id=9001 | E9001_ALFALFA_L_CANAVANINA | Contiene alfalfa o L-canavanina
 - id=226 | NO_APTO_DIABETICOS | No apto para diabeticos
 - id=229 | SIN_AZUCAR_ANADIDA | Sin azucar anadida
 - id=214 | SIN_GLUTEN | Sin gluten
 - id=149 | SIN_LACTOSA | Sin lactosa
+- id=9001 | E9001_ALFALFA_L_CANAVANINA | Contiene alfalfa o L-canavanina
 
 3) CATALOGO ESPERADO EN PUNTO 2 (BACKEND)
 ----------------------------------------------------

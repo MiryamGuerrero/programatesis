@@ -1,9 +1,38 @@
 ﻿from typing import List, Optional
+from copy import deepcopy
+import threading
+import time
 import json
 from ...core.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioReceta
 
 class RepositorioRecetaPostgres(IRepositorioReceta):
+    _safe_recipes_cache: dict = {}
+    _safe_recipes_cache_lock = threading.Lock()
+    _safe_recipes_cache_ttl_seconds = 45.0
+
+    @classmethod
+    def _limpiar_cache_recetas_seguras(cls) -> None:
+        with cls._safe_recipes_cache_lock:
+            cls._safe_recipes_cache.clear()
+
+    @classmethod
+    def _cache_recetas_seguras_get(cls, key):
+        ahora = time.monotonic()
+        with cls._safe_recipes_cache_lock:
+            entrada = cls._safe_recipes_cache.get(key)
+            if not entrada:
+                return None
+            ts, value = entrada
+            if ahora - ts > cls._safe_recipes_cache_ttl_seconds:
+                cls._safe_recipes_cache.pop(key, None)
+                return None
+            return deepcopy(value)
+
+    @classmethod
+    def _cache_recetas_seguras_set(cls, key, value) -> None:
+        with cls._safe_recipes_cache_lock:
+            cls._safe_recipes_cache[key] = (time.monotonic(), deepcopy(value))
     def _obtener_etiquetas_objetivo_les_aij(self, cur) -> set[int]:
         cur.execute(
             """
@@ -422,6 +451,10 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
         id_momento: Optional[int] = None,
         id_tipo_plato: Optional[int] = None,
     ) -> List[dict]:
+        cache_key = ("safe_recipes", id_paciente, id_momento, id_tipo_plato)
+        cached = self._cache_recetas_seguras_get(cache_key)
+        if cached is not None:
+            return cached
         with db_cursor() as cur:
             cur.execute(
                 """
@@ -634,153 +667,75 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 ),
             )
             cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            resultados = [dict(zip(cols, row)) for row in cur.fetchall()]
+            self._cache_recetas_seguras_set(cache_key, resultados)
+            return deepcopy(resultados)
 
     def listar_tipos_plato_disponibles_para_paciente(
         self,
         id_paciente: str,
         id_momento: Optional[int] = None,
     ) -> List[dict]:
-        # Consulta unica: evita N+1 llamadas al motor de recetas por cada tipo de plato.
+        recetas_seguras = self.obtener_recetas_seguras_para_paciente(
+            id_paciente=id_paciente,
+            id_momento=id_momento,
+            id_tipo_plato=None,
+        )
+        if not recetas_seguras:
+            return []
+
+        tipos_momento_validos: Optional[set[int]] = None
+        if id_momento is not None:
+            with db_cursor() as cur:
+                cur.execute(
+                    "select id_tipo_plato from nutricion.momento_tipo_plato_factible where id_momento = %s",
+                    (id_momento,),
+                )
+                tipos_momento_validos = {
+                    int(r[0]) for r in cur.fetchall() if r and r[0] is not None
+                }
+            if not tipos_momento_validos:
+                return []
+
+        conteos: dict[int, int] = {}
+        for receta in recetas_seguras:
+            tipos = receta.get("tipos_plato_ids") or []
+            if not isinstance(tipos, list):
+                continue
+            for tipo in tipos:
+                try:
+                    tid = int(tipo)
+                except (TypeError, ValueError):
+                    continue
+                if tipos_momento_validos is not None and tid not in tipos_momento_validos:
+                    continue
+                conteos[tid] = conteos.get(tid, 0) + 1
+
+        if not conteos:
+            return []
+
+        tipo_ids = sorted(conteos.keys())
         with db_cursor() as cur:
             cur.execute(
-                """
-                with recetas_base as (
-                  select
-                    r.id,
-                    coalesce(array_agg(distinct ri.id_ingrediente) filter (where ri.id_ingrediente is not null), '{}') as ingredientes_ids,
-                    coalesce(array_agg(distinct i.id_grupo_alimentario) filter (where i.id_grupo_alimentario is not null), '{}') as grupos_ids,
-                    coalesce(array_agg(distinct i.id_subgrupo_alimentario) filter (where i.id_subgrupo_alimentario is not null), '{}') as subgrupos_ids,
-                    coalesce(array_agg(distinct en.codigo) filter (where en.codigo is not null), '{}') as etiquetas_codigos
-                  from nutricion.receta r
-                  left join nutricion.receta_ingrediente ri on ri.id_receta = r.id
-                  left join nutricion.ingrediente i on i.id = ri.id_ingrediente
-                  left join nutricion.receta_etiqueta re on re.id_receta = r.id
-                  left join nutricion.etiqueta_nutricional en on en.id = re.id_etiqueta
-                  where coalesce(r.activa, false) = true
-                    and (%s::int is null or exists (
-                      select 1
-                      from nutricion.receta_momento rm
-                      where rm.id_receta = r.id
-                        and rm.id_momento = %s::int
-                    ))
-                  group by r.id
-                ),
-                conds as (
-                  select id as id_condicion from heuristico.condicion 
-                  where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
-                  union
-                  select distinct id_condicion
-                  from clinico.diagnostico_paciente
-                  where id_paciente = %s::uuid and coalesce(esta_activo,false)=true
-                  union
-                  select distinct cca.id_condicion
-                  from clinico.control_condicion_activa cca
-                  join clinico.control_paciente cp on cp.id = cca.id_control
-                  where cp.id_paciente = %s::uuid and coalesce(cca.esta_activa,false)=true
-                ),
-                reglas_aplicables as (
-                  select
-                    upper(ca.nombre) as accion,
-                    r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario, r.id_etiqueta, r.id_receta
-                  from heuristico.regla r
-                  join heuristico.catalogo_accion ca on ca.id = r.id_accion
-                  join heuristico.condicion_regla cr on cr.id_regla = r.id
-                  where cr.id_condicion in (select id_condicion from conds)
-                ),
-                restricciones_bloqueantes as (
-                  select distinct
-                    coalesce(
-                      cra.etiqueta_bloqueante_codigo,
-                      case upper(coalesce(rp.codigo_restriccion, ''))
-                        when 'INTOLERANCIA_LACTOSA' then 'NO_APTO_PARA_INTOLERANTES_A_LACTOSA'
-                        when 'INTOLERANCIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
-                        when 'CELIAQUIA' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
-                        when 'ALERGIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
-                        when 'INTOLERANCIA_FRUCTOSA' then 'NO_APTO_INTOLERANCIA_FRUCTOSA'
-                        when 'INTOLERANCIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
-                        when 'ALERGIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
-                        when 'VEGETARIANO' then 'NO_APTO_VEGETARIANOS'
-                        when 'VEGETARIANA' then 'NO_APTO_VEGETARIANOS'
-                        when 'DIABETES' then 'NO_APTO_DIABETICOS'
-                        when 'DIABETES_MELLITUS' then 'NO_APTO_DIABETICOS'
-                        else null
-                      end
-                    ) as codigo
-                  from clinico.restriccion_paciente rp
-                  left join clinico.catalogo_restriccion_alimentaria cra
-                    on cra.codigo = rp.codigo_restriccion
-                   and coalesce(cra.activa,false)=true
-                  where rp.id_paciente = %s::uuid
-                    and coalesce(rp.activa,false)=true
-                ),
-                recetas_seguras as (
-                  select rb.id
-                  from recetas_base rb
-                  where not exists (
-                    select 1
-                    from clinico.alergia_paciente_ingrediente api
-                    where api.id_paciente = %s::uuid
-                      and coalesce(api.activa,false)=true
-                      and api.id_ingrediente = any(rb.ingredientes_ids)
-                  )
-                  and not exists (
-                    select 1
-                    from clinico.alergia_paciente_subgrupo aps
-                    where aps.id_paciente = %s::uuid
-                      and coalesce(aps.activa,false)=true
-                      and aps.id_subgrupo_alimentario = any(rb.subgrupos_ids)
-                  )
-                  and not exists (
-                    select 1
-                    from restricciones_bloqueantes rbl
-                    where rbl.codigo is not null
-                      and rbl.codigo = any(rb.etiquetas_codigos)
-                  )
-                  and not exists (
-                    select 1
-                    from reglas_aplicables ra
-                    where ra.accion = 'ELIMINAR'
-                      and (
-                        (ra.id_receta is not null and ra.id_receta = rb.id)
-                        or (ra.id_ingrediente is not null and ra.id_ingrediente = any(rb.ingredientes_ids))
-                        or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rb.subgrupos_ids))
-                        or (ra.id_grupo_alimentario is not null and ra.id_grupo_alimentario = any(rb.grupos_ids))
-                        or (ra.id_etiqueta is not null and exists (
-                          select 1 from nutricion.etiqueta_nutricional e2
-                          where e2.id = ra.id_etiqueta and e2.codigo = any(rb.etiquetas_codigos)
-                        ))
-                      )
-                  )
-                )
-                select
-                  tp.id as id_tipo_plato,
-                  tp.nombre as tipo_plato_nombre,
-                  count(distinct rs.id)::int as total_recetas
-                from recetas_seguras rs
-                join nutricion.receta_tipo_plato rtp on rtp.id_receta = rs.id
-                join nutricion.tipo_plato tp on tp.id = rtp.id_tipo_plato
-                left join nutricion.momento_tipo_plato_factible mtpf
-                  on mtpf.id_tipo_plato = tp.id
-                 and mtpf.id_momento = %s::int
-                where (%s::int is null or mtpf.id is not null)
-                group by tp.id, tp.nombre
-                order by tp.nombre
-                """,
-                (
-                    id_momento, id_momento,
-                    id_paciente, id_paciente,
-                    id_paciente,
-                    id_paciente, id_paciente,
-                    id_momento, id_momento,
-                ),
+                "select id, nombre from nutricion.tipo_plato where id = any(%s)",
+                (tipo_ids,),
             )
-            cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            tipos = {int(r[0]): r[1] for r in cur.fetchall() if r and r[0] is not None}
+
+        resultado = [
+            {
+                "id_tipo_plato": tid,
+                "tipo_plato_nombre": tipos.get(tid, str(tid)),
+                "total_recetas": conteos[tid],
+            }
+            for tid in sorted(conteos.keys(), key=lambda x: tipos.get(x, str(x)))
+        ]
+        return resultado
 
     def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
         with db_cursor() as cur:
             cur.execute("UPDATE nutricion.receta SET activa = %s, updated_at = now() WHERE id = %s", (activa, id_receta))
+            self._limpiar_cache_recetas_seguras()
             return cur.rowcount > 0
 
     def guardar_receta(self, datos: dict) -> int:
@@ -935,6 +890,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     (id_receta, img_url)
                 )
 
+            self._limpiar_cache_recetas_seguras()
             return id_receta
 
     def listar_momentos_comida(self) -> List[dict]:
@@ -989,7 +945,10 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             
             # 3. Finalmente eliminar la receta
             cur.execute("DELETE FROM nutricion.receta WHERE id = %s", (id_receta,))
+            self._limpiar_cache_recetas_seguras()
             return cur.rowcount > 0
+
+
 
 
 
