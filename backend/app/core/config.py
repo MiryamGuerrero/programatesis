@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     )
 
     database_url: str = Field(default="", alias="DATABASE_URL")
+    db_pool_min_size: int = Field(default=1, alias="DB_POOL_MIN_SIZE")
+    db_pool_max_size: int = Field(default=0, alias="DB_POOL_MAX_SIZE")
+    db_pool_workers: int = Field(default=0, alias="DB_POOL_WORKERS")
     cors_origins: List[str] | str = Field(
         default_factory=lambda: [
             "http://localhost:3000",

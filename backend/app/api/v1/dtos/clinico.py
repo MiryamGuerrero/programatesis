@@ -1,6 +1,30 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import date
 from typing import Any, Optional
+
+
+def _digits_only(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
+
+def _validate_ecuador_cedula(value: Optional[str], field_name: str) -> Optional[str]:
+    cleaned = _digits_only(value)
+    if not cleaned:
+        return None
+    if len(cleaned) != 10:
+        raise ValueError(f"{field_name} debe tener exactamente 10 dígitos")
+    return cleaned
+
+
+def _validate_mobile_phone(value: Optional[str]) -> Optional[str]:
+    cleaned = _digits_only(value)
+    if not cleaned:
+        return None
+    if len(cleaned) != 10 or not cleaned.startswith("09"):
+        raise ValueError("El teléfono móvil debe empezar con 09 y tener exactamente 10 dígitos")
+    return cleaned
 
 class PreDiagnosticoRequest(BaseModel):
     id_paciente: Optional[str] = None
@@ -55,6 +79,16 @@ class TutorRegistroIntegral(BaseModel):
     direccion: Optional[str] = None
     password: Optional[str] = None
 
+    @field_validator("cedula", mode="before")
+    @classmethod
+    def validar_cedula_tutor(cls, value):
+        return _validate_ecuador_cedula(value, "La cédula del tutor")
+
+    @field_validator("telefono", mode="before")
+    @classmethod
+    def validar_telefono_tutor(cls, value):
+        return _validate_mobile_phone(value)
+
 
 class PacienteIdentidadRegistro(BaseModel):
     id: Optional[str] = None
@@ -64,6 +98,11 @@ class PacienteIdentidadRegistro(BaseModel):
     id_canton: Optional[int] = None
     id_parroquia: Optional[int] = None
     fecha_nacimiento: date
+
+    @field_validator("cedula", mode="before")
+    @classmethod
+    def validar_cedula_paciente(cls, value):
+        return _validate_ecuador_cedula(value, "La cédula del paciente")
 
 
 class SaludRegistroIntegral(BaseModel):

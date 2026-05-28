@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import contextmanager
 from threading import RLock
 import time
@@ -12,6 +13,14 @@ logger = logging.getLogger(__name__)
 _pool = None
 _pool_lock = RLock()
 
+
+def _resolve_pool_settings(settings):
+    cpu_count = os.cpu_count() or 2
+    max_size = settings.db_pool_max_size or min(24, max(10, cpu_count * 4))
+    min_size = max(1, min(settings.db_pool_min_size, max_size))
+    num_workers = settings.db_pool_workers or min(4, max(1, cpu_count))
+    return min_size, max_size, num_workers
+
 def get_pool() -> ConnectionPool:
     global _pool
     if _pool is not None:
@@ -23,13 +32,20 @@ def get_pool() -> ConnectionPool:
             if not settings.database_url:
                 raise RuntimeError("DATABASE_URL must be configured")
 
+            min_size, max_size, num_workers = _resolve_pool_settings(settings)
             _pool = ConnectionPool(
                 conninfo=settings.database_url,
-                min_size=1,
-                max_size=10,
+                min_size=min_size,
+                max_size=max_size,
                 kwargs={"autocommit": True, "prepare_threshold": None},
                 check=ConnectionPool.check_connection,
-                num_workers=1,
+                num_workers=num_workers,
+            )
+            logger.info(
+                "Pool de base de datos inicializado: min=%s max=%s workers=%s",
+                min_size,
+                max_size,
+                num_workers,
             )
         return _pool
 

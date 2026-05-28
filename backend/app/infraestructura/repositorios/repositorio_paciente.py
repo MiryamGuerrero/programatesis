@@ -97,6 +97,63 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 (id_paciente, codigo),
                 )
 
+    def _guardar_recomendaciones_ingredientes(
+        self,
+        cur,
+        id_paciente: str,
+        ingredientes_ids: list[int] | set[int] | None,
+        id_profesional: Any = None,
+        reemplazar_previas_medico: bool = False,
+    ) -> None:
+        ids = {
+            int(i)
+            for i in (ingredientes_ids or [])
+            if str(i).strip()
+        }
+
+        cur.execute("select id from usuarios.rol where lower(nombre) in ('medico', 'médico') limit 1")
+        rol_row = cur.fetchone()
+        id_rol_medico = rol_row[0] if rol_row else 2
+
+        if reemplazar_previas_medico:
+            cur.execute(
+                """
+                update clinico.recomendacion_ingrediente
+                set activa = false, updated_at = now()
+                where id_paciente = %s
+                  and id_rol_recomienda = %s
+                """,
+                (id_paciente, id_rol_medico),
+            )
+
+        motivo = "Recomendado por médico en registro integral"
+        for id_ingrediente in sorted(ids):
+            cur.execute(
+                """
+                update clinico.recomendacion_ingrediente
+                set activa = true,
+                    motivo = %s,
+                    prioridad = %s,
+                    id_rol_recomienda = %s,
+                    updated_at = now()
+                where id_paciente = %s
+                  and id_ingrediente = %s
+                  and id_profesional is not distinct from %s
+                """,
+                (motivo, 1, id_rol_medico, id_paciente, id_ingrediente, id_profesional),
+            )
+            if cur.rowcount:
+                continue
+
+            cur.execute(
+                """
+                insert into clinico.recomendacion_ingrediente
+                (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad, activa)
+                values (%s, %s, %s, %s, %s, %s, true)
+                """,
+                (id_paciente, id_ingrediente, id_profesional, id_rol_medico, motivo, 1),
+            )
+
     def _construir_estado_control_mensual(self, historial: list[dict]) -> dict:
         hoy = date.today()
         ultima_fecha_control = None
@@ -266,6 +323,13 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
+                id_medico_interno = None
+                if id_usuario_creador:
+                    cur.execute("select id from usuarios.usuario where auth_user_id::text = %s or id::text = %s limit 1", (id_usuario_creador, id_usuario_creador))
+                    m_row = cur.fetchone()
+                    if m_row:
+                        id_medico_interno = m_row[0]
+
                 # 1. Gestionar Tutor
                 cur.execute("select id, auth_user_id from usuarios.usuario where cedula = %s or email = %s limit 1", (tutor.get("cedula"), tutor.get("email")))
                 t_row = cur.fetchone()
@@ -274,10 +338,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     auth_user_id, temp_password = provision_auth_user_with_password_setup(
                         email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
                     )
-                    cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) values (%s, %s, %s, 4, true, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                    cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion, created_by) values (%s, %s, %s, 4, true, %s, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion"), id_medico_interno))
                     tutor_id = cur.fetchone()[0]
                 else:
-                    cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
+                    cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s, updated_by = %s, updated_at = now() where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), id_medico_interno, tutor_id))
                 
                 # 2. Insertar Paciente
                 cedula_paciente = str(paciente.get("cedula") or "").strip()
@@ -316,12 +380,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 edad_meses = evaluacion["edad_meses"]
                 
                 # 5. Insertar Control Inicial
-                id_medico_interno = None
-                if id_usuario_creador:
-                    cur.execute("select id from usuarios.usuario where auth_user_id::text = %s or id::text = %s limit 1", (id_usuario_creador, id_usuario_creador))
-                    m_row = cur.fetchone()
-                    if m_row: id_medico_interno = m_row[0]
-
                 heuristico_id = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
                 heuristico_id_talla = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
 
@@ -379,6 +437,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     dias = d_row[0] if d_row and d_row[0] else 7
                     f_fin = (date.fromisoformat(f_ini) + timedelta(days=dias)).isoformat()
                     cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, fecha_fin, esta_activa) values (%s, %s, %s, %s, true)", (control_id, ct['id'], f_ini, f_fin))
+
+                # 10. Recomendaciones de ingredientes del medico
+                self._guardar_recomendaciones_ingredientes(
+                    cur,
+                    str(paciente_id),
+                    salud.get("recomendaciones_ingredientes", []),
+                    id_medico_interno,
+                )
 
                 cur.execute("COMMIT")
                 return {"id": str(paciente_id), "temp_password": temp_password}
@@ -516,36 +582,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 select
                     v.*,
                     p.id_sexo,
-                    exists (
-                        select 1
-                        from interaccion.plan_nutricional pn
-                        where pn.id_paciente = v.id
-                          and coalesce(pn.vigente, false) = true
-                    ) as plan_activo,
-                    (
-                        select pn.id
-                        from interaccion.plan_nutricional pn
-                        where pn.id_paciente = v.id
-                          and coalesce(pn.vigente, false) = true
-                        order by pn.created_at desc nulls last, pn.id desc
-                        limit 1
-                    ) as plan_activo_id,
-                    (
-                        select pn.fecha_inicio::text
-                        from interaccion.plan_nutricional pn
-                        where pn.id_paciente = v.id
-                          and coalesce(pn.vigente, false) = true
-                        order by pn.created_at desc nulls last, pn.id desc
-                        limit 1
-                    ) as plan_activo_inicio,
-                    (
-                        select pn.fecha_fin::text
-                        from interaccion.plan_nutricional pn
-                        where pn.id_paciente = v.id
-                          and coalesce(pn.vigente, false) = true
-                        order by pn.created_at desc nulls last, pn.id desc
-                        limit 1
-                    ) as plan_activo_fin,
+                    (pa.id is not null) as plan_activo,
+                    pa.id as plan_activo_id,
+                    pa.fecha_inicio as plan_activo_inicio,
+                    pa.fecha_fin as plan_activo_fin,
                     coalesce((
                         select vc.confirmado
                         from clinico.control_paciente cp
@@ -559,6 +599,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     ), false) as validacion_confirmada
                 from usuarios.vista_gestion_pacientes v
                 join usuarios.paciente p on p.id = v.id
+                left join lateral (
+                    select pn.id, pn.fecha_inicio::text, pn.fecha_fin::text
+                    from interaccion.plan_nutricional pn
+                    where pn.id_paciente = v.id
+                      and coalesce(pn.vigente, false) = true
+                    order by pn.created_at desc nulls last, pn.id desc
+                    limit 1
+                ) pa on true
                 where v.nombre_completo ilike %s or v.cedula ilike %s
                 order by v.nombre_completo
                 limit %s
@@ -626,6 +674,15 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 for iid in ingredientes_finales:
                     cur.execute("insert into clinico.alergia_paciente_ingrediente (id_paciente, id_ingrediente, fecha_registro, activa) values (%s, %s, now(), true) on conflict do nothing", (id_paciente, iid))
 
+                # 5. Recomendaciones de ingredientes del medico
+                self._guardar_recomendaciones_ingredientes(
+                    cur,
+                    str(id_paciente),
+                    salud.get("recomendaciones_ingredientes", []),
+                    None,
+                    reemplazar_previas_medico=True,
+                )
+
                 cur.execute("COMMIT")
                 return True
             except Exception as e:
@@ -635,21 +692,106 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def eliminar_paciente_integral(self, id_paciente: str) -> bool:
         from app.core.auth_onboarding import delete_auth_user
+        auth_users_tutores_a_eliminar = []
+
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
+
+                cur.execute(
+                    "select id from usuarios.paciente where id = %s",
+                    (id_paciente,),
+                )
+                if not cur.fetchone():
+                    cur.execute("ROLLBACK")
+                    return False
+
+                cur.execute(
+                    """
+                    select distinct u.id, u.auth_user_id
+                    from usuarios.tutor_paciente tp
+                    join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                    where tp.id_paciente = %s
+                    """,
+                    (id_paciente,),
+                )
+                tutores_vinculados = cur.fetchall()
+                ids_tutores_vinculados = [row[0] for row in tutores_vinculados]
+
+                cur.execute(
+                    """
+                    delete from interaccion.seguimiento_plan_item
+                    where id_plan_item in (
+                        select pi.id
+                        from interaccion.plan_item pi
+                        join interaccion.plan_nutricional pn on pn.id = pi.id_plan
+                        where pn.id_paciente = %s
+                    )
+                    """,
+                    (id_paciente,),
+                )
+                cur.execute(
+                    """
+                    delete from interaccion.plan_item
+                    where id_plan in (
+                        select id
+                        from interaccion.plan_nutricional
+                        where id_paciente = %s
+                    )
+                    """,
+                    (id_paciente,),
+                )
+                cur.execute("delete from interaccion.plan_nutricional where id_paciente = %s", (id_paciente,))
+                cur.execute("delete from interaccion.evaluacion_receta where id_paciente = %s", (id_paciente,))
+                cur.execute("delete from interaccion.preferencia_receta where id_paciente = %s", (id_paciente,))
+                cur.execute("delete from interaccion.recomendacion_puntual where id_paciente = %s", (id_paciente,))
+                cur.execute("delete from interaccion.preferencia_paciente where id_paciente = %s", (id_paciente,))
+
+                cur.execute("delete from clinico.recomendacion_ingrediente where id_paciente = %s", (id_paciente,))
+                cur.execute("delete from clinico.validacion_control_nutricional_mensual where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.control_condicion_activa where id_control in (select id from clinico.control_paciente where id_paciente = %s)", (id_paciente,))
                 cur.execute("delete from clinico.control_paciente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.diagnostico_paciente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.alergia_paciente_subgrupo where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.alergia_paciente_ingrediente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from clinico.restriccion_paciente where id_paciente = %s", (id_paciente,))
+
                 cur.execute("delete from usuarios.tutor_paciente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from usuarios.paciente where id = %s", (id_paciente,))
+
+                if ids_tutores_vinculados:
+                    cur.execute(
+                        """
+                        delete from usuarios.usuario u
+                        where u.id = any(%s)
+                          and not exists (
+                              select 1
+                              from usuarios.tutor_paciente tp
+                              where tp.id_usuario_tutor = u.id
+                          )
+                        returning auth_user_id
+                        """,
+                        (ids_tutores_vinculados,),
+                    )
+                    auth_users_tutores_a_eliminar = [
+                        row[0] for row in cur.fetchall() if row and row[0]
+                    ]
+
                 cur.execute("COMMIT")
-                return True
             except Exception as e:
                 cur.execute("ROLLBACK"); raise e
+
+        for auth_user_id in auth_users_tutores_a_eliminar:
+            try:
+                delete_auth_user(auth_user_id)
+            except Exception:
+                logging.warning(
+                    "No se pudo eliminar el usuario Auth del tutor %s",
+                    auth_user_id,
+                    exc_info=True,
+                )
+
+        return True
 
     def obtener_expediente_completo(self, id_paciente: str) -> dict:
         with db_cursor() as cur:
@@ -758,6 +900,23 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 )
             restricciones_detalle = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
             es_intolerante_lactosa = any(r == "INTOLERANCIA_LACTOSA" for r in restricciones)
+
+            cur.execute(
+                """
+                select i.id, i.nombre::text, ri.id::text as recomendacion_id,
+                       ri.motivo::text, ri.prioridad
+                from clinico.recomendacion_ingrediente ri
+                join nutricion.ingrediente i on i.id = ri.id_ingrediente
+                where ri.id_paciente = %s
+                  and ri.activa = true
+                order by i.nombre
+                """,
+                (id_paciente,),
+            )
+            recomendaciones_ingredientes = [
+                dict(zip([d[0] for d in cur.description], r))
+                for r in cur.fetchall()
+            ]
             
             return {
                 "paciente": paciente, 
@@ -774,4 +933,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "restricciones_alimentarias": restricciones,
                 "restricciones_alimentarias_detalle": restricciones_detalle,
                 "es_intolerante_lactosa": es_intolerante_lactosa,
+                "recomendaciones": {
+                    "ingredientes": recomendaciones_ingredientes,
+                },
             }

@@ -33,8 +33,10 @@ class RepositorioMedico {
     return _toRows(response.data);
   }
 
-  Future<Map<String, dynamic>> obtenerExpedienteCompleto(String idPaciente) async {
-    final response = await _dio.get("pacientes/$idPaciente/expediente-completo");
+  Future<Map<String, dynamic>> obtenerExpedienteCompleto(
+      String idPaciente) async {
+    final response =
+        await _dio.get("pacientes/$idPaciente/expediente-completo");
     return Map<String, dynamic>.from(response.data);
   }
 
@@ -58,7 +60,13 @@ class RepositorioMedico {
     return Map<String, dynamic>.from(response.data);
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> obtenerCatalogosRegistroPaciente() async {
+  Future<Map<String, dynamic>> verificarPacientePorCedula(String cedula) async {
+    final response = await _dio.get("pacientes/cedula/$cedula/existe");
+    return Map<String, dynamic>.from(response.data);
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>>
+      obtenerCatalogosRegistroPaciente() async {
     final response = await _dio.get("registro/paciente-integral/catalogos");
     final data = Map<String, dynamic>.from(response.data as Map);
     return data.map((key, value) => MapEntry(key, _toRows(value)));
@@ -67,7 +75,8 @@ class RepositorioMedico {
   Future<Map<String, dynamic>> preDiagnosticoNutricional(
     Map<String, dynamic> payload,
   ) async {
-    final response = await _dio.post("pre-diagnostico-nutricional", data: payload);
+    final response =
+        await _dio.post("pre-diagnostico-nutricional", data: payload);
     return Map<String, dynamic>.from(response.data);
   }
 

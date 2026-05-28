@@ -21,6 +21,7 @@ from app.api.v1.dtos.clinico import (
     RegistroPacienteIntegralRequest,
     ActualizarExpedienteFijoRequest,
 )
+from app.core.db import db_cursor
 from app.infraestructura.repositorios.repositorio_clinico import RepositorioClinicoPostgres
 from app.domain.servicios.servicio_oms import ServicioOMS
 
@@ -136,6 +137,35 @@ def buscar_pacientes_clinicos(
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
     return caso_uso.buscar(q, limit)
+
+@router.get("/pacientes/cedula/{cedula}/existe")
+def verificar_paciente_por_cedula(
+    cedula: str,
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
+):
+    limpia = "".join(ch for ch in str(cedula) if ch.isdigit())
+    if len(limpia) != 10:
+        return {"existe": False, "cedula": limpia}
+
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select id::text, nombre_completo::text
+            from usuarios.paciente
+            where cedula = %s
+            limit 1
+            """,
+            (limpia,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return {"existe": False, "cedula": limpia}
+    return {
+        "existe": True,
+        "cedula": limpia,
+        "paciente": {"id": row[0], "nombre_completo": row[1]},
+    }
 
 @router.get("/pacientes/{id_paciente}/evolucion-resumen")
 def evolucion_paciente(
