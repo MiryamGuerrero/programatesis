@@ -50,3 +50,4 @@ start_web.ps1
 
 frontend/flutter_app/build/app/outputs/flutter-apk/
 .gemini/settings.json
+web.ps1

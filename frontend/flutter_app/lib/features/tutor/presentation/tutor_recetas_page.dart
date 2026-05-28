@@ -13,76 +13,95 @@ class TutorRecetasPage extends ConsumerStatefulWidget {
 
 class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
   final TextEditingController _searchController = TextEditingController();
-  int? _selectedMomentoId; // null para "Todas"
-  List<Map<String, dynamic>> _recetasOriginales = [];
-  List<Map<String, dynamic>> _recetasFiltradas = [];
+  final ScrollController _scrollController = ScrollController();
+  
+  int? _selectedMomentoId;
+  List<Map<String, dynamic>> _recetas = [];
   List<Map<String, dynamic>> _momentos = [];
+  
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  final int _limit = 15;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _cargarDatos());
+    Future.microtask(() => _cargarDatosIniciales());
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _cargarDatos() async {
-    final idPaciente = ref.read(selectedPatientIdProvider);
-    if (idPaciente == null) {
-      setState(() => _isLoading = false);
-      return;
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _cargarMasRecetas();
+      }
     }
+  }
+
+  Future<void> _cargarDatosIniciales() async {
+    final idPaciente = ref.read(selectedPatientIdProvider);
+    if (idPaciente == null) return;
+
+    setState(() { _isLoading = true; _recetas.clear(); _offset = 0; _hasMore = true; });
 
     try {
       final dio = ref.read(dioProvider);
       
-      // 1. Cargar Momentos para los filtros
+      // 1. Cargar Momentos
       final respMom = await dio.get('crud/momentos');
       _momentos = List<Map<String, dynamic>>.from(respMom.data);
 
-      // 2. Cargar Recetas Seguras (Algoritmo KBRS)
-      // El backend ya tiene un endpoint /recetas-permitidas que aplica las reglas de seguridad
-      final respRec = await dio.post('recetas-permitidas', data: {
-        "id_paciente": idPaciente,
-        "id_momento": null, // Traer todas las seguras inicialmente
-        "id_tipo_plato": null
-      });
-      
-      _recetasOriginales = List<Map<String, dynamic>>.from(respRec.data['recetas'] ?? []);
-      _recetasFiltradas = List.from(_recetasOriginales);
+      // 2. Cargar Primera Página de Recetas
+      await _cargarPagina(idPaciente);
 
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint("Error cargando recetas seguras: $e");
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint("Error inicial: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _aplicarFiltros() {
-    final query = _searchController.text.trim().toLowerCase();
-    setState(() {
-      _recetasFiltradas = _recetasOriginales.where((r) {
-        // Filtro por texto (Nombre de receta)
-        final String nombre = (r['nombre'] ?? '').toString().toLowerCase();
-        final bool coincideBusqueda = query.isEmpty || nombre.contains(query);
+  Future<void> _cargarMasRecetas() async {
+    final idPaciente = ref.read(selectedPatientIdProvider);
+    if (idPaciente == null) return;
 
-        // Filtro por Categoría (Momento de comida)
-        // Ahora el backend devuelve 'momentos_ids' como una lista [1, 3, 5]
-        final List<dynamic> momentosIds = r['momentos_ids'] ?? [];
-        final bool coincideMomento = _selectedMomentoId == null || 
-                                    momentosIds.contains(_selectedMomentoId);
-        
-        return coincideBusqueda && coincideMomento;
-      }).toList();
+    setState(() => _isLoadingMore = true);
+    _offset += _limit;
+    await _cargarPagina(idPaciente);
+    if (mounted) setState(() => _isLoadingMore = false);
+  }
+
+  Future<void> _cargarPagina(String idPaciente) async {
+    final dio = ref.read(dioProvider);
+    final resp = await dio.post('recetas-permitidas', data: {
+      "id_paciente": idPaciente,
+      "id_momento": _selectedMomentoId,
+      "consulta": _searchController.text.trim(),
+      "limite": _limit,
+      "offset": _offset
     });
+    
+    final List<Map<String, dynamic>> nuevas = List<Map<String, dynamic>>.from(resp.data['recetas'] ?? []);
+    
+    if (mounted) {
+      setState(() {
+        _recetas.addAll(nuevas);
+        if (nuevas.length < _limit) _hasMore = false;
+      });
+    }
+  }
+
+  void _cambiarFiltro(int? id) {
+    setState(() => _selectedMomentoId = id);
+    _cargarDatosIniciales();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -91,98 +110,92 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          
-          // SEARCH BAR
-          SearchBar(
-            controller: _searchController,
-            hintText: "Buscar recetas seguras...",
-            leading: const Icon(Icons.search),
-            trailing: [
-              if (_searchController.text.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    _aplicarFiltros();
-                  },
-                ),
-            ],
-            onChanged: (_) => _aplicarFiltros(),
-            elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
-            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16)),
-          ),
-          const SizedBox(height: 24),
-          
-          // CATEGORY FILTERS
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip(context, "Todas", null),
-                ..._momentos.map((m) => _buildFilterChip(context, m['nombre'], m['id'])),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          
-          if (_recetasFiltradas.isEmpty)
-            _buildEmptyState()
-          else
-            ..._recetasFiltradas.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _RecipeCard(
-                receta: r,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+    return Column(
+      children: [
+        // Header Fijo (Buscador y Filtros)
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          color: colorScheme.surface,
+          child: Column(
+            children: [
+              SearchBar(
+                controller: _searchController,
+                hintText: "Buscar recetas seguras...",
+                leading: const Icon(Icons.search),
+                onSubmitted: (_) => _cargarDatosIniciales(),
+                elevation: WidgetStateProperty.all(0),
+                backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
+              ),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterChip("Todas", null),
+                    ..._momentos.map((m) => _buildFilterChip(m['nombre'], m['id'])),
+                  ],
                 ),
               ),
-            )),
-          
-          const SizedBox(height: 100),
-        ],
-      ),
+            ],
+          ),
+        ),
+        
+        // Lista Scrollable con Paginación
+        Expanded(
+          child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : _recetas.isEmpty 
+              ? _buildEmptyState()
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _recetas.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _recetas.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final r = _recetas[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _RecipeCard(
+                        receta: r,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
-  Widget _buildFilterChip(BuildContext context, String label, int? id) {
+  Widget _buildFilterChip(String label, int? id) {
     final isSelected = _selectedMomentoId == id;
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         label: Text(label),
         selected: isSelected,
-        onSelected: (val) {
-          setState(() => _selectedMomentoId = id);
-          _aplicarFiltros();
-        },
+        onSelected: (_) => _cambiarFiltro(id),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: Column(
-          children: [
-            Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            const Text("No se encontraron recetas seguras", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-            const Text("Intenta con otro filtro o término", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text("No se encontraron recetas", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        ],
       ),
     );
   }
@@ -191,71 +204,79 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
 class _RecipeCard extends StatelessWidget {
   final Map<String, dynamic> receta;
   final VoidCallback onTap;
-
   const _RecipeCard({required this.receta, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final String url = receta['imagen_url'] ?? "";
+    final String semaforo = receta['semaforo'] ?? 'neutral';
+    
+    Color statusColor = const Color(0xFF64748B);
+    IconData statusIcon = Icons.check_circle_outline_rounded;
+    if (semaforo == 'verde') { statusColor = AppTema.verdeSalud; statusIcon = Icons.verified_user_rounded; }
+    else if (semaforo == 'amarillo') { statusColor = Colors.orange; statusIcon = Icons.info_outline_rounded; }
 
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: statusColor.withOpacity(0.2), width: 1.5)),
       child: InkWell(
         onTap: onTap,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 160,
-              width: double.infinity,
-              color: const Color(0xFFF1F5F9),
-              child: url.isNotEmpty
-                  ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.restaurant, size: 48, color: Colors.grey))
-                  : const Icon(Icons.restaurant, size: 48, color: Colors.grey),
+            Stack(
+              children: [
+                Container(
+                  height: 160, width: double.infinity, color: const Color(0xFFF1F5F9),
+                  child: url.isNotEmpty
+                      ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.restaurant, size: 48, color: Colors.grey))
+                      : const Icon(Icons.restaurant, size: 48, color: Colors.grey),
+                ),
+                Positioned(
+                  top: 12, left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                        const SizedBox(width: 4),
+                        Text("${receta['puntuacion_promedio'] ?? '0'}", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text(" (${receta['total_evaluaciones'] ?? '0'})", style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 12, right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
+                    child: Row(
+                      children: [
+                        Icon(statusIcon, color: statusColor, size: 14),
+                        const SizedBox(width: 4),
+                        Text(receta['clasificacion_recomendacion']?.toString().toUpperCase() ?? "SEGURA", style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900, color: statusColor, fontSize: 9)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          receta['nombre'] ?? "Sin nombre",
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTema.verdeSalud.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.verified_user_rounded, color: AppTema.verdeSalud, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              "SEGURA",
-                              style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: AppTema.verdeSalud),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Text(receta['nombre'] ?? "Sin nombre", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 18), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity, padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                    child: Text(receta['mensaje_regla'] ?? "Segura para el paciente", style: theme.textTheme.bodySmall?.copyWith(color: statusColor, fontWeight: FontWeight.w600, fontSize: 11)),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

@@ -466,6 +466,8 @@ def listar_recetas_seguras(
     id_paciente = payload.id_paciente
     id_momento = payload.id_momento
     id_tipo_plato = payload.id_tipo_plato
+    limite = payload.limite
+    offset = payload.offset
     
     if not id_paciente:
         from fastapi import HTTPException
@@ -479,7 +481,10 @@ def listar_recetas_seguras(
         permitidas = repo_receta.obtener_recetas_seguras_para_paciente(
             id_paciente, 
             int(id_momento) if id_momento else None,
-            int(id_tipo_plato) if id_tipo_plato else None
+            int(id_tipo_plato) if id_tipo_plato else None,
+            consulta=payload.consulta,
+            limite=limite,
+            offset=offset
         )
         
         # Formateamos la respuesta para incluir el mensaje de recomendación
@@ -633,6 +638,9 @@ def guardar_plan_manual(
             cols_plan = {r[0] for r in cur.fetchall()}
             cols = ["id_paciente", "fecha_inicio", "fecha_fin", "vigente"]
             vals = [id_paciente, fechas[0], fechas[-1], True]
+            if "creado_por" in cols_plan and id_profesional_interno is not None:
+                cols.append("creado_por")
+                vals.append(id_profesional_interno)
             if "tipo_plan" in cols_plan:
                 cols.append("tipo_plan")
                 vals.append("MANUAL")

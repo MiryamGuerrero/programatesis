@@ -186,6 +186,35 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def listar_pacientes_por_tutor(self, auth_id_tutor: str) -> List[dict]:
+        with db_cursor() as cur:
+            # 1. Obtener el ID interno del tutor
+            cur.execute("select id from usuarios.usuario where auth_user_id::text = %s limit 1", (auth_id_tutor,))
+            row = cur.fetchone()
+            if not row: return []
+            tutor_id = row[0]
+
+            # 2. Listar pacientes vinculados
+            sql = """
+                select p.id, p.nombre_completo, p.fecha_nacimiento, p.cedula,
+                       par.nombre as parentesco,
+                       (
+                           select c.nombre 
+                           from clinico.diagnostico_paciente dp
+                           join heuristico.condicion c on c.id = dp.id_condicion
+                           where dp.id_paciente = p.id and dp.esta_activo = true
+                           limit 1
+                       ) as diagnostico
+                from usuarios.paciente p
+                join usuarios.tutor_paciente tp on tp.id_paciente = p.id
+                join usuarios.parentesco par on par.id = tp.id_parentesco
+                where tp.id_usuario_tutor = %s and tp.activo = true
+                order by p.nombre_completo
+            """
+            cur.execute(sql, (tutor_id,))
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
         from app.core.auth_onboarding import provision_auth_user_with_password_setup, delete_auth_user
         tutor = payload.get("tutor", {}); paciente = payload.get("paciente", {}); salud = payload.get("salud", {})

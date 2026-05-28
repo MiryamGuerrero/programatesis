@@ -7,10 +7,13 @@ class CasoUsoGestionarSeguimiento:
     def __init__(self, repo_seguimiento: IRepositorioSeguimiento):
         self.repo_seguimiento = repo_seguimiento
 
-    def obtener_menu_diario(self, id_paciente: str, fecha: date) -> List[Dict]:
+    def obtener_plan_del_dia(self, id_paciente: str, fecha: date) -> List[Dict]:
         return self.repo_seguimiento.obtener_plan_del_dia(id_paciente, fecha)
 
-    def registrar_comida_consumida(self, datos: Dict) -> bool:
+    def obtener_dias_con_plan(self, id_paciente: str, mes: int, anio: int) -> List[date]:
+        return self.repo_seguimiento.obtener_dias_con_plan(id_paciente, mes, anio)
+
+    def registrar_comida_consumida(self, datos: dict) -> bool:
         registro = RegistroConsumo(**datos)
         return self.repo_seguimiento.registrar_consumo(registro)
 
