@@ -71,48 +71,41 @@ ins AS (
   UNION ALL SELECT acc.id, obj_etq.id, 'No apta: bebida azucarada', true, NULL::integer, NULL::integer, 211, 'CLINICA' FROM acc, obj_etq
   UNION ALL SELECT acc.id, obj_etq.id, 'No apta: calorias vacias', true, NULL::integer, NULL::integer, 133, 'CLINICA' FROM acc, obj_etq
   UNION ALL SELECT acc.id, obj_sub.id, 'No apta: zumos y nectares comerciales', true, NULL::integer, 53, NULL::integer, 'CLINICA' FROM acc, obj_sub
-  UNION ALL SELECT acc.id, obj_sub.id, 'No apta: bebidas isotonicas', true, NULL::integer, 49, NULL::integer, 'CLINICA' FROM acc, obj_sub
-  UNION ALL SELECT acc.id, obj_ing.id, 'No apta: aceite de palma', true, 420, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
-  UNION ALL SELECT acc.id, obj_ing.id, 'No apta: mantequilla', true, 423, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
-  UNION ALL SELECT acc.id, obj_ing.id, 'No apta: margarina', true, 426, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
-  UNION ALL SELECT acc.id, obj_ing.id, 'No apta: manteca de cerdo', true, 433, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
+ UNION ALL SELECT acc.id, obj_sub.id, 'No apta: bebidas isotonicas', true, NULL::integer, 49, NULL::integer, 'CLINICA' FROM acc, obj_sub
+ UNION ALL SELECT acc.id, obj_ing.id, 'No apta: aceite de palma', true, 420, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
+ UNION ALL SELECT acc.id, obj_ing.id, 'No apta: mantequilla', true, 423, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
+ UNION ALL SELECT acc.id, obj_ing.id, 'No apta: margarina', true, 426, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
+ UNION ALL SELECT acc.id, obj_ing.id, 'No apta: manteca de cerdo', true, 433, NULL::integer, NULL::integer, 'CLINICA' FROM acc, obj_ing
   RETURNING id
 )
 INSERT INTO heuristico.condicion_regla (id_regla, id_condicion)
 SELECT ins.id, cond_gen.id
 FROM ins, cond_gen;
 
--- 4) LES especifico: alfalfa/L-canavanina (si existe etiqueta/ingrediente).
+-- 4) LES especifico: alfalfa / L-canavanina.
 WITH
 acc AS (SELECT id FROM heuristico.catalogo_accion WHERE upper(nombre) = 'ELIMINAR' LIMIT 1),
-obj_ing AS (SELECT id FROM heuristico.catalogo_objetivo_regla WHERE upper(nombre) LIKE 'INGREDIENTE%' LIMIT 1),
 obj_etq AS (SELECT id FROM heuristico.catalogo_objetivo_regla WHERE upper(nombre) LIKE 'ETIQUETA%' LIMIT 1),
 cond_les AS (
   SELECT id FROM heuristico.condicion
   WHERE upper(coalesce(indicador_codigo, '')) = 'LUPUS_ERITEMATOSO_SISTEMICO'
   LIMIT 1
 ),
-id_etq_alf AS (
-  SELECT id FROM nutricion.etiqueta_nutricional
-  WHERE lower(coalesce(nombre_visible, '')) LIKE '%alfalfa%'
-     OR lower(coalesce(codigo, '')) LIKE '%alfalfa%'
-  LIMIT 1
-),
-id_ing_alf AS (
-  SELECT id FROM nutricion.ingrediente
-  WHERE lower(coalesce(nombre, '')) LIKE '%alfalfa%'
-  LIMIT 1
-),
 ins_les AS (
   INSERT INTO heuristico.regla (
     id_accion, id_tipo_objetivo, mensaje_error, es_estricta,
-    id_ingrediente, id_etiqueta, origen_regla
+    id_etiqueta, origen_regla
   )
-  SELECT acc.id, obj_etq.id, 'No apta LES: alfalfa/L-canavanina', true, NULL::integer, id_etq_alf.id, 'CLINICA'
-  FROM acc, obj_etq, id_etq_alf
-  UNION ALL
-  SELECT acc.id, obj_ing.id, 'No apta LES: alfalfa/L-canavanina', true, id_ing_alf.id, NULL::integer, 'CLINICA'
-  FROM acc, obj_ing, id_ing_alf
+  SELECT acc.id, obj_etq.id, 'No apta LES: contiene alfalfa / L-canavanina', true, 9001, 'CLINICA'
+  FROM acc, obj_etq, cond_les
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM heuristico.regla r
+    JOIN heuristico.condicion_regla cr ON cr.id_regla = r.id
+    WHERE cr.id_condicion = cond_les.id
+      AND r.id_etiqueta = 9001
+      AND upper(coalesce(r.origen_regla, '')) = 'CLINICA'
+  )
   RETURNING id
 )
 INSERT INTO heuristico.condicion_regla (id_regla, id_condicion)

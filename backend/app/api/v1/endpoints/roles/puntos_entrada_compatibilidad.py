@@ -240,9 +240,37 @@ def prefetch_planificacion_paciente(
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+    from app.core.db import db_cursor
 
     expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
+
+    plan_vigente = None
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select
+                p.id,
+                p.fecha_inicio::text,
+                p.fecha_fin::text,
+                p.vigente,
+                coalesce(ctp.nombre, p.id_tipo_plan::text, 'MANUAL') as tipo_plan,
+                coalesce(cop.nombre, p.id_origen_plan::text, 'NUTRICIONISTA') as origen_plan,
+                p.comidas_por_dia,
+                p.created_at::text
+            from interaccion.plan_nutricional p
+            left join interaccion.catalogo_tipo_plan ctp on ctp.id = p.id_tipo_plan
+            left join interaccion.catalogo_origen_plan cop on cop.id = p.id_origen_plan
+            where p.id_paciente = %s
+              and coalesce(p.vigente, false) = true
+            order by p.created_at desc nulls last, p.id desc
+            limit 1
+            """,
+            (id_paciente,),
+        )
+        row_plan = cur.fetchone()
+        if row_plan:
+            plan_vigente = dict(zip([d[0] for d in cur.description], row_plan))
 
     ingredientes_seguros = []
     ingredientes_recomendados = []
@@ -270,6 +298,7 @@ def prefetch_planificacion_paciente(
         "estado_validacion": estado_validacion,
         "expediente": expediente,
         "diagnostico": expediente.get("diagnostico") if isinstance(expediente, dict) else {},
+        "plan_vigente": plan_vigente,
         "ingredientes_seguros": ingredientes_seguros,
         "ingredientes_recomendados": ingredientes_recomendados,
         "condiciones": {

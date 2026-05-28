@@ -243,7 +243,13 @@ def registro_paciente_integral(
             "temp_password": resultado.get("temp_password")
         }
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        msg = str(exc)
+        if msg.startswith("__PACIENTE_CEDULA_DUP__"):
+            raise HTTPException(
+                status_code=409,
+                detail=msg.replace("__PACIENTE_CEDULA_DUP__", "", 1),
+            )
+        raise HTTPException(status_code=400, detail=msg)
 
 @router.post("/registro/tutor-solo")
 def registrar_tutor_solo(

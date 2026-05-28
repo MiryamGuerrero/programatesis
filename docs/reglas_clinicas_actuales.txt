@@ -49,7 +49,7 @@ regla_id=2391 | accion=PRIORIZAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA
 
 CONDICION: lupus_eritematoso_sistemico (total=15)
 ------------------------------------------------------------------------------------------
-regla_id=2358 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:9001:Contiene alfalfa o L-canavanina | estricta=True | mensaje=LES: evitar alfalfa/L-canavanina
+regla_id=2358 | accion=ELIMINAR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:9001:Contiene alfalfa o L-canavanina | estricta=True | mensaje=No apta LES: contiene alfalfa / L-canavanina
 regla_id=2359 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:83:Riesgo de retención de líquidos | estricta=False | mensaje=LES: disminuir por retencion de liquidos
 regla_id=2360 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:119:Riesgo moderado de retención | estricta=False | mensaje=LES: disminuir por riesgo moderado de retencion
 regla_id=2361 | accion=DISMINUIR | tipo=ETIQUETA NUTRICIONAL | objetivo=ETIQUETA:160:Alto en fósforo | estricta=False | mensaje=LES condicional: disminuir si nefritis/restriccion fosforo

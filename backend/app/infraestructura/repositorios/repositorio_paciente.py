@@ -95,7 +95,78 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 values (%s, %s, now(), true)
                 """,
                 (id_paciente, codigo),
-            )
+                )
+
+    def _construir_estado_control_mensual(self, historial: list[dict]) -> dict:
+        hoy = date.today()
+        ultima_fecha_control = None
+        fecha_programada = None
+        hubo_control_en_mes_actual = False
+
+        for fila in historial:
+            fecha_control_raw = fila.get("fecha_control")
+            fecha_control = None
+            if isinstance(fecha_control_raw, str) and fecha_control_raw:
+                try:
+                    fecha_control = date.fromisoformat(fecha_control_raw[:10])
+                except Exception:
+                    try:
+                        fecha_control = datetime.strptime(fecha_control_raw[:10], "%Y-%m-%d").date()
+                    except Exception:
+                        fecha_control = None
+            elif isinstance(fecha_control_raw, datetime):
+                fecha_control = fecha_control_raw.date()
+            elif isinstance(fecha_control_raw, date):
+                fecha_control = fecha_control_raw
+
+            if fecha_control is None:
+                continue
+
+            if ultima_fecha_control is None or fecha_control > ultima_fecha_control:
+                ultima_fecha_control = fecha_control
+                fecha_programada_raw = fila.get("fecha_proxima_cita")
+                if isinstance(fecha_programada_raw, str) and fecha_programada_raw:
+                    try:
+                        fecha_programada = date.fromisoformat(fecha_programada_raw[:10])
+                    except Exception:
+                        try:
+                            fecha_programada = datetime.strptime(fecha_programada_raw[:10], "%Y-%m-%d").date()
+                        except Exception:
+                            fecha_programada = None
+                elif isinstance(fecha_programada_raw, datetime):
+                    fecha_programada = fecha_programada_raw.date()
+                elif isinstance(fecha_programada_raw, date):
+                    fecha_programada = fecha_programada_raw
+
+            if fecha_control.year == hoy.year and fecha_control.month == hoy.month:
+                hubo_control_en_mes_actual = True
+
+        referencia = fecha_programada or (ultima_fecha_control + timedelta(days=30) if ultima_fecha_control else None)
+        if hubo_control_en_mes_actual:
+            return {
+                "ya_hecho": True,
+                "habilitado": False,
+                "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+                "fecha_referencia": referencia.isoformat() if referencia else None,
+                "mensaje": "Ya existe un control mensual registrado en este periodo. Si desea modificarlo, vaya al monitor de evolución.",
+            }
+
+        if referencia is None or hoy >= referencia:
+            return {
+                "ya_hecho": False,
+                "habilitado": True,
+                "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+                "fecha_referencia": referencia.isoformat() if referencia else None,
+                "mensaje": "Control mensual habilitado para registro.",
+            }
+
+        return {
+            "ya_hecho": False,
+            "habilitado": False,
+            "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+            "fecha_referencia": referencia.isoformat() if referencia else None,
+            "mensaje": "Aún no corresponde el control mensual. La ventana se habilitará al llegar la fecha programada.",
+        }
 
     def _obtener_codigos_catalogo_restricciones(self, cur) -> set[str]:
         cur.execute("select to_regclass('clinico.catalogo_restriccion_alimentaria')")
@@ -238,10 +309,26 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
                 
                 # 2. Insertar Paciente
+                cedula_paciente = str(paciente.get("cedula") or "").strip()
+                if cedula_paciente:
+                    cur.execute(
+                        """
+                        select id
+                        from usuarios.paciente
+                        where trim(cedula) = %s
+                        limit 1
+                        """,
+                        (cedula_paciente,),
+                    )
+                    paciente_existente = cur.fetchone()
+                    if paciente_existente:
+                        raise ValueError(
+                            f"__PACIENTE_CEDULA_DUP__La cédula {cedula_paciente} ya está registrada para otro paciente."
+                        )
                 cur.execute("""
                     insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_canton, id_parroquia, cedula, activo) 
                     values (%s, %s, %s, %s, %s, %s, true) returning id
-                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), paciente.get("cedula")))
+                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), cedula_paciente))
                 paciente_id = cur.fetchone()[0]
                 
                 # 3. Relación Tutor-Paciente
@@ -300,8 +387,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     restricciones.add("INTOLERANCIA_LACTOSA")
 
                 subs = set(salud.get("alergias_subgrupos", []))
-                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                subs.update(sub_restricciones)
                 self._guardar_restricciones_alimentarias(cur, str(paciente_id), restricciones)
                 
                 for sid in subs:
@@ -309,7 +394,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                     cur,
-                    set(salud.get("alergias_ingredientes", [])) | ing_restricciones,
+                    set(salud.get("alergias_ingredientes", [])),
                     subs,
                 )
                 for iid in ingredientes_finales:
@@ -383,8 +468,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         restricciones.add("INTOLERANCIA_LACTOSA")
 
                     subs = set(datos.get("alergias_subgrupos", []))
-                    sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                    subs.update(sub_restricciones)
                     self._guardar_restricciones_alimentarias(cur, str(id_paciente), restricciones)
                     
                     for sid in subs:
@@ -392,7 +475,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     
                     ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                         cur,
-                        set(datos.get("alergias_ingredientes", [])) | ing_restricciones,
+                        set(datos.get("alergias_ingredientes", [])),
                         subs,
                     )
                     for iid in ingredientes_finales:
@@ -442,8 +525,13 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
         with db_cursor() as cur:
             cur.execute("""
-                select fecha_control, peso_kg, talla_cm, imc_calculado, 
-                       puntos_dolor, escala_inflamacion, nivel_fatiga
+                select fecha_control::text, peso_kg, talla_cm, imc_calculado,
+                       estado_nutricional::text, id_condicion_nutricional_resultado,
+                       puntos_dolor, escala_inflamacion, nivel_fatiga,
+                       articulaciones_inflamadas, articulaciones_dolorosas,
+                       minutos_rigidez, en_brote, estado_enfermedad::text,
+                       nota_evolucion::text, fecha_proxima_cita::text,
+                       null::numeric as z_score_bmi
                 from clinico.control_paciente 
                 where id_paciente = %s 
                 order by fecha_control asc
@@ -453,7 +541,57 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def buscar_pacientes(self, query: str, limite: int = 50) -> List[dict]:
         with db_cursor() as cur:
-            sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id where v.nombre_completo ilike %s or v.cedula ilike %s order by v.nombre_completo limit %s"
+            sql = """
+                select
+                    v.*,
+                    p.id_sexo,
+                    exists (
+                        select 1
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                    ) as plan_activo,
+                    (
+                        select pn.id
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_id,
+                    (
+                        select pn.fecha_inicio::text
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_inicio,
+                    (
+                        select pn.fecha_fin::text
+                        from interaccion.plan_nutricional pn
+                        where pn.id_paciente = v.id
+                          and coalesce(pn.vigente, false) = true
+                        order by pn.created_at desc nulls last, pn.id desc
+                        limit 1
+                    ) as plan_activo_fin,
+                    coalesce((
+                        select vc.confirmado
+                        from clinico.control_paciente cp
+                        left join clinico.validacion_control_nutricional_mensual vc
+                          on vc.id_control = cp.id
+                         and vc.anio = extract(year from current_date)::int
+                         and vc.mes = extract(month from current_date)::int
+                        where cp.id_paciente = v.id
+                        order by cp.fecha_control desc, cp.id desc
+                        limit 1
+                    ), false) as validacion_confirmada
+                from usuarios.vista_gestion_pacientes v
+                join usuarios.paciente p on p.id = v.id
+                where v.nombre_completo ilike %s or v.cedula ilike %s
+                order by v.nombre_completo
+                limit %s
+            """
             cur.execute(sql, (f"%{query}%", f"%{query}%", limite))
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -504,8 +642,6 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     restricciones.add("INTOLERANCIA_LACTOSA")
 
                 subs = set(salud.get("alergias_subgrupos", []))
-                sub_restricciones, ing_restricciones = self._expandir_restricciones_alimentarias(cur, restricciones)
-                subs.update(sub_restricciones)
                 self._guardar_restricciones_alimentarias(cur, str(id_paciente), restricciones)
                 
                 for sid in subs:
@@ -513,7 +649,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                     cur,
-                    set(salud.get("alergias_ingredientes", [])) | ing_restricciones,
+                    set(salud.get("alergias_ingredientes", [])),
                     subs,
                 )
                 for iid in ingredientes_finales:
@@ -582,13 +718,18 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("""
                 select id::text, id_paciente::text, fecha_control::text, peso_kg, talla_cm, imc_calculado, 
-                       estado_nutricional::text 
+                       estado_nutricional::text, id_condicion_nutricional_resultado,
+                       puntos_dolor, escala_inflamacion, nivel_fatiga, articulaciones_inflamadas, 
+                       articulaciones_dolorosas, minutos_rigidez, en_brote, estado_enfermedad::text, 
+                       nota_evolucion::text, fecha_proxima_cita::text, null::numeric as z_score_bmi
                 from clinico.control_paciente 
                 where id_paciente = %s 
-                order by fecha_control desc limit 1
+                order by fecha_control asc
             """, (id_paciente,))
-            ctrl_row = cur.fetchone()
-            ultimo_control = dict(zip([d[0] for d in cur.description], ctrl_row)) if ctrl_row else {}
+            historial_cols = [d[0] for d in cur.description]
+            historial_controles = [dict(zip(historial_cols, r)) for r in cur.fetchall()]
+            ultimo_control = historial_controles[-1] if historial_controles else {}
+            estado_control_mensual = self._construir_estado_control_mensual(historial_controles)
             
             # También traer alergias para el expediente mensual
             cur.execute("""
@@ -652,6 +793,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "tutor": tutor, 
                 "diagnostico": diagnostico, 
                 "ultimo_control": ultimo_control,
+                "historial_controles": historial_controles,
+                "estado_control_mensual": estado_control_mensual,
                 "alergias": {
                     "subgrupos": alergias_subs,
                     "ingredientes": alergias_ings,

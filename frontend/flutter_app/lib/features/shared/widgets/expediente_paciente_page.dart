@@ -284,7 +284,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                       children: [
                         Icon(Icons.health_and_safety_outlined, color: Colors.deepPurple),
                         SizedBox(width: 12),
-                        Text("RESTRICCIONES CLINICAS ACTIVAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text("RESTRICCIONES MÉDICAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -292,7 +292,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                       spacing: 8,
                       runSpacing: 8,
                       children: restricciones.map((r) => Chip(
-                        label: Text(r['nombre']?.toString() ?? r['codigo']?.toString() ?? "Restriccion", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text((r['nombre']?.toString() ?? r['codigo']?.toString() ?? "Restriccion").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         backgroundColor: Colors.deepPurple.shade50,
                         side: BorderSide(color: Colors.deepPurple.shade100),
                       )).toList(),
@@ -313,7 +313,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     children: [
                       const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                       const SizedBox(width: 12),
-                      const Text("ALERGIAS A GRUPOS BLOQUEADOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text("ALERGIAS / SUBGRUPOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const Spacer(),
                       TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
                     ],
@@ -322,7 +322,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: subgrupos.map((s) => Chip(
-                      label: Text(s['nombre']?.toString() ?? "Grupo", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text((s['nombre']?.toString() ?? "Grupo").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade200),
                     )).toList(),
@@ -343,7 +343,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     children: [
                       const Icon(Icons.block_flipped, color: Colors.red),
                       const SizedBox(width: 12),
-                      const Text("INGREDIENTES PROHIBIDOS ESPECÍFICOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text("ALERGIAS / ESPECIFICAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const Spacer(),
                       TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text("Gestionar"))
                     ],
@@ -352,7 +352,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: ingredientes.map((i) => Chip(
-                      label: Text(i['nombre']?.toString() ?? "Ingrediente", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text((i['nombre']?.toString() ?? "Ingrediente").replaceAll('_', ' '), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.red.shade50,
                       side: BorderSide(color: Colors.red.shade200),
                     )).toList(),
@@ -528,10 +528,19 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
       elevation: 0, borderOnForeground: false,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
       child: ListTile(
+        onTap: () => _mostrarDetalleConsulta(Map<String, dynamic>.from(h as Map)),
         leading: CircleAvatar(backgroundColor: AppTema.azulPrincipal.withOpacity(0.1), child: Text(DateFormat('dd').format(fecha), style: const TextStyle(color: AppTema.azulPrincipal, fontWeight: FontWeight.bold))),
         title: Text(DateFormat('MMMM yyyy', 'es').format(fecha).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text("Peso: ${h['peso_kg']}kg | PCR: ${h['valor_pcr'] ?? '-'} | Status: ${h['estado_nutricional'] ?? 'Sin Diagnóstico'}"),
-        trailing: const Icon(Icons.chevron_right),
+        subtitle: Text(
+          "Peso: ${h['peso_kg']}kg | Talla: ${h['talla_cm']}cm | IMC: ${h['imc_calculado'] ?? '-'}\n"
+          "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min\n"
+          "Estado: ${h['estado_nutricional'] ?? 'Sin Diagnóstico'} | Próxima cita: ${h['fecha_proxima_cita'] ?? '-'}",
+        ),
+        trailing: IconButton(
+          tooltip: "Editar control",
+          icon: const Icon(Icons.edit_note_rounded, color: AppTema.azulPrincipal),
+          onPressed: () => _abrirFormularioControlEdicion(Map<String, dynamic>.from(h as Map)),
+        ),
       ),
     );
   }
@@ -549,6 +558,82 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
           child: Text(value?.toString() ?? "-", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ),
       ],
+    );
+  }
+
+  void _mostrarDetalleConsulta(Map<String, dynamic> h) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.assessment_outlined, color: AppTema.azulPrincipal),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Control ${DateFormat('dd/MM/yyyy').format(DateTime.parse(h['fecha_control']))}",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _editableField("Estado Nutricional", h['estado_nutricional']),
+              const SizedBox(height: 10),
+              _editableField("Peso / Talla / IMC", "${h['peso_kg']} kg / ${h['talla_cm']} cm / ${h['imc_calculado'] ?? '-'}"),
+              const SizedBox(height: 10),
+              _editableField("Actividad Clínica", "Dolor ${h['puntos_dolor'] ?? '-'} | Inflamación ${h['escala_inflamacion'] ?? '-'} | Fatiga ${h['nivel_fatiga'] ?? '-'} | Rigidez ${h['minutos_rigidez'] ?? '-'} min"),
+              const SizedBox(height: 10),
+              _editableField("Próxima Cita", h['fecha_proxima_cita']),
+              const SizedBox(height: 10),
+              _editableField("Notas", h['nota_evolucion']),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _abrirFormularioControlEdicion(Map<String, dynamic>.from(h as Map));
+                      },
+                      icon: const Icon(Icons.edit_note_rounded),
+                      label: const Text("Editar control"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _abrirFormularioControlEdicion(Map<String, dynamic> controlEditando) {
+    final pac = _data!['paciente'];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _FormularioControlMensual(
+        idPaciente: widget.idPaciente,
+        fechaNacimiento: pac['fecha_nacimiento'],
+        idSexo: pac['id_sexo'],
+        controlEditando: controlEditando,
+        onSuccess: () {
+          Navigator.pop(context);
+          _loadExpedienteMaestro();
+          NutriSnack.show(context, "âœ… Control Mensual Actualizado", ref: ref);
+        },
+      ),
     );
   }
 
@@ -576,8 +661,9 @@ class _FormularioControlMensual extends ConsumerStatefulWidget {
   final String idPaciente;
   final String fechaNacimiento;
   final int idSexo;
+  final Map<String, dynamic>? controlEditando;
   final VoidCallback onSuccess;
-  const _FormularioControlMensual({required this.idPaciente, required this.fechaNacimiento, required this.idSexo, required this.onSuccess});
+  const _FormularioControlMensual({required this.idPaciente, required this.fechaNacimiento, required this.idSexo, required this.onSuccess, this.controlEditando});
 
   @override
   ConsumerState<_FormularioControlMensual> createState() => _FormularioControlMensualState();
@@ -608,6 +694,18 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
   void initState() {
     super.initState();
     _loadCatalogs();
+    final h = widget.controlEditando;
+    if (h != null) {
+      _pesoCtrl.text = h['peso_kg']?.toString() ?? "";
+      _tallaCtrl.text = h['talla_cm']?.toString() ?? "";
+      _pcrCtrl.text = h['pcr']?.toString() ?? h['valor_pcr']?.toString() ?? "";
+      _rigidezCtrl.text = h['minutos_rigidez']?.toString() ?? "";
+      _notaCtrl.text = h['nota_evolucion']?.toString() ?? "";
+      _dolor = (h['puntos_dolor'] as num? ?? 0).toDouble();
+      _inflamacion = (h['escala_inflamacion'] as num? ?? 0).toDouble();
+      _fatiga = (h['nivel_fatiga'] as num? ?? 10).toDouble();
+      _proximaCita = DateTime.tryParse(h['fecha_proxima_cita']?.toString() ?? "") ?? _proximaCita;
+    }
   }
 
   Future<void> _loadCatalogs() async {
@@ -678,7 +776,7 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
     return Row(
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("CONSULTA DE SEGUIMIENTO", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 18, color: AppTema.azulPrincipal)),
+          Text(widget.controlEditando == null ? "CONSULTA DE SEGUIMIENTO" : "EDITAR CONSULTA", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 18, color: AppTema.azulPrincipal)),
           const Text("Evolución clínica mensual obligatoria.", style: TextStyle(fontSize: 12, color: Colors.grey)),
         ]),
         const Spacer(),
@@ -847,7 +945,15 @@ class _FormularioControlMensualState extends ConsumerState<_FormularioControlMen
           "fecha_inicio": e.value.toIso8601String().split('T')[0]
         }).toList(),
       };
-      await dio.post("pacientes/${widget.idPaciente}/control-mensual", data: payload);
+      if (widget.controlEditando == null) {
+        await dio.post("pacientes/${widget.idPaciente}/control-mensual", data: payload);
+      } else {
+        final idControl = widget.controlEditando?['id']?.toString();
+        if (idControl == null || idControl.isEmpty) {
+          throw Exception("No se pudo identificar el control a editar.");
+        }
+        await dio.put("pacientes/control-mensual/$idControl", data: payload);
+      }
       widget.onSuccess();
     } catch (e) {
       NutriSnack.show(context, "Error al registrar control", isError: true, ref: ref);
