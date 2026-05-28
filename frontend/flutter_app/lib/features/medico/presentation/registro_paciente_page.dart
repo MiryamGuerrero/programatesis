@@ -272,6 +272,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     if (p > 1 && t > 30 && _pacFechaNac != null && _pacSexo != null) {
       setState(() => _calculandoOMS = true);
       try {
+        double asDouble(dynamic value, {double fallback = 0}) {
+          if (value is num) return value.toDouble();
+          return double.tryParse(value?.toString() ?? "") ?? fallback;
+        }
         final data = await ref.read(repositorioMedicoProvider).preDiagnosticoNutricional({
           "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first,
           "id_sexo": _pacSexo, "peso_kg": p, "talla_cm": t
@@ -281,11 +285,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _omsStatusPeso = data['diagnostico_nutri_texto'] ?? "Normal";
             _omsStatusTalla = data['diagnostico_talla_texto'] ?? "Adecuada";
             _resumenClinico = data['resumen_clinico'] ?? "";
-            _gananciaPeso = (data['ganancia_pPeso_necesaria'] ?? 0).toDouble();
-            _gananciaTalla = (data['ganancia_talla_necesaria'] ?? 0).toDouble();
-            _estadoPeso = data['estado_pPeso'] ?? "mantener";
-            _pesoMediana = (data['peso_ideal'] ?? 0).toDouble();
-            _tallaMediana = (data['talla_ideal'] ?? 0).toDouble();
+            _gananciaPeso = asDouble(data['ganancia_peso_necesaria']);
+            _gananciaTalla = asDouble(data['ganancia_talla_necesaria']);
+            _estadoPeso = data['estado_peso'] ?? "mantener";
+            _pesoMediana = asDouble(data['peso_ideal']);
+            _tallaMediana = asDouble(data['talla_ideal']);
             
             final combined = (data['diagnostico_combinado'] ?? "$_omsStatusPeso / $_omsStatusTalla").toString().toLowerCase();
             if (combined.contains("severa") || combined.contains("emaciación") || combined.contains("desnutrición")) _omsColor = Colors.red;

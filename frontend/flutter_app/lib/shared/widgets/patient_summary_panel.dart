@@ -42,11 +42,7 @@ class PatientSummaryPanel extends StatelessWidget {
     final restriccionesTexto = restriccionesActivas
         .map((res) => _prettyClinicalLabel(res.nombre))
         .toList();
-    final tieneDiabetes = restriccionesActivas.any(
-      (res) => res.codigo.contains('DIABETES') || res.nombre.toUpperCase().contains('DIABETES'),
-    );
-    final restriccionesLabel =
-        tieneDiabetes ? 'INTOLERANCIAS / RESTRICCIONES / DIABETES' : 'INTOLERANCIAS / RESTRICCIONES';
+    final restriccionesLabel = 'RESTRICCIONES MEDICAS';
 
     return Container(
       width: width,

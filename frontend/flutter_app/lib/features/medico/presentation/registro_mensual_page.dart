@@ -27,8 +27,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   late TabController _tabController;
   bool _loading = false;
   bool _yaEvaluadoHoy = false;
+  bool _controlMensualYaHecho = false;
+  bool _controlMensualHabilitado = false;
+  String _mensajeControlMensual = "";
   Map<String, dynamic>? _expediente;
-  int? _idControlEditando;
+  String? _idControlEditando;
   Timer? _debounceOMS;
 
   static const Color greenBrand = Color(0xFF2E7D32);
@@ -147,14 +150,23 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       final dio = ref.read(dioProvider);
       final res = await dio.get("pacientes/${widget.paciente['id']}/expediente-completo");
       final data = res.data;
-       
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
       final evaluadoHoy = historial.any((c) => c['fecha_control'] == hoy);
+      final estadoControlBackend = data['estado_control_mensual'];
+      final estadoControl = estadoControlBackend is Map
+          ? Map<String, dynamic>.from(estadoControlBackend)
+          : _evaluarEstadoControlMensual(historial);
+      final ultimoControl = (data['ultimo_control'] is Map)
+          ? Map<String, dynamic>.from(data['ultimo_control'] as Map)
+          : <String, dynamic>{};
 
       setState(() { 
         _expediente = data; 
         _yaEvaluadoHoy = evaluadoHoy;
+        _controlMensualYaHecho = estadoControl['ya_hecho'] == true;
+        _controlMensualHabilitado = estadoControl['habilitado'] == true;
+        _mensajeControlMensual = estadoControl['mensaje']?.toString() ?? "";
         _idPatologiaBase = data['diagnostico']?['id_condicion'];
         
         final al = data['alergias'] ?? {};
@@ -162,12 +174,56 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         _alergiasIngredientes = List<Map<String, dynamic>>.from(al['ingredientes'] ?? []);
         _restriccionesAlimentarias = List<String>.from(al['restricciones_codigos'] ?? []);
         _lactosa = _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA");
+
+        if (_peso.text.isEmpty && ultimoControl['peso_kg'] != null) {
+          _peso.text = ultimoControl['peso_kg'].toString();
+        }
+        if (_talla.text.isEmpty && ultimoControl['talla_cm'] != null) {
+          _talla.text = ultimoControl['talla_cm'].toString();
+        }
         
         _loading = false; 
       });
+      if (_peso.text.isNotEmpty && _talla.text.isNotEmpty) {
+        _calculateOMS();
+      }
     } catch (e) {
       setState(() => _loading = false);
     }
+  }
+
+  Map<String, dynamic> _evaluarEstadoControlMensual(List historial) {
+    final ahora = DateTime.now();
+    DateTime? ultimaFechaControl;
+    DateTime? fechaProgramada;
+    bool hechoEnMesActual = false;
+
+    for (final raw in historial) {
+      final row = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+      final fechaControl = DateTime.tryParse((row['fecha_control'] ?? '').toString());
+      if (fechaControl == null) continue;
+      if (ultimaFechaControl == null || fechaControl.isAfter(ultimaFechaControl)) {
+        ultimaFechaControl = fechaControl;
+        fechaProgramada = DateTime.tryParse((row['fecha_proxima_cita'] ?? '').toString());
+      }
+      if (fechaControl.year == ahora.year && fechaControl.month == ahora.month) {
+        hechoEnMesActual = true;
+      }
+    }
+
+    final referencia = fechaProgramada ?? ultimaFechaControl?.add(const Duration(days: 30)) ?? ahora;
+    final habilitado = !hechoEnMesActual && !ahora.isBefore(DateTime(referencia.year, referencia.month, referencia.day));
+    final mensaje = hechoEnMesActual
+        ? "Ya existe un control mensual registrado en este periodo. Si requiere corregirlo, use el monitor de evolución."
+        : habilitado
+            ? "Control mensual habilitado para registro."
+            : "Aún no corresponde el control mensual. La ventana se abrirá al llegar la fecha programada.";
+
+    return {
+      'ya_hecho': hechoEnMesActual,
+      'habilitado': habilitado,
+      'mensaje': mensaje,
+    };
   }
 
   void _debouncedOMS() {
@@ -190,6 +246,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     setState(() => _calculandoOMS = true);
     try {
       final dio = ref.read(dioProvider);
+      double asDouble(dynamic value, {double fallback = 0}) {
+        if (value is num) return value.toDouble();
+        return double.tryParse(value?.toString() ?? "") ?? fallback;
+      }
       final fechaStr = fnac.toString().split("T").first;
        
       final res = await dio.post("pre-diagnostico-nutricional", data: {
@@ -205,11 +265,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
           _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
           _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
           _resumenClinico = res.data['resumen_clinico'] ?? "";
-          _gananciaPeso = (res.data['ganancia_peso_necesaria'] ?? 0).toDouble();
-          _gananciaTalla = (res.data['ganancia_talla_necesaria'] ?? 0).toDouble();
+          _gananciaPeso = asDouble(res.data['ganancia_peso_necesaria']);
+          _gananciaTalla = asDouble(res.data['ganancia_talla_necesaria']);
           _estadoPeso = res.data['estado_peso'] ?? "mantener";
-          _pesoIdeal = (res.data['peso_ideal'] ?? 0).toDouble();
-          _tallaIdeal = (res.data['talla_ideal'] ?? 0).toDouble();
+          _pesoIdeal = asDouble(res.data['peso_ideal']);
+          _tallaIdeal = asDouble(res.data['talla_ideal']);
           
           final String combined = (res.data['diagnostico_combinado'] ?? "$_omsStatusPeso / $_omsStatusTalla").toString().toLowerCase();
           
@@ -230,19 +290,22 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   }
 
   void _prepararEdicion(Map<String, dynamic> h) {
+    double _asDouble(dynamic value, {double fallback = 0}) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? "") ?? fallback;
+    }
+
     setState(() {
-      _idControlEditando = h['id'];
+      _idControlEditando = h['id']?.toString();
       _peso.text = h['peso_kg']?.toString() ?? "";
       _talla.text = h['talla_cm']?.toString() ?? "";
-      _pcr.text = h['valor_pcr']?.toString() ?? "";
-      _vsg.text = h['valor_vsg']?.toString() ?? "";
       _artInflam.text = h['articulaciones_inflamadas']?.toString() ?? "0";
       _artDolor.text = h['articulaciones_dolorosas']?.toString() ?? "0";
       _rigidez.text = h['minutos_rigidez']?.toString() ?? "";
       _notas.text = h['nota_evolucion'] ?? "";
-      _dolor = (h['puntos_dolor'] ?? 0).toDouble();
-      _inflamacion = (h['escala_inflamacion'] ?? 0).toDouble();
-      _fatiga = (h['nivel_fatiga'] ?? 10).toDouble();
+      _dolor = _asDouble(h['puntos_dolor']);
+      _inflamacion = _asDouble(h['escala_inflamacion']);
+      _fatiga = _asDouble(h['nivel_fatiga'], fallback: 10);
       _brote = h['en_brote'] ?? false;
       _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ?? DateTime.now().add(const Duration(days: 30));
@@ -282,8 +345,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         "puntos_dolor": _dolor.toInt(), 
         "escala_inflamacion": _inflamacion.toInt(), 
         "fatiga": _fatiga.toInt(),
-        "valor_pcr": _pcr.text, 
-        "valor_vsg": _vsg.text, 
         "articulaciones_inflamadas": _artInflam.text,
         "articulaciones_dolorosas": _artDolor.text, 
         "minutos_rigidez": _rigidez.text,
@@ -303,6 +364,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       if (_idControlEditando == null) {
         await dio.post("pacientes/${widget.paciente['id']}/control-mensual", data: payload);
       } else {
+        if (_idControlEditando!.isEmpty) {
+          throw Exception("No se pudo identificar el control a editar.");
+        }
         await dio.put("pacientes/control-mensual/$_idControlEditando", data: payload);
       }
       if (mounted) NutriSnack.show(context, "✅ Se han actualizado los campos de Peso, Talla y Evaluación correctamente", ref: ref);
@@ -411,17 +475,22 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
                     Expanded(child: _buildExpSection("3. ESTADO CLÍNICO ACTUAL", [
                       _expItem("Enfermedad Autoinmune", d['condicion_nombre'] ?? "No registrada", isHighlight: true),
                       _expItem("Estado Nutricional (OMS)", c['estado_nutricional'], isBold: true),
-                      _expItem("Relación Peso / Talla", "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm"),
+                      _expItem("Relación Peso / Talla / IMC", "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm / ${c['imc_calculado'] ?? '-'}"),
+                      _expItem("Actividad Clínica", "Dolor ${c['puntos_dolor'] ?? '-'} | Inflamación ${c['escala_inflamacion'] ?? '-'} | Fatiga ${c['nivel_fatiga'] ?? '-'} | Rigidez ${c['minutos_rigidez'] ?? '-'} min"),
+                      _expItem("Estado de Enfermedad", c['estado_enfermedad'] ?? "Seguimiento"),
                       const SizedBox(height: 16),
                       const Text("SEGURIDAD ALIMENTARIA", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange, letterSpacing: 1)),
                       const SizedBox(height: 8),
                       _expItem("Intolerancia a Lactosa", esIntolerante ? "SÍ (RESTRICCIÓN ACTIVA)" : "NO DETECTADA", isAlert: esIntolerante),
-                      _expItem("Alergias Detectadas", (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ").isEmpty ? "Ninguna" : (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ")),
+                      _expItem("Alergias a Subgrupos", (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ").isEmpty ? "Ninguna" : (al['subgrupos'] as List? ?? []).map((e) => e['nombre']).join(", ")),
+                      _expItem("Alergias a Ingredientes", (al['ingredientes'] as List? ?? []).map((e) => e['nombre']).join(", ").isEmpty ? "Ninguna" : (al['ingredientes'] as List? ?? []).map((e) => e['nombre']).join(", ")),
+                      _expItem("Restricciones Médicas", (_expediente!['restricciones_alimentarias_detalle'] as List? ?? []).map((r) => r['nombre']).join(", ").isEmpty ? "Ninguna" : (_expediente!['restricciones_alimentarias_detalle'] as List? ?? []).map((r) => r['nombre']).join(", ")),
                       const SizedBox(height: 16),
                       const Text("PRÓXIMOS EVENTOS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1)),
                       const SizedBox(height: 8),
                       _expItem("Último Registro", c['fecha_control']),
                       _expItem("Cita Programada", c['fecha_proxima_cita'], isHighlight: true),
+                      _expItem("Controles Registrados", (_expediente!['historial_controles'] as List? ?? []).length.toString()),
                     ])),
                   ],
                 ),
@@ -551,6 +620,68 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   );
 
   Widget _buildFormTab() {
+    final bloqueado = !_controlMensualHabilitado && _idControlEditando == null;
+    if (bloqueado) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _controlMensualYaHecho
+                        ? Icons.check_circle_outline
+                        : Icons.lock_outline,
+                    color: _controlMensualYaHecho ? Colors.blue : Colors.orange,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _mensajeControlMensual.isNotEmpty
+                          ? _mensajeControlMensual
+                          : "Aún no corresponde el control mensual.",
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _controlMensualYaHecho
+                            ? Colors.blue
+                            : Colors.orange,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _controlMensualYaHecho
+                    ? "Si necesita corregir el control, vaya al monitor de evolución y edite ese registro."
+                    : "La ventana de registro se habilitará cuando se cumpla la fecha programada.",
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  color: Colors.blueGrey,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => _tabController.animateTo(1),
+                icon: const Icon(Icons.show_chart_rounded),
+                label: const Text("Ir al monitor de evolución"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -658,6 +789,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
                     Expanded(child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)),
                   ]),
                   const SizedBox(height: 24),
+                  _field(
+                    _rigidez,
+                    "Rigidez en min",
+                    Icons.timer_outlined,
+                    helper: "Minutos de rigidez al despertar o durante el día",
+                  ),
+                  const SizedBox(height: 18),
                   _buildBroteToggle(),
                 ],
               ),
@@ -1175,9 +1313,111 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     return Container(margin: const EdgeInsets.only(top: 16), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))), child: Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 12), Expanded(child: Text(conclusion, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)))]));
   }
 
-  Widget _buildHistoryItem(Map<String, dynamic> h) => InkWell(onTap: () => _mostrarDetalleModal(h), child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: (h['en_brote'] ?? false) ? Colors.red.shade100 : Colors.grey.shade200)), child: Row(children: [_dateBadge(DateTime.parse(h['fecha_control'])), const SizedBox(width: 20), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(h['estado_nutricional'] ?? "SIN DIAGNÓSTICO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, color: const Color(0xFF0F172A))), Text("Peso: ${h['peso_kg']} kg | Talla: ${h['talla_cm']} cm", style: const TextStyle(fontSize: 12, color: Colors.blueGrey))])), if (h['en_brote'] == true) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)), child: const Text("BROTE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))), const SizedBox(width: 12), const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey)])));
+  Widget _buildHistoryItem(Map<String, dynamic> h) => InkWell(
+    onTap: () => _mostrarDetalleModal(h),
+    child: Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: (h['en_brote'] ?? false) ? Colors.red.shade100 : Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          _dateBadge(DateTime.parse(h['fecha_control'])),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  h['estado_nutricional'] ?? "SIN DIAGNÓSTICO",
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, color: const Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Peso: ${h['peso_kg']} kg | Talla: ${h['talla_cm']} cm | IMC: ${h['imc_calculado'] ?? '-'}",
+                  style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                ),
+                Text(
+                  "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min",
+                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                ),
+              ],
+            ),
+          ),
+          if (h['en_brote'] == true)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+              child: const Text("BROTE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+            ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: "Editar",
+            onPressed: () => _prepararEdicion(h),
+            icon: const Icon(Icons.edit_note_rounded, color: greenBrand),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+        ],
+      ),
+    ),
+  );
 
-  void _mostrarDetalleModal(Map<String, dynamic> h) => showDialog(context: context, builder: (ctx) => Dialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), child: Container(width: 550, padding: const EdgeInsets.all(32), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Icon(Icons.analytics_outlined, color: greenBrand), const SizedBox(width: 12), Text("RESUMEN DE VALORACIÓN", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: greenBrand)), const Spacer(), IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close))]), const Divider(height: 32), _infoModalRow("Fecha de Control", DateFormat('dd/MM/yyyy').format(DateTime.parse(h['fecha_control']))), _infoModalRow("Estado Nutricional", h['estado_nutricional'] ?? "Normal", isHighlight: true), const SizedBox(height: 32), SizedBox(width: double.infinity, height: 50, child: OutlinedButton.icon(onPressed: () { Navigator.pop(ctx); _prepararEdicion(h); }, icon: const Icon(Icons.edit_note_rounded), label: const Text("EDITAR VALORACIÓN"), style: OutlinedButton.styleFrom(foregroundColor: greenBrand, side: const BorderSide(color: greenBrand), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))))]))));
+  void _mostrarDetalleModal(Map<String, dynamic> h) => showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Container(
+        width: 650,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.analytics_outlined, color: greenBrand),
+                const SizedBox(width: 12),
+                Text("RESUMEN DE VALORACIÓN", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: greenBrand)),
+                const Spacer(),
+                IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+              ],
+            ),
+            const Divider(height: 32),
+            _infoModalRow("Fecha de Control", DateFormat('dd/MM/yyyy').format(DateTime.parse(h['fecha_control']))),
+            _infoModalRow("Estado Nutricional", h['estado_nutricional'] ?? "Normal", isHighlight: true),
+            _infoModalRow("Peso / Talla", "${h['peso_kg'] ?? '-'} kg / ${h['talla_cm'] ?? '-'} cm"),
+            _infoModalRow("IMC", h['imc_calculado']?.toString() ?? "-"),
+            _infoModalRow("Actividad clínica", "Dolor ${h['puntos_dolor'] ?? '-'} | Inflamación ${h['escala_inflamacion'] ?? '-'} | Fatiga ${h['nivel_fatiga'] ?? '-'} | Rigidez ${h['minutos_rigidez'] ?? '-'} min"),
+            _infoModalRow("Estado de enfermedad", h['estado_enfermedad'] ?? "Seguimiento"),
+            _infoModalRow("Próxima cita", h['fecha_proxima_cita'] ?? "Sin fecha"),
+            if ((h['nota_evolucion'] ?? '').toString().isNotEmpty) _infoModalRow("Notas", h['nota_evolucion']),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _prepararEdicion(h);
+                    },
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text("EDITAR VALORACIÓN"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: greenBrand,
+                      side: const BorderSide(color: greenBrand),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _infoModalRow(String l, String v, {bool isHighlight = false}) => Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)), const SizedBox(height: 2), Text(v, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.w600, color: isHighlight ? greenBrand : const Color(0xFF1E293B)))]));
 

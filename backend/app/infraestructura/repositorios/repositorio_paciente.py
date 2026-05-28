@@ -95,7 +95,78 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 values (%s, %s, now(), true)
                 """,
                 (id_paciente, codigo),
-            )
+                )
+
+    def _construir_estado_control_mensual(self, historial: list[dict]) -> dict:
+        hoy = date.today()
+        ultima_fecha_control = None
+        fecha_programada = None
+        hubo_control_en_mes_actual = False
+
+        for fila in historial:
+            fecha_control_raw = fila.get("fecha_control")
+            fecha_control = None
+            if isinstance(fecha_control_raw, str) and fecha_control_raw:
+                try:
+                    fecha_control = date.fromisoformat(fecha_control_raw[:10])
+                except Exception:
+                    try:
+                        fecha_control = datetime.strptime(fecha_control_raw[:10], "%Y-%m-%d").date()
+                    except Exception:
+                        fecha_control = None
+            elif isinstance(fecha_control_raw, datetime):
+                fecha_control = fecha_control_raw.date()
+            elif isinstance(fecha_control_raw, date):
+                fecha_control = fecha_control_raw
+
+            if fecha_control is None:
+                continue
+
+            if ultima_fecha_control is None or fecha_control > ultima_fecha_control:
+                ultima_fecha_control = fecha_control
+                fecha_programada_raw = fila.get("fecha_proxima_cita")
+                if isinstance(fecha_programada_raw, str) and fecha_programada_raw:
+                    try:
+                        fecha_programada = date.fromisoformat(fecha_programada_raw[:10])
+                    except Exception:
+                        try:
+                            fecha_programada = datetime.strptime(fecha_programada_raw[:10], "%Y-%m-%d").date()
+                        except Exception:
+                            fecha_programada = None
+                elif isinstance(fecha_programada_raw, datetime):
+                    fecha_programada = fecha_programada_raw.date()
+                elif isinstance(fecha_programada_raw, date):
+                    fecha_programada = fecha_programada_raw
+
+            if fecha_control.year == hoy.year and fecha_control.month == hoy.month:
+                hubo_control_en_mes_actual = True
+
+        referencia = fecha_programada or (ultima_fecha_control + timedelta(days=30) if ultima_fecha_control else None)
+        if hubo_control_en_mes_actual:
+            return {
+                "ya_hecho": True,
+                "habilitado": False,
+                "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+                "fecha_referencia": referencia.isoformat() if referencia else None,
+                "mensaje": "Ya existe un control mensual registrado en este periodo. Si desea modificarlo, vaya al monitor de evolución.",
+            }
+
+        if referencia is None or hoy >= referencia:
+            return {
+                "ya_hecho": False,
+                "habilitado": True,
+                "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+                "fecha_referencia": referencia.isoformat() if referencia else None,
+                "mensaje": "Control mensual habilitado para registro.",
+            }
+
+        return {
+            "ya_hecho": False,
+            "habilitado": False,
+            "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
+            "fecha_referencia": referencia.isoformat() if referencia else None,
+            "mensaje": "Aún no corresponde el control mensual. La ventana se habilitará al llegar la fecha programada.",
+        }
 
     def _obtener_codigos_catalogo_restricciones(self, cur) -> set[str]:
         cur.execute("select to_regclass('clinico.catalogo_restriccion_alimentaria')")
@@ -425,8 +496,13 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
         with db_cursor() as cur:
             cur.execute("""
-                select fecha_control, peso_kg, talla_cm, imc_calculado, 
-                       puntos_dolor, escala_inflamacion, nivel_fatiga
+                select fecha_control::text, peso_kg, talla_cm, imc_calculado,
+                       estado_nutricional::text, id_condicion_nutricional_resultado,
+                       puntos_dolor, escala_inflamacion, nivel_fatiga,
+                       articulaciones_inflamadas, articulaciones_dolorosas,
+                       minutos_rigidez, en_brote, estado_enfermedad::text,
+                       nota_evolucion::text, fecha_proxima_cita::text,
+                       null::numeric as z_score_bmi
                 from clinico.control_paciente 
                 where id_paciente = %s 
                 order by fecha_control asc
@@ -613,13 +689,18 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("""
                 select id::text, id_paciente::text, fecha_control::text, peso_kg, talla_cm, imc_calculado, 
-                       estado_nutricional::text 
+                       estado_nutricional::text, id_condicion_nutricional_resultado,
+                       puntos_dolor, escala_inflamacion, nivel_fatiga, articulaciones_inflamadas, 
+                       articulaciones_dolorosas, minutos_rigidez, en_brote, estado_enfermedad::text, 
+                       nota_evolucion::text, fecha_proxima_cita::text, null::numeric as z_score_bmi
                 from clinico.control_paciente 
                 where id_paciente = %s 
-                order by fecha_control desc limit 1
+                order by fecha_control asc
             """, (id_paciente,))
-            ctrl_row = cur.fetchone()
-            ultimo_control = dict(zip([d[0] for d in cur.description], ctrl_row)) if ctrl_row else {}
+            historial_cols = [d[0] for d in cur.description]
+            historial_controles = [dict(zip(historial_cols, r)) for r in cur.fetchall()]
+            ultimo_control = historial_controles[-1] if historial_controles else {}
+            estado_control_mensual = self._construir_estado_control_mensual(historial_controles)
             
             # También traer alergias para el expediente mensual
             cur.execute("""
@@ -683,6 +764,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "tutor": tutor, 
                 "diagnostico": diagnostico, 
                 "ultimo_control": ultimo_control,
+                "historial_controles": historial_controles,
+                "estado_control_mensual": estado_control_mensual,
                 "alergias": {
                     "subgrupos": alergias_subs,
                     "ingredientes": alergias_ings,
