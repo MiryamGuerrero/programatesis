@@ -30,6 +30,7 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             sql = """
                 select 
                     pi.id as id_plan_item,
+                    pi.consumida,
                     m.id as id_momento,
                     m.nombre as momento_nombre,
                     m.hora_inicio as momento_hora_inicio,
@@ -38,6 +39,16 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                     r.id as id_receta,
                     (select imagen_url from nutricion.receta_imagen where id_receta = r.id limit 1) as receta_url_imagen,
                     r.descripcion as receta_descripcion,
+                    COALESCE((
+                        SELECT ROUND(AVG(estrellas)::numeric, 1)
+                        FROM interaccion.evaluacion_receta
+                        WHERE id_receta = r.id
+                    ), 0) AS puntuacion_promedio,
+                    COALESCE((
+                        SELECT COUNT(*)
+                        FROM interaccion.evaluacion_receta
+                        WHERE id_receta = r.id
+                    ), 0) AS total_evaluaciones,
                     s.id_estado_consumo,
                     s.fecha_consumo
                 from interaccion.plan_nutricional p
@@ -52,18 +63,37 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                 order by m.orden, pi.id
             """
             cur.execute(sql, (id_paciente, fecha, fecha, fecha))
-            columnas = [desc[0] for desc in cur.description]
-            return [dict(zip(columnas, row)) for row in cur.fetchall()]
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def marcar_item_consumido(self, id_plan_item: int, consumida: bool) -> bool:
+        with db_cursor() as cur:
+            sql = "update interaccion.plan_item set consumida = %s where id = %s"
+            cur.execute(sql, (consumida, id_plan_item))
+            return cur.rowcount > 0
+
+    def obtener_dias_con_plan(self, id_paciente: str, mes: int, anio: int) -> List[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select distinct pi.fecha_programada, p.id as id_plan
+                from interaccion.plan_nutricional p
+                join interaccion.plan_item pi on pi.id_plan = p.id
+                where p.id_paciente = %s 
+                  and extract(month from pi.fecha_programada) = %s
+                  and extract(year from pi.fecha_programada) = %s
+                order by pi.fecha_programada
+            """
+            cur.execute(sql, (id_paciente, mes, anio))
+            return [{"fecha": row[0], "id_plan": row[1]} for row in cur.fetchall()]
 
     def obtener_adherencia(self, id_paciente: str, dias_atras: int) -> dict:
         with db_cursor() as cur:
             sql = """
                 select 
                     count(pi.id) as total,
-                    count(s.id) filter (where s.id_estado_consumo = 1) as consumidos
+                    count(pi.id) filter (where pi.consumida = true) as consumidos
                 from interaccion.plan_nutricional p
                 join interaccion.plan_item pi on pi.id_plan = p.id
-                left join interaccion.seguimiento_plan_item s on s.id_plan_item = pi.id
                 where p.id_paciente = %s 
                   and pi.fecha_programada >= current_date - %s
                   and pi.fecha_programada <= current_date
@@ -78,7 +108,7 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                 "total_planificado": total,
                 "total_consumido": consumidos,
                 "porcentaje_cumplimiento": round(porcentaje, 2),
-                "racha_dias": 0 # Implementación de racha pendiente si se requiere
+                "racha_dias": 0 
             }
 
     def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> List[dict]:
@@ -134,13 +164,12 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                         p.id as id_paciente,
                         p.nombre_completo,
                         count(pi.id) as total_plan,
-                        count(s.id) filter (where s.id_estado_consumo = 1) as consumidos
+                        count(pi.id) filter (where pi.consumida = true) as consumidos
                     from usuarios.paciente p
                     join pacientes_medico pm on pm.id_paciente = p.id
                     left join interaccion.plan_item pi on pi.id_plan in (
-                        select id from interaccion.plan_nutricional where id_paciente = p.id and vigente = true
+                        select id from interaccion.plan_nutricional where id_paciente = p.id
                     )
-                    left join interaccion.seguimiento_plan_item s on s.id_plan_item = pi.id
                     where p.activo = true
                     group by p.id, p.nombre_completo
                 )

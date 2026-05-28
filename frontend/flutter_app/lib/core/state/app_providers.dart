@@ -328,6 +328,19 @@ final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>, ({S
   return await repo.fetchPlanItemsByPaciente(arg.idPaciente, fecha: arg.fecha);
 });
 
+final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, int mes, int anio})>((ref, arg) async {
+  final dio = ref.watch(dioProvider);
+  final resp = await dio.get('tutor/dias-con-plan/${arg.idPaciente}', queryParameters: {
+    'mes': arg.mes,
+    'anio': arg.anio,
+  });
+  final List<dynamic> data = resp.data;
+  return data.map((d) => {
+    "fecha": DateTime.parse(d['fecha'].toString()),
+    "id_plan": d['id_plan'] as int,
+  }).toList();
+});
+
 final listaComprasProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchShoppingList(arg.idPaciente, start: arg.start, end: arg.end);

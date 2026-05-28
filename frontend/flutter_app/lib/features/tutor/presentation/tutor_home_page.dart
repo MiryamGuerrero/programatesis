@@ -6,7 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import 'tutor_calendario_page.dart';
 import 'tutor_recetas_page.dart';
 import 'tutor_compras_page.dart';
-
+import 'tutor_gustos_page.dart';
+import 'onboarding_gustos_page.dart';
 import 'tutor_receta_detalle_page.dart';
 
 class TutorHomePage extends ConsumerStatefulWidget {
@@ -19,6 +20,8 @@ class TutorHomePage extends ConsumerStatefulWidget {
 class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProviderStateMixin {
   int _bottomNavIndex = 0;
   int _oldBottomNavIndex = 0; 
+  bool _showOnboarding = false;
+  bool _checkingOnboarding = true;
   
   late AnimationController _selectorController;
   late Animation<double> _selectorAnimation;
@@ -37,6 +40,29 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
       parent: _selectorController,
       curve: Curves.easeOutBack, 
     );
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final idPaciente = ref.read(selectedPatientIdProvider);
+    if (idPaciente == null) {
+      setState(() => _checkingOnboarding = false);
+      return;
+    }
+
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get('tutor/verificar-onboarding/$idPaciente');
+      if (mounted) {
+        setState(() {
+          _showOnboarding = !(resp.data['configuradas'] ?? false);
+          _checkingOnboarding = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error verificando onboarding: $e");
+      if (mounted) setState(() => _checkingOnboarding = false);
+    }
   }
 
   @override
@@ -59,6 +85,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
     {"titulo": "Calendario", "subtitulo": "Agenda de alimentación"},
     {"titulo": "Recetas", "subtitulo": "Explora opciones seguras"},
     {"titulo": "Compras", "subtitulo": "Próxima semana"},
+    {"titulo": "Gustos", "subtitulo": "Preferencias del paciente"},
   ];
 
   @override
@@ -69,6 +96,17 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
     final idPaciente = ref.watch(selectedPatientIdProvider);
     final patientsAsync = ref.watch(misPacientesProvider);
     
+    if (_checkingOnboarding) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_showOnboarding && idPaciente != null) {
+      return OnboardingGustosPage(
+        idPaciente: idPaciente,
+        onCompletado: () => setState(() => _showOnboarding = false),
+      );
+    }
+
     String nombrePaciente = "Seleccionar";
     if (idPaciente != null) {
       patientsAsync.whenData((list) {
@@ -84,6 +122,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
       const TutorCalendarioPage(),
       const TutorRecetasPage(),
       const TutorComprasPage(),
+      const TutorGustosPage(),
     ];
 
     return Scaffold(
@@ -150,6 +189,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: "Calendario"),
           NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: "Recetas"),
           NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), selectedIcon: Icon(Icons.shopping_cart), label: "Compras"),
+          NavigationDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: "Gustos"),
         ],
       ),
     );
@@ -193,6 +233,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
                                       onTap: () {
                                         ref.read(selectedPatientIdProvider.notifier).state = p["id"].toString();
                                         _toggleSelector();
+                                        _checkOnboardingStatus(); 
                                       },
                                     )),
                                   ],
@@ -232,20 +273,41 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
   }
 }
 
-class _DashboardView extends ConsumerWidget {
+class _DashboardView extends ConsumerStatefulWidget {
   final String? idPaciente;
   const _DashboardView({required this.idPaciente});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends ConsumerState<_DashboardView> {
+  final GlobalKey _activeKey = GlobalKey();
+  bool _hasScrolled = false;
+
+  Future<void> _toggleConsumida(int idPlanItem, bool currentStatus) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('tutor/marcar-consumida', data: {
+        "id_plan_item": idPlanItem,
+        "consumida": !currentStatus,
+      });
+      ref.invalidate(planDiarioProvider);
+    } catch (e) {
+      debugPrint("Error marcando consumo: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     
-    final planAsync = idPaciente != null
-        ? ref.watch(planDiarioProvider((idPaciente: idPaciente!, fecha: today)))
+    final planAsync = widget.idPaciente != null
+        ? ref.watch(planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today)))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 
     return planAsync.when(
@@ -254,10 +316,8 @@ class _DashboardView extends ConsumerWidget {
           return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay plan nutricional para hoy")));
         }
 
-        // AGRUPAR POR MOMENTO PARA DETERMINAR CUÁL ES EL PRIMERO
         final Map<int, List<Map<String, dynamic>>> grouped = {};
         final List<int> momentOrder = [];
-        
         for (var m in meals) {
           final idMom = m["id_momento"] as int;
           if (!grouped.containsKey(idMom)) {
@@ -267,70 +327,113 @@ class _DashboardView extends ConsumerWidget {
           grouped[idMom]!.add(m);
         }
 
-        final currentMomentId = momentOrder.first;
-        final featuredMeals = grouped[currentMomentId]!;
-        final remainingMomentIds = momentOrder.skip(1).toList();
+        int? featuredMomentId;
+        final currentTimeInMinutes = now.hour * 60 + now.minute;
+
+        for (var momId in momentOrder) {
+          final firstMeal = grouped[momId]!.first;
+          final startStr = firstMeal["momento_hora_inicio"]?.toString();
+          final endStr = firstMeal["momento_hora_fin"]?.toString();
+          if (startStr != null && endStr != null) {
+            final startParts = startStr.split(':');
+            final endParts = endStr.split(':');
+            final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+            final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+
+            if (currentTimeInMinutes >= startMin && currentTimeInMinutes <= endMin) {
+              featuredMomentId = momId;
+              break;
+            }
+          }
+        }
+
+        if (featuredMomentId == null) {
+          for (var momId in momentOrder) {
+            final firstMeal = grouped[momId]!.first;
+            final startStr = firstMeal["momento_hora_inicio"]?.toString();
+            if (startStr != null) {
+              final startParts = startStr.split(':');
+              final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+              if (currentTimeInMinutes < startMin) {
+                featuredMomentId = momId;
+                break;
+              }
+            }
+          }
+        }
+
+        featuredMomentId ??= momentOrder.first;
+
+        if (!_hasScrolled) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_activeKey.currentContext != null) {
+              Scrollable.ensureVisible(_activeKey.currentContext!, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic, alignment: 0.05);
+              if (mounted) setState(() => _hasScrolled = true);
+            }
+          });
+        }
 
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // SECCIÓN: MOMENTO ACTUAL (TODAS LAS RECETAS EN GRANDE)
-              Row(
-                children: [
-                  Icon(Icons.stars, color: colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    (featuredMeals.first["momento_nombre"] ?? "ACTUAL").toString().toUpperCase(),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold, 
-                      letterSpacing: 1.1,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ...featuredMeals.map((m) => Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: _FeaturedMealCard(meal: m),
-              )),
-
-              // SECCIONES SIGUIENTES (EN PEQUEÑO)
-              if (remainingMomentIds.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.only(top: 12, bottom: 8),
-                  child: Divider(),
-                ),
-                ...remainingMomentIds.map((momId) {
-                  final momentMeals = grouped[momId]!;
-                  final momentName = momentMeals.first["momento_nombre"] ?? "Siguiente";
-                  
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16, bottom: 12),
-                        child: Text(
-                          momentName.toString().toUpperCase(),
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 1.1,
-                          ),
+            children: momentOrder.map((momId) {
+              final isFeatured = momId == featuredMomentId;
+              final momentMeals = grouped[momId]!;
+              return Container(
+                key: isFeatured ? _activeKey : null,
+                margin: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(isFeatured ? Icons.stars : Icons.access_time_filled_rounded, color: isFeatured ? colorScheme.primary : Colors.grey.shade400, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          momentMeals.first["momento_nombre"].toString().toUpperCase(),
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.1, color: isFeatured ? colorScheme.primary : Colors.grey.shade700),
                         ),
-                      ),
-                      ...momentMeals.map((m) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _UpcomingMealCard(meal: m),
-                      )),
-                    ],
-                  );
-                }),
-              ],
-              const SizedBox(height: 40),
-            ],
+                        const Spacer(),
+                        _buildStatusBadge(momentMeals, currentTimeInMinutes),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ...momentMeals.map((m) {
+                      final bool isConsumida = m["consumida"] == true;
+                      
+                      // Lógica de visibilidad del check verde
+                      final String? startStr = m["momento_hora_inicio"]?.toString();
+                      bool isPastOrCurrent = true;
+                      if (startStr != null) {
+                        final parts = startStr.split(':');
+                        final startMin = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+                        if (currentTimeInMinutes < startMin) {
+                          isPastOrCurrent = false;
+                        }
+                      }
+
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: isFeatured ? 20 : 12),
+                        child: (isFeatured && !isConsumida) 
+                            ? _FeaturedMealCard(
+                                meal: m, 
+                                onConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida)
+                              ) 
+                            : _UpcomingMealCard(
+                                meal: m, 
+                                isConsumida: isConsumida,
+                                showCheckButton: isPastOrCurrent,
+                                onToggleConsumida: isPastOrCurrent ? () => _toggleConsumida(m["id_plan_item"], isConsumida) : null,
+                              ),
+                      );
+                    }),
+                    if (!isFeatured && momId != momentOrder.last)
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Divider(color: Colors.grey.shade200)),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         );
       },
@@ -338,11 +441,44 @@ class _DashboardView extends ConsumerWidget {
       error: (err, _) => Center(child: Text("Error: $err")),
     );
   }
+
+  Widget _buildStatusBadge(List<Map<String, dynamic>> meals, int currentMin) {
+    final first = meals.first;
+    final startStr = first["momento_hora_inicio"]?.toString();
+    final endStr = first["momento_hora_fin"]?.toString();
+    if (startStr == null || endStr == null) return const SizedBox();
+
+    final startMin = int.parse(startStr.split(':')[0]) * 60 + int.parse(startStr.split(':')[1]);
+    final endMin = int.parse(endStr.split(':')[0]) * 60 + int.parse(endStr.split(':')[1]);
+
+    final allConsumida = meals.every((m) => m["consumida"] == true);
+    
+    String label = "";
+    Color color = Colors.grey;
+
+    if (currentMin >= startMin && currentMin <= endMin) {
+      label = allConsumida ? "COMPLETADO" : "AHORA";
+      color = allConsumida ? AppTema.verdeSalud : AppTema.azulPrincipal;
+    } else if (currentMin < startMin) {
+      label = "SIGUIENTE";
+      color = Colors.blueGrey;
+    } else {
+      label = allConsumida ? "FINALIZADO" : "PENDIENTE";
+      color = allConsumida ? Colors.grey : Colors.orange;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
 }
 
 class _FeaturedMealCard extends StatelessWidget {
   final Map<String, dynamic> meal;
-  const _FeaturedMealCard({required this.meal});
+  final VoidCallback onConsumida;
+  const _FeaturedMealCard({required this.meal, required this.onConsumida});
 
   @override
   Widget build(BuildContext context) {
@@ -373,7 +509,7 @@ class _FeaturedMealCard extends StatelessWidget {
                   meal["receta_nombre"] ?? "Sin nombre", 
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 24, // Título más grande
+                    fontSize: 24, 
                     color: colorScheme.onSurface,
                   ),
                 ),
@@ -391,7 +527,6 @@ class _FeaturedMealCard extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 20),
-                // Botones de acción ...
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final double btnWidth = (constraints.maxWidth - 12) / 2;
@@ -422,7 +557,7 @@ class _FeaturedMealCard extends StatelessWidget {
                             SizedBox(
                               width: btnWidth,
                               child: FilledButton.tonal(
-                                onPressed: () {},
+                                onPressed: onConsumida,
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppTema.verdeSalud,
                                   foregroundColor: Colors.white,
@@ -485,7 +620,16 @@ class _FeaturedMealCard extends StatelessWidget {
 
 class _UpcomingMealCard extends StatelessWidget {
   final Map<String, dynamic> meal;
-  const _UpcomingMealCard({required this.meal});
+  final bool isConsumida;
+  final bool showCheckButton;
+  final VoidCallback? onToggleConsumida;
+  
+  const _UpcomingMealCard({
+    required this.meal, 
+    this.isConsumida = false, 
+    this.showCheckButton = true,
+    this.onToggleConsumida
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -494,36 +638,67 @@ class _UpcomingMealCard extends StatelessWidget {
     
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: isConsumida ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5) : BorderSide.none,
+      ),
+      elevation: isConsumida ? 0 : 1,
+      color: isConsumida ? Colors.grey.shade50 : Colors.white,
       child: ListTile(
         onTap: () {
           final idReceta = meal["id_receta"];
           if (idReceta != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int)));
           }
         },
         contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 54, height: 54, 
-          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-          clipBehavior: Clip.antiAlias,
-          child: url.isNotEmpty
-              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
-              : const Icon(Icons.fastfood, color: Colors.grey),
+        leading: Stack(
+          children: [
+            Container(
+              width: 54, height: 54, 
+              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+              clipBehavior: Clip.antiAlias,
+              child: url.isNotEmpty
+                  ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
+                  : const Icon(Icons.fastfood, color: Colors.grey),
+            ),
+            if (isConsumida)
+              Positioned(
+                right: 0, bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(color: AppTema.verdeSalud, shape: BoxShape.circle),
+                  child: const Icon(Icons.check, size: 12, color: Colors.white),
+                ),
+              ),
+          ],
         ),
         title: Text(
           meal["receta_nombre"] ?? "Sin nombre",
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isConsumida ? Colors.grey : null,
+            decoration: isConsumida ? TextDecoration.lineThrough : null,
+          ),
         ),
-        subtitle: meal["receta_descripcion"] != null 
-            ? Text(meal["receta_descripcion"], maxLines: 1, overflow: TextOverflow.ellipsis)
-            : null,
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+        subtitle: isConsumida 
+            ? const Text("Consumida", style: TextStyle(color: AppTema.verdeSalud, fontWeight: FontWeight.bold, fontSize: 12))
+            : (meal["receta_descripcion"] != null 
+                ? Text(meal["receta_descripcion"], maxLines: 1, overflow: TextOverflow.ellipsis)
+                : null),
+        trailing: isConsumida 
+            ? IconButton(
+                icon: const Icon(Icons.undo_rounded, size: 20, color: Colors.grey),
+                tooltip: "Desmarcar",
+                onPressed: onToggleConsumida,
+              )
+            : (showCheckButton 
+                ? IconButton(
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 24, color: AppTema.verdeSalud),
+                    tooltip: "Marcar como consumida",
+                    onPressed: onToggleConsumida,
+                  )
+                : const SizedBox(width: 48)), // Empty space to keep layout balanced
       ),
     );
   }

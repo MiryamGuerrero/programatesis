@@ -1,4 +1,4 @@
-﻿from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from copy import deepcopy
 import threading
 import time
@@ -33,6 +33,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
     def _cache_recetas_seguras_set(cls, key, value) -> None:
         with cls._safe_recipes_cache_lock:
             cls._safe_recipes_cache[key] = (time.monotonic(), deepcopy(value))
+
     def _obtener_etiquetas_objetivo_les_aij(self, cur) -> set[int]:
         cur.execute(
             """
@@ -55,15 +56,11 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             return "Media"
         dificultad = str(valor).strip()
         mapa = {
-            "facil": "FÃ¡cil",
-            "fÃ¡cil": "FÃ¡cil",
-            "fÃ£Â¡cil": "FÃ¡cil",
-            "fÃ£Æ’Ã¢Â¡cil": "FÃ¡cil",
+            "facil": "Fácil",
+            "fácil": "Fácil",
             "media": "Media",
-            "dificil": "DifÃ­cil",
-            "difÃ­cil": "DifÃ­cil",
-            "difÃ£Â­cil": "DifÃ­cil",
-            "difÃ£Æ’Ã¢Â­cil": "DifÃ­cil",
+            "dificil": "Difícil",
+            "difícil": "Difícil",
         }
         return mapa.get(dificultad.lower(), "Media")
 
@@ -105,7 +102,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 r.id_subgrupo_alimentario,
                 r.id_etiqueta,
                 r.id_receta,
-                coalesce(r.mensaje_error, 'Incumple regla clinica general reumatica') as mensaje,
+                coalesce(r.mensaje_error, 'Incumple regla clinica general reumatica') as mensaje,      
                 i.nombre as ingrediente_nombre,
                 g.nombre as grupo_nombre,
                 s.nombre as subgrupo_nombre
@@ -186,6 +183,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 r.porciones,
                 r.tiempo_preparacion_min,
                 r.tiempo_coccion_min,
+                r.tiempo_total_min,
+                r.calorias_por_porcion,
                 r.activa,
                 r.imagen_url,
                 r.created_at,
@@ -196,14 +195,6 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.grasa_total_g, 0))::numeric, 2), 0) AS grasas_totales,
                 COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.fibra_vegetal_g, 0))::numeric, 2), 0) AS fibra_totales,
                 COALESCE(ROUND(SUM(COALESCE(ri.peso_en_gramos, 0))::numeric, 2), 0) AS peso_total,
-                COALESCE(
-                    ROUND(
-                        SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.energia_kcal, 0))::numeric
-                        / GREATEST(COALESCE(r.porciones, 1), 1),
-                        2
-                    ),
-                    0
-                ) AS calorias_por_porcion,
                 (
                     SELECT STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre)
                     FROM nutricion.receta_momento rm
@@ -233,165 +224,91 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     WHERE rm.id_receta = r.id
                     ORDER BY m.orden NULLS LAST, m.nombre
                     LIMIT 1
-                ) AS categoria
+                ) AS categoria,
+                COALESCE((
+                    SELECT ROUND(AVG(estrellas)::numeric, 1)
+                    FROM interaccion.evaluacion_receta
+                    WHERE id_receta = r.id
+                ), 0) AS puntuacion_promedio,
+                COALESCE((
+                    SELECT COUNT(*)
+                    FROM interaccion.evaluacion_receta
+                    WHERE id_receta = r.id
+                ), 0) AS total_evaluaciones,
+                COALESCE((
+                    SELECT estrellas
+                    FROM interaccion.evaluacion_receta
+                    WHERE id_receta = r.id AND id_paciente = %s
+                    LIMIT 1
+                ), 0) AS calificacion_personal
             FROM nutricion.receta r
             LEFT JOIN nutricion.receta_ingrediente ri ON ri.id_receta = r.id
+            LEFT JOIN nutricion.ingrediente i ON i.id = ri.id_ingrediente
             LEFT JOIN nutricion.ingrediente_composicion ic ON ic.id_ingrediente = ri.id_ingrediente
             WHERE {where_clause}
-            GROUP BY r.id
+            GROUP BY r.id, r.calorias_por_porcion
         """
-
-    def _inferir_etiquetas_por_ingredientes(self, cur, id_receta: int) -> set[int]:
-        """
-        Etiquetado inteligente conservador orientado a LES/AIJ:
-        - Propaga etiqueta si aparece en ingrediente principal.
-        - O si la suma de gramos de ingredientes con esa etiqueta representa >= 20% del peso total.
-        - Solo considera etiquetas que existen en reglas clÃ­nicas especÃ­ficas LES/AIJ.
-        """
-        etiquetas_objetivo = self._obtener_etiquetas_objetivo_les_aij(cur)
-        if not etiquetas_objetivo:
-            return set()
-
-        cur.execute(
-            """
-            select
-                ri.id_ingrediente,
-                coalesce(ri.peso_en_gramos, 0)::numeric as gramos,
-                coalesce(ri.es_principal, false) as es_principal
-            from nutricion.receta_ingrediente ri
-            where ri.id_receta = %s
-            """,
-            (id_receta,),
-        )
-        rows = cur.fetchall()
-        if not rows:
-            return set()
-
-        ids_ingredientes = [int(r[0]) for r in rows if r[0] is not None]
-        if not ids_ingredientes:
-            return set()
-
-        gramos_por_ing: dict[int, float] = {}
-        principales: set[int] = set()
-        total_gramos = 0.0
-        for iid, gramos, es_principal in rows:
-            iid = int(iid)
-            g = float(gramos or 0)
-            gramos_por_ing[iid] = gramos_por_ing.get(iid, 0.0) + g
-            total_gramos += g
-            if es_principal:
-                principales.add(iid)
-
-        cur.execute(
-            """
-            select ie.id_ingrediente, ie.id_etiqueta
-            from nutricion.ingrediente_etiqueta ie
-            where ie.id_ingrediente = any(%s)
-              and ie.id_etiqueta = any(%s)
-            """,
-            (ids_ingredientes, list(etiquetas_objetivo)),
-        )
-        rels = cur.fetchall()
-        if not rels:
-            return set()
-
-        por_etiqueta_gramos: dict[int, float] = {}
-        por_etiqueta_principal: set[int] = set()
-        for iid, etq in rels:
-            iid = int(iid)
-            etq = int(etq)
-            por_etiqueta_gramos[etq] = por_etiqueta_gramos.get(etq, 0.0) + gramos_por_ing.get(iid, 0.0)
-            if iid in principales:
-                por_etiqueta_principal.add(etq)
-
-        inferidas: set[int] = set()
-        for etq, gramos_etq in por_etiqueta_gramos.items():
-            ratio = (gramos_etq / total_gramos) if total_gramos > 0 else 0.0
-            if etq in por_etiqueta_principal or ratio >= 0.20:
-                inferidas.add(etq)
-        return inferidas
 
     def listar_recetas(self, consulta: str = "", limite: int = 1000) -> List[dict]:
-        """Lista recetas calculando la nutricion desde sus ingredientes."""
         where_clause = "TRUE"
-        params = []
-
+        params = [None]
         if consulta:
-            stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
-            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
-            if not words and consulta.strip(): words = [consulta.lower().strip()]
-            
-            if words:
-                word_conditions = []
-                for w in words:
-                    # Busqueda por palabra completa usando regex con ancla de limite (\y)
-                    word_conditions.append("r.nombre ~* %s")
-                    pattern = f"\\y{w}\\y"
-                    params.append(pattern)
-                where_clause += " and (" + " and ".join(word_conditions) + ")"
-
-        sql = self._sql_receta_detalle_base(where_clause) + """
-            ORDER BY r.activa DESC, nombre ASC
-            LIMIT %s
-        """
+            where_clause += " and r.nombre ilike %s"
+            params.append(f"%{consulta}%")
+        sql = self._sql_receta_detalle_base(where_clause) + " ORDER BY r.nombre LIMIT %s"
         params.append(limite)
-
         with db_cursor() as cur:
             cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
-    def obtener_detalle_completo(self, id_receta: int) -> Optional[dict]:
-        """Obtiene una receta con todos sus ingredientes, pasos y etiquetas."""
+    def obtener_detalle_completo(self, id_receta: int, id_paciente: str | None = None) -> Optional[dict]:
         with db_cursor() as cur:
-            # 1. Datos basicos y nutricionales calculados desde ingredientes
-            cur.execute(self._sql_receta_detalle_base("r.id = %s"), (id_receta,))
+            cur.execute(self._sql_receta_detalle_base("r.id = %s"), (id_paciente, id_receta))
             row = cur.fetchone()
-            if not row:
-                return None
+            if not row: return None
+            receta = dict(zip([d[0] for d in cur.description], row))
             
-            columnas = [desc[0] for desc in cur.description]
-            receta = dict(zip(columnas, row))
+            # Verificar si está en el plan de hoy para el paciente
+            receta['en_plan_hoy'] = False
+            if id_paciente:
+                cur.execute("""
+                    select pi.id, pi.consumida
+                    from interaccion.plan_item pi
+                    join interaccion.plan_nutricional p on p.id = pi.id_plan
+                    where p.id_paciente = %s 
+                      and pi.id_receta = %s 
+                      and pi.fecha_programada = current_date
+                    limit 1
+                """, (id_paciente, id_receta))
+                plan_row = cur.fetchone()
+                if plan_row:
+                    receta['en_plan_hoy'] = True
+                    receta['id_plan_item_hoy'] = plan_row[0]
+                    receta['consumida_hoy'] = plan_row[1]
 
-            # 1.1 Momentos de Comida
             cur.execute("SELECT id_momento FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
             receta['momentos'] = [r[0] for r in cur.fetchall()]
-
-            # 1.2 Tipos de Plato
             cur.execute("SELECT id_tipo_plato FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))
             receta['tipos_plato'] = [r[0] for r in cur.fetchall()]
-
-            # 2. Ingredientes con su composiciÃ³n tÃ©cnica
             cur.execute("""
-                SELECT 
-                    ri.id_ingrediente, 
-                    i.nombre, 
-                    ri.cantidad_visual as cantidad, 
-                    ri.unidad_visual as unidad, 
-                    ri.peso_en_gramos as gramos, 
-                    ri.observaciones,
-                    ri.es_principal
+                SELECT ri.id_ingrediente, i.nombre, ri.cantidad_visual as cantidad, ri.unidad_visual as unidad, 
+                       ri.peso_en_gramos as gramos, ri.observaciones, ri.es_principal
                 FROM nutricion.receta_ingrediente ri
                 JOIN nutricion.ingrediente i ON i.id = ri.id_ingrediente
-                WHERE ri.id_receta = %s
-                ORDER BY ri.id ASC
+                WHERE ri.id_receta = %s ORDER BY ri.id ASC
             """, (id_receta,))
-            columnas_ing = [desc[0] for desc in cur.description]
-            receta['ingredientes'] = [dict(zip(columnas_ing, r)) for r in cur.fetchall()]
-
-            # 3. Pasos de preparaciÃ³n
+            receta['ingredientes'] = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
             cur.execute("""
                 SELECT numero_paso as paso, descripcion, tiempo_estimado as tiempo, nota_adicional as nota
                 FROM nutricion.receta_paso
-                WHERE id_receta = %s
-                ORDER BY numero_paso ASC
+                WHERE id_receta = %s ORDER BY numero_paso ASC
             """, (id_receta,))
-            columnas_paso = [desc[0] for desc in cur.description]
-            receta['preparacion'] = [dict(zip(columnas_paso, r)) for r in cur.fetchall()]
-
+            receta['preparacion'] = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
             # 4. Etiquetas de salud
             cur.execute("""
-                SELECT e.id, e.nombre_visible as titulo, e.descripcion as explicacion, e.codigo
+                SELECT e.id, e.nombre_visible as titulo, e.descripcion as explicacion, e.codigo        
                 FROM nutricion.receta_etiqueta re
                 JOIN nutricion.etiqueta_nutricional e ON e.id = re.id_etiqueta
                 WHERE re.id_receta = %s
@@ -399,9 +316,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             columnas_etq = [desc[0] for desc in cur.description]
             receta['etiquetas_salud'] = [dict(zip(columnas_etq, r)) for r in cur.fetchall()]
 
-            # 5. NutriciÃ³n Detallada (Vitaminas y Minerales)
-            # Consultamos la tabla de composiciÃ³n para los micronutrientes
-            # Nota: AquÃ­ se podrÃ­an sumar de forma similar a la vista si se requiere precisiÃ³n total
+            # 5. Nutrición Detallada (Vitaminas y Minerales)
             cur.execute("""
                 SELECT 
                     SUM(ic.vitamina_a_eq_retinol_ug) as vit_a,
@@ -411,24 +326,23 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     SUM(ic.magnesio_mg) as magnesio,
                     SUM(ic.potasio_mg) as potasio
                 FROM nutricion.receta_ingrediente ri
-                JOIN nutricion.ingrediente_composicion ic ON ri.id_ingrediente = ic.id_ingrediente
+                JOIN nutricion.ingrediente_composicion ic ON ri.id_ingrediente = ic.id_ingrediente     
                 WHERE ri.id_receta = %s
             """, (id_receta,))
             micro = cur.fetchone()
             if micro:
                 receta['nutricion_detallada'] = {
                     "vitaminas": [
-                        {"nombre": "Vitamina A", "valor": round(float(micro[0] or 0), 2), "unidad": "Âµg"},
+                        {"nombre": "Vitamina A", "valor": round(float(micro[0] or 0), 2), "unidad": "µg"},
                         {"nombre": "Vitamina C", "valor": round(float(micro[1] or 0), 2), "unidad": "mg"},
                         {"nombre": "Vitamina E", "valor": round(float(micro[2] or 0), 2), "unidad": "mg"}
                     ],
                     "minerales": [
-                        {"nombre": "Hierro", "valor": round(float(micro[3] or 0), 2), "unidad": "mg"},
+                        {"nombre": "Hierro", "valor": round(float(micro[3] or 0), 2), "unidad": "mg"}, 
                         {"nombre": "Magnesio", "valor": round(float(micro[4] or 0), 2), "unidad": "mg"},
-                        {"nombre": "Potasio", "valor": round(float(micro[5] or 0), 2), "unidad": "mg"}
+                        {"nombre": "Potasio", "valor": round(float(micro[5] or 0), 2), "unidad": "mg"} 
                     ]
                 }
-
             return receta
 
     def obtener_recetas_por_momento(self, id_momento: int) -> List[dict]:
@@ -441,7 +355,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     WHERE rm.id_receta = r.id AND rm.id_momento = %s
                 )
             """)
-            cur.execute(sql, (id_momento,))
+            cur.execute(sql, (None, id_momento))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
@@ -450,75 +364,43 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
         id_paciente: str,
         id_momento: Optional[int] = None,
         id_tipo_plato: Optional[int] = None,
+        consulta: Optional[str] = None,
+        limite: int = 100,
+        offset: int = 0
     ) -> List[dict]:
-        cache_key = ("safe_recipes", id_paciente, id_momento, id_tipo_plato)
+        # Tratar consulta vacía como None
+        query_text = consulta if (consulta and consulta.strip()) else None
+
+        cache_key = ("safe_recipes", id_paciente, id_momento, id_tipo_plato, query_text, limite, offset)
         cached = self._cache_recetas_seguras_get(cache_key)
         if cached is not None:
             return cached
+
         with db_cursor() as cur:
-            cur.execute(
-                """
-                with recetas as (
-                  select
-                    r.id,
-                    r.nombre,
-                    r.imagen_url,
-                    coalesce(round(sum((coalesce(ri.peso_en_gramos,0)::numeric/100)*coalesce(ic.energia_kcal,0))::numeric,2),0) as calorias_totales,
-                    coalesce(round(sum((coalesce(ri.peso_en_gramos,0)::numeric/100)*coalesce(ic.proteinas_g,0))::numeric,2),0) as proteinas_totales,
-                    coalesce(array_agg(distinct ri.id_ingrediente) filter (where ri.id_ingrediente is not null), '{}') as ingredientes_ids,
-                    coalesce(array_agg(distinct i.id_grupo_alimentario) filter (where i.id_grupo_alimentario is not null), '{}') as grupos_ids,
-                    coalesce(array_agg(distinct i.id_subgrupo_alimentario) filter (where i.id_subgrupo_alimentario is not null), '{}') as subgrupos_ids,
-                    coalesce(array_agg(distinct en.codigo) filter (where en.codigo is not null), '{}') as etiquetas_codigos,
-                    coalesce(array_agg(distinct i.nombre) filter (where i.nombre is not null), '{}') as ingredientes_nombres,
-                    coalesce(array_agg(distinct rtp.id_tipo_plato) filter (where rtp.id_tipo_plato is not null), '{}') as tipos_plato_ids
-                  from nutricion.receta r
-                  left join nutricion.receta_ingrediente ri on ri.id_receta = r.id
-                  left join nutricion.ingrediente i on i.id = ri.id_ingrediente
-                  left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = ri.id_ingrediente
-                  left join nutricion.receta_etiqueta re on re.id_receta = r.id
-                  left join nutricion.etiqueta_nutricional en on en.id = re.id_etiqueta
-                  left join nutricion.receta_tipo_plato rtp on rtp.id_receta = r.id
-                  where coalesce(r.activa,false)=true
-                    and (%s::int is null or exists (
-                      select 1 from nutricion.receta_momento rm
-                      where rm.id_receta = r.id and rm.id_momento = %s::int
-                    ))
-                    and (%s::int is null or exists (
-                      select 1 from nutricion.receta_tipo_plato rtpf
-                      where rtpf.id_receta = r.id and rtpf.id_tipo_plato = %s::int
-                    ))
-                    and (
-                      %s::int is null
-                      or %s::int is null
-                      or exists (
-                        select 1
-                        from nutricion.momento_tipo_plato_factible mtpf
-                        where mtpf.id_momento = %s::int
-                          and mtpf.id_tipo_plato = %s::int
-                      )
-                    )
-                  group by r.id, r.nombre, r.imagen_url
+            sql = """
+                with recetas_base as (
+                  select * from nutricion.vista_recetas_detalle
+                  where coalesce(activa,false)=true
+                    and (%s::int is null or %s::int = any(momentos_ids))
+                    and (%s::int is null or %s::int = any(tipos_plato_ids))
+                    and (%s::text is null or nombre ilike '%' || %s::text || '%')
+                ),
+                stats as (
+                  select id_receta, round(avg(estrellas)::numeric, 1) as puntuacion_promedio, count(*) as total_evaluaciones
+                  from interaccion.evaluacion_receta group by id_receta
                 ),
                 conds as (
                   select id as id_condicion from heuristico.condicion 
                   where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
                   union
-                  select distinct id_condicion
-                  from clinico.diagnostico_paciente
-                  where id_paciente = %s::uuid and coalesce(esta_activo,false)=true
+                  select id_condicion from clinico.diagnostico_paciente where id_paciente = %s::uuid and esta_activo = true
                   union
-                  select distinct cca.id_condicion
-                  from clinico.control_condicion_activa cca
-                  join clinico.control_paciente cp on cp.id = cca.id_control
-                  where cp.id_paciente = %s::uuid and coalesce(cca.esta_activa,false)=true
+                  select cca.id_condicion from clinico.control_condicion_activa cca join clinico.control_paciente cp on cp.id = cca.id_control
+                  where cp.id_paciente = %s::uuid and cca.esta_activa = true
                 ),
                 reglas_aplicables as (
-                  select
-                    upper(ca.nombre) as accion,
-                    r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario, r.id_etiqueta, r.id_receta
-                  from heuristico.regla r
-                  join heuristico.catalogo_accion ca on ca.id = r.id_accion
-                  join heuristico.condicion_regla cr on cr.id_regla = r.id
+                  select upper(ca.nombre) as accion, r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario, r.id_etiqueta, r.id_receta
+                  from heuristico.regla r join heuristico.catalogo_accion ca on ca.id = r.id_accion join heuristico.condicion_regla cr on cr.id_regla = r.id
                   where cr.id_condicion in (select id_condicion from conds)
                 ),
                 restricciones_bloqueantes as (
@@ -547,129 +429,250 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   where rp.id_paciente = %s::uuid
                     and coalesce(rp.activa,false)=true
                 ),
+                recoms as (
+                   select id_ingrediente from clinico.recomendacion_ingrediente where id_paciente = %s::uuid and activa = true
+                ),
                 bloqueadas as (
-                  select distinct rec.id
-                  from recetas rec
-                  where exists (
-                    select 1
-                    from clinico.alergia_paciente_ingrediente api
-                    where api.id_paciente = %s::uuid
-                      and coalesce(api.activa,false)=true
-                      and api.id_ingrediente = any(rec.ingredientes_ids)
-                  )
-                  or exists (
-                    select 1
-                    from clinico.alergia_paciente_subgrupo aps
-                    where aps.id_paciente = %s::uuid
-                      and coalesce(aps.activa,false)=true
-                      and aps.id_subgrupo_alimentario = any(rec.subgrupos_ids)
-                  )
-                  or exists (
-                    select 1
-                    from restricciones_bloqueantes rb
-                    where rb.codigo is not null
-                      and rb.codigo = any(rec.etiquetas_codigos)
-                  )
-                  or exists (
-                    select 1
-                    from reglas_aplicables ra
-                    where ra.accion = 'ELIMINAR'
-                      and (
-                        (ra.id_receta is not null and ra.id_receta = rec.id)
-                        or (ra.id_ingrediente is not null and ra.id_ingrediente = any(rec.ingredientes_ids))
-                        or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rec.subgrupos_ids))
-                        or (ra.id_grupo_alimentario is not null and ra.id_grupo_alimentario = any(rec.grupos_ids))
-                        or (ra.id_etiqueta is not null and exists (
-                          select 1 from nutricion.etiqueta_nutricional e2
-                          where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos)
-                        ))
-                      )
-                  )
+                  select distinct rec.id from recetas_base rec
+                  where exists (select 1 from clinico.alergia_paciente_ingrediente api where api.id_paciente = %s::uuid and api.activa = true and api.id_ingrediente = any(rec.ingredientes_ids))
+                  or exists (select 1 from clinico.alergia_paciente_subgrupo aps where aps.id_paciente = %s::uuid and aps.activa = true and aps.id_subgrupo_alimentario = any(rec.subgrupos_ids))
+                  or exists (select 1 from restricciones_bloqueantes rb where rb.codigo is not null and rb.codigo = any(rec.etiquetas_codigos))
+                  or exists (select 1 from reglas_aplicables ra where ra.accion = 'ELIMINAR' and ( (ra.id_receta = rec.id) or (ra.id_ingrediente = any(rec.ingredientes_ids)) or (ra.id_subgrupo_alimentario = any(rec.subgrupos_ids)) or (ra.id_grupo_alimentario = any(rec.grupos_ids)) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))) ))
                 ),
                 clasificadas as (
-                  select
-                    rec.*,
-                    exists (
-                      select 1 from clinico.recomendacion_ingrediente ri
-                      where ri.id_paciente = %s::uuid
-                        and coalesce(ri.activa,false)=true
-                        and ri.id_ingrediente = any(rec.ingredientes_ids)
-                    ) as es_potenciada,
-                    exists (
-                      select 1
-                      from reglas_aplicables ra
-                      where ra.accion = 'PRIORIZAR'
-                        and (
-                          (ra.id_receta is not null and ra.id_receta = rec.id)
-                          or (ra.id_ingrediente is not null and ra.id_ingrediente = any(rec.ingredientes_ids))
-                          or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rec.subgrupos_ids))
-                          or (ra.id_grupo_alimentario is not null and ra.id_grupo_alimentario = any(rec.grupos_ids))
-                          or (ra.id_etiqueta is not null and exists (
-                            select 1 from nutricion.etiqueta_nutricional e2
-                            where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos)
-                          ))
-                        )
-                    ) as tiene_priorizar,
-                    exists (
-                      select 1
-                      from reglas_aplicables ra
-                      where ra.accion = 'DISMINUIR'
-                        and (
-                          (ra.id_receta is not null and ra.id_receta = rec.id)
-                          or (ra.id_ingrediente is not null and ra.id_ingrediente = any(rec.ingredientes_ids))
-                          or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rec.subgrupos_ids))
-                          or (ra.id_grupo_alimentario is not null and ra.id_grupo_alimentario = any(rec.grupos_ids))
-                          or (ra.id_etiqueta is not null and exists (
-                            select 1 from nutricion.etiqueta_nutricional e2
-                            where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos)
-                          ))
-                        )
-                    ) as tiene_disminuir
-                  from recetas rec
+                  select rec.*, coalesce(s.puntuacion_promedio, 0) as puntuacion_promedio, coalesce(s.total_evaluaciones, 0) as total_evaluaciones,
+                         (exists (select 1 from reglas_aplicables ra where ra.accion = 'PRIORIZAR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) 
+                          or exists (select 1 from recoms rem where rem.id_ingrediente = any(rec.ingredientes_ids))) as es_potenciada,
+                         exists (select 1 from reglas_aplicables ra where ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) as es_disminuida
+                  from recetas_base rec
+                  left join stats s on s.id_receta = rec.id
                   where rec.id not in (select id from bloqueadas)
                 )
-                select
-                  c.id, c.nombre, c.imagen_url, c.calorias_totales, c.proteinas_totales,
-                  c.ingredientes_ids, c.ingredientes_nombres, c.grupos_ids, c.subgrupos_ids, c.etiquetas_codigos, c.tipos_plato_ids,
-                  case
-                    when c.tiene_priorizar or c.es_potenciada then 'verde'
-                    when c.tiene_disminuir then 'amarillo'
-                    else 'neutral'
-                  end as semaforo,
-                  case
-                    when c.tiene_priorizar or c.es_potenciada then 'PRIORIZAR: recomendada para este paciente'
-                    when c.tiene_disminuir then 'DISMINUIR: usar con menor frecuencia'
-                    else 'Segura para el paciente'
-                  end as mensaje_regla,
-                  case
-                    when c.tiene_priorizar or c.es_potenciada then 'Recomendada'
-                    when c.tiene_disminuir then 'Menos recomendada'
-                    else 'Normal'
-                  end as clasificacion_recomendacion,
-                  c.es_potenciada
-                from clasificadas c
-                order by
-                  case
-                    when c.tiene_priorizar or c.es_potenciada then 0
-                    when c.tiene_disminuir then 2
-                    else 1
-                  end,
-                  c.nombre
-                """,
-                (
-                    id_momento, id_momento,
-                    id_tipo_plato, id_tipo_plato,
-                    id_momento, id_tipo_plato, id_momento, id_tipo_plato,
-                    id_paciente, id_paciente,
-                    id_paciente,
-                    id_paciente, id_paciente,
-                    id_paciente,
-                ),
+                select c.*,
+                       case when c.es_potenciada then 'verde' when c.es_disminuida then 'amarillo' else 'neutral' end as semaforo,
+                       case when c.es_potenciada then 'Recomendada' when c.es_disminuida then 'Menos recomendada' else 'Normal' end as clasificacion_recomendacion,
+                       case when c.es_potenciada then 'PRIORIZAR: recomendada para este paciente' when c.es_disminuida then 'DISMINUIR: usar con menor frecuencia' else 'Segura para el paciente' end as mensaje_regla
+                from clasificadas c order by case when c.es_potenciada then 0 when c.es_disminuida then 1 else 2 end, c.nombre
+                limit %s offset %s
+            """
+            params = (
+                id_momento, id_momento, 
+                id_tipo_plato, id_tipo_plato,
+                query_text, query_text, 
+                id_paciente, id_paciente, 
+                id_paciente, id_paciente, id_paciente, id_paciente, 
+                limite, offset
             )
+            cur.execute(sql, params)
             cols = [d[0] for d in cur.description]
             resultados = [dict(zip(cols, row)) for row in cur.fetchall()]
             self._cache_recetas_seguras_set(cache_key, resultados)
             return deepcopy(resultados)
+
+    def listar_momentos_comida(self) -> List[dict]:
+        with db_cursor() as cur:
+            cur.execute("SELECT id, nombre, hora_inicio, hora_fin FROM nutricion.momento_comida WHERE activo = true ORDER BY orden")
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def listar_tipos_plato(self) -> List[dict]:
+        with db_cursor() as cur:
+            cur.execute("SELECT id, nombre FROM nutricion.tipo_plato ORDER BY nombre")
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
+        with db_cursor() as cur:
+            cur.execute("UPDATE nutricion.receta SET activa = %s, updated_at = now() WHERE id = %s", (activa, id_receta))
+            self._limpiar_cache_recetas_seguras()
+            return cur.rowcount > 0
+
+    def guardar_receta(self, datos: dict) -> int:
+        """Crea o actualiza una receta completa (Informacion, ingredientes y pasos)."""
+        with db_cursor() as cur:
+            id_receta = datos.get("id")
+            if not id_receta:
+                violaciones = self._validar_receta_general_reumatica(cur, datos)
+                if violaciones:
+                    raise ValueError("__REUMA_BLOCK__" + json.dumps(violaciones, ensure_ascii=False))  
+
+            dificultad = self._normalizar_dificultad(datos.get("dificultad"))
+            tiempo_preparacion = self._entero_o_default(
+                datos.get("tiempo_preparacion", datos.get("tiempo_preparacion_min")),
+                0,
+            )
+            tiempo_coccion = self._entero_o_default(
+                datos.get("tiempo_coccion", datos.get("tiempo_coccion_min")),
+                0,
+            )
+
+            # 1. Upsert de la informacion basica
+            if id_receta:
+                sql = """
+                    UPDATE nutricion.receta SET 
+                        nombre = %s, descripcion = %s, descripcion_larga = %s, 
+                        dificultad = %s, porciones = %s, tiempo_preparacion_min = %s, 
+                        tiempo_coccion_min = %s, activa = %s, imagen_url = %s, updated_at = now()      
+                    WHERE id = %s
+                """
+                cur.execute(sql, (
+                    datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
+                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
+                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url"), id_receta      
+                ))
+            else:
+                sql = """
+                    INSERT INTO nutricion.receta (
+                        nombre, descripcion, descripcion_larga, dificultad, porciones, 
+                        tiempo_preparacion_min, tiempo_coccion_min, activa, imagen_url
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """
+                cur.execute(sql, (
+                    datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
+                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
+                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url")
+                ))
+                id_receta = cur.fetchone()[0]
+
+            # 2. Momentos de comida
+            if "momentos" in datos:
+                cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,)) 
+                momentos = list(set(datos.get("momentos") or [])) # Deduplicar
+                if momentos:
+                    mom_values = [(id_receta, mid) for mid in momentos if mid]
+                    cur.executemany("INSERT INTO nutricion.receta_momento (id_receta, id_momento) VALUES (%s, %s) ON CONFLICT DO NOTHING", mom_values)
+
+            # 3. Sincronizar Tipos de Plato
+            cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))  
+            tipos_plato = list(set(datos.get("tipos_plato", []))) # Deduplicar
+            if tipos_plato:
+                tp_values = [(id_receta, tid) for tid in tipos_plato if tid]
+                cur.executemany("INSERT INTO nutricion.receta_tipo_plato (id_receta, id_tipo_plato) VALUES (%s, %s) ON CONFLICT DO NOTHING", tp_values)
+                cur.execute("SELECT to_regclass('nutricion.momento_tipo_plato_factible')")
+                has_mtpf = cur.fetchone()[0] is not None
+                if has_mtpf:
+                    cur.execute(
+                        """
+                        INSERT INTO nutricion.receta_momento (id_receta, id_momento)
+                        SELECT DISTINCT %s, mtpf.id_momento
+                        FROM nutricion.momento_tipo_plato_factible mtpf
+                        WHERE mtpf.id_tipo_plato = ANY(%s)
+                        ON CONFLICT DO NOTHING
+                        """,
+                        (id_receta, tipos_plato),
+                    )
+                else:
+                    cur.execute("SELECT to_regclass('nutricion.regla_momento_comida')")
+                    has_rmc = cur.fetchone()[0] is not None
+                    cur.execute("SELECT to_regclass('nutricion.regla_momento_tipo_receta')")
+                    has_rmtr = cur.fetchone()[0] is not None
+                    if has_rmc and has_rmtr:
+                        cur.execute(
+                            """
+                            INSERT INTO nutricion.receta_momento (id_receta, id_momento)
+                            SELECT DISTINCT %s, rm.id_momento
+                            FROM nutricion.regla_momento_comida rm
+                            JOIN nutricion.regla_momento_tipo_receta rt ON rt.id_regla_momento = rm.id 
+                            WHERE rt.id_tipo_plato = ANY(%s)
+                              AND rm.activo = true
+                              AND rt.activo = true
+                            ON CONFLICT DO NOTHING
+                            """,
+                            (id_receta, tipos_plato),
+                        )
+
+            # 4. Sincronizar Ingredientes
+            cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,)) 
+            ingredientes = datos.get("ingredientes", [])
+            if ingredientes:
+                ing_values = [
+                    (id_receta, ing["id_ingrediente"], ing.get("cantidad"), ing.get("unidad"),         
+                     ing.get("gramos", 0), ing.get("es_principal", False), ing.get("observaciones"))   
+                    for ing in ingredientes if ing.get("id_ingrediente")
+                ]
+                cur.executemany("""
+                    INSERT INTO nutricion.receta_ingrediente (
+                        id_receta, id_ingrediente, cantidad_visual, unidad_visual, 
+                        peso_en_gramos, es_principal, observaciones
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, ing_values)
+
+            # 5. Sincronizar Pasos
+            cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))        
+            pasos = datos.get("preparacion", [])
+            if pasos:
+                paso_values = [
+                    (id_receta, i, p["descripcion"], p.get("tiempo"), p.get("nota"))
+                    for i, p in enumerate(pasos, 1)
+                ]
+                cur.executemany("""
+                    INSERT INTO nutricion.receta_paso (
+                        id_receta, numero_paso, descripcion, tiempo_estimado, nota_adicional
+                    ) VALUES (%s, %s, %s, %s, %s)
+                """, paso_values)
+
+            # 6. Sincronizar Etiquetas
+            cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))    
+            etiquetas_manuales = {
+                int(etq.get("id"))
+                for etq in datos.get("etiquetas_salud", [])
+                if etq.get("id")
+            }
+            etiquetas_ids = sorted(etiquetas_manuales)
+            if etiquetas_ids:
+                etq_values = [(id_receta, eid) for eid in etiquetas_ids]
+                cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING", etq_values)
+
+            # 7. Sincronizar Imagen
+            img_url = datos.get("imagen_url")
+            if img_url:
+                cur.execute("DELETE FROM nutricion.receta_imagen WHERE id_receta = %s", (id_receta,))  
+                cur.execute(
+                    "INSERT INTO nutricion.receta_imagen (id_receta, imagen_url) VALUES (%s, %s)",     
+                    (id_receta, img_url)
+                )
+
+            self._limpiar_cache_recetas_seguras()
+            return id_receta
+
+    def eliminar_receta(self, id_receta: int) -> bool:
+        """Elimina una receta y todas sus dependencias en nutricion e interaccion."""
+        with db_cursor() as cur:
+            # 1. Limpiar dependencias en interaccion
+            cur.execute("DELETE FROM interaccion.seguimiento_plan_item WHERE id_receta_reemplazo = %s", (id_receta,))
+            cur.execute("""
+                DELETE FROM interaccion.seguimiento_plan_item 
+                WHERE id_plan_item IN (SELECT id FROM interaccion.plan_item WHERE id_receta = %s)      
+            """, (id_receta,))
+            cur.execute("DELETE FROM interaccion.plan_item WHERE id_receta = %s", (id_receta,))        
+
+            for tabla in ["interaccion.preferencia_receta", "interaccion.evaluacion_receta", "interaccion.repositorio_receta_segura_item"]:
+                cur.execute("SELECT to_regclass(%s)", (tabla,))
+                if cur.fetchone()[0]:
+                    cur.execute(f"DELETE FROM {tabla} WHERE id_receta = %s", (id_receta,))
+
+            cur.execute("SELECT to_regclass('heuristico.regla')")
+            if cur.fetchone()[0]:
+                cur.execute("""
+                    DELETE FROM heuristico.condicion_regla
+                    WHERE id_regla IN (
+                        SELECT id FROM heuristico.regla WHERE id_receta = %s
+                    )
+                """, (id_receta,))
+                cur.execute("DELETE FROM heuristico.regla WHERE id_receta = %s", (id_receta,))
+
+            # 2. Limpiar dependencias en nutricion
+            cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))    
+            cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,)) 
+            cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))        
+            cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))     
+            cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))  
+            cur.execute("DELETE FROM nutricion.receta_imagen WHERE id_receta = %s", (id_receta,))      
+
+            # 3. Eliminar la receta
+            cur.execute("DELETE FROM nutricion.receta WHERE id = %s", (id_receta,))
+            self._limpiar_cache_recetas_seguras()
+            return cur.rowcount > 0
 
     def listar_tipos_plato_disponibles_para_paciente(
         self,
@@ -731,224 +734,3 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             for tid in sorted(conteos.keys(), key=lambda x: tipos.get(x, str(x)))
         ]
         return resultado
-
-    def cambiar_estado_receta(self, id_receta: int, activa: bool) -> bool:
-        with db_cursor() as cur:
-            cur.execute("UPDATE nutricion.receta SET activa = %s, updated_at = now() WHERE id = %s", (activa, id_receta))
-            self._limpiar_cache_recetas_seguras()
-            return cur.rowcount > 0
-
-    def guardar_receta(self, datos: dict) -> int:
-        """Crea o actualiza una receta completa (InformaciÃ³n, ingredientes y pasos)."""
-        with db_cursor() as cur:
-            id_receta = datos.get("id")
-            # Permitir actualizacion manual progresiva de recetas existentes.
-            # El bloqueo estricto se mantiene para nuevas recetas.
-            if not id_receta:
-                violaciones = self._validar_receta_general_reumatica(cur, datos)
-                if violaciones:
-                    raise ValueError("__REUMA_BLOCK__" + json.dumps(violaciones, ensure_ascii=False))
-
-            dificultad = self._normalizar_dificultad(datos.get("dificultad"))
-            tiempo_preparacion = self._entero_o_default(
-                datos.get("tiempo_preparacion", datos.get("tiempo_preparacion_min")),
-                0,
-            )
-            tiempo_coccion = self._entero_o_default(
-                datos.get("tiempo_coccion", datos.get("tiempo_coccion_min")),
-                0,
-            )
-            
-            # 1. Upsert de la informaciÃ³n bÃ¡sica
-            if id_receta:
-                sql = """
-                    UPDATE nutricion.receta SET 
-                        nombre = %s, descripcion = %s, descripcion_larga = %s, 
-                        dificultad = %s, porciones = %s, tiempo_preparacion_min = %s, 
-                        tiempo_coccion_min = %s, activa = %s, imagen_url = %s, updated_at = now()
-                    WHERE id = %s
-                """
-                cur.execute(sql, (
-                    datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
-                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
-                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url"), id_receta
-                ))
-            else:
-                sql = """
-                    INSERT INTO nutricion.receta (
-                        nombre, descripcion, descripcion_larga, dificultad, porciones, 
-                        tiempo_preparacion_min, tiempo_coccion_min, activa, imagen_url
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """
-                cur.execute(sql, (
-                    datos["nombre"], datos.get("descripcion"), datos.get("descripcion_larga"),
-                    dificultad, datos.get("porciones", 1), tiempo_preparacion,
-                    tiempo_coccion, datos.get("activa", True), datos.get("imagen_url")
-                ))
-                id_receta = cur.fetchone()[0]
-
-            # 2. Momentos de comida: solo se sincronizan si el payload los trae.
-            # El mÃ³dulo Horarios y MenÃºs los agrega por reglas sin borrar los existentes.
-            if "momentos" in datos:
-                cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
-                momentos = list(set(datos.get("momentos") or [])) # Deduplicar
-                if momentos:
-                    mom_values = [(id_receta, mid) for mid in momentos if mid]
-                    cur.executemany("INSERT INTO nutricion.receta_momento (id_receta, id_momento) VALUES (%s, %s) ON CONFLICT DO NOTHING", mom_values)
-
-            # 3. Sincronizar Tipos de Plato (receta_tipo_plato)
-            cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))
-            tipos_plato = list(set(datos.get("tipos_plato", []))) # Deduplicar
-            if tipos_plato:
-                tp_values = [(id_receta, tid) for tid in tipos_plato if tid]
-                cur.executemany("INSERT INTO nutricion.receta_tipo_plato (id_receta, id_tipo_plato) VALUES (%s, %s) ON CONFLICT DO NOTHING", tp_values)
-                # Compatibilidad de esquema:
-                # En la base actual se usa momento_tipo_plato_factible.
-                cur.execute("SELECT to_regclass('nutricion.momento_tipo_plato_factible')")
-                has_mtpf = cur.fetchone()[0] is not None
-                if has_mtpf:
-                    cur.execute(
-                        """
-                        INSERT INTO nutricion.receta_momento (id_receta, id_momento)
-                        SELECT DISTINCT %s, mtpf.id_momento
-                        FROM nutricion.momento_tipo_plato_factible mtpf
-                        WHERE mtpf.id_tipo_plato = ANY(%s)
-                        ON CONFLICT DO NOTHING
-                        """,
-                        (id_receta, tipos_plato),
-                    )
-                else:
-                    cur.execute("SELECT to_regclass('nutricion.regla_momento_comida')")
-                    has_rmc = cur.fetchone()[0] is not None
-                    cur.execute("SELECT to_regclass('nutricion.regla_momento_tipo_receta')")
-                    has_rmtr = cur.fetchone()[0] is not None
-                    if has_rmc and has_rmtr:
-                        cur.execute(
-                            """
-                            INSERT INTO nutricion.receta_momento (id_receta, id_momento)
-                            SELECT DISTINCT %s, rm.id_momento
-                            FROM nutricion.regla_momento_comida rm
-                            JOIN nutricion.regla_momento_tipo_receta rt ON rt.id_regla_momento = rm.id
-                            WHERE rt.id_tipo_plato = ANY(%s)
-                              AND rm.activo = true
-                              AND rt.activo = true
-                            ON CONFLICT DO NOTHING
-                            """,
-                            (id_receta, tipos_plato),
-                        )
-
-            # 4. Sincronizar Ingredientes
-            cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,))
-            ingredientes = datos.get("ingredientes", [])
-            if ingredientes:
-                ing_values = [
-                    (id_receta, ing["id_ingrediente"], ing.get("cantidad"), ing.get("unidad"), 
-                     ing.get("gramos", 0), ing.get("es_principal", False), ing.get("observaciones"))
-                    for ing in ingredientes if ing.get("id_ingrediente")
-                ]
-                cur.executemany("""
-                    INSERT INTO nutricion.receta_ingrediente (
-                        id_receta, id_ingrediente, cantidad_visual, unidad_visual, 
-                        peso_en_gramos, es_principal, observaciones
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, ing_values)
-
-            # 5. Sincronizar Pasos
-            cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))
-            pasos = datos.get("preparacion", [])
-            if pasos:
-                paso_values = [
-                    (id_receta, i, p["descripcion"], p.get("tiempo"), p.get("nota"))
-                    for i, p in enumerate(pasos, 1)
-                ]
-                cur.executemany("""
-                    INSERT INTO nutricion.receta_paso (
-                        id_receta, numero_paso, descripcion, tiempo_estimado, nota_adicional
-                    ) VALUES (%s, %s, %s, %s, %s)
-                """, paso_values)
-
-            # 6. Sincronizar Etiquetas (Manuales y Validadas desde el Frontend)
-            cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))
-            # Deduplicar IDs de etiquetas
-            etiquetas_manuales = {
-                int(etq.get("id"))
-                for etq in datos.get("etiquetas_salud", [])
-                if etq.get("id")
-            }
-            etiquetas_ids = sorted(etiquetas_manuales)
-            if etiquetas_ids:
-                etq_values = [(id_receta, eid) for eid in etiquetas_ids]
-                cur.executemany("INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING", etq_values)
-
-            # 7. Sincronizar nutricion.receta_imagen (Regresado al esquema nutricion)
-            img_url = datos.get("imagen_url")
-            if img_url:
-                # Limpiar previas en nutricion.receta_imagen
-                cur.execute("DELETE FROM nutricion.receta_imagen WHERE id_receta = %s", (id_receta,))
-                cur.execute(
-                    "INSERT INTO nutricion.receta_imagen (id_receta, imagen_url) VALUES (%s, %s)",
-                    (id_receta, img_url)
-                )
-
-            self._limpiar_cache_recetas_seguras()
-            return id_receta
-
-    def listar_momentos_comida(self) -> List[dict]:
-        with db_cursor() as cur:
-            cur.execute("SELECT id, nombre FROM nutricion.momento_comida WHERE activo = true ORDER BY orden")
-            columnas = [desc[0] for desc in cur.description]
-            return [dict(zip(columnas, row)) for row in cur.fetchall()]
-
-    def listar_tipos_plato(self) -> List[dict]:
-        with db_cursor() as cur:
-            cur.execute("SELECT id, nombre FROM nutricion.tipo_plato ORDER BY nombre")
-            columnas = [desc[0] for desc in cur.description]
-            return [dict(zip(columnas, row)) for row in cur.fetchall()]
-
-    def eliminar_receta(self, id_receta: int) -> bool:
-        """Elimina una receta y todas sus dependencias en nutriciÃ³n e interacciÃ³n."""
-        with db_cursor() as cur:
-            # 1. Limpiar dependencias en el mÃ³dulo de interacciÃ³n (Planes y Seguimiento)
-            # Primero seguimiento (por FK a plan_item y a receta_reemplazo)
-            cur.execute("DELETE FROM interaccion.seguimiento_plan_item WHERE id_receta_reemplazo = %s", (id_receta,))
-            cur.execute("""
-                DELETE FROM interaccion.seguimiento_plan_item 
-                WHERE id_plan_item IN (SELECT id FROM interaccion.plan_item WHERE id_receta = %s)
-            """, (id_receta,))
-            
-            # Luego los Ã­tems del plan nutricional
-            cur.execute("DELETE FROM interaccion.plan_item WHERE id_receta = %s", (id_receta,))
-            
-            # Limpiar preferencias y evaluaciones si las tablas existen
-            for tabla in ["interaccion.preferencia_receta", "interaccion.evaluacion_receta", "interaccion.repositorio_receta_segura_item"]:
-                cur.execute("SELECT to_regclass(%s)", (tabla,))
-                if cur.fetchone()[0]:
-                    cur.execute(f"DELETE FROM {tabla} WHERE id_receta = %s", (id_receta,))
-
-            cur.execute("SELECT to_regclass('heuristico.regla')")
-            if cur.fetchone()[0]:
-                cur.execute("""
-                    DELETE FROM heuristico.condicion_regla
-                    WHERE id_regla IN (
-                        SELECT id FROM heuristico.regla WHERE id_receta = %s
-                    )
-                """, (id_receta,))
-                cur.execute("DELETE FROM heuristico.regla WHERE id_receta = %s", (id_receta,))
-
-            # 2. Limpiar dependencias en el esquema nutricion
-            cur.execute("DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s", (id_receta,))
-            cur.execute("DELETE FROM nutricion.receta_ingrediente WHERE id_receta = %s", (id_receta,))
-            cur.execute("DELETE FROM nutricion.receta_paso WHERE id_receta = %s", (id_receta,))
-            cur.execute("DELETE FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
-            cur.execute("DELETE FROM nutricion.receta_tipo_plato WHERE id_receta = %s", (id_receta,))
-            cur.execute("DELETE FROM nutricion.receta_imagen WHERE id_receta = %s", (id_receta,))
-            
-            # 3. Finalmente eliminar la receta
-            cur.execute("DELETE FROM nutricion.receta WHERE id = %s", (id_receta,))
-            self._limpiar_cache_recetas_seguras()
-            return cur.rowcount > 0
-
-
-
-
-

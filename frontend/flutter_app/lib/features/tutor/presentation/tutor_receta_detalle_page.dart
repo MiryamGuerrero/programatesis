@@ -16,6 +16,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   late TabController _tabController;
   Map<String, dynamic>? _receta;
   bool _isLoading = true;
+  int _userRating = 0;
 
   @override
   void initState() {
@@ -25,12 +26,17 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   }
 
   Future<void> _cargarDetalle() async {
+    final idPaciente = ref.read(selectedPatientIdProvider);
     try {
       final dio = ref.read(dioProvider);
-      final resp = await dio.get('crud/recetas/${widget.idReceta}');
+      // Usamos el nuevo endpoint para tutores que acepta id_paciente
+      final resp = await dio.get('tutor/receta-detalle/${widget.idReceta}', queryParameters: {
+        'id_paciente': idPaciente,
+      });
       if (mounted) {
         setState(() {
           _receta = resp.data;
+          _userRating = (_receta!['calificacion_personal'] ?? 0).toInt();
           _isLoading = false;
         });
       }
@@ -39,6 +45,28 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _toggleConsumida() async {
+    if (_receta == null || _receta!['en_plan_hoy'] != true) return;
+    
+    final idPlanItem = _receta!['id_plan_item_hoy'];
+    final bool currentStatus = _receta!['consumida_hoy'] == true;
+    
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('tutor/marcar-consumida', data: {
+        "id_plan_item": idPlanItem,
+        "consumida": !currentStatus,
+      });
+      
+      setState(() {
+        _receta!['consumida_hoy'] = !currentStatus;
+      });
+      ref.invalidate(planDiarioProvider);
+    } catch (e) {
+      debugPrint("Error marcando consumo: $e");
     }
   }
 
@@ -79,11 +107,18 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Chips de resumen
                     _buildSummarySection(r),
+                    const SizedBox(height: 24),
+                    
+                    if (r['en_plan_hoy'] == true) ...[
+                      _buildConsumidaSection(r),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Sistema de Calificación
+                    _buildRatingSection(theme, r['id']),
                     const SizedBox(height: 32),
                     
-                    // Descripción Larga
                     Text(
                       "Sobre esta receta",
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -118,6 +153,234 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
+  Widget _buildConsumidaSection(Map<String, dynamic> r) {
+    final bool isConsumida = r['consumida_hoy'] == true;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: isConsumida ? AppTema.verdeSalud.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isConsumida ? AppTema.verdeSalud.withOpacity(0.3) : Colors.grey.shade200),
+        boxShadow: isConsumida ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isConsumida ? AppTema.verdeSalud : Colors.grey.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isConsumida ? Icons.check_rounded : Icons.restaurant,
+              color: isConsumida ? Colors.white : Colors.grey.shade600,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Plan de Hoy",
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                Text(
+                  isConsumida ? "Esta receta ya fue consumida." : "¿Ya preparaste esta receta?",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.tonal(
+            onPressed: _toggleConsumida,
+            style: FilledButton.styleFrom(
+              backgroundColor: isConsumida ? Colors.grey.shade200 : AppTema.verdeSalud,
+              foregroundColor: isConsumida ? Colors.grey.shade700 : Colors.white,
+            ),
+            child: Text(isConsumida ? "Desmarcar" : "Marcar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingSection(ThemeData theme, int recetaId) {
+    final double promedio = double.tryParse(_receta!['puntuacion_promedio']?.toString() ?? "0") ?? 0;
+    final int total = _receta!['total_evaluaciones'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTema.verdeSalud.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTema.verdeSalud.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "¿Qué te pareció esta receta?",
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 14, color: AppTema.azulOscuro),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    "$promedio",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  Text(
+                    " ($total)",
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              final starValue = index + 1;
+              return IconButton(
+                onPressed: () => _handleRating(starValue, recetaId),
+                icon: Icon(
+                  starValue <= _userRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 36,
+                  color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.4),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleRating(int rating, int recetaId) async {
+    setState(() => _userRating = rating);
+    if (rating <= 2) {
+      _showFeedbackDialog(rating, recetaId);
+    } else {
+      _submitRating(rating, recetaId, null, null);
+    }
+  }
+
+  Future<void> _showFeedbackDialog(int stars, int recetaId) async {
+    final dio = ref.read(dioProvider);
+    List<dynamic> motivos = [];
+    try {
+      final resp = await dio.get('tutor/motivos-rechazo');
+      motivos = resp.data;
+    } catch (e) {
+      debugPrint("Error cargando motivos: $e");
+    }
+
+    if (!mounted) return;
+
+    int? selectedMotivoId;
+    final commentController = TextEditingController();
+    bool showOtherField = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text("Ayúdanos a mejorar", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Lamentamos que no te haya gustado. ¿Podrías indicarnos el motivo?"),
+                const SizedBox(height: 16),
+                ...motivos.map((m) => RadioListTile<int>(
+                  title: Text(m['nombre'], style: const TextStyle(fontSize: 14)),
+                  value: m['id'],
+                  groupValue: selectedMotivoId,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) {
+                    setDialogState(() {
+                      selectedMotivoId = val;
+                      showOtherField = m['nombre'].toString().toLowerCase().contains("otro");
+                    });
+                  },
+                )),
+                if (showOtherField)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: TextField(
+                      controller: commentController,
+                      decoration: const InputDecoration(
+                        hintText: "Describe el motivo...",
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() => _userRating = 0);
+                Navigator.pop(context);
+              }, 
+              child: const Text("Cancelar")
+            ),
+            FilledButton(
+              onPressed: selectedMotivoId == null ? null : () {
+                Navigator.pop(context);
+                _submitRating(stars, recetaId, selectedMotivoId, commentController.text);
+              },
+              child: const Text("Enviar"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitRating(int stars, int recetaId, int? motivoId, String? comentario) async {
+    final idPaciente = ref.read(selectedPatientIdProvider);
+    if (idPaciente == null) return;
+
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('tutor/evaluar-receta', data: {
+        "id_paciente": idPaciente,
+        "id_receta": recetaId,
+        "estrellas": stars,
+        "id_motivo_rechazo": motivoId,
+        "comentario": comentario,
+      });
+      
+      _cargarDetalle(); // Recargar para actualizar promedio global
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("¡Gracias por tu evaluación!"), backgroundColor: AppTema.verdeSalud),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error enviando evaluación: $e");
+    }
+  }
+
   Widget _buildSliverAppBar(Map<String, dynamic> r, String url, ColorScheme colorScheme) {
     return SliverAppBar(
       expandedHeight: 280,
@@ -130,7 +393,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       ),
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: false,
-        titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 20), // Evita solapamiento con el botón atrás
+        titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 20),
         title: Text(
           r['nombre'] ?? 'Receta',
           style: GoogleFonts.montserrat(
@@ -150,17 +413,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                 color: colorScheme.surfaceContainerHighest,
                 child: Icon(Icons.restaurant, size: 80, color: colorScheme.onSurfaceVariant.withOpacity(0.3)),
               ),
-            // Gradiente oscuro para legibilidad (más intenso)
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black54,
-                    Colors.transparent,
-                    Colors.black87,
-                  ],
+                  colors: [Colors.black54, Colors.transparent, Colors.black87],
                   stops: [0.0, 0.4, 1.0],
                 ),
               ),
@@ -201,14 +459,14 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
               Tab(text: "Ingredientes"),
               Tab(text: "Preparación"),
               Tab(text: "Nutrición"),
-            ],          ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSummarySection(Map<String, dynamic> r) {
-    // Uso de la nueva columna pre-calculada en DB con fallback manual por seguridad
     final int tTotal = r['tiempo_total_min'] ?? 
                       ((r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0) + 
                        (r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0));
@@ -256,17 +514,14 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       children: [
         Text('Comparativa de Macronutrientes', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulOscuro)),
         const SizedBox(height: 24),
-        
         _buildProgressBar('Proteínas', total > 0 ? prot / total : 0, AppTema.azulPrincipal, '${prot}g'),
         const SizedBox(height: 16),
         _buildProgressBar('Carbohidratos', total > 0 ? carb / total : 0, Colors.orange, '${carb}g'),
         const SizedBox(height: 16),
         _buildProgressBar('Grasas', total > 0 ? fat / total : 0, Colors.redAccent, '${fat}g'),
-        
         const SizedBox(height: 32),
         const Divider(),
         const SizedBox(height: 16),
-        
         _buildNutriRow("Energía Total", "${r['calorias_totales'] ?? 0} kcal"),
         _buildNutriRow("Fibra", "${r['fibra_totales'] ?? 0}g"),
         _buildNutriRow("Peso Estimado", "${r['peso_total'] ?? 0} g"),

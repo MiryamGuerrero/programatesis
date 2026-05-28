@@ -60,6 +60,15 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
         ? ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: _selectedDate)))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 
+    final diasConPlanAsync = idPaciente != null
+        ? ref.watch(diasConPlanProvider((idPaciente: idPaciente, mes: _displayedMonth.month, anio: _displayedMonth.year)))
+        : const AsyncValue<List<Map<String, dynamic>>>.data([]);
+    
+    final List<Map<String, dynamic>> diasConPlan = diasConPlanAsync.maybeWhen(
+      data: (dias) => dias,
+      orElse: () => [],
+    );
+
     return Container(
       color: colorScheme.surface,
       child: NotificationListener<ScrollNotification>(
@@ -88,6 +97,7 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                 monthPageController: _monthPageController,
                 weekPageController: _weekPageController,
                 baseIndex: _baseIndex,
+                diasConPlan: diasConPlan,
                 onDaySelected: _onDateTapped,
                 onMonthPageChanged: (date) => setState(() => _displayedMonth = date),
                 onToggleExpand: () {
@@ -144,10 +154,13 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                                 ),
                               ),
                             ),
-                            ...momentMeals.map((m) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _CompactRecipeCard(meal: m),
-                            )),
+                            ...momentMeals.map((m) {
+                              final bool isConsumida = m["consumida"] == true;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _CompactRecipeCard(meal: m, isConsumida: isConsumida),
+                              );
+                            }),
                           ],
                         );
                       },
@@ -193,10 +206,25 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
   final PageController monthPageController;
   final PageController weekPageController;
   final int baseIndex;
+  final List<Map<String, dynamic>> diasConPlan;
   final Function(DateTime) onDaySelected;
   final Function(DateTime) onMonthPageChanged;
   final Function(DragUpdateDetails) onDragUpdate;
   final VoidCallback onToggleExpand;
+
+  static const List<Color> _planColors = [
+    Color(0xFF3B82F6), // blue
+    Color(0xFF10B981), // emerald
+    Color(0xFFF59E0B), // amber
+    Color(0xFF8B5CF6), // violet
+    Color(0xFFEC4899), // pink
+    Color(0xFFF43F5E), // rose
+    Color(0xFF14B8A6), // teal
+  ];
+
+  Color _getColorForPlan(int idPlan) {
+    return _planColors[idPlan % _planColors.length];
+  }
 
   _ExpandableCalendarHeaderDelegate({
     required this.colorAcento,
@@ -207,6 +235,7 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.monthPageController,
     required this.weekPageController,
     required this.baseIndex,
+    required this.diasConPlan,
     required this.onDaySelected,
     required this.onMonthPageChanged,
     required this.onDragUpdate,
@@ -341,8 +370,34 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
           final bool isSelected = dateForDay.year == selectedDay.year && dateForDay.month == selectedDay.month && dateForDay.day == selectedDay.day;
           final bool isTodayDate = dateForDay.year == today.year && dateForDay.month == today.month && dateForDay.day == today.day;
           
-          // En vista mes, atenuamos los días que no son del mes actual
           final bool isLeadingTrailing = currentMonth != null && dateForDay.month != currentMonth;
+          
+          final hasPlanMap = diasConPlan.where((d) {
+            final DateTime dt = d['fecha'];
+            return dt.year == dateForDay.year && dt.month == dateForDay.month && dt.day == dateForDay.day;
+          }).toList();
+          
+          final bool hasPlan = hasPlanMap.isNotEmpty;
+          Color? planColor;
+          if (hasPlan) {
+            planColor = _getColorForPlan(hasPlanMap.first['id_plan'] as int);
+          }
+
+          BoxDecoration? decoration;
+          Color textColor = colorTitulo;
+
+          if (isSelected) {
+            decoration = BoxDecoration(color: planColor ?? colorAcento, shape: BoxShape.circle);
+            textColor = Colors.white;
+          } else if (hasPlan) {
+            decoration = BoxDecoration(color: planColor!.withOpacity(0.2), shape: BoxShape.circle);
+            textColor = planColor;
+          } else if (isTodayDate) {
+            decoration = BoxDecoration(color: colorAcento.withOpacity(0.15), shape: BoxShape.circle);
+            textColor = colorAcento;
+          } else if (isLeadingTrailing) {
+            textColor = const Color(0xFFCBD5E1);
+          }
 
           return Expanded(
             child: GestureDetector(
@@ -351,18 +406,23 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Container(
                 height: 44,
                 alignment: Alignment.center,
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: isSelected ? BoxDecoration(color: colorAcento, shape: BoxShape.circle) : isTodayDate ? BoxDecoration(color: colorAcento.withOpacity(0.15), shape: BoxShape.circle) : null,
-                  alignment: Alignment.center,
-                  child: Text(
-                    dateForDay.day.toString(),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: isSelected ? Colors.white : isTodayDate ? colorAcento : (isLeadingTrailing ? const Color(0xFFCBD5E1) : colorTitulo),
-                      fontWeight: (isSelected || isTodayDate) ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 14,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: decoration,
+                      alignment: Alignment.center,
+                      child: Text(
+                        dateForDay.day.toString(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: textColor,
+                          fontWeight: (isSelected || isTodayDate || hasPlan) ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -378,13 +438,14 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get minExtent => 160.0;
   @override
   bool shouldRebuild(covariant _ExpandableCalendarHeaderDelegate oldDelegate) {
-    return oldDelegate.selectedDay != selectedDay || oldDelegate.today != today || oldDelegate.displayedMonth != displayedMonth;
+    return oldDelegate.selectedDay != selectedDay || oldDelegate.today != today || oldDelegate.displayedMonth != displayedMonth || oldDelegate.diasConPlan != diasConPlan;
   }
 }
 
 class _CompactRecipeCard extends StatelessWidget {
   final Map<String, dynamic> meal;
-  const _CompactRecipeCard({required this.meal});
+  final bool isConsumida;
+  const _CompactRecipeCard({required this.meal, this.isConsumida = false});
 
   @override
   Widget build(BuildContext context) {
@@ -395,9 +456,10 @@ class _CompactRecipeCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
+      color: isConsumida ? Colors.grey.shade50 : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: isConsumida ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5) : BorderSide(color: Colors.grey.shade200),
       ),
       child: ListTile(
         onTap: () {
@@ -412,24 +474,41 @@ class _CompactRecipeCard extends StatelessWidget {
           }
         },
         contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 54, height: 54,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: url.isNotEmpty
-              ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
-              : const Icon(Icons.fastfood, color: Colors.grey),
+        leading: Stack(
+          children: [
+            Container(
+              width: 54, height: 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: url.isNotEmpty
+                  ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
+                  : const Icon(Icons.fastfood, color: Colors.grey),
+            ),
+            if (isConsumida)
+              Positioned(
+                right: 0, bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(color: AppTema.verdeSalud, shape: BoxShape.circle),
+                  child: const Icon(Icons.check, size: 12, color: Colors.white),
+                ),
+              ),
+          ],
         ),
         title: Text(
           nombre,
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isConsumida ? Colors.grey : null,
+            decoration: isConsumida ? TextDecoration.lineThrough : null,
+          ),
         ),
-        subtitle: desc != null
-            ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))
-            : null,
+        subtitle: isConsumida 
+            ? const Text("Consumida", style: TextStyle(color: AppTema.verdeSalud, fontWeight: FontWeight.bold, fontSize: 12))
+            : (desc != null ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)) : null),
         trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFFCBD5E1)),
       ),
     );
