@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import 'tutor_receta_detalle_page.dart';
@@ -15,21 +16,50 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   
-  int? _selectedMomentoId;
   List<Map<String, dynamic>> _recetas = [];
   List<Map<String, dynamic>> _momentos = [];
+  List<Map<String, dynamic>> _tiposPlato = [];
+  
+  int? _idMomento;
+  int? _idTipoPlato;
   
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _offset = 0;
-  final int _limit = 15;
+  final int _limit = 20;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _cargarDatosIniciales());
+    _cargarCatalogos();
+    _cargarDatosIniciales();
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarCatalogos() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final results = await Future.wait([
+        dio.get('tutor/momentos-comida'),
+        dio.get('tutor/tipos-plato'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _momentos = List<Map<String, dynamic>>.from(results[0].data);
+          _tiposPlato = List<Map<String, dynamic>>.from(results[1].data);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error cargando catálogos: $e");
+    }
   }
 
   void _onScroll() {
@@ -41,160 +71,248 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
   }
 
   Future<void> _cargarDatosIniciales() async {
+    setState(() {
+      _isLoading = true;
+      _offset = 0;
+      _recetas = [];
+      _hasMore = true;
+    });
+    await _cargarRecetas();
+  }
+
+  Future<void> _cargarMasRecetas() async {
+    setState(() => _isLoadingMore = true);
+    await _cargarRecetas();
+    setState(() => _isLoadingMore = false);
+  }
+
+  Future<void> _cargarRecetas() async {
     final idPaciente = ref.read(selectedPatientIdProvider);
     if (idPaciente == null) return;
-
-    setState(() { _isLoading = true; _recetas.clear(); _offset = 0; _hasMore = true; });
 
     try {
       final dio = ref.read(dioProvider);
       
-      // 1. Cargar Momentos
-      final respMom = await dio.get('crud/momentos');
-      _momentos = List<Map<String, dynamic>>.from(respMom.data);
+      final queryParams = {
+        'consulta': _searchController.text,
+        'limite': _limit,
+        'offset': _offset,
+      };
+      
+      if (_idMomento != null) queryParams['id_momento'] = _idMomento!;
+      if (_idTipoPlato != null) queryParams['id_tipo_plato'] = _idTipoPlato!;
 
-      // 2. Cargar Primera Página de Recetas
-      await _cargarPagina(idPaciente);
+      final resp = await dio.get('tutor/recetas-seguras/$idPaciente', queryParameters: queryParams);
 
-      if (mounted) setState(() => _isLoading = false);
+      final List<dynamic> nuevas = resp.data;
+      if (mounted) {
+        setState(() {
+          _recetas.addAll(List<Map<String, dynamic>>.from(nuevas));
+          _offset += _limit;
+          _hasMore = nuevas.length == _limit;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      debugPrint("Error inicial: $e");
+      debugPrint("Error cargando recetas: $e");
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _cargarMasRecetas() async {
-    final idPaciente = ref.read(selectedPatientIdProvider);
-    if (idPaciente == null) return;
-
-    setState(() => _isLoadingMore = true);
-    _offset += _limit;
-    await _cargarPagina(idPaciente);
-    if (mounted) setState(() => _isLoadingMore = false);
-  }
-
-  Future<void> _cargarPagina(String idPaciente) async {
-    final dio = ref.read(dioProvider);
-    final resp = await dio.post('recetas-permitidas', data: {
-      "id_paciente": idPaciente,
-      "id_momento": _selectedMomentoId,
-      "consulta": _searchController.text.trim(),
-      "limite": _limit,
-      "offset": _offset
-    });
-    
-    final List<Map<String, dynamic>> nuevas = List<Map<String, dynamic>>.from(resp.data['recetas'] ?? []);
-    
-    if (mounted) {
-      setState(() {
-        _recetas.addAll(nuevas);
-        if (nuevas.length < _limit) _hasMore = false;
-      });
-    }
-  }
-
-  void _cambiarFiltro(int? id) {
-    setState(() => _selectedMomentoId = id);
-    _cargarDatosIniciales();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        // Header Fijo (Buscador y Filtros)
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          color: colorScheme.surface,
-          child: Column(
-            children: [
-              SearchBar(
-                controller: _searchController,
-                hintText: "Buscar recetas seguras...",
-                leading: const Icon(Icons.search),
-                onSubmitted: (_) => _cargarDatosIniciales(),
-                elevation: WidgetStateProperty.all(0),
-                backgroundColor: WidgetStateProperty.all(colorScheme.surfaceContainerHighest.withOpacity(0.3)),
-              ),
-              const SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip("Todas", null),
-                    ..._momentos.map((m) => _buildFilterChip(m['nombre'], m['id'])),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Lista Scrollable con Paginación
-        Expanded(
-          child: _isLoading 
-            ? const Center(child: CircularProgressIndicator())
-            : _recetas.isEmpty 
-              ? _buildEmptyState()
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _recetas.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _recetas.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(32.0),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final r = _recetas[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _RecipeCard(
-                        receta: r,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: Column(
+        children: [
+          // Barra de búsqueda y filtros
+          _buildSearchAndFilters(),
+
+          // Lista Scrollable
+          Expanded(
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _recetas.isEmpty 
+                ? _buildEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    itemCount: _recetas.length + (_hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _recetas.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final r = _recetas[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _RecipeCard(
+                          receta: r,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildFilterChip(String label, int? id) {
-    final isSelected = _selectedMomentoId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => _cambiarFiltro(id),
+  Widget _buildSearchAndFilters() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onSubmitted: (v) => _cargarDatosIniciales(),
+            decoration: InputDecoration(
+              hintText: "Buscar recetas seguras...",
+              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+              suffixIcon: _searchController.text.isNotEmpty 
+                ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _cargarDatosIniciales(); })
+                : null,
+              filled: true,
+              fillColor: const Color(0xFFF1F5F9),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip(
+                  label: _idMomento == null ? "Cualquier momento" : _momentos.firstWhere((m) => m['id'] == _idMomento)['nombre'],
+                  icon: Icons.access_time_rounded,
+                  onTap: () => _showFilterPicker("Momento de comida", _momentos, _idMomento, (val) {
+                    setState(() => _idMomento = val);
+                    _cargarDatosIniciales();
+                  }),
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  label: _idTipoPlato == null ? "Todos los platos" : _tiposPlato.firstWhere((t) => t['id'] == _idTipoPlato)['nombre'],
+                  icon: Icons.restaurant_menu_rounded,
+                  onTap: () => _showFilterPicker("Tipo de plato", _tiposPlato, _idTipoPlato, (val) {
+                    setState(() => _idTipoPlato = val);
+                    _cargarDatosIniciales();
+                  }),
+                ),
+                if (_idMomento != null || _idTipoPlato != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _idMomento = null;
+                        _idTipoPlato = null;
+                      });
+                      _cargarDatosIniciales();
+                    },
+                    icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
+                    tooltip: "Limpiar filtros",
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({required String label, required IconData icon, required VoidCallback onTap}) {
+    final bool isActive = !label.contains("Cualquier") && !label.contains("Todos");
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppTema.azulPrincipal.withOpacity(0.1) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isActive ? AppTema.azulPrincipal.withOpacity(0.2) : Colors.transparent),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isActive ? AppTema.azulPrincipal : const Color(0xFF64748B)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                color: isActive ? AppTema.azulPrincipal : const Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFilterPicker(String title, List<Map<String, dynamic>> options, int? currentVal, Function(int?) onSelected) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(title, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  title: const Text("Mostrar todos"),
+                  leading: const Icon(Icons.all_inclusive_rounded),
+                  selected: currentVal == null,
+                  onTap: () { onSelected(null); Navigator.pop(context); },
+                ),
+                ...options.map((opt) => ListTile(
+                  title: Text(opt['nombre']),
+                  selected: currentVal == opt['id'],
+                  onTap: () { onSelected(opt['id']); Navigator.pop(context); },
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text("No se encontraron recetas", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text("No se encontraron recetas seguras", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -204,88 +322,62 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
 class _RecipeCard extends StatelessWidget {
   final Map<String, dynamic> receta;
   final VoidCallback onTap;
+
   const _RecipeCard({required this.receta, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final String url = receta['imagen_url'] ?? "";
-    final String semaforo = receta['semaforo'] ?? 'neutral';
-    
-    Color statusColor = const Color(0xFF64748B);
-    IconData statusIcon = Icons.check_circle_outline_rounded;
-    if (semaforo == 'verde') { statusColor = AppTema.verdeSalud; statusIcon = Icons.verified_user_rounded; }
-    else if (semaforo == 'amarillo') { statusColor = Colors.orange; statusIcon = Icons.info_outline_rounded; }
+    final double rating = double.tryParse(receta['puntuacion_promedio']?.toString() ?? "0") ?? 0;
 
     return Card(
-      clipBehavior: Clip.antiAlias,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: statusColor.withOpacity(0.2), width: 1.5)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Color(0xFFF1F5F9), width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Column(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  height: 160, width: double.infinity, color: const Color(0xFFF1F5F9),
-                  child: url.isNotEmpty
-                      ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.restaurant, size: 48, color: Colors.grey))
-                      : const Icon(Icons.restaurant, size: 48, color: Colors.grey),
-                ),
-                Positioned(
-                  top: 12, left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
-                        const SizedBox(width: 4),
-                        Text("${receta['puntuacion_promedio'] ?? '0'}", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                        Text(" (${receta['total_evaluaciones'] ?? '0'})", style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12, right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
-                    child: Row(
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 14),
-                        const SizedBox(width: 4),
-                        Text(receta['clasificacion_recomendacion']?.toString().toUpperCase() ?? "SEGURA", style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900, color: statusColor, fontSize: 9)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            Container(
+              width: 110, height: 110,
+              color: const Color(0xFFF1F5F9),
+              child: url.isNotEmpty
+                  ? Image.network(url, fit: BoxFit.cover)
+                  : const Icon(Icons.restaurant, color: Colors.grey),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(receta['nombre'] ?? "Sin nombre", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 18), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity, padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
-                    child: Text(receta['mensaje_regla'] ?? "Segura para el paciente", style: theme.textTheme.bodySmall?.copyWith(color: statusColor, fontWeight: FontWeight.w600, fontSize: 11)),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildMeta(context, Icons.timer_outlined, "${receta['tiempo_total_min'] ?? 0} min"),
-                      _buildMeta(context, Icons.local_fire_department_outlined, "${receta['calorias_por_porcion'] ?? 0} kcal"),
-                      _buildMeta(context, Icons.auto_graph_rounded, receta['dificultad'] ?? "Media"),
-                    ],
-                  ),
-                ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      receta['nombre'] ?? "Sin nombre",
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    if (receta['descripcion'] != null)
+                      Text(
+                        receta['descripcion'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                      ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _buildBadge(context, Icons.star_rounded, "$rating", Colors.amber),
+                        const SizedBox(width: 12),
+                        _buildBadge(context, Icons.timer_outlined, "${receta['tiempo_total_min'] ?? 0} min", AppTema.azulPrincipal),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -294,12 +386,12 @@ class _RecipeCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMeta(BuildContext context, IconData icon, String label) {
+  Widget _buildBadge(BuildContext context, IconData icon, String label, Color color) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.bold)),
       ],
     );
   }

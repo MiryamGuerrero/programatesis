@@ -9,6 +9,8 @@ import 'tutor_compras_page.dart';
 import 'tutor_gustos_page.dart';
 import 'onboarding_gustos_page.dart';
 import 'tutor_receta_detalle_page.dart';
+import '../data/repositorio_tutor.dart';
+import 'widgets/generar_plan_automatico_modal.dart';
 
 class TutorHomePage extends ConsumerStatefulWidget {
   const TutorHomePage({super.key});
@@ -117,7 +119,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
       });
     }
 
-    final List<Widget> _vistas = [
+    final List<Widget> vistas = [
       _DashboardView(idPaciente: idPaciente),
       const TutorCalendarioPage(),
       const TutorRecetasPage(),
@@ -153,44 +155,83 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           _buildPatientSelector(context, nombrePaciente, patientsAsync),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeInOutCubic,
-        switchOutCurve: Curves.easeInOutCubic,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final childKey = child.key;
-          int childKeyIndex = (childKey is ValueKey<int>) ? childKey.value : -1;
-          final bool isForward = _bottomNavIndex >= _oldBottomNavIndex;
-          Offset beginOffset = (childKeyIndex == _bottomNavIndex) 
-              ? (isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0))
-              : (isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0));
-          return SlideTransition(
-            position: animation.drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
-            child: child,
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          final currentIdPaciente = ref.read(selectedPatientIdProvider);
+          final now = DateTime.now();
+          
+          ref.invalidate(planDiarioProvider);
+          ref.invalidate(misPacientesProvider);
+          ref.invalidate(listaComprasProvider);
+          
+          if (currentIdPaciente != null) {
+            ref.invalidate(diasConPlanProvider((idPaciente: currentIdPaciente, mes: now.month, anio: now.year)));
+          }
+          
+          await Future.delayed(const Duration(milliseconds: 800));
         },
-        child: SizedBox.expand(
-          key: ValueKey<int>(_bottomNavIndex), 
-          child: _vistas[_bottomNavIndex],
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeInOutCubic,
+          switchOutCurve: Curves.easeInOutCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final childKey = child.key;
+            int childKeyIndex = (childKey is ValueKey<int>) ? childKey.value : -1;
+            final bool isForward = _bottomNavIndex >= _oldBottomNavIndex;
+            Offset beginOffset = (childKeyIndex == _bottomNavIndex) 
+                ? (isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0))
+                : (isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0));
+            return SlideTransition(
+              position: animation.drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
+              child: child,
+            );
+          },
+          child: SizedBox.expand(
+            key: ValueKey<int>(_bottomNavIndex), 
+            child: vistas[_bottomNavIndex],
+          ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _bottomNavIndex,
-        onDestinationSelected: (index) {
-          if (index != _bottomNavIndex) {
-            setState(() {
-              _oldBottomNavIndex = _bottomNavIndex;
-              _bottomNavIndex = index;
-            });
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: "Hoy"),
-          NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: "Calendario"),
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: "Recetas"),
-          NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), selectedIcon: Icon(Icons.shopping_cart), label: "Compras"),
-          NavigationDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: "Gustos"),
-        ],
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0xFF0171BB).withOpacity(0.08),
+          surfaceTintColor: Colors.transparent,
+          height: 80,
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const IconThemeData(color: Color(0xFF0171BB), size: 24);
+            }
+            return const IconThemeData(color: Color(0xFF64748B), size: 24);
+          }),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final isSelected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? const Color(0xFF0171BB) : const Color(0xFF64748B),
+            );
+          }),
+        ),
+        child: NavigationBar(
+          selectedIndex: _bottomNavIndex,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          onDestinationSelected: (index) {
+            if (index != _bottomNavIndex) {
+              setState(() {
+                _oldBottomNavIndex = _bottomNavIndex;
+                _bottomNavIndex = index;
+              });
+            }
+          },
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_rounded), label: "Hoy"),
+            NavigationDestination(icon: Icon(Icons.calendar_month_rounded), label: "Calendario"),
+            NavigationDestination(icon: Icon(Icons.menu_book_rounded), label: "Recetas"),
+            NavigationDestination(icon: Icon(Icons.shopping_cart_rounded), label: "Compras"),
+            NavigationDestination(icon: Icon(Icons.favorite_rounded), label: "Gustos"),
+          ],
+        ),
       ),
     );
   }
@@ -228,7 +269,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
                                   children: [
                                     const Padding(padding: EdgeInsets.all(16), child: Text("CAMBIAR PACIENTE", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
                                     ...list.map((p) => ListTile(
-                                      leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                                      leading: const Icon(Icons.person_outline),
                                       title: Text(p["nombre_completo"]!),
                                       onTap: () {
                                         ref.read(selectedPatientIdProvider.notifier).state = p["id"].toString();
@@ -260,7 +301,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
                   children: [
                     Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle), child: const Icon(Icons.person_outline, color: Colors.white, size: 14)),
                     const SizedBox(width: 8),
-                    Text(nombre, style: theme.textTheme.titleSmall?.copyWith(fontSize: 14)),
+                    Flexible(child: Text(nombre, style: theme.textTheme.titleSmall?.copyWith(fontSize: 14), overflow: TextOverflow.visible)),
                     const Icon(Icons.keyboard_arrow_down_outlined, color: Color(0xFF64748B), size: 18),
                   ],
                 ),
@@ -295,6 +336,31 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
       ref.invalidate(planDiarioProvider);
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al marcar consumo: $e"))
+        );
+      }
+    }
+  }
+
+  Future<void> _intercambiarReceta(int idPlanItem) async {
+    try {
+      final repo = ref.read(repositorioTutorProvider);
+      await repo.intercambiarRecetaPlan(idPlanItem);
+      ref.invalidate(planDiarioProvider);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Receta intercambiada por una alternativa segura"))
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"))
+        );
+      }
     }
   }
 
@@ -306,14 +372,55 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     
-    final planAsync = widget.idPaciente != null
-        ? ref.watch(planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today)))
+    final idPaciente = widget.idPaciente;
+    final planAsync = idPaciente != null
+        ? ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: today)))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 
     return planAsync.when(
       data: (meals) {
         if (meals.isEmpty) {
-          return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay plan nutricional para hoy")));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.no_food_outlined, size: 80, color: Colors.grey.shade300),
+                  const SizedBox(height: 24),
+                  Text(
+                    "No hay un plan para hoy",
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "El nutricionista aún no ha asignado un plan. Puedes generar uno automáticamente basado en tus necesidades.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600, height: 1.5),
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      if (idPaciente != null) {
+                        final result = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => GenerarPlanAutomaticoModal(idPaciente: idPaciente),
+                        );
+                        if (result == true) {
+                          ref.invalidate(planDiarioProvider);
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text("Generar Plan Automático"),
+                    style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final Map<int, List<Map<String, dynamic>>> grouped = {};
@@ -374,6 +481,7 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
         }
 
         return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,8 +509,6 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
                     const SizedBox(height: 16),
                     ...momentMeals.map((m) {
                       final bool isConsumida = m["consumida"] == true;
-                      
-                      // Lógica de visibilidad del check verde
                       final String? startStr = m["momento_hora_inicio"]?.toString();
                       bool isPastOrCurrent = true;
                       if (startStr != null) {
@@ -418,13 +524,14 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
                         child: (isFeatured && !isConsumida) 
                             ? _FeaturedMealCard(
                                 meal: m, 
-                                onConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida)
+                                onConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
+                                onCambiar: () => _intercambiarReceta(m["id_plan_item"]),
                               ) 
                             : _UpcomingMealCard(
                                 meal: m, 
                                 isConsumida: isConsumida,
                                 showCheckButton: isPastOrCurrent,
-                                onToggleConsumida: isPastOrCurrent ? () => _toggleConsumida(m["id_plan_item"], isConsumida) : null,
+                                onToggleConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
                               ),
                       );
                     }),
@@ -475,16 +582,50 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
   }
 }
 
-class _FeaturedMealCard extends StatelessWidget {
+class _FeaturedMealCard extends StatefulWidget {
   final Map<String, dynamic> meal;
-  final VoidCallback onConsumida;
-  const _FeaturedMealCard({required this.meal, required this.onConsumida});
+  final Future<void> Function() onConsumida;
+  final Future<void> Function() onCambiar;
+
+  const _FeaturedMealCard({
+    super.key,
+    required this.meal, 
+    required this.onConsumida,
+    required this.onCambiar,
+  });
+
+  @override
+  State<_FeaturedMealCard> createState() => _FeaturedMealCardState();
+}
+
+class _FeaturedMealCardState extends State<_FeaturedMealCard> {
+  bool _isChanging = false;
+  bool _isConsuming = false;
+
+  Future<void> _handleCambiar() async {
+    setState(() => _isChanging = true);
+    try {
+      await widget.onCambiar();
+    } finally {
+      if (mounted) setState(() => _isChanging = false);
+    }
+  }
+
+  Future<void> _handleConsumida() async {
+    setState(() => _isConsuming = true);
+    try {
+      await widget.onConsumida();
+    } finally {
+      if (mounted) setState(() => _isConsuming = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final String url = meal["receta_url_imagen"] ?? "";
+    final String url = widget.meal["receta_url_imagen"] ?? "";
+    final bool esAutomatico = widget.meal["id_origen_plan"] == 2;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -506,24 +647,22 @@ class _FeaturedMealCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  meal["receta_nombre"] ?? "Sin nombre", 
+                  widget.meal["receta_nombre"] ?? "Sin nombre", 
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 24, 
                     color: colorScheme.onSurface,
                   ),
                 ),
-                if (meal["receta_descripcion"] != null)
+                if (widget.meal["receta_descripcion"] != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      meal["receta_descripcion"],
+                      widget.meal["receta_descripcion"],
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.grey.shade600,
                         height: 1.4,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 const SizedBox(height: 20),
@@ -538,7 +677,7 @@ class _FeaturedMealCard extends StatelessWidget {
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: () {
-                              final idReceta = meal["id_receta"];
+                              final idReceta = widget.meal["id_receta"];
                               if (idReceta != null) {
                                 Navigator.push(
                                   context,
@@ -555,54 +694,64 @@ class _FeaturedMealCard extends StatelessWidget {
                         Row(
                           children: [
                             SizedBox(
-                              width: btnWidth,
+                              width: esAutomatico ? btnWidth : constraints.maxWidth,
                               child: FilledButton.tonal(
-                                onPressed: onConsumida,
+                                onPressed: (_isChanging || _isConsuming) ? null : _handleConsumida,
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppTema.verdeSalud,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 4),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.check, size: 16),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        "Consumida",
-                                        style: TextStyle(fontSize: fontSize),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                child: _isConsuming 
+                                  ? const SizedBox(
+                                      width: 16, height: 16, 
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.check, size: 16),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            "Consumida",
+                                            style: TextStyle(fontSize: fontSize),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            SizedBox(
-                              width: btnWidth,
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.autorenew, size: 16),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        "Cambiar",
-                                        style: TextStyle(fontSize: fontSize),
-                                        overflow: TextOverflow.ellipsis,
+                            if (esAutomatico) ...[
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: btnWidth,
+                                child: OutlinedButton(
+                                  onPressed: (_isChanging || _isConsuming) ? null : _handleCambiar,
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  ),
+                                  child: _isChanging 
+                                    ? const SizedBox(
+                                        width: 16, height: 16, 
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey)
+                                      )
+                                    : Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.autorenew, size: 16),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              "Cambiar",
+                                              style: TextStyle(fontSize: fontSize),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
@@ -618,35 +767,52 @@ class _FeaturedMealCard extends StatelessWidget {
   }
 }
 
-class _UpcomingMealCard extends StatelessWidget {
+class _UpcomingMealCard extends StatefulWidget {
   final Map<String, dynamic> meal;
   final bool isConsumida;
   final bool showCheckButton;
-  final VoidCallback? onToggleConsumida;
+  final Future<void> Function() onToggleConsumida;
   
   const _UpcomingMealCard({
+    super.key,
     required this.meal, 
     this.isConsumida = false, 
     this.showCheckButton = true,
-    this.onToggleConsumida
+    required this.onToggleConsumida
   });
 
   @override
+  State<_UpcomingMealCard> createState() => _UpcomingMealCardState();
+}
+
+class _UpcomingMealCardState extends State<_UpcomingMealCard> {
+  bool _isLoading = false;
+
+  Future<void> _handleToggle() async {
+    setState(() => _isLoading = true);
+    try {
+      await widget.onToggleConsumida();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String url = meal["receta_url_imagen"] ?? "";
+    final String url = widget.meal["receta_url_imagen"] ?? "";
     final theme = Theme.of(context);
     
     return Card(
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: isConsumida ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5) : BorderSide.none,
+        side: widget.isConsumida ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5) : BorderSide.none,
       ),
-      elevation: isConsumida ? 0 : 1,
-      color: isConsumida ? Colors.grey.shade50 : Colors.white,
+      elevation: widget.isConsumida ? 0 : 1,
+      color: widget.isConsumida ? Colors.grey.shade50 : Colors.white,
       child: ListTile(
         onTap: () {
-          final idReceta = meal["id_receta"];
+          final idReceta = widget.meal["id_receta"];
           if (idReceta != null) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int)));
           }
@@ -662,7 +828,7 @@ class _UpcomingMealCard extends StatelessWidget {
                   ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
                   : const Icon(Icons.fastfood, color: Colors.grey),
             ),
-            if (isConsumida)
+            if (widget.isConsumida)
               Positioned(
                 right: 0, bottom: 0,
                 child: Container(
@@ -674,31 +840,36 @@ class _UpcomingMealCard extends StatelessWidget {
           ],
         ),
         title: Text(
-          meal["receta_nombre"] ?? "Sin nombre",
+          widget.meal["receta_nombre"] ?? "Sin nombre",
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: isConsumida ? Colors.grey : null,
-            decoration: isConsumida ? TextDecoration.lineThrough : null,
+            color: widget.isConsumida ? Colors.grey : null,
+            decoration: widget.isConsumida ? TextDecoration.lineThrough : null,
           ),
         ),
-        subtitle: isConsumida 
+        subtitle: widget.isConsumida 
             ? const Text("Consumida", style: TextStyle(color: AppTema.verdeSalud, fontWeight: FontWeight.bold, fontSize: 12))
-            : (meal["receta_descripcion"] != null 
-                ? Text(meal["receta_descripcion"], maxLines: 1, overflow: TextOverflow.ellipsis)
+            : (widget.meal["receta_descripcion"] != null 
+                ? Text(widget.meal["receta_descripcion"])
                 : null),
-        trailing: isConsumida 
-            ? IconButton(
-                icon: const Icon(Icons.undo_rounded, size: 20, color: Colors.grey),
-                tooltip: "Desmarcar",
-                onPressed: onToggleConsumida,
+        trailing: _isLoading 
+            ? const Padding(
+                padding: EdgeInsets.all(12.0),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               )
-            : (showCheckButton 
+            : (widget.isConsumida 
                 ? IconButton(
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 24, color: AppTema.verdeSalud),
-                    tooltip: "Marcar como consumida",
-                    onPressed: onToggleConsumida,
+                    icon: const Icon(Icons.undo_rounded, size: 20, color: Colors.grey),
+                    tooltip: "Desmarcar",
+                    onPressed: _handleToggle,
                   )
-                : const SizedBox(width: 48)), // Empty space to keep layout balanced
+                : (widget.showCheckButton 
+                    ? IconButton(
+                        icon: const Icon(Icons.check_circle_outline_rounded, size: 24, color: AppTema.verdeSalud),
+                        tooltip: "Marcar como consumida",
+                        onPressed: _handleToggle,
+                      )
+                    : const SizedBox(width: 48))),
       ),
     );
   }

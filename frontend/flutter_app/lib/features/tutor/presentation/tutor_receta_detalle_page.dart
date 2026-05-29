@@ -16,6 +16,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   late TabController _tabController;
   Map<String, dynamic>? _receta;
   bool _isLoading = true;
+  bool _isActionLoading = false;
   int _userRating = 0;
 
   @override
@@ -29,7 +30,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final idPaciente = ref.read(selectedPatientIdProvider);
     try {
       final dio = ref.read(dioProvider);
-      // Usamos el nuevo endpoint para tutores que acepta id_paciente
       final resp = await dio.get('tutor/receta-detalle/${widget.idReceta}', queryParameters: {
         'id_paciente': idPaciente,
       });
@@ -54,6 +54,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final idPlanItem = _receta!['id_plan_item_hoy'];
     final bool currentStatus = _receta!['consumida_hoy'] == true;
     
+    setState(() => _isActionLoading = true);
     try {
       final dio = ref.read(dioProvider);
       await dio.post('tutor/marcar-consumida', data: {
@@ -67,6 +68,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       ref.invalidate(planDiarioProvider);
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -115,7 +118,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                       const SizedBox(height: 24),
                     ],
 
-                    // Sistema de Calificación
                     _buildRatingSection(theme, r['id']),
                     const SizedBox(height: 32),
                     
@@ -157,28 +159,28 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final bool isConsumida = r['consumida_hoy'] == true;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isConsumida ? AppTema.verdeSalud.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isConsumida ? AppTema.verdeSalud.withOpacity(0.3) : Colors.grey.shade200),
         boxShadow: isConsumida ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isConsumida ? AppTema.verdeSalud : Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isConsumida ? Icons.check_rounded : Icons.restaurant,
+              isConsumida ? Icons.check_rounded : Icons.restaurant_rounded,
               color: isConsumida ? Colors.white : Colors.grey.shade600,
-              size: 24,
+              size: 20,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,27 +189,34 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                   "Plan de Hoy",
                   style: GoogleFonts.montserrat(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 14,
                     color: AppTema.azulOscuro,
                   ),
                 ),
                 Text(
-                  isConsumida ? "Esta receta ya fue consumida." : "¿Ya preparaste esta receta?",
+                  isConsumida ? "Consumida" : "¿Ya la preparaste?",
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
           ),
-          FilledButton.tonal(
-            onPressed: _toggleConsumida,
-            style: FilledButton.styleFrom(
-              backgroundColor: isConsumida ? Colors.grey.shade200 : AppTema.verdeSalud,
-              foregroundColor: isConsumida ? Colors.grey.shade700 : Colors.white,
+          SizedBox(
+            height: 40,
+            child: FilledButton.tonal(
+              onPressed: _isActionLoading ? null : _toggleConsumida,
+              style: FilledButton.styleFrom(
+                backgroundColor: isConsumida ? Colors.grey.shade100 : AppTema.verdeSalud,
+                foregroundColor: isConsumida ? Colors.grey.shade700 : Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isActionLoading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey))
+                  : Text(isConsumida ? "Desmarcar" : "Marcar", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
-            child: Text(isConsumida ? "Desmarcar" : "Marcar"),
           ),
         ],
       ),
@@ -231,36 +240,38 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "¿Qué te pareció esta receta?",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 14, color: AppTema.azulOscuro),
+                "¿Qué te pareció?",
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: AppTema.azulOscuro),
               ),
               Row(
                 children: [
-                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     "$promedio",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   Text(
                     " ($total)",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(5, (index) {
               final starValue = index + 1;
               return IconButton(
                 onPressed: () => _handleRating(starValue, recetaId),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints(),
                 icon: Icon(
                   starValue <= _userRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  size: 36,
-                  color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.4),
+                  size: 32,
+                  color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.3),
                 ),
               );
             }),
@@ -369,7 +380,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
         "comentario": comentario,
       });
       
-      _cargarDetalle(); // Recargar para actualizar promedio global
+      _cargarDetalle(); 
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

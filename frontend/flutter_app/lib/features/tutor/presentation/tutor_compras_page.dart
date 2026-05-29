@@ -133,6 +133,7 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                     }
 
                     return ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
                       itemCount: groupedItems.keys.length,
                       itemBuilder: (context, index) {

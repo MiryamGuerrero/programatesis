@@ -161,6 +161,10 @@ class IRepositorioReceta(ABC):
         pass
 
     @abstractmethod
+    def obtener_receta(self, id_receta: int) -> Optional[dict]:
+        pass
+
+    @abstractmethod
     def listar_momentos_comida(self) -> List[dict]:
         pass
 

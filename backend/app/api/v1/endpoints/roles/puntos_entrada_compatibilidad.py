@@ -49,8 +49,8 @@ def obtener_planes_paciente(
         )
         cols_plan = {r[0] for r in cur.fetchall()}
         objetivo_col = "p.objetivo" if "objetivo" in cols_plan else "NULL::text as objetivo"
-        tipo_plan_col = "p.tipo_plan" if "tipo_plan" in cols_plan else "'MANUAL'::text as tipo_plan"
-        origen_plan_col = "p.origen_plan" if "origen_plan" in cols_plan else "'NUTRICIONISTA'::text as origen_plan"
+        tipo_plan_col = "tp.nombre" if "id_tipo_plan" in cols_plan else "'MANUAL'::text"
+        origen_plan_col = "op.nombre" if "id_origen_plan" in cols_plan else "'NUTRICIONISTA'::text"
         comidas_col = "p.comidas_por_dia" if "comidas_por_dia" in cols_plan else "NULL::int as comidas_por_dia"
 
         cur.execute(
@@ -62,8 +62,8 @@ def obtener_planes_paciente(
                 p.fecha_fin,
                 p.vigente,
                 {objetivo_col},
-                {tipo_plan_col},
-                {origen_plan_col},
+                {tipo_plan_col} as tipo_plan,
+                {origen_plan_col} as origen_plan,
                 {comidas_col},
                 p.created_at,
                 count(pi.id) as total_items,
@@ -74,8 +74,10 @@ def obtener_planes_paciente(
                 end as porcentaje_adherencia
             from interaccion.plan_nutricional p
             left join interaccion.plan_item pi on pi.id_plan = p.id
+            left join interaccion.catalogo_tipo_plan tp on tp.id = p.id_tipo_plan
+            left join interaccion.catalogo_origen_plan op on op.id = p.id_origen_plan
             where p.id_paciente = %s
-            group by p.id
+            group by p.id, tp.nombre, op.nombre
             order by p.created_at desc nulls last, p.id desc
             """,
             (id_paciente,),

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from datetime import date
 from ...core.db import db_cursor
 from ...domain.modelos.seguimiento import RegistroConsumo
@@ -49,6 +49,8 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                         FROM interaccion.evaluacion_receta
                         WHERE id_receta = r.id
                     ), 0) AS total_evaluaciones,
+                    p.id_origen_plan,
+                    (SELECT array_agg(id_tipo_plato) FROM nutricion.receta_tipo_plato WHERE id_receta = r.id) as tipos_plato_ids,
                     s.id_estado_consumo,
                     s.fecha_consumo
                 from interaccion.plan_nutricional p
@@ -65,6 +67,55 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             cur.execute(sql, (id_paciente, fecha, fecha, fecha))
             cols = [d[0] for d in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def crear_plan_nutricional(self, datos: dict) -> int:
+        with db_cursor() as cur:
+            sql = """
+                insert into interaccion.plan_nutricional (
+                    id_paciente, id_tipo_plan, id_origen_plan, id_estado_plan,
+                    comidas_por_dia, fecha_inicio, fecha_fin, vigente, creado_por
+                ) values (%s, %s, %s, %s, %s, %s, %s, true, %s)
+                returning id
+            """
+            cur.execute(sql, (
+                datos["id_paciente"], datos.get("id_tipo_plan", 1),
+                datos.get("id_origen_plan", 2), datos.get("id_estado_plan", 1),
+                datos.get("comidas_por_dia", 3), datos["fecha_inicio"],
+                datos["fecha_fin"], datos.get("creado_por")
+            ))
+            return cur.fetchone()[0]
+
+    def agregar_items_plan(self, items: List[dict]) -> bool:
+        with db_cursor() as cur:
+            sql = """
+                insert into interaccion.plan_item (
+                    id_plan, fecha_programada, id_momento, id_receta, consumida
+                ) values (%s, %s, %s, %s, false)
+            """
+            params = [(i["id_plan"], i["fecha_programada"], i["id_momento"], i["id_receta"]) for i in items]
+            cur.executemany(sql, params)
+            return True
+
+    def intercambiar_receta_item(self, id_plan_item: int, id_nueva_receta: int) -> bool:
+        with db_cursor() as cur:
+            sql = "update interaccion.plan_item set id_receta = %s where id = %s"
+            cur.execute(sql, (id_nueva_receta, id_plan_item))
+            return cur.rowcount > 0
+
+    def obtener_item_plan_con_detalle(self, id_plan_item: int) -> Optional[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select pi.id, pi.id_plan, pi.id_momento, pi.id_receta, pi.fecha_programada,
+                       p.id_paciente, p.id_origen_plan
+                from interaccion.plan_item pi
+                join interaccion.plan_nutricional p on p.id = pi.id_plan
+                where pi.id = %s
+            """
+            cur.execute(sql, (id_plan_item,))
+            row = cur.fetchone()
+            if not row: return None
+            cols = [d[0] for d in cur.description]
+            return dict(zip(cols, row))
 
     def marcar_item_consumido(self, id_plan_item: int, consumida: bool) -> bool:
         with db_cursor() as cur:

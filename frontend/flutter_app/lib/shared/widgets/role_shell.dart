@@ -69,20 +69,17 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final isWide = MediaQuery.of(context).size.width >= 1024;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Gris muy claro limpio
+      backgroundColor: const Color(0xFFF8FAFC), 
       body: Column(
         children: [
-          // 1. TOP BAR GLOBAL (MARCA ESTÁTICA ESTILO LOGIN)
           _buildGlobalHeader(nombreUsuario, nombreRol, iniciales, isWide),
-          
-          // 2. CUERPO: SIDEBAR + CONTENIDO (SIN RECUADRO LIMITANTE)
           Expanded(
             child: Row(
               children: [
                 if (isWide) _buildSidebar(modules),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 8.0), // Margen sutil respecto al menú
+                    padding: const EdgeInsets.only(left: 8.0),
                     child: IndexedStack(
                       index: _index,
                       children: [for (final m in modules) m.builder()],
@@ -94,6 +91,45 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           ),
         ],
       ),
+      bottomNavigationBar: isWide
+          ? null
+          : NavigationBarTheme(
+              data: NavigationBarThemeData(
+                backgroundColor: Colors.white,
+                indicatorColor: const Color(0xFF0171BB).withOpacity(0.08),
+                surfaceTintColor: Colors.transparent,
+                height: 80,
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const IconThemeData(color: Color(0xFF0171BB), size: 24);
+                  }
+                  return const IconThemeData(color: Color(0xFF64748B), size: 24);
+                }),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final isSelected = states.contains(WidgetState.selected);
+                  return TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected ? const Color(0xFF0171BB) : const Color(0xFF64748B),
+                  );
+                }),
+              ),
+              child: NavigationBar(
+                selectedIndex: _index,
+                backgroundColor: Colors.white,
+                elevation: 8,
+                surfaceTintColor: Colors.transparent,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                onDestinationSelected: (i) => setState(() => _index = i),
+                destinations: [
+                  for (final m in modules)
+                    NavigationDestination(
+                      icon: Icon(m.icon),
+                      label: m.title,
+                    ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -108,7 +144,6 @@ class _RoleShellState extends ConsumerState<RoleShell> {
       ),
       child: Row(
         children: [
-          // SECCIÓN DE MARCA ESTÁTICA (ESTILO LOGIN)
           Container(
             width: isWide ? 280 : 200,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -136,10 +171,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
               ],
             ),
           ),
-          
           const Spacer(),
-          
-          // ACCIONES DE USUARIO
           const _NotificationBell(),
           const SizedBox(width: 24),
           Column(
@@ -157,7 +189,6 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             child: Text(iniciales, style: const TextStyle(color: brandBlue, fontWeight: FontWeight.bold, fontSize: 12)),
           ),
           const SizedBox(width: 24),
-          
           _HoverSignOutButton(
             onPressed: _signingOut ? null : _handleSignOut,
             isSigningOut: _signingOut,
@@ -213,7 +244,6 @@ class _RoleShellState extends ConsumerState<RoleShell> {
               },
             ),
           ),
-          // INDICADOR DE VERSIÓN SUTIL ABAJO
           AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
             opacity: _isMenuExpanded ? 1.0 : 0.0,
@@ -253,6 +283,13 @@ class _NotificationBell extends ConsumerWidget {
     final notifications = ref.watch(notificationProvider);
     final unreadCount = ref.read(notificationProvider.notifier).unreadCount;
 
+    return unreadCount > 0 ? Badge(
+      label: Text(unreadCount.toString()),
+      child: _buildBellIcon(),
+    ) : _buildBellIcon();
+  }
+
+  Widget _buildBellIcon() {
     return PopupMenuButton<void>(
       offset: const Offset(0, 50),
       icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 26),
@@ -263,9 +300,6 @@ class _NotificationBell extends ConsumerWidget {
           enabled: false,
           child: Text("NOTIFICACIONES", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 11, color: const Color(0xFF0068B7))),
         ),
-        ...notifications.take(3).map((n) => PopupMenuItem<void>(
-          child: Text(n.title, style: const TextStyle(fontSize: 12)),
-        )),
       ],
     );
   }

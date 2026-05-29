@@ -1,0 +1,242 @@
+import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:intl/intl.dart";
+import "../../../../core/theme/app_theme.dart";
+import "../../data/repositorio_tutor.dart";
+import "../../../../core/state/app_providers.dart";
+
+class GenerarPlanAutomaticoModal extends ConsumerStatefulWidget {
+  final String idPaciente;
+  const GenerarPlanAutomaticoModal({super.key, required this.idPaciente});
+
+  @override
+  ConsumerState<GenerarPlanAutomaticoModal> createState() => _GenerarPlanAutomaticoModalState();
+}
+
+class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomaticoModal> {
+  String _durationType = "una semana";
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 6));
+  bool _morningSnackEnabled = false;
+  bool _afternoonSnackEnabled = false;
+  
+  bool _isLoading = false;
+
+  void _updateEndDate() {
+    setState(() {
+      if (_durationType == "un día") {
+        _endDate = _startDate;
+      } else if (_durationType == "una semana") {
+        _endDate = _startDate.add(const Duration(days: 6));
+      } else if (_durationType == "un mes") {
+        _endDate = _startDate.add(const Duration(days: 30));
+      }
+    });
+  }
+
+  Future<void> _generar() async {
+    setState(() => _isLoading = true);
+    try {
+      final repo = ref.read(repositorioTutorProvider);
+      
+      final List<int> momentosObligatorios = [1, 3, 5]; // Desayuno, Almuerzo, Merienda
+      final List<int> momentosOpcionales = [];
+      if (_morningSnackEnabled) momentosOpcionales.add(2);
+      if (_afternoonSnackEnabled) momentosOpcionales.add(4);
+
+      final totalDias = _endDate.difference(_startDate).inDays + 1;
+
+      await repo.generarPlanAutomatico(
+        idPaciente: widget.idPaciente,
+        dias: totalDias,
+        fechaInicio: _startDate,
+        momentosObligatorios: momentosObligatorios,
+        momentosOpcionales: momentosOpcionales,
+      );
+      
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al generar plan: $e"))
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Column(
+        children: [
+          const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
+          const SizedBox(height: 12),
+          const Text("Configurar plan automático",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildModalSectionTitle("Periodo de Vigencia"),
+              DropdownButtonFormField<String>(
+                value: _durationType,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
+                ),
+                items: const [
+                  DropdownMenuItem(value: "un día", child: Text("Un día")),
+                  DropdownMenuItem(value: "una semana", child: Text("Una semana")),
+                  DropdownMenuItem(value: "un mes", child: Text("Un mes")),
+                ],
+                onChanged: (v) {
+                  _durationType = v!;
+                  _updateEndDate();
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildModalSectionTitle("Resumen de Fechas"),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.calendar_month, color: Colors.blue),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                          fontSize: 14),
+                    ),
+                    Text(
+                      "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                      style: TextStyle(
+                          color: Colors.blue.shade700, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 32),
+              _buildModalSectionTitle("Tiempos obligatorios"),
+              const Text("Se establecerán 3 comidas base por día.",
+                  style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+              const SizedBox(height: 12),
+              _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
+              _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
+              _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
+              const Divider(height: 32),
+              _buildModalSectionTitle("Snacks opcionales"),
+              _buildConfigTile(
+                  "Snack media mañana",
+                  "Entre desayuno y almuerzo",
+                  Icons.coffee,
+                  _morningSnackEnabled,
+                  (v) => setState(() => _morningSnackEnabled = v!)),
+              _buildConfigTile(
+                  "Snack media tarde",
+                  "Entre almuerzo y cena",
+                  Icons.apple,
+                  _afternoonSnackEnabled,
+                  (v) => setState(() => _afternoonSnackEnabled = v!)),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 50),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancelar"),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 50),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _isLoading ? null : _generar,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20, width: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text("Generar Plan Inteligente"),
+              ),
+            ),
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildModalSectionTitle(String title) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.blueGrey,
+            letterSpacing: 1.1),
+      ),
+    );
+  }
+
+  Widget _buildConfigTile(String title, String subtitle, IconData icon,
+      bool value, Function(bool?)? onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: value ? Colors.blue.withOpacity(0.03) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value ? Colors.blue.withOpacity(0.2) : Colors.grey.shade200,
+        ),
+      ),
+      child: CheckboxListTile(
+        secondary: Icon(icon, color: value ? Colors.blue : Colors.grey),
+        title: Text(title,
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: value ? Colors.blue.shade900 : Colors.grey.shade700)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
+        value: value,
+        onChanged: onChanged,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        activeColor: Colors.blue,
+      ),
+    );
+  }
+}

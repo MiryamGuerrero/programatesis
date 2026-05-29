@@ -5,6 +5,7 @@ from app.api.deps import require_roles
 from app.core.security import UserContext
 from app.api.v1.use_cases import obtener_caso_uso_gestionar_seguimiento
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
+from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
 from app.core.db import db_cursor
 from pydantic import BaseModel
 
@@ -14,6 +15,29 @@ class RegistroConsumoRequest(BaseModel):
     id_plan_item: int
     id_estado_consumo: int
     observacion: str | None = None
+
+class GenerarPlanRequest(BaseModel):
+    id_paciente: str
+    dias: int
+    fecha_inicio: date
+    momentos_obligatorios: List[int]
+    momentos_opcionales: List[int]
+
+class IntercambiarRecetaRequest(BaseModel):
+    id_plan_item: int
+
+def obtener_caso_uso_generar_plan_automatico() -> CasoUsoGenerarPlanAutomatico:
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    from app.infraestructura.repositorios.repositorio_seguimiento import RepositorioSeguimientoPostgres
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    from app.infraestructura.repositorios.repositorio_composicion import RepositorioComposicionPostgres
+    
+    return CasoUsoGenerarPlanAutomatico(
+        repo_receta=RepositorioRecetaPostgres(),
+        repo_seguimiento=RepositorioSeguimientoPostgres(),
+        repo_paciente=RepositorioPacientePostgres(),
+        repo_composicion=RepositorioComposicionPostgres()
+    )
 
 @router.get("/mis-pacientes")
 def obtener_mis_pacientes(
@@ -219,6 +243,39 @@ def obtener_estadisticas_adherencia(
 ):
     return caso_uso.obtener_estadisticas_adherencia(id_paciente, dias)
 
+@router.get("/momentos-comida")
+def listar_momentos(_=Depends(require_roles("tutor", "admin"))):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.listar_momentos_comida()
+
+@router.get("/tipos-plato")
+def listar_tipos_plato(_=Depends(require_roles("tutor", "admin"))):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.listar_tipos_plato()
+
+@router.get("/recetas-seguras/{id_paciente}")
+def listar_recetas_seguras(
+    id_paciente: str,
+    consulta: str = Query(default=""),
+    id_momento: int | None = Query(default=None),
+    id_tipo_plato: int | None = Query(default=None),
+    limite: int = Query(default=20),
+    offset: int = Query(default=0),
+    _=Depends(require_roles("tutor", "admin"))
+):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.obtener_recetas_seguras_para_paciente(
+        id_paciente=id_paciente,
+        id_momento=id_momento,
+        id_tipo_plato=id_tipo_plato,
+        consulta=consulta,
+        limite=limite,
+        offset=offset
+    )
+
 @router.get("/lista-compras/{id_paciente}")
 def obtener_lista_compras(
     id_paciente: str,
@@ -228,3 +285,31 @@ def obtener_lista_compras(
     _=Depends(require_roles("tutor", "admin"))
 ):
     return caso_uso.obtener_lista_compras(id_paciente, fecha_inicio, fecha_fin)
+
+@router.post("/generar-plan-automatico")
+def generar_plan_automatico(
+    request: GenerarPlanRequest,
+    user: UserContext = Depends(require_roles("tutor", "admin")),
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan_automatico)
+):
+    try:
+        return caso_uso.ejecutar(
+            id_paciente=request.id_paciente,
+            dias=request.dias,
+            fecha_inicio=request.fecha_inicio,
+            momentos_obligatorios=request.momentos_obligatorios,
+            momentos_opcionales=request.momentos_opcionales
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/intercambiar-receta-plan")
+def intercambiar_receta_plan(
+    request: IntercambiarRecetaRequest,
+    user: UserContext = Depends(require_roles("tutor", "admin")),
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan_automatico)
+):
+    try:
+        return caso_uso.intercambiar_receta(request.id_plan_item)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

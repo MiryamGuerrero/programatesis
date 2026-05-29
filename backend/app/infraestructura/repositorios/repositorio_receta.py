@@ -359,6 +359,20 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
+    def obtener_receta(self, id_receta: int) -> Optional[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select r.id, r.nombre, r.descripcion,
+                       (SELECT array_agg(id_tipo_plato) FROM nutricion.receta_tipo_plato WHERE id_receta = r.id) as tipos_plato_ids
+                from nutricion.receta r
+                where r.id = %s
+            """
+            cur.execute(sql, (id_receta,))
+            row = cur.fetchone()
+            if not row: return None
+            cols = [d[0] for d in cur.description]
+            return dict(zip(cols, row))
+
     def obtener_recetas_seguras_para_paciente(
         self,
         id_paciente: str,
