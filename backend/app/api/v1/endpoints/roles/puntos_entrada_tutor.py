@@ -35,22 +35,79 @@ def verificar_onboarding(id_paciente: str, _=Depends(require_roles("tutor", "adm
 def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tutor", "admin"))):
     with db_cursor() as cur:
         cur.execute("""
-            select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo 
-            where id_paciente = %s and activa = true
-        """, (id_paciente,))
-        bloqueados = [r[0] for r in cur.fetchall()]
-
-        cur.execute("""
+            with conds as (
+              select id as id_condicion from heuristico.condicion 
+              where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
+              union
+              select id_condicion from clinico.diagnostico_paciente where id_paciente = %s::uuid and esta_activo = true
+              union
+              select cca.id_condicion from clinico.control_condicion_activa cca join clinico.control_paciente cp on cp.id = cca.id_control
+              where cp.id_paciente = %s::uuid and cca.esta_activa = true
+            ),
+            restricciones_bloqueantes as (
+              select distinct
+                coalesce(
+                  cra.etiqueta_bloqueante_codigo,
+                  case upper(coalesce(rp.codigo_restriccion, ''))
+                    when 'INTOLERANCIA_LACTOSA' then 'NO_APTO_PARA_INTOLERANTES_A_LACTOSA'
+                    when 'INTOLERANCIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                    when 'CELIAQUIA' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                    when 'ALERGIA_GLUTEN' then 'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN'
+                    when 'INTOLERANCIA_FRUCTOSA' then 'NO_APTO_INTOLERANCIA_FRUCTOSA'
+                    when 'INTOLERANCIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                    when 'ALERGIA_SULFITOS' then 'NO_APTO_PARA_INTOLERANTES_A_SULFITO'
+                    when 'VEGETARIANO' then 'NO_APTO_VEGETARIANOS'
+                    when 'VEGETARIANA' then 'NO_APTO_VEGETARIANOS'
+                    when 'DIABETES' then 'NO_APTO_DIABETICOS'
+                    when 'DIABETES_MELLITUS' then 'NO_APTO_DIABETICOS'
+                    else null
+                  end
+                ) as codigo
+              from clinico.restriccion_paciente rp
+              left join clinico.catalogo_restriccion_alimentaria cra
+                on cra.codigo = rp.codigo_restriccion
+               and coalesce(cra.activa,false)=true
+              where rp.id_paciente = %s::uuid
+                and coalesce(rp.activa,false)=true
+            ),
+            reglas_aplicables as (
+              select upper(ca.nombre) as accion, r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario
+              from heuristico.regla r 
+              join heuristico.catalogo_accion ca on ca.id = r.id_accion 
+              join heuristico.condicion_regla cr on cr.id_regla = r.id
+              where cr.id_condicion in (select id_condicion from conds)
+            ),
+            ingredientes_alergicos as (
+              select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s::uuid and activa = true
+              union
+              select id_ingrediente from reglas_aplicables where accion = 'ELIMINAR' and id_ingrediente is not null
+              union
+              select ie.id_ingrediente from nutricion.ingrediente_etiqueta ie 
+              join nutricion.etiqueta_nutricional en on en.id = ie.id_etiqueta
+              where en.codigo in (select codigo from restricciones_bloqueantes where codigo is not null)
+            ),
+            subgrupos_bloqueados as (
+              select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s::uuid and activa = true
+              union
+              select id_subgrupo_alimentario from reglas_aplicables where accion = 'ELIMINAR' and id_subgrupo_alimentario is not null
+              union
+              select s.id from nutricion.subgrupo_alimentario s
+              join reglas_aplicables ra on ra.id_grupo_alimentario = s.id_grupo_alimentario
+              where ra.accion = 'ELIMINAR'
+              union
+              select distinct i.id_subgrupo_alimentario from nutricion.ingrediente i
+              where i.id in (select id_ingrediente from ingredientes_alergicos)
+            )
             select s.id, s.nombre, s.emoji, g.nombre as grupo,
                    exists(select 1 from interaccion.preferencia_paciente pp 
-                          where pp.id_paciente = %s and pp.id_subgrupo_alimentario = s.id) as es_preferido
+                          where pp.id_paciente = %s::uuid and pp.id_subgrupo_alimentario = s.id) as es_preferido
             from nutricion.subgrupo_alimentario s
             join nutricion.grupo_alimentario g on g.id = s.id_grupo_alimentario
+            where s.id not in (select id_subgrupo_alimentario from subgrupos_bloqueados where id_subgrupo_alimentario is not null)
             order by g.nombre, s.nombre
-        """, (id_paciente,))
+        """, (id_paciente, id_paciente, id_paciente, id_paciente, id_paciente, id_paciente))
         cols = [d[0] for d in cur.description]
-        todos = [dict(zip(cols, row)) for row in cur.fetchall()]
-        return [s for s in todos if s['id'] not in bloqueados]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 @router.post("/guardar-preferencias")
 def guardar_preferencias(payload: Dict[str, Any], _=Depends(require_roles("tutor", "admin"))):

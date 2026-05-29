@@ -1290,6 +1290,39 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 150,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Adherencia:",
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueGrey)),
+                              Text(
+                                  "${(p["porcentaje_adherencia"] ?? 0.0)}%",
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: greenBrand)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: ((p["porcentaje_adherencia"] as num?) ?? 0.0).toDouble() / 100.0,
+                            backgroundColor: Colors.grey.shade200,
+                            color: greenBrand,
+                            borderRadius: BorderRadius.circular(4),
+                            minHeight: 6,
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],

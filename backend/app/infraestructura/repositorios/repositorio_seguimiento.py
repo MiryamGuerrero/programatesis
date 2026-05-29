@@ -111,47 +111,66 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
                 "racha_dias": 0 
             }
 
-    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> List[dict]:
+    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> dict:
         with db_cursor() as cur:
             sql = """
-                with recetas_plan as (
-                    select distinct pi.id_receta
-                    from interaccion.plan_nutricional p
-                    join interaccion.plan_item pi on pi.id_plan = p.id
-                    where p.id_paciente = %s 
-                      and pi.fecha_programada >= %s 
-                      and pi.fecha_programada <= %s
-                ),
-                ingredientes_detalle as (
+                with ingredientes_plan as (
                     select 
                         i.id as id_ingrediente,
                         i.nombre as titulo,
-                        sg.nombre as categoria,
-                        sum(ri.peso_en_gramos) as total_gramos,
-                        ri.unidad_visual as unidad
-                    from recetas_plan rp
-                    join nutricion.receta_ingrediente ri on ri.id_receta = rp.id_receta
+                        coalesce(g.nombre, 'Otros') as categoria,
+                        ri.peso_en_gramos as gramos
+                    from interaccion.plan_nutricional p
+                    join interaccion.plan_item pi on pi.id_plan = p.id
+                    join nutricion.receta_ingrediente ri on ri.id_receta = pi.id_receta
                     join nutricion.ingrediente i on i.id = ri.id_ingrediente
-                    join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
-                    group by i.id, i.nombre, sg.nombre, ri.unidad_visual
+                    left join nutricion.grupo_alimentario g on g.id = i.id_grupo_alimentario
+                    where p.id_paciente = %s 
+                      and pi.fecha_programada >= %s 
+                      and pi.fecha_programada <= %s
+                      and coalesce(pi.consumida, false) = false
+                ),
+                agrupados as (
+                    select 
+                        categoria,
+                        titulo,
+                        sum(gramos) as total_gramos
+                    from ingredientes_plan
+                    group by categoria, titulo
                 )
                 select 
-                    id_ingrediente as id,
-                    titulo,
                     categoria,
+                    titulo,
                     total_gramos,
-                    unidad,
                     case 
-                        when unidad = 'gramos' or unidad = 'g' then (total_gramos::text || ' g')
-                        else (round(total_gramos::numeric, 1)::text || ' ' || unidad)
-                    end as cantidad,
-                    false as comprado
-                from ingredientes_detalle
+                        when total_gramos >= 1000 then round((total_gramos / 1000)::numeric, 2)
+                        else round(total_gramos::numeric, 0)
+                    end as cantidad_numerica,
+                    case 
+                        when total_gramos >= 1000 then 'kg'
+                        else 'g'
+                    end as unidad_texto
+                from agrupados
                 order by categoria, titulo
             """
             cur.execute(sql, (id_paciente, fecha_inicio, fecha_fin))
-            columnas = [desc[0] for desc in cur.description]
-            return [dict(zip(columnas, row)) for row in cur.fetchall()]
+            rows = cur.fetchall()
+            
+            resultado = {}
+            for row in rows:
+                categoria = row[0]
+                ingrediente = {
+                    "nombre": row[1],
+                    "total_gramos": float(row[2]) if row[2] is not None else 0,
+                    "cantidad": float(row[3]) if row[3] is not None else 0,
+                    "unidad": row[4]
+                }
+                
+                if categoria not in resultado:
+                    resultado[categoria] = []
+                resultado[categoria].append(ingrediente)
+                
+            return resultado
 
     def obtener_reporte_adherencia_medico(self, id_medico: str) -> List[dict]:
         with db_cursor() as cur:

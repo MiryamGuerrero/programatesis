@@ -20,5 +20,5 @@ class CasoUsoGestionarSeguimiento:
     def obtener_estadisticas_adherencia(self, id_paciente: str, dias: int = 7) -> Dict:
         return self.repo_seguimiento.obtener_adherencia(id_paciente, dias)
 
-    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> List[Dict]:
+    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> dict:
         return self.repo_seguimiento.obtener_lista_compras(id_paciente, fecha_inicio, fecha_fin)

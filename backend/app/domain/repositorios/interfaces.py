@@ -186,7 +186,7 @@ class IRepositorioSeguimiento(ABC):
         pass
 
     @abstractmethod
-    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> List[dict]:
+    def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> dict:
         pass
 
 class IRepositorioPlan(ABC):

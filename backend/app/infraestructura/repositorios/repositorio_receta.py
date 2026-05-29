@@ -383,7 +383,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   where coalesce(activa,false)=true
                     and (%s::int is null or %s::int = any(momentos_ids))
                     and (%s::int is null or %s::int = any(tipos_plato_ids))
-                    and (%s::text is null or nombre ilike '%' || %s::text || '%')
+                    and (%s::text is null or nombre ilike '%%' || %s::text || '%%')
                 ),
                 stats as (
                   select id_receta, round(avg(estrellas)::numeric, 1) as puntuacion_promedio, count(*) as total_evaluaciones
@@ -397,6 +397,9 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   union
                   select cca.id_condicion from clinico.control_condicion_activa cca join clinico.control_paciente cp on cp.id = cca.id_control
                   where cp.id_paciente = %s::uuid and cca.esta_activa = true
+                ),
+                prefs as (
+                  select id_subgrupo_alimentario from interaccion.preferencia_paciente where id_paciente = %s::uuid
                 ),
                 reglas_aplicables as (
                   select upper(ca.nombre) as accion, r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario, r.id_etiqueta, r.id_receta
@@ -443,7 +446,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   select rec.*, coalesce(s.puntuacion_promedio, 0) as puntuacion_promedio, coalesce(s.total_evaluaciones, 0) as total_evaluaciones,
                          (exists (select 1 from reglas_aplicables ra where ra.accion = 'PRIORIZAR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) 
                           or exists (select 1 from recoms rem where rem.id_ingrediente = any(rec.ingredientes_ids))) as es_potenciada,
-                         exists (select 1 from reglas_aplicables ra where ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) as es_disminuida
+                         exists (select 1 from reglas_aplicables ra where ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) as es_disminuida,
+                         exists (select 1 from unnest(rec.subgrupos_ids) as s_id where s_id in (select id_subgrupo_alimentario from prefs)) as es_preferida
                   from recetas_base rec
                   left join stats s on s.id_receta = rec.id
                   where rec.id not in (select id from bloqueadas)
@@ -452,7 +456,11 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                        case when c.es_potenciada then 'verde' when c.es_disminuida then 'amarillo' else 'neutral' end as semaforo,
                        case when c.es_potenciada then 'Recomendada' when c.es_disminuida then 'Menos recomendada' else 'Normal' end as clasificacion_recomendacion,
                        case when c.es_potenciada then 'PRIORIZAR: recomendada para este paciente' when c.es_disminuida then 'DISMINUIR: usar con menor frecuencia' else 'Segura para el paciente' end as mensaje_regla
-                from clasificadas c order by case when c.es_potenciada then 0 when c.es_disminuida then 1 else 2 end, c.nombre
+                from clasificadas c 
+                order by 
+                  case when c.es_potenciada then 0 when c.es_disminuida then 2 else 1 end, 
+                  case when c.es_preferida then 0 else 1 end,
+                  c.nombre
                 limit %s offset %s
             """
             params = (
@@ -460,6 +468,7 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 id_tipo_plato, id_tipo_plato,
                 query_text, query_text, 
                 id_paciente, id_paciente, 
+                id_paciente, # Para prefs
                 id_paciente, id_paciente, id_paciente, id_paciente, 
                 limite, offset
             )

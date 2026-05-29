@@ -341,7 +341,7 @@ final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>, ({
   }).toList();
 });
 
-final listaComprasProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
+final listaComprasProvider = FutureProvider.family<Map<String, List<Map<String, dynamic>>>, ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchShoppingList(arg.idPaciente, start: arg.start, end: arg.end);
 });

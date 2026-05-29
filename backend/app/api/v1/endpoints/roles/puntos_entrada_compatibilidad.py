@@ -66,7 +66,12 @@ def obtener_planes_paciente(
                 {origen_plan_col},
                 {comidas_col},
                 p.created_at,
-                count(pi.id) as total_items
+                count(pi.id) as total_items,
+                count(pi.id) filter (where coalesce(pi.consumida, false) = true) as consumidos,
+                case 
+                    when count(pi.id) > 0 then round((count(pi.id) filter (where coalesce(pi.consumida, false) = true)::numeric / count(pi.id)) * 100, 2) 
+                    else 0 
+                end as porcentaje_adherencia
             from interaccion.plan_nutricional p
             left join interaccion.plan_item pi on pi.id_plan = p.id
             where p.id_paciente = %s
