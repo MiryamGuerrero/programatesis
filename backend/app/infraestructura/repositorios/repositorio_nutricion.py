@@ -1,5 +1,5 @@
 from typing import List, Optional
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioNutricion
 
 class RepositorioNutricionPostgres(IRepositorioNutricion):

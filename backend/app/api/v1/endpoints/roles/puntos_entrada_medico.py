@@ -2,7 +2,7 @@ from typing import Any
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles, UserContext
-from app.api.v1.use_cases import (
+from app.api.v1.dependencias import (
     obtener_caso_uso_gestionar_clinico,
     obtener_caso_uso_gestionar_catalogos,
     obtener_caso_uso_supervisar_adherencia,
@@ -21,9 +21,9 @@ from app.api.v1.dtos.clinico import (
     RegistroPacienteIntegralRequest,
     ActualizarExpedienteFijoRequest,
 )
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from app.infraestructura.repositorios.repositorio_clinico import RepositorioClinicoPostgres
-from app.domain.servicios.servicio_oms import ServicioOMS
+from app.infraestructura.servicios.servicio_oms import ServicioOMS
 
 router = APIRouter(tags=["Medico"])
 

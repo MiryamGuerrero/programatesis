@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import date
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.modelos.seguimiento import RegistroConsumo
 from ...domain.repositorios.interfaces import IRepositorioSeguimiento
 

@@ -15,11 +15,14 @@ class PlanDiarioPage extends ConsumerWidget {
     required this.fecha,
   });
 
+  String get _fechaApi =>
+      "${fecha.year.toString().padLeft(4, '0')}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}";
+
   Future<void> _marcarConsumido(BuildContext context, WidgetRef ref, int idPlanItem) async {
     try {
       final repo = ref.read(repositorioTutorProvider);
       await repo.registrarConsumo(idPlanItem, 1);
-      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: fecha)));
+      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -33,7 +36,7 @@ class PlanDiarioPage extends ConsumerWidget {
     try {
       final repo = ref.read(repositorioTutorProvider);
       await repo.intercambiarRecetaPlan(idPlanItem);
-      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: fecha)));
+      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Receta intercambiada con éxito")),
@@ -50,7 +53,7 @@ class PlanDiarioPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final planAsync = ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: fecha)));
+    final planAsync = ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -67,8 +70,8 @@ class PlanDiarioPage extends ConsumerWidget {
       body: planAsync.when(
         data: (comidas) => RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: fecha)));
-            return ref.read(planDiarioProvider((idPaciente: idPaciente, fecha: fecha)).future);
+            ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
+            return ref.read(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)).future);
           },
           child: comidas.isEmpty
               ? ListView(

@@ -1,9 +1,11 @@
 from typing import List, Optional
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.modelos.clinico import ClinicalDiagnosis
-from ...domain.servicios.servicio_oms import ServicioOMS
+from ...domain.repositorios.interfaces import IRepositorioClinico
+from app.infraestructura.servicios.servicio_oms import ServicioOMS
 
-class RepositorioClinicoPostgres:
+
+class RepositorioClinicoPostgres(IRepositorioClinico):
     def obtener_datos_referencia_oms(self, id_sexo: int, edad_meses: int, indicador: str = "IMC_EDAD"):
         sexo = ServicioOMS.normalizar_sexo(id_sexo)
         ref_code = {"IMC_EDAD": "BMI", "BMI_EDAD": "BMI", "TALLA_EDAD": "HFA"}.get(str(indicador), str(indicador))

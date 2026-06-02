@@ -9,8 +9,8 @@ import "../../core/config/app_config.dart";
 import "../../core/network/api_client.dart";
 import "../../features/admin/data/admin_accounts_supabase_repository.dart";
 import "../../shared/models/app_role.dart";
-import "../../shared/repositories/inteligencia_api_repository.dart";
-import "../../shared/repositories/supabase_crud_repository.dart";
+import "../data/repositories/inteligencia_api_repository.dart";
+import "../data/repositories/supabase_crud_repository.dart";
 
 const Duration _signOutTimeout = Duration(seconds: 3);
 

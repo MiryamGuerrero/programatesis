@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 from app.core.security import UserContext
 from app.api.deps import get_current_user
-from app.api.v1.use_cases import obtener_caso_uso_obtener_perfil
+from app.api.v1.dependencias import obtener_caso_uso_obtener_perfil
 from app.aplicacion.clinica.gestionar_perfil_usuario import CasoUsoObtenerPerfilUsuario
 from app.domain.modelos.usuario import PerfilUsuario
 

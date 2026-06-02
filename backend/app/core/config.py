@@ -9,10 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Obtener la ruta raíz del proyecto (donde debería estar el .env)
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = ROOT_DIR / ".env"
+DEBUG_ENV_PATH = ROOT_DIR.parent / "debug" / "backend" / ".env"
+ACTIVE_ENV_PATH = ENV_PATH if ENV_PATH.exists() else DEBUG_ENV_PATH
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(ENV_PATH),
+        env_file=str(ACTIVE_ENV_PATH),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -43,6 +45,26 @@ class Settings(BaseSettings):
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+            "http://localhost:3002",
+            "http://127.0.0.1:3002",
+            "http://localhost:3003",
+            "http://127.0.0.1:3003",
+            "http://localhost:3004",
+            "http://127.0.0.1:3004",
+            "http://localhost:3005",
+            "http://127.0.0.1:3005",
+            "http://localhost:3006",
+            "http://127.0.0.1:3006",
+            "http://localhost:3007",
+            "http://127.0.0.1:3007",
+            "http://localhost:3008",
+            "http://127.0.0.1:3008",
+            "http://localhost:3009",
+            "http://127.0.0.1:3009",
+            "http://localhost:3010",
+            "http://127.0.0.1:3010",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
             "http://localhost:8080",

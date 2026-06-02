@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends, Query, HTTPException
 from app.api.deps import require_roles, UserContext
-from app.api.v1.use_cases import (
+from app.api.v1.dependencias import (
     obtener_caso_uso_evaluar_reglas, obtener_caso_uso_gestionar_pacientes,
     obtener_caso_uso_generar_plan, obtener_caso_uso_gestionar_ingredientes
 )
@@ -15,7 +15,7 @@ from app.api.v1.dtos.nutricion import (
     RecetasPermitidasRequest, RecetasPermitidasResponse,
     RecomendacionIngredienteRequest
 )
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 
 router = APIRouter(tags=["Nutricionista"])
 

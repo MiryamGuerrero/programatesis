@@ -2,7 +2,7 @@ from secrets import token_urlsafe
 from typing import Any
 
 from app.core.config import get_settings
-from app.core.supabase_client import get_supabase_admin_client, get_supabase_public_client
+from app.infraestructura.supabase.client import get_supabase_admin_client, get_supabase_public_client
 
 _ROLE_WEB = {"admin", "medico", "nutricionista"}
 _ROLE_MOBILE = {"tutor"}

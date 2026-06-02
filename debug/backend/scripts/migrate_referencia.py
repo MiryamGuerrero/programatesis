@@ -5,7 +5,7 @@ import io
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.core.db import get_pool
+from app.infraestructura.database.db import get_pool
 
 OMS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'oms'))
 SCHEMA = "referencia"

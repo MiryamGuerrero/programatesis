@@ -1,5 +1,5 @@
 from typing import List, Dict, Set
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioIngrediente
 from ...domain.servicios.restricciones_alimentarias import (
     RESTRICCIONES_ALIMENTARIAS,

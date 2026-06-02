@@ -3,10 +3,10 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles
 from app.core.security import UserContext
-from app.api.v1.use_cases import obtener_caso_uso_gestionar_seguimiento
+from app.api.v1.dependencias import obtener_caso_uso_gestionar_seguimiento
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
 from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/tutor", tags=["Tutor"])

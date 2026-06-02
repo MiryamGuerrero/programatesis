@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.api.deps import require_roles
-from app.api.v1.use_cases import obtener_caso_uso_gestionar_ingredientes, obtener_caso_uso_gestionar_variables
+from app.api.v1.dependencias import obtener_caso_uso_gestionar_ingredientes, obtener_caso_uso_gestionar_variables
 from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngredientes
 from app.aplicacion.nutricion.gestionar_variables import CasoUsoGestionarVariables
 from app.core.security import UserContext
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 
 router = APIRouter(prefix="/nutricionista", tags=["Nutricionista Admin"])
 

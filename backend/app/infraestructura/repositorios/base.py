@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 
 class RepositorioBasePostgres:
     """Clase base para reducir duplicación en repositorios Postgres."""

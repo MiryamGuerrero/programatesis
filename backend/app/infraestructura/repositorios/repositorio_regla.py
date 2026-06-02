@@ -1,5 +1,5 @@
 from typing import List
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.modelos.reglas import Regla, FuenteRegla, TipoAccion, TipoObjetivo
 from ...domain.repositorios.interfaces import IRepositorioRegla
 

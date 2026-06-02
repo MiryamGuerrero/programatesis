@@ -4,10 +4,10 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple, Set
 from datetime import date, datetime, timedelta
 
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from app.domain.modelos.paciente import PerfilPaciente
 from app.domain.repositorios.interfaces import IRepositorioPaciente
-from app.domain.servicios.servicio_oms import ServicioOMS
+from app.infraestructura.servicios.servicio_oms import ServicioOMS
 from app.domain.servicios.restricciones_alimentarias import (
     RESTRICCIONES_ALIMENTARIAS,
     SUBGRUPOS_CON_LACTOSA,

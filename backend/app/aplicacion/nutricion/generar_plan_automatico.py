@@ -1,9 +1,13 @@
 import random
 from datetime import date, timedelta
 from typing import List, Dict, Optional
-from ...domain.repositorios.interfaces import IRepositorioReceta, IRepositorioSeguimiento, IRepositorioPaciente
+from ...domain.repositorios.interfaces import (
+    IRepositorioComposicion,
+    IRepositorioPaciente,
+    IRepositorioReceta,
+    IRepositorioSeguimiento,
+)
 from .evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
-from ...infraestructura.repositorios.repositorio_composicion import RepositorioComposicionPostgres
 
 class CasoUsoGenerarPlanAutomatico:
     def __init__(
@@ -11,7 +15,7 @@ class CasoUsoGenerarPlanAutomatico:
         repo_receta: IRepositorioReceta,
         repo_seguimiento: IRepositorioSeguimiento,
         repo_paciente: IRepositorioPaciente,
-        repo_composicion: RepositorioComposicionPostgres
+        repo_composicion: IRepositorioComposicion
     ):
         self.repo_receta = repo_receta
         self.repo_seguimiento = repo_seguimiento

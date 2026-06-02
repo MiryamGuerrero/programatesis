@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from datetime import date, datetime
 from app.api.deps import require_roles
 from app.core.security import UserContext
-from app.api.v1.use_cases import (
+from app.api.v1.dependencias import (
     obtener_caso_uso_gestionar_ingredientes, 
     obtener_caso_uso_gestionar_catalogos,
     obtener_caso_uso_evaluar_reglas
@@ -37,7 +37,7 @@ def obtener_planes_paciente(
     id_paciente: str,
     _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             """
@@ -88,7 +88,7 @@ def obtener_planes_paciente(
 
 @router.get("/planes/{id_plan}")
 def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutricionista", "medico", "tutor"))):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             """
@@ -111,7 +111,7 @@ def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutrici
 
 @router.delete("/planes/{id_plan}")
 def eliminar_plan(id_plan: int, _=Depends(require_roles("admin", "nutricionista", "medico"))):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             "delete from interaccion.seguimiento_plan_item where id_plan_item in (select id from interaccion.plan_item where id_plan = %s)",
@@ -127,7 +127,7 @@ def actualizar_control_mensual_actual_desde_nutri(
     payload: dict,
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     hoy = date.today()
 
@@ -192,7 +192,7 @@ def obtener_estado_validacion_control_mensual(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     hoy = date.today()
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         _asegurar_tabla_validacion_nutri(cur)
         cur.execute(
@@ -247,7 +247,7 @@ def prefetch_planificacion_paciente(
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
 
     expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
@@ -321,7 +321,7 @@ def confirmar_control_mensual_actual(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     hoy = date.today()
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         _asegurar_tabla_validacion_nutri(cur)
         cur.execute(
@@ -562,7 +562,7 @@ def guardar_plan_manual(
     datos_control = payload.get("control_mensual_actual") or {}
     
     if confirmar_control:
-        from app.core.db import db_cursor
+        from app.infraestructura.database.db import db_cursor
         from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
         with db_cursor() as cur_control:
             cur_control.execute(
@@ -587,7 +587,7 @@ def guardar_plan_manual(
                 id_medico=user.user_id,
             )
 
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         # Resolver usuario interno para trazabilidad y FKs de recomendaciones
         id_profesional_interno = None
@@ -1022,7 +1022,7 @@ def cambiar_estado_receta_compat(id_receta: int, payload: dict):
 @router.post("/crud/recetas/{id_receta}/etiquetas/{id_etiqueta}")
 def asignar_etiqueta_receta(id_receta: int, id_etiqueta: int):
     """Vincula una etiqueta nutricional a una receta."""
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             "INSERT INTO nutricion.receta_etiqueta (id_receta, id_etiqueta) VALUES (%s, %s) ON CONFLICT DO NOTHING",
@@ -1033,7 +1033,7 @@ def asignar_etiqueta_receta(id_receta: int, id_etiqueta: int):
 @router.delete("/crud/recetas/{id_receta}/etiquetas/{id_etiqueta}")
 def desvincular_etiqueta_receta(id_receta: int, id_etiqueta: int):
     """Desvincula una etiqueta nutricional de una receta."""
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             "DELETE FROM nutricion.receta_etiqueta WHERE id_receta = %s AND id_etiqueta = %s",

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict
 from datetime import date
 from ..modelos.paciente import PerfilPaciente
+from ..modelos.clinico import ClinicalDiagnosis
 from ..modelos.usuario import PerfilUsuario
 from ..modelos.reglas import Regla
 from ..modelos.seguimiento import RegistroConsumo
@@ -150,6 +151,23 @@ class IRepositorioNutricion(ABC):
     @abstractmethod
     def upsert_valor_variable(self, datos_valor: dict, actualizado_por: str) -> None:
         pass
+
+
+class IRepositorioClinico(ABC):
+    @abstractmethod
+    def obtener_datos_referencia_oms(self, id_sexo: int, edad_meses: int, indicador: str = "IMC_EDAD"):
+        pass
+
+    @abstractmethod
+    def guardar_control_clinico(self, diagnostico: ClinicalDiagnosis) -> int:
+        pass
+
+
+class IRepositorioComposicion(ABC):
+    @abstractmethod
+    def obtener_combinaciones_por_condiciones(self, id_momento: int, ids_condiciones: List[int]) -> List[dict]:
+        pass
+
 
 class IRepositorioReceta(ABC):
     @abstractmethod

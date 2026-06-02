@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from app.api.deps import require_roles, UserContext
-from app.api.v1.use_cases import obtener_caso_uso_gestionar_usuarios, obtener_caso_uso_gestionar_catalogos
+from app.api.v1.dependencias import obtener_caso_uso_gestionar_usuarios, obtener_caso_uso_gestionar_catalogos
 from app.aplicacion.clinica.gestionar_usuarios import CasoUsoGestionarUsuarios
 from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
@@ -67,7 +67,7 @@ def actualizar_usuario(
 def listar_roles_admin(
     _=Depends(require_roles("admin"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute("SELECT id, nombre, descripcion, activo FROM usuarios.rol ORDER BY id")
         cols = [d[0] for d in cur.description]
@@ -78,7 +78,7 @@ def crear_rol_admin(
     payload: dict,
     _=Depends(require_roles("admin"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             "INSERT INTO usuarios.rol (nombre, descripcion, activo) VALUES (%s, %s, %s) RETURNING id",
@@ -93,7 +93,7 @@ def actualizar_rol_admin(
     payload: dict,
     _=Depends(require_roles("admin"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute(
             "UPDATE usuarios.rol SET nombre = %s, descripcion = %s, activo = %s WHERE id = %s",
@@ -106,7 +106,7 @@ def eliminar_rol_admin(
     rid: int,
     _=Depends(require_roles("admin"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute("DELETE FROM usuarios.rol WHERE id = %s", (rid,))
         return {"success": cur.rowcount > 0}
@@ -115,7 +115,7 @@ def eliminar_rol_admin(
 def clean_neutro_action(
     _=Depends(require_roles("admin"))
 ):
-    from app.core.db import db_cursor
+    from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         cur.execute("DELETE FROM heuristico.catalogo_accion WHERE nombre ILIKE 'neutro'")
         return {"deleted_rows": cur.rowcount, "success": True}

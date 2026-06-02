@@ -7,10 +7,19 @@ from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_500_
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.db import close_pool, get_pool
+from app.infraestructura.database.db import close_pool, get_pool
 from app.domain.excepciones import ErrorDominio, ErrorValidacion, ErrorRecursoNoEncontrado, ErrorReglaNegocio
 
 settings = get_settings()
+dev_cors_origins = [
+    *(f"http://localhost:{port}" for port in range(3000, 3011)),
+    *(f"http://127.0.0.1:{port}" for port in range(3000, 3011)),
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+cors_origins = list(dict.fromkeys([*settings.cors_origins, *dev_cors_origins]))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,12 +44,7 @@ app = FastAPI(
 # Configuración de Seguridad y CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://localhost:19006", # Flutter Web local
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

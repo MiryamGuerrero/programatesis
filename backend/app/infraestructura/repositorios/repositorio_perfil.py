@@ -4,7 +4,7 @@ import time
 from .base import RepositorioBasePostgres
 from ...domain.repositorios.interfaces import IRepositorioPerfil
 from ...domain.modelos.usuario import PerfilUsuario
-from ...core.supabase_client import get_supabase_admin_client
+from app.infraestructura.supabase.client import get_supabase_admin_client
 
 class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
     ROL_CODIGO_SQL = """
@@ -202,7 +202,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         columnas = ", ".join([f"{k} = %s" for k in items.keys()])
         sql = f"update usuarios.usuario set {columnas}, updated_at = now() where id = %s or auth_user_id::text = %s"
         
-        from ...core.db import db_cursor
+        from app.infraestructura.database.db import db_cursor
         with db_cursor() as cur:
             cur.execute(sql, list(items.values()) + [user_id, user_id])
             return cur.rowcount > 0

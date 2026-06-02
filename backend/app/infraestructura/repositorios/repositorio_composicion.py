@@ -1,9 +1,10 @@
 import json
 from typing import List, Optional
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
+from ...domain.repositorios.interfaces import IRepositorioComposicion
 
 
-class RepositorioComposicionPostgres:
+class RepositorioComposicionPostgres(IRepositorioComposicion):
     ROLES_COMBINACION = {
         "COMBINACION_LIGERA",
         "COMBINACION_EQUILIBRADA",

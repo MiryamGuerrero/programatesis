@@ -1,10 +1,10 @@
 import sys
 import os
 
-# Añadir el path de la aplicación para poder importar app.core.db
+# Añadir el path de la aplicación para poder importar app.infraestructura.database.db
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 
 def migrate():
     print("Iniciando migración del esquema OMS...")

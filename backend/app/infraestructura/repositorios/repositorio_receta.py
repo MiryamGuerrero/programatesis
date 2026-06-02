@@ -3,7 +3,7 @@ from copy import deepcopy
 import threading
 import time
 import json
-from ...core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioReceta
 
 class RepositorioRecetaPostgres(IRepositorioReceta):

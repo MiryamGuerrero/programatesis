@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
 from app.core.config import get_settings
-from app.core.db import db_cursor
+from app.infraestructura.database.db import db_cursor
 
 
 @dataclass
@@ -140,6 +140,7 @@ def _verify_token_with_supabase_auth(token: str) -> dict:
                 "apikey": api_key,
             },
             timeout=10.0,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         try:
