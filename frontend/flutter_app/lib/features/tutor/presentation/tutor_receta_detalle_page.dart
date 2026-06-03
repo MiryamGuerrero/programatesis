@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_sizes.dart';
@@ -24,7 +25,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // AHORA SON 2 PESTAÑAS: Ingredientes y Preparación
+    _tabController = TabController(length: 2, vsync: this);
     _cargarDetalle();
   }
 
@@ -101,7 +103,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final String url = r['imagen_url'] ?? "";
 
     return Scaffold(
-      bottomNavigationBar: _buildBottomTabs(context, colorScheme),
+      // 4. Calificación reubicada en la parte inferior
+      bottomNavigationBar: _buildRatingSection(context, theme, r['id']),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -114,6 +117,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSummarySection(context, r),
+                      const SizedBox(height: 20),
+
+                      _buildDescriptionSection(context, r, theme),
+                      const SizedBox(height: 20),
+                      
+                      _buildMacronutrientesPieChart(context, r),
                       const SizedBox(height: 24),
                       
                       if (r['en_plan_hoy'] == true) ...[
@@ -121,25 +130,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                         const SizedBox(height: 24),
                       ],
 
-                      _buildRatingSection(context, theme, r['id']),
-                      const SizedBox(height: 32),
-                      
-                      Text(
-                        "Sobre esta receta",
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: AppTextSizes.title(context.screenWidth)
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        r['descripcion'] ?? "Sin descripción disponible.",
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey.shade700, 
-                          height: 1.6,
-                          fontSize: AppTextSizes.body(context.screenWidth),
-                        ),
-                      ),
+                      _buildTabsMenu(context, colorScheme),
                       const SizedBox(height: 8),
                     ],
                   ),
@@ -148,16 +139,149 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             ),
           ];
         },
+        // 3. Solo 2 secciones en el cuerpo: Ingredientes y Preparación
         body: ResponsiveMaxConstraints(
           child: TabBarView(
             controller: _tabController,
             children: [
               _buildIngredientesTab(context, r),
               _buildPreparacionTab(context, r),
-              _buildNutricionTab(context, r),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMacronutrientesPieChart(BuildContext context, Map<String, dynamic> r) {
+    final double prot = (r['proteinas_totales'] ?? 0).toDouble();
+    final double carb = (r['carbohidratos_totales'] ?? 0).toDouble();
+    final double fat = (r['grasas_totales'] ?? 0).toDouble();
+    final double total = prot + carb + fat;
+
+    if (total == 0) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          Text(
+            "Distribución de Macronutrientes",
+            style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: AppTema.azulOscuro,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              SizedBox(
+                height: 100,
+                width: 100,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 25,
+                    sections: [
+                      PieChartSectionData(
+                        value: prot,
+                        title: '',
+                        color: AppTema.azulPrincipal,
+                        radius: 20,
+                      ),
+                      PieChartSectionData(
+                        value: carb,
+                        title: '',
+                        color: Colors.orange,
+                        radius: 20,
+                      ),
+                      PieChartSectionData(
+                        value: fat,
+                        title: '',
+                        color: Colors.redAccent,
+                        radius: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildChartLegend("Proteínas", "${prot.toStringAsFixed(1)}g", AppTema.azulPrincipal),
+                    const SizedBox(height: 8),
+                    _buildChartLegend("Carbohidratos", "${carb.toStringAsFixed(1)}g", Colors.orange),
+                    const SizedBox(height: 8),
+                    _buildChartLegend("Grasas", "${fat.toStringAsFixed(1)}g", Colors.redAccent),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartLegend(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTema.azulOscuro),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabsMenu(BuildContext context, ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.primary,
+        ),
+        dividerColor: Colors.transparent,
+        labelColor: colorScheme.onPrimary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        labelStyle: GoogleFonts.montserrat(
+          fontWeight: FontWeight.bold, 
+          fontSize: context.responsiveValue(mobile: 12, tablet: 14)
+        ),
+        tabs: const [
+          Tab(text: "Ingredientes"),
+          Tab(text: "Preparación"),
+        ],
       ),
     );
   }
@@ -240,63 +364,67 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTema.verdeSalud.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTema.verdeSalud.withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "¿Qué te pareció?",
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700, 
-                  fontSize: AppTextSizes.bodySmall(context.screenWidth), 
-                  color: AppTema.azulOscuro
-                ),
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    "$promedio",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold, 
-                      fontSize: AppTextSizes.bodySmall(context.screenWidth)
-                    ),
-                  ),
-                  Text(
-                    " ($total)",
-                    style: TextStyle(
-                      color: Colors.grey.shade500, 
-                      fontSize: AppTextSizes.caption(context.screenWidth)
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(5, (index) {
-              final starValue = index + 1;
-              return IconButton(
-                onPressed: () => _handleRating(starValue, recetaId),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  starValue <= _userRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  size: context.responsiveValue(mobile: 32, tablet: 40),
-                  color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.3),
-                ),
-              );
-            }),
-          ),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
         ],
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "¿Qué te pareció?",
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w700, 
+                    fontSize: AppTextSizes.bodySmall(context.screenWidth), 
+                    color: AppTema.azulOscuro
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      "$promedio",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: AppTextSizes.bodySmall(context.screenWidth)
+                      ),
+                    ),
+                    Text(
+                      " ($total)",
+                      style: TextStyle(
+                        color: Colors.grey.shade500, 
+                        fontSize: AppTextSizes.caption(context.screenWidth)
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                final starValue = index + 1;
+                return IconButton(
+                  onPressed: () => _handleRating(starValue, recetaId),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  constraints: const BoxConstraints(),
+                  icon: Icon(
+                    starValue <= _userRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: context.responsiveValue(mobile: 32, tablet: 40),
+                    color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.3),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -460,49 +588,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildBottomTabs(BuildContext context, ColorScheme colorScheme) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveSpacing(AppSpacing.md), 
-        vertical: context.responsiveSpacing(AppSpacing.sm)
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
-        ],
-      ),
-      child: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicator: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: colorScheme.primary,
-            ),
-            dividerColor: Colors.transparent,
-            labelColor: colorScheme.onPrimary,
-            unselectedLabelColor: colorScheme.onSurfaceVariant,
-            labelStyle: GoogleFonts.montserrat(
-              fontWeight: FontWeight.bold, 
-              fontSize: context.responsiveValue(mobile: 12, tablet: 14)
-            ),
-            tabs: const [
-              Tab(text: "Ingredientes"),
-              Tab(text: "Preparación"),
-              Tab(text: "Nutrición"),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSummarySection(BuildContext context, Map<String, dynamic> r) {
     final int tTotal = r['tiempo_total_min'] ??
                       ((r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0) +
@@ -526,8 +611,45 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
         children: [
           _buildStatItem(context, Icons.people_outline, "${r['porciones'] ?? 1}", "Porciones"),
           _buildStatItem(context, Icons.timer_outlined, "$tTotal min", "Tiempo"),
-          _buildStatItem(context, Icons.local_fire_department_rounded, "${r['calorias_kcal'] ?? r['calorias_totales'] ?? 0}", "Kcal"),
+          _buildStatItem(context, Icons.local_fire_department_rounded, "${(r['calorias_por_porcion'] ?? r['calorias_kcal'] ?? r['calorias_totales'] ?? 0).toInt()}", "Kcal"),
           _buildStatItem(context, Icons.bar_chart_rounded, r['dificultad'] ?? "Media", "Dificultad"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection(BuildContext context, Map<String, dynamic> r, ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Sobre esta receta",
+            style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: AppTema.azulOscuro,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            r['descripcion'] ?? "Sin descripción disponible.",
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: Colors.grey.shade700,
+              height: 1.6,
+              fontSize: AppTextSizes.body(context.screenWidth),
+            ),
+          ),
         ],
       ),
     );
@@ -542,72 +664,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
           const SizedBox(height: 6),
           Text(value, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: AppTextSizes.body(context.screenWidth))),
           Text(label, style: TextStyle(color: Colors.grey, fontSize: AppTextSizes.caption(context.screenWidth), fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNutricionTab(BuildContext context, Map<String, dynamic> r) {
-    final double prot = (r['proteinas_totales'] ?? 0).toDouble();
-    final double carb = (r['carbohidratos_totales'] ?? 0).toDouble();
-    final double fat = (r['grasas_totales'] ?? 0).toDouble();
-    final double total = prot + carb + fat;
-    
-    return ListView(
-      padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
-      children: [
-        Text('Comparativa de Macronutrientes', 
-          style: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w800, 
-            fontSize: AppTextSizes.bodyLarge(context.screenWidth), 
-            color: AppTema.azulOscuro
-          )),
-        const SizedBox(height: 24),
-        _buildProgressBar('Proteínas', total > 0 ? prot / total : 0, AppTema.azulPrincipal, '${prot}g'),
-        const SizedBox(height: 16),
-        _buildProgressBar('Carbohidratos', total > 0 ? carb / total : 0, Colors.orange, '${carb}g'),
-        const SizedBox(height: 16),
-        _buildProgressBar('Grasas', total > 0 ? fat / total : 0, Colors.redAccent, '${fat}g'),
-        const SizedBox(height: 32),
-        const Divider(),
-        const SizedBox(height: 16),
-        _buildNutriRow("Energía Total", "${r['calorias_totales'] ?? 0} kcal"),
-        _buildNutriRow("Fibra", "${r['fibra_totales'] ?? 0}g"),
-        _buildNutriRow("Peso Estimado", "${r['peso_total'] ?? 0} g"),
-      ],
-    );
-  }
-
-  Widget _buildProgressBar(String label, double percent, Color color, String value) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
-            Text(value, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: percent,
-          minHeight: 10,
-          backgroundColor: const Color(0xFFF1F5F9),
-          color: color,
-          borderRadius: BorderRadius.circular(5),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNutriRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.blueGrey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
         ],
       ),
     );
