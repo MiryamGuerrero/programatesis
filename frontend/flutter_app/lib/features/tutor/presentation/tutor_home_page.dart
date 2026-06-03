@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_sizes.dart';
+import '../../../core/theme/app_responsive.dart';
 import 'tutor_calendario_page.dart';
 import 'tutor_recetas_page.dart';
 import 'tutor_compras_page.dart';
@@ -143,11 +145,17 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           children: [
             Text(
               _appBarData[_bottomNavIndex]["titulo"]!,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 20),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold, 
+                fontSize: AppTextSizes.title(context.screenWidth)
+              ),
             ),
             Text(
               _appBarData[_bottomNavIndex]["subtitulo"]!,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: AppTextSizes.caption(context.screenWidth)
+              ),
             ),
           ],
         ),
@@ -188,7 +196,9 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           },
           child: SizedBox.expand(
             key: ValueKey<int>(_bottomNavIndex), 
-            child: vistas[_bottomNavIndex],
+            child: ResponsiveMaxConstraints(
+              child: vistas[_bottomNavIndex]
+            ),
           ),
         ),
       ),
@@ -197,7 +207,8 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           backgroundColor: Colors.white,
           indicatorColor: const Color(0xFF0171BB).withOpacity(0.08),
           surfaceTintColor: Colors.transparent,
-          height: 80,
+          height: context.responsiveValue(mobile: 80, tablet: 90),
+
           iconTheme: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const IconThemeData(color: Color(0xFF0171BB), size: 24);
@@ -482,7 +493,10 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
 
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.responsiveSpacing(AppSpacing.md), 
+            vertical: AppSpacing.md
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: momentOrder.map((momId) {
@@ -500,7 +514,12 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
                         const SizedBox(width: 8),
                         Text(
                           momentMeals.first["momento_nombre"].toString().toUpperCase(),
-                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.1, color: isFeatured ? colorScheme.primary : Colors.grey.shade700),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold, 
+                            letterSpacing: 1.1, 
+                            color: isFeatured ? colorScheme.primary : Colors.grey.shade700,
+                            fontSize: AppTextSizes.caption(context.screenWidth) * 1.1
+                          ),
                         ),
                         const Spacer(),
                         _buildStatusBadge(momentMeals, currentTimeInMinutes),
@@ -588,7 +607,6 @@ class _FeaturedMealCard extends StatefulWidget {
   final Future<void> Function() onCambiar;
 
   const _FeaturedMealCard({
-    super.key,
     required this.meal, 
     required this.onConsumida,
     required this.onCambiar,
@@ -635,14 +653,14 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            height: 200,
+            height: context.responsiveValue(mobile: 200, tablet: 300),
             color: const Color(0xFFE2E8F0),
             child: url.isNotEmpty
                 ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.restaurant, size: 48, color: Colors.white))
                 : const Icon(Icons.restaurant, size: 64, color: Colors.white),
           ),
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.md)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -650,7 +668,7 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
                   widget.meal["receta_nombre"] ?? "Sin nombre", 
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 24, 
+                    fontSize: AppTextSizes.headline(context.screenWidth) * 0.8, 
                     color: colorScheme.onSurface,
                   ),
                 ),
@@ -662,6 +680,7 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.grey.shade600,
                         height: 1.4,
+                        fontSize: AppTextSizes.body(context.screenWidth)
                       ),
                     ),
                   ),
@@ -675,6 +694,7 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
                       children: [
                         SizedBox(
                           width: double.infinity,
+                          height: AppSizes.buttonHeight,
                           child: FilledButton(
                             onPressed: () {
                               final idReceta = widget.meal["id_receta"];
@@ -695,6 +715,7 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
                           children: [
                             SizedBox(
                               width: esAutomatico ? btnWidth : constraints.maxWidth,
+                              height: AppSizes.buttonHeight,
                               child: FilledButton.tonal(
                                 onPressed: (_isChanging || _isConsuming) ? null : _handleConsumida,
                                 style: FilledButton.styleFrom(
@@ -726,6 +747,7 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
                               const SizedBox(width: 12),
                               SizedBox(
                                 width: btnWidth,
+                                height: AppSizes.buttonHeight,
                                 child: OutlinedButton(
                                   onPressed: (_isChanging || _isConsuming) ? null : _handleCambiar,
                                   style: OutlinedButton.styleFrom(
@@ -774,7 +796,6 @@ class _UpcomingMealCard extends StatefulWidget {
   final Future<void> Function() onToggleConsumida;
   
   const _UpcomingMealCard({
-    super.key,
     required this.meal, 
     this.isConsumida = false, 
     this.showCheckButton = true,
@@ -845,12 +866,13 @@ class _UpcomingMealCardState extends State<_UpcomingMealCard> {
             fontWeight: FontWeight.bold,
             color: widget.isConsumida ? Colors.grey : null,
             decoration: widget.isConsumida ? TextDecoration.lineThrough : null,
+            fontSize: AppTextSizes.bodyLarge(context.screenWidth)
           ),
         ),
         subtitle: widget.isConsumida 
             ? const Text("Consumida", style: TextStyle(color: AppTema.verdeSalud, fontWeight: FontWeight.bold, fontSize: 12))
             : (widget.meal["receta_descripcion"] != null 
-                ? Text(widget.meal["receta_descripcion"])
+                ? Text(widget.meal["receta_descripcion"], style: TextStyle(fontSize: AppTextSizes.bodySmall(context.screenWidth)))
                 : null),
         trailing: _isLoading 
             ? const Padding(

@@ -5,6 +5,8 @@ import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/theme/app_sizes.dart";
+import "../../../core/theme/app_responsive.dart";
 import "../../auth/login_page.dart";
 
 class TutorPerfilPage extends ConsumerStatefulWidget {
@@ -110,29 +112,34 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       body: perfilAsync.when(
         data: (profile) {
           _initializeFields(profile);
-          // Obtenemos el parentesco real desde el backend (ya configurado en el repositorio)
           final String parentesco = profile["parentesco"]?.toString() ?? "Tutor";
           final String iniciales = (_nombresController.text.isNotEmpty ? _nombresController.text[0] : "") + 
                                    (_apellidosController.text.isNotEmpty ? _apellidosController.text[0] : "");
 
           return SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildProfileHeader(context, iniciales, parentesco),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-                  child: Column(
-                    children: [
-                      _buildFormCard(context),
-                      const SizedBox(height: 32),
-                      _buildSaveButton(context),
-                      const SizedBox(height: 20),
-                      _buildLogoutButton(context),
-                      const SizedBox(height: 40),
-                    ],
+            child: ResponsiveMaxConstraints(
+              maxWidth: 800,
+              child: Column(
+                children: [
+                  _buildProfileHeader(context, iniciales, parentesco),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsiveSpacing(AppSpacing.md), 
+                      vertical: context.responsiveSpacing(AppSpacing.xl)
+                    ),
+                    child: Column(
+                      children: [
+                        _buildFormCard(context),
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildSaveButton(context),
+                        const SizedBox(height: AppSpacing.md),
+                        _buildLogoutButton(context),
+                        const SizedBox(height: AppSpacing.xxl),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -148,7 +155,10 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 40, bottom: 40),
+      padding: EdgeInsets.only(
+        top: context.responsiveSpacing(40), 
+        bottom: context.responsiveSpacing(40)
+      ),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withOpacity(0.4),
         borderRadius: const BorderRadius.only(
@@ -159,12 +169,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       child: Column(
         children: [
           CircleAvatar(
-            radius: 50,
+            radius: context.responsiveValue(mobile: 50, tablet: 70),
             backgroundColor: colorScheme.primary,
             child: Text(
               iniciales.toUpperCase(),
               style: GoogleFonts.montserrat(
-                fontSize: 32,
+                fontSize: context.responsiveValue(mobile: 32, tablet: 48),
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onPrimary,
               ),
@@ -173,7 +183,10 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           const SizedBox(height: 16),
           Text(
             "${_nombresController.text} ${_apellidosController.text}",
-            style: theme.textTheme.headlineSmall,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: AppTextSizes.headline(context.screenWidth) * 0.8,
+              fontWeight: FontWeight.bold
+            ),
           ),
           const SizedBox(height: 8),
           Container(
@@ -188,6 +201,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                 fontWeight: FontWeight.w800,
                 color: colorScheme.primary,
                 letterSpacing: 1,
+                fontSize: AppTextSizes.caption(context.screenWidth)
               ),
             ),
           ),

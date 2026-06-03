@@ -58,6 +58,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<Map<String, dynamic>> _recomendacionesCache = [];
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _historyScrollController = ScrollController();
 
   String _selectedFilter = "Todos";
   final List<String> _filters = [
@@ -88,6 +89,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   void initState() {
     super.initState();
     Future.microtask(() => _fetchPatients(""));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _historyScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPatients(String q) async {
@@ -141,9 +149,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           return planActivo;
         case "No activo":
           return !planActivo;
-        case "ValidaciÃ³n nutricional confirmada":
+        case "Validación nutricional confirmada":
           return validacionConfirmada;
-        case "ValidaciÃ³n nutricional pendiente":
+        case "Validación nutricional pendiente":
           return !validacionConfirmada;
         default:
           return true;
@@ -164,19 +172,25 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         "pacientes/${patient['id']}/prefetch-planificacion",
         queryParameters: {"include_ingredientes": false},
       );
-      final payload = (prefetch.data ?? {}) as Map<String, dynamic>;
-      _patientProfile = (payload["expediente"] ?? {}) as Map<String, dynamic>;
-      _planVigente = (payload["plan_vigente"] ?? {}) as Map<String, dynamic>?;
-      _ingredientesSegurosCache = List<Map<String, dynamic>>.from(
-          payload["ingredientes_seguros"] ?? []);
-      _recomendacionesCache = List<Map<String, dynamic>>.from(
-          payload["ingredientes_recomendados"] ?? []);
+      final payload = Map<String, dynamic>.from(prefetch.data ?? {});
+      _patientProfile = Map<String, dynamic>.from(payload["expediente"] ?? {});
+      _planVigente = payload["plan_vigente"] != null 
+          ? Map<String, dynamic>.from(payload["plan_vigente"]) 
+          : null;
+      _ingredientesSegurosCache = (payload["ingredientes_seguros"] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ?? [];
+      _recomendacionesCache = (payload["ingredientes_recomendados"] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ?? [];
+      
       if (_recomendacionesCache.isEmpty) {
         try {
           final recoRes =
               await dio.get("ingredientes/recomendados/${patient['id']}");
-          _recomendacionesCache =
-              List<Map<String, dynamic>>.from(recoRes.data ?? []);
+          _recomendacionesCache = (recoRes.data as List?)
+                  ?.map((e) => Map<String, dynamic>.from(e))
+                  .toList() ?? [];
         } catch (_) {}
       }
       _boostersSeleccionados = _recomendacionesCache
@@ -184,35 +198,40 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           .whereType<int>()
           .toList();
 
-      final estadoValidacion =
-          (payload["estado_validacion"] ?? {}) as Map<String, dynamic>;
+      final estadoValidacion = Map<String, dynamic>.from(payload["estado_validacion"] ?? {});
       final mostrarModal = estadoValidacion["mostrar_modal"] == true;
       if (mostrarModal) {
         await _mostrarModalValidacionClinica(patient['id'].toString());
-        final estadoRevalidado = await dio.get(
+        final resRevalidado = await dio.get(
           "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
         );
-        if (estadoRevalidado.data?["mostrar_modal"] == true) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                backgroundColor: Colors.redAccent,
-                content: Text(
-                    "Debes confirmar el estado nutricional antes de continuar."),
-              ),
-            );
+        if (resRevalidado.data != null) {
+          final dataRevalidada = Map<String, dynamic>.from(resRevalidado.data);
+          if (dataRevalidada["mostrar_modal"] == true) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Colors.redAccent,
+                  content: Text(
+                      "Debes confirmar el estado nutricional antes de continuar."),
+                ),
+              );
+            }
+            setState(() {
+              _selectedPatient = null;
+              _patientProfile = null;
+              _isLoading = false;
+            });
+            return;
           }
-          setState(() {
-            _selectedPatient = null;
-            _patientProfile = null;
-            _isLoading = false;
-          });
-          return;
         }
       }
 
       final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
-      final List planes = List.from(resPlanes.data);
+      final List planesRaw = resPlanes.data ?? [];
+      final List<Map<String, dynamic>> planes = planesRaw
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
 
       setState(() {
         _patientPlans = planes;
@@ -220,7 +239,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         _calculateSmartDates(planes, planVigente: _planVigente);
       });
     } catch (e) {
-      // Manejo fallback
+      debugPrint("Error en _onPatientSelected: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al cargar datos del paciente: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -407,10 +431,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
+            final screenHeight = MediaQuery.of(context).size.height;
             return AlertDialog(
               title: const Text("Validar datos clínicos del paciente"),
-              content: SizedBox(
-                width: 520,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: 520,
+                  maxWidth: 520,
+                  maxHeight: screenHeight * 0.7,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -441,7 +470,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
-                        value: condicionPesoId,
+                        value: (condicionesPeso.any((c) => (c["id"] as num).toInt() == condicionPesoId)) ? condicionPesoId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
                             labelText: "Condición nutricional - Peso"),
@@ -457,7 +486,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<int>(
-                        value: condicionTallaId,
+                        value: (condicionesTalla.any((c) => (c["id"] as num).toInt() == condicionTallaId)) ? condicionTallaId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
                             labelText: "Condición nutricional - Talla"),
@@ -478,9 +507,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               actions: [
                 TextButton(
                   onPressed: () async {
-                    await dio.post(
-                        "pacientes/$idPaciente/control-mensual-actual/confirmar");
-                    if (ctx.mounted) Navigator.pop(ctx);
+                    try {
+                      await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      debugPrint("Error al confirmar: $e");
+                    }
                   },
                   child: const Text("Dejar como está"),
                 ),
@@ -499,21 +531,25 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       );
                       return;
                     }
-                    await dio.put(
-                      "pacientes/$idPaciente/control-mensual-actual",
-                      data: {
-                        "peso_kg": peso,
-                        "talla_cm": talla,
-                        "id_condicion_nutricional_peso": condicionPesoId,
-                        "id_condicion_nutricional_talla": condicionTallaId,
-                      },
-                    );
-                    final resExpNuevo = await dio
-                        .get("pacientes/$idPaciente/expediente-completo");
-                    if (mounted) {
-                      setState(() => _patientProfile = resExpNuevo.data);
+                    try {
+                      await dio.put(
+                        "pacientes/$idPaciente/control-mensual-actual",
+                        data: {
+                          "peso_kg": peso,
+                          "talla_cm": talla,
+                          "id_condicion_nutricional_peso": condicionPesoId,
+                          "id_condicion_nutricional_talla": condicionTallaId,
+                        },
+                      );
+                      final resExpNuevo = await dio
+                          .get("pacientes/$idPaciente/expediente-completo");
+                      if (mounted) {
+                        setState(() => _patientProfile = resExpNuevo.data);
+                      }
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      debugPrint("Error al actualizar: $e");
                     }
-                    if (ctx.mounted) Navigator.pop(ctx);
                   },
                   child: const Text("Actualizar datos"),
                 ),
@@ -1045,11 +1081,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Historial de Planes Nutricionales",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.montserrat(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: const Color(0xFF0F172A))),
-                Text("Paciente: ${_selectedPatient!["nombre_completo"]}",
+                Text("Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style:
                         const TextStyle(color: Colors.blueGrey, fontSize: 13)),
               ],
@@ -1210,6 +1250,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildHistoryList() {
     return ListView.builder(
+      controller: _historyScrollController,
       padding: const EdgeInsets.all(40),
       itemCount: _patientPlans.length,
       itemBuilder: (context, idx) {

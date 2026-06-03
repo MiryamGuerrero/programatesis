@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_sizes.dart';
+import '../../../core/theme/app_responsive.dart';
 
 class TutorRecetaDetallePage extends ConsumerStatefulWidget {
   final int idReceta;
@@ -99,63 +101,68 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final String url = r['imagen_url'] ?? "";
 
     return Scaffold(
-      bottomNavigationBar: _buildBottomTabs(colorScheme),
+      bottomNavigationBar: _buildBottomTabs(context, colorScheme),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
-            _buildSliverAppBar(r, url, colorScheme),
+            _buildSliverAppBar(context, r, url, colorScheme),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSummarySection(r),
-                    const SizedBox(height: 24),
-                    
-                    if (r['en_plan_hoy'] == true) ...[
-                      _buildConsumidaSection(r),
+              child: ResponsiveMaxConstraints(
+                child: Padding(
+                  padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSummarySection(context, r),
                       const SizedBox(height: 24),
-                    ],
+                      
+                      if (r['en_plan_hoy'] == true) ...[
+                        _buildConsumidaSection(context, r),
+                        const SizedBox(height: 24),
+                      ],
 
-                    _buildRatingSection(theme, r['id']),
-                    const SizedBox(height: 32),
-                    
-                    Text(
-                      "Sobre esta receta",
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      (r['descripcion_larga'] != null && r['descripcion_larga'].toString().isNotEmpty)
-                          ? r['descripcion_larga']
-                          : (r['descripcion'] ?? "Sin descripción disponible."),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey.shade700, 
-                        height: 1.6,
-                        fontSize: 15,
+                      _buildRatingSection(context, theme, r['id']),
+                      const SizedBox(height: 32),
+                      
+                      Text(
+                        "Sobre esta receta",
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: AppTextSizes.title(context.screenWidth)
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                      const SizedBox(height: 12),
+                      Text(
+                        r['descripcion'] ?? "Sin descripción disponible.",
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: Colors.grey.shade700, 
+                          height: 1.6,
+                          fontSize: AppTextSizes.body(context.screenWidth),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
             ),
           ];
         },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildIngredientesTab(r),
-            _buildPreparacionTab(r),
-            _buildNutricionTab(r),
-          ],
+        body: ResponsiveMaxConstraints(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildIngredientesTab(context, r),
+              _buildPreparacionTab(context, r),
+              _buildNutricionTab(context, r),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildConsumidaSection(Map<String, dynamic> r) {
+  Widget _buildConsumidaSection(BuildContext context, Map<String, dynamic> r) {
     final bool isConsumida = r['consumida_hoy'] == true;
     return Container(
       width: double.infinity,
@@ -189,21 +196,23 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                   "Plan de Hoy",
                   style: GoogleFonts.montserrat(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: AppTextSizes.bodySmall(context.screenWidth),
                     color: AppTema.azulOscuro,
                   ),
                 ),
                 Text(
                   isConsumida ? "Consumida" : "¿Ya la preparaste?",
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: AppTextSizes.caption(context.screenWidth),
                     color: Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 12),
           SizedBox(
+            width: 110,
             height: 40,
             child: FilledButton.tonal(
               onPressed: _isActionLoading ? null : _toggleConsumida,
@@ -215,7 +224,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
               ),
               child: _isActionLoading
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey))
-                  : Text(isConsumida ? "Desmarcar" : "Marcar", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  : Text(isConsumida ? "Desmarcar" : "Marcar", style: TextStyle(fontSize: AppTextSizes.caption(context.screenWidth), fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -223,11 +232,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildRatingSection(ThemeData theme, int recetaId) {
+  Widget _buildRatingSection(BuildContext context, ThemeData theme, int recetaId) {
     final double promedio = double.tryParse(_receta!['puntuacion_promedio']?.toString() ?? "0") ?? 0;
     final int total = _receta!['total_evaluaciones'] ?? 0;
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTema.verdeSalud.withOpacity(0.05),
@@ -241,7 +251,11 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             children: [
               Text(
                 "¿Qué te pareció?",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: AppTema.azulOscuro),
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700, 
+                  fontSize: AppTextSizes.bodySmall(context.screenWidth), 
+                  color: AppTema.azulOscuro
+                ),
               ),
               Row(
                 children: [
@@ -249,11 +263,17 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                   const SizedBox(width: 4),
                   Text(
                     "$promedio",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: AppTextSizes.bodySmall(context.screenWidth)
+                    ),
                   ),
                   Text(
                     " ($total)",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                    style: TextStyle(
+                      color: Colors.grey.shade500, 
+                      fontSize: AppTextSizes.caption(context.screenWidth)
+                    ),
                   ),
                 ],
               ),
@@ -270,7 +290,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                 constraints: const BoxConstraints(),
                 icon: Icon(
                   starValue <= _userRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  size: 32,
+                  size: context.responsiveValue(mobile: 32, tablet: 40),
                   color: starValue <= _userRating ? Colors.amber : Colors.amber.withOpacity(0.3),
                 ),
               );
@@ -392,9 +412,9 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     }
   }
 
-  Widget _buildSliverAppBar(Map<String, dynamic> r, String url, ColorScheme colorScheme) {
+  Widget _buildSliverAppBar(BuildContext context, Map<String, dynamic> r, String url, ColorScheme colorScheme) {
     return SliverAppBar(
-      expandedHeight: 280,
+      expandedHeight: context.responsiveValue(mobile: 280, tablet: 400),
       pinned: true,
       backgroundColor: AppTema.azulOscuro,
       surfaceTintColor: AppTema.azulOscuro,
@@ -409,7 +429,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
           r['nombre'] ?? 'Receta',
           style: GoogleFonts.montserrat(
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: AppTextSizes.title(context.screenWidth),
             color: Colors.white,
             shadows: [const Shadow(blurRadius: 8, color: Colors.black)],
           ),
@@ -440,9 +460,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildBottomTabs(ColorScheme colorScheme) {
+  Widget _buildBottomTabs(BuildContext context, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveSpacing(AppSpacing.md), 
+        vertical: context.responsiveSpacing(AppSpacing.sm)
+      ),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         boxShadow: [
@@ -465,7 +488,10 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             dividerColor: Colors.transparent,
             labelColor: colorScheme.onPrimary,
             unselectedLabelColor: colorScheme.onSurfaceVariant,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            labelStyle: GoogleFonts.montserrat(
+              fontWeight: FontWeight.bold, 
+              fontSize: context.responsiveValue(mobile: 12, tablet: 14)
+            ),
             tabs: const [
               Tab(text: "Ingredientes"),
               Tab(text: "Preparación"),
@@ -477,13 +503,17 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildSummarySection(Map<String, dynamic> r) {
-    final int tTotal = r['tiempo_total_min'] ?? 
-                      ((r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0) + 
+  Widget _buildSummarySection(BuildContext context, Map<String, dynamic> r) {
+    final int tTotal = r['tiempo_total_min'] ??
+                      ((r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0) +
                        (r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0));
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        vertical: context.responsiveSpacing(AppSpacing.md), 
+        horizontal: context.responsiveSpacing(AppSpacing.sm)
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -494,36 +524,44 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(Icons.people_outline, "${r['porciones'] ?? 1}", "Porciones"),
-          _buildStatItem(Icons.timer_outlined, "$tTotal min", "Tiempo"),
-          _buildStatItem(Icons.local_fire_department_outlined, "${r['calorias_por_porcion'] ?? 0}", "Kcal"),
-          _buildStatItem(Icons.bar_chart_rounded, r['dificultad'] ?? "Media", "Dificultad"),
+          _buildStatItem(context, Icons.people_outline, "${r['porciones'] ?? 1}", "Porciones"),
+          _buildStatItem(context, Icons.timer_outlined, "$tTotal min", "Tiempo"),
+          _buildStatItem(context, Icons.local_fire_department_rounded, "${r['calorias_kcal'] ?? r['calorias_totales'] ?? 0}", "Kcal"),
+          _buildStatItem(context, Icons.bar_chart_rounded, r['dificultad'] ?? "Media", "Dificultad"),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: AppTema.azulPrincipal, size: 22),
-        const SizedBox(height: 6),
-        Text(value, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 15)),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
-      ],
+  Widget _buildStatItem(BuildContext context, IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        children: [
+          Icon(icon, color: AppTema.azulPrincipal, size: context.responsiveValue(mobile: 22, tablet: 28)),
+          const SizedBox(height: 6),
+          Text(value, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: AppTextSizes.body(context.screenWidth))),
+          Text(label, style: TextStyle(color: Colors.grey, fontSize: AppTextSizes.caption(context.screenWidth), fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 
-  Widget _buildNutricionTab(Map<String, dynamic> r) {
+  Widget _buildNutricionTab(BuildContext context, Map<String, dynamic> r) {
     final double prot = (r['proteinas_totales'] ?? 0).toDouble();
     final double carb = (r['carbohidratos_totales'] ?? 0).toDouble();
     final double fat = (r['grasas_totales'] ?? 0).toDouble();
     final double total = prot + carb + fat;
     
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
       children: [
-        Text('Comparativa de Macronutrientes', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulOscuro)),
+        Text('Comparativa de Macronutrientes', 
+          style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.w800, 
+            fontSize: AppTextSizes.bodyLarge(context.screenWidth), 
+            color: AppTema.azulOscuro
+          )),
         const SizedBox(height: 24),
         _buildProgressBar('Proteínas', total > 0 ? prot / total : 0, AppTema.azulPrincipal, '${prot}g'),
         const SizedBox(height: 16),
@@ -575,12 +613,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildIngredientesTab(Map<String, dynamic> r) {
+  Widget _buildIngredientesTab(BuildContext context, Map<String, dynamic> r) {
     final List<dynamic> ing = r['ingredientes'] ?? [];
     if (ing.isEmpty) return const Center(child: Text("No hay ingredientes registrados."));
 
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
       itemCount: ing.length,
       itemBuilder: (context, index) {
         final i = ing[index];
@@ -591,10 +629,18 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             leading: const Icon(Icons.check_circle, color: AppTema.verdeSalud, size: 20),
-            title: Text(i['nombre'] ?? "-", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            title: Text(i['nombre'] ?? "-", 
+              style: TextStyle(
+                fontWeight: FontWeight.w600, 
+                fontSize: AppTextSizes.body(context.screenWidth)
+              )),
             trailing: Text(
               "${i['cantidad']} ${i['unidad']}",
-              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTema.azulPrincipal),
+              style: TextStyle(
+                fontWeight: FontWeight.bold, 
+                color: AppTema.azulPrincipal,
+                fontSize: AppTextSizes.bodySmall(context.screenWidth)
+              ),
             ),
           ),
         );
@@ -602,12 +648,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildPreparacionTab(Map<String, dynamic> r) {
+  Widget _buildPreparacionTab(BuildContext context, Map<String, dynamic> r) {
     final List<dynamic> pasos = r['preparacion'] ?? [];
     if (pasos.isEmpty) return const Center(child: Text("No hay instrucciones registradas."));
 
     return ListView.separated(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
       itemCount: pasos.length,
       separatorBuilder: (_, __) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
@@ -625,16 +671,20 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Paso ${index + 1}', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 14, color: AppTema.azulOscuro)),
-                    ],
-                  ),
+                  Text('Paso ${index + 1}', 
+                    style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w800, 
+                      fontSize: AppTextSizes.body(context.screenWidth), 
+                      color: AppTema.azulOscuro
+                    )),
                   const SizedBox(height: 8),
                   Text(
                     p['descripcion'] ?? "-",
-                    style: GoogleFonts.montserrat(fontSize: 14, color: Colors.blueGrey.shade700, height: 1.5),
+                    style: GoogleFonts.montserrat(
+                      fontSize: AppTextSizes.body(context.screenWidth), 
+                      color: Colors.blueGrey.shade700, 
+                      height: 1.5
+                    ),
                   ),
                   if (p['nota'] != null && p['nota'].toString().isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -644,7 +694,12 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                       decoration: BoxDecoration(color: AppTema.verdeSalud.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTema.verdeSalud.withOpacity(0.1))),
                       child: Text(
                         'Nota: ${p['nota']}',
-                        style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.verdeSalud, fontStyle: FontStyle.italic),
+                        style: GoogleFonts.montserrat(
+                          fontSize: AppTextSizes.bodySmall(context.screenWidth), 
+                          fontWeight: FontWeight.w600, 
+                          color: AppTema.verdeSalud, 
+                          fontStyle: FontStyle.italic
+                        ),
                       ),
                     ),
                   ],

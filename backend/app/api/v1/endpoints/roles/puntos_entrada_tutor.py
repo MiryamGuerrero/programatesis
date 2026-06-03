@@ -217,8 +217,7 @@ def evaluar_receta(payload: Dict[str, Any], _=Depends(require_roles("tutor", "ad
             DO UPDATE SET 
                 estrellas = EXCLUDED.estrellas,
                 id_motivo_rechazo = EXCLUDED.id_motivo_rechazo,
-                comentario = EXCLUDED.comentario,
-                updated_at = NOW()
+                comentario = EXCLUDED.comentario
         """, (id_paciente, id_receta, estrellas, id_motivo, comentario))
         return {"success": True}
 
