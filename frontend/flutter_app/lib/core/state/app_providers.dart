@@ -306,6 +306,13 @@ final miPerfilProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return await repo.fetchMyProfile();
 });
 
+final tipSaludableProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  // Ignoramos el watch intencionalmente para que solo se cargue una vez o cuando se invalide manualmente
+  final dio = ref.read(dioProvider);
+  final resp = await dio.get('tutor/tips-saludables');
+  return Map<String, dynamic>.from(resp.data);
+});
+
 final usersListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return ref.watch(supabaseCrudRepositoryProvider).fetchUsers();
 });

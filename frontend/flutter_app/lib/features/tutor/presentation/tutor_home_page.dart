@@ -229,6 +229,9 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage> with TickerProvid
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: (index) {
             if (index != _bottomNavIndex) {
+              if (index == 0) {
+                ref.invalidate(tipSaludableProvider);
+              }
               setState(() {
                 _oldBottomNavIndex = _bottomNavIndex;
                 _bottomNavIndex = index;
@@ -334,8 +337,7 @@ class _DashboardView extends ConsumerStatefulWidget {
 }
 
 class _DashboardViewState extends ConsumerState<_DashboardView> {
-  final GlobalKey _activeKey = GlobalKey();
-  bool _hasScrolled = false;
+  final Map<int, bool> _expandedStates = {};
 
   Future<void> _toggleConsumida(int idPlanItem, bool currentStatus) async {
     try {
@@ -448,6 +450,7 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
         int? featuredMomentId;
         final currentTimeInMinutes = now.hour * 60 + now.minute;
 
+        // Búsqueda del momento actual estrictamente dentro del rango horario
         for (var momId in momentOrder) {
           final firstMeal = grouped[momId]!.first;
           final startStr = firstMeal["momento_hora_inicio"]?.toString();
@@ -465,32 +468,6 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
           }
         }
 
-        if (featuredMomentId == null) {
-          for (var momId in momentOrder) {
-            final firstMeal = grouped[momId]!.first;
-            final startStr = firstMeal["momento_hora_inicio"]?.toString();
-            if (startStr != null) {
-              final startParts = startStr.split(':');
-              final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-              if (currentTimeInMinutes < startMin) {
-                featuredMomentId = momId;
-                break;
-              }
-            }
-          }
-        }
-
-        featuredMomentId ??= momentOrder.first;
-
-        if (!_hasScrolled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_activeKey.currentContext != null) {
-              Scrollable.ensureVisible(_activeKey.currentContext!, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic, alignment: 0.05);
-              if (mounted) setState(() => _hasScrolled = true);
-            }
-          });
-        }
-
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.symmetric(
@@ -499,67 +476,189 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: momentOrder.map((momId) {
-              final isFeatured = momId == featuredMomentId;
-              final momentMeals = grouped[momId]!;
-              return Container(
-                key: isFeatured ? _activeKey : null,
-                margin: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            children: [
+              ...momentOrder.map((momId) {
+                final isFeatured = momId == featuredMomentId;
+                final momentMeals = grouped[momId]!;
+                final firstMeal = momentMeals.first;
+                final String momentoNombre = firstMeal["momento_nombre"]?.toString() ?? "COMIDA";
+                final String range = "${firstMeal["momento_hora_inicio"]?.toString().substring(0, 5)} - ${firstMeal["momento_hora_fin"]?.toString().substring(0, 5)}";
+                final String? decoImageUrl = firstMeal["receta_url_imagen"]?.toString();
+                
+                final isExpanded = _expandedStates[momId] ?? false;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isFeatured ? colorScheme.primary.withOpacity(0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: isFeatured 
+                      ? Border.all(color: colorScheme.primary, width: 2) 
+                      : Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isFeatured 
+                          ? colorScheme.primary.withOpacity(0.12) 
+                          : Colors.black.withOpacity(0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Theme(
+                    data: theme.copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: false,
+                      maintainState: true,
+                      tilePadding: EdgeInsets.zero,
+                      showTrailingIcon: false, 
+                      onExpansionChanged: (expanded) {
+                        setState(() {
+                          _expandedStates[momId] = expanded;
+                        });
+                      },
+                      title: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Stack(
+                          children: [
+                            if (decoImageUrl != null && decoImageUrl.isNotEmpty)
+                              Positioned(
+                                bottom: -20,
+                                right: -10,
+                                child: Opacity(
+                                  opacity: 0.4,
+                                  child: Transform.rotate(
+                                    angle: -0.2,
+                                    child: Image.network(
+                                      decoImageUrl,
+                                      width: 120,
+                                      height: 120,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: (isFeatured ? colorScheme.primary : Colors.grey.shade200).withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _getMomentIcon(momentoNombre),
+                                      color: isFeatured ? colorScheme.primary : Colors.grey.shade600,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          momentoNombre,
+                                          style: theme.textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 18,
+                                            color: isFeatured ? colorScheme.primary : const Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isFeatured ? "¡Momento actual!" : "Plan de alimentación",
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: Colors.grey.shade600,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.access_time_rounded, size: 14, color: Colors.grey.shade500),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              range,
+                                              style: theme.textTheme.labelSmall?.copyWith(
+                                                color: Colors.grey.shade500,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      _buildStatusPill(momentMeals, currentTimeInMinutes),
+                                      const SizedBox(height: 6),
+                                      Icon(
+                                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                        color: isFeatured ? colorScheme.primary : const Color(0xFF1E293B),
+                                        size: 30,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       children: [
-                        Icon(isFeatured ? Icons.stars : Icons.access_time_filled_rounded, color: isFeatured ? colorScheme.primary : Colors.grey.shade400, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          momentMeals.first["momento_nombre"].toString().toUpperCase(),
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold, 
-                            letterSpacing: 1.1, 
-                            color: isFeatured ? colorScheme.primary : Colors.grey.shade700,
-                            fontSize: AppTextSizes.caption(context.screenWidth) * 1.1
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                          child: Column(
+                            children: momentMeals.map((m) {
+                              final bool isConsumida = m["consumida"] == true;
+                              final String? startStr = m["momento_hora_inicio"]?.toString();
+                              bool isPastOrCurrent = true;
+                              if (startStr != null) {
+                                final parts = startStr.split(':');
+                                final startMin = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+                                if (currentTimeInMinutes < startMin) {
+                                  isPastOrCurrent = false;
+                                }
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: (isFeatured && !isConsumida) 
+                                    ? _FeaturedMealCard(
+                                        meal: m, 
+                                        onConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
+                                        onCambiar: () => _intercambiarReceta(m["id_plan_item"]),
+                                      ) 
+                                    : _UpcomingMealCard(
+                                        meal: m, 
+                                        isConsumida: isConsumida,
+                                        showCheckButton: isPastOrCurrent,
+                                        onToggleConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
+                                      ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                        const Spacer(),
-                        _buildStatusBadge(momentMeals, currentTimeInMinutes),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    ...momentMeals.map((m) {
-                      final bool isConsumida = m["consumida"] == true;
-                      final String? startStr = m["momento_hora_inicio"]?.toString();
-                      bool isPastOrCurrent = true;
-                      if (startStr != null) {
-                        final parts = startStr.split(':');
-                        final startMin = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-                        if (currentTimeInMinutes < startMin) {
-                          isPastOrCurrent = false;
-                        }
-                      }
-
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: isFeatured ? 20 : 12),
-                        child: (isFeatured && !isConsumida) 
-                            ? _FeaturedMealCard(
-                                meal: m, 
-                                onConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
-                                onCambiar: () => _intercambiarReceta(m["id_plan_item"]),
-                              ) 
-                            : _UpcomingMealCard(
-                                meal: m, 
-                                isConsumida: isConsumida,
-                                showCheckButton: isPastOrCurrent,
-                                onToggleConsumida: () => _toggleConsumida(m["id_plan_item"], isConsumida),
-                              ),
-                      );
-                    }),
-                    if (!isFeatured && momId != momentOrder.last)
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Divider(color: Colors.grey.shade200)),
-                  ],
-                ),
-              );
-            }).toList(),
+                  ),
+                );
+              }).toList(),
+              
+              const SizedBox(height: 24),
+              const _HealthyTipBanner(),
+              const SizedBox(height: 32),
+            ],
           ),
         );
       },
@@ -568,7 +667,17 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
     );
   }
 
-  Widget _buildStatusBadge(List<Map<String, dynamic>> meals, int currentMin) {
+  IconData _getMomentIcon(String nombre) {
+    nombre = nombre.toLowerCase();
+    if (nombre.contains("desayuno")) return Icons.coffee_rounded;
+    if (nombre.contains("almuerzo")) return Icons.restaurant_rounded;
+    if (nombre.contains("merienda") || nombre.contains("cena")) return Icons.nights_stay_rounded;
+    if (nombre.contains("mañana")) return Icons.wb_sunny_rounded;
+    if (nombre.contains("tarde")) return Icons.wb_twilight_rounded;
+    return Icons.fastfood_rounded;
+  }
+
+  Widget _buildStatusPill(List<Map<String, dynamic>> meals, int currentMin) {
     final first = meals.first;
     final startStr = first["momento_hora_inicio"]?.toString();
     final endStr = first["momento_hora_fin"]?.toString();
@@ -595,8 +704,19 @@ class _DashboardViewState extends ConsumerState<_DashboardView> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+      decoration: BoxDecoration(
+        color: color, 
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label, 
+        style: const TextStyle(
+          fontSize: 9, 
+          fontWeight: FontWeight.w900, 
+          color: Colors.white,
+          letterSpacing: 0.5,
+        )
+      ),
     );
   }
 }
@@ -892,6 +1012,151 @@ class _UpcomingMealCardState extends State<_UpcomingMealCard> {
                         onPressed: _handleToggle,
                       )
                     : const SizedBox(width: 48))),
+      ),
+    );
+  }
+}
+
+class _HealthyTipBanner extends ConsumerWidget {
+  const _HealthyTipBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tipAsync = ref.watch(tipSaludableProvider);
+    final theme = Theme.of(context);
+
+    return tipAsync.when(
+      data: (tip) {
+        final String mensaje = tip["mensaje"] ?? "";
+        final String categoria = tip["categoria"] ?? "salud";
+        
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: Colors.grey.withOpacity(0.1), width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(40),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -20,
+                  top: -10,
+                  child: Opacity(
+                    opacity: 0.05,
+                    child: Icon(
+                      _getCategoryIcon(categoria),
+                      size: 100,
+                      color: AppTema.verdeSalud,
+                    ),
+                  ),
+                ),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: AppTema.verdeSalud,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _getCategoryIcon(categoria),
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      
+                      Expanded(
+                        child: _FormattedTipText(
+                          mensaje: mensaje,
+                          accentColor: AppTema.verdeSalud,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  IconData _getCategoryIcon(String cat) {
+    switch (cat) {
+      case "crecimiento": return Icons.trending_up_rounded;
+      case "agua": return Icons.water_drop_rounded;
+      case "nutricion": return Icons.eco_rounded;
+      case "ejercicio": return Icons.fitness_center_rounded;
+      case "descanso": return Icons.bedtime_rounded;
+      case "habito": return Icons.auto_awesome_rounded;
+      case "mente": return Icons.psychology_rounded;
+      case "salud": return Icons.health_and_safety_rounded;
+      case "hogar": return Icons.home_rounded;
+      case "bienestar": return Icons.volunteer_activism_rounded;
+      case "energia": return Icons.bolt_rounded;
+      case "clinico": return Icons.medical_services_rounded;
+      case "naturaleza": return Icons.wb_sunny_rounded;
+      default: return Icons.lightbulb_rounded;
+    }
+  }
+}
+
+class _FormattedTipText extends StatelessWidget {
+  final String mensaje;
+  final Color accentColor;
+
+  const _FormattedTipText({required this.mensaje, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<TextSpan> spans = [];
+    final parts = mensaje.split("**");
+    
+    for (int i = 0; i < parts.length; i++) {
+      if (i % 2 == 1) {
+        spans.add(TextSpan(
+          text: parts[i],
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: accentColor,
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(
+          text: parts[i],
+          style: const TextStyle(
+            color: Color(0xFF475569),
+            fontWeight: FontWeight.w500,
+          ),
+        ));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.montserrat(
+          fontSize: 13,
+          height: 1.4,
+        ),
+        children: spans,
       ),
     );
   }

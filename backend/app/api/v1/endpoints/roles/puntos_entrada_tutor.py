@@ -312,3 +312,30 @@ def intercambiar_receta_plan(
         return caso_uso.intercambiar_receta(request.id_plan_item)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/tips-saludables")
+def obtener_tip_saludable(_=Depends(require_roles("tutor", "admin"))):
+    import random
+    tips = [
+        {"mensaje": "Pequeñas **decisiones** hoy, grandes **cambios** mañana.", "categoria": "crecimiento"},
+        {"mensaje": "La **hidratación** es la clave para un cuerpo con **energía**.", "categoria": "agua"},
+        {"mensaje": "Prefiere **alimentos naturales**, tu cuerpo te lo **agradecerá**.", "categoria": "nutricion"},
+        {"mensaje": "**Camina** 30 minutos al día para un **corazón** fuerte.", "categoria": "ejercicio"},
+        {"mensaje": "El **descanso** es tan importante como el **ejercicio**.", "categoria": "descanso"},
+        {"mensaje": "Añade **colores** a tu plato con **frutas** y verduras.", "categoria": "nutricion"},
+        {"mensaje": "**Masticar** despacio mejora tu **digestión** notablemente.", "categoria": "habito"},
+        {"mensaje": "La **constancia** vence a la **perfección** siempre.", "categoria": "mente"},
+        {"mensaje": "Reduce el **azúcar**, aumenta tu **vitalidad** diaria.", "categoria": "salud"},
+        {"mensaje": "**Cocinar** en casa es el primer paso hacia la **salud**.", "categoria": "hogar"},
+        {"mensaje": "**Escucha** a tu cuerpo, él sabe lo que **necesita**.", "categoria": "bienestar"},
+        {"mensaje": "Un **desayuno nutritivo** activa tu **mente** temprano.", "categoria": "energia"},
+        {"mensaje": "La **salud mental** es parte esencial del **bienestar**.", "categoria": "mente"},
+        {"mensaje": "Evita **ultraprocesados** para mantener tu **inflamación** baja.", "categoria": "clinico"},
+        {"mensaje": "**Snacks saludables**: nueces, frutas y mucha **agua**.", "categoria": "nutricion"},
+        {"mensaje": "El **sol** es fuente vital de **vitamina D**.", "categoria": "naturaleza"},
+        {"mensaje": "**Estirarse** al despertar prepara tus **músculos** mejor.", "categoria": "ejercicio"},
+        {"mensaje": "Menos **sal**, más **sabor** con especias naturales.", "categoria": "habito"},
+        {"mensaje": "La **fibra** es el mejor amigo de tu **intestino**.", "categoria": "nutricion"},
+        {"mensaje": "Cada **paso** cuenta en tu camino al **bienestar**.", "categoria": "crecimiento"}
+    ]
+    return random.choice(tips)
