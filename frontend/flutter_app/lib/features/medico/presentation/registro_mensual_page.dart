@@ -11,6 +11,7 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/patient_summary_panel.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/nutri_avatar.dart";
+import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
@@ -31,6 +32,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   bool _controlMensualHabilitado = false;
   String _mensajeControlMensual = "";
   Map<String, dynamic>? _expediente;
+  Map<String, dynamic>? _consumoAlimentario;
   String? _idControlEditando;
   Timer? _debounceOMS;
 
@@ -71,6 +73,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   List<dynamic> _ingredientesCat = [];
   List<dynamic> _subgruposCat = [];
   List<dynamic> _restriccionesAlimentariasCat = [];
+  String _foodPlanFilter = "todo";
+  String _foodMomentFilter = "todo";
+  String _foodStateFilter = "todo";
+  int _foodPage = 1;
 
   final _ingRecomSearchCtrl = TextEditingController();
   final _ingRecomFocus = FocusNode();
@@ -150,6 +156,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       final dio = ref.read(dioProvider);
       final res = await dio.get("pacientes/${widget.paciente['id']}/expediente-completo");
       final data = res.data;
+      Map<String, dynamic>? consumo;
+      try {
+        final repo = ref.read(repositorioMedicoProvider);
+        consumo = await repo.obtenerConsumoAlimentario(widget.paciente['id'].toString(), dias: 30);
+      } catch (e) {
+        debugPrint("Error cargando consumo alimentario: $e");
+      }
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
       final evaluadoHoy = historial.any((c) => c['fecha_control'] == hoy);
@@ -163,6 +176,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
       setState(() { 
         _expediente = data; 
+        _consumoAlimentario = consumo;
         _yaEvaluadoHoy = evaluadoHoy;
         _controlMensualYaHecho = estadoControl['ya_hecho'] == true;
         _controlMensualHabilitado = estadoControl['habilitado'] == true;
@@ -1231,6 +1245,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         const SizedBox(height: 24), _sectionHeader("1. MONITOREO DE SÍNTOMAS (EVA 0-10) - DOLOR Y ENERGÍA", Icons.healing_outlined), const SizedBox(height: 16), _buildSymptomsChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "symptoms"), _buildChartExplanation("¿Qué significa esta gráfica?", "• DOLOR (EVA 0-10): 0=Sin dolor, 10=Dolor insoportable.\n• ENERGÍA / FATIGA (0-10): 10=Energía máxima, 0=Agotado.\n✅ OBJETIVO: Remisión de síntomas (Dolor <=2, Energía/Bienestar >=7).", Colors.orange),
         const SizedBox(height: 40), _sectionHeader("2. ACTIVIDAD DE LA ENFERMEDAD (0-10) - INFLAMACIÓN ARTICULAR", Icons.coronavirus_outlined), const SizedBox(height: 16), _buildInflammationChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "inflammation_scale"), _buildChartExplanation("¿Qué significa esta gráfica?", "• INFLAMACIÓN (0-10): Grado de actividad inflamatoria sistémica percibida.\n✅ OBJETIVO: Mantener nivel de inflamación en 0.", Colors.red),
         const SizedBox(height: 40), _sectionHeader("3. CONTEOS ARTICULARES - AIJ", Icons.adjust), const SizedBox(height: 16), _buildJointCountChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "joints"), _buildChartExplanation("¿Qué significa esta gráfica?", "• ARTICULACIONES INFLAMADAS/DOLOROSAS: Signos de sinovitis activa.\n✅ OBJETIVO: Cero articulaciones inflamadas.", Colors.red),
+        const SizedBox(height: 56), _buildFoodIntakeSection(),
         const SizedBox(height: 56), _buildSectionHeader("NUTRICIÓN", "Estado nutricional según OMS, objetivos de peso y talla para el crecimiento", Icons.restaurant_menu, Colors.green),
         const SizedBox(height: 24), _sectionHeader("4. MONITOR Z-SCORE BMI/EDAD (OMS)", Icons.analytics_outlined), const SizedBox(height: 16), _buildZScoreChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "z_score"), _buildChartExplanation("¿Qué significa esta gráfica?", "• Z-SCORE BMI/EDAD: 0 = promedio. Rango normal: -2.0 a +2.0.\n✅ OBJETIVO: Mantener Z-Score entre -1 y +1.", Colors.green),
         const SizedBox(height: 40), _sectionHeader("5. TERMÓMETROS DE PROGRESO - PESO Y TALLA", Icons.thermostat_rounded), const SizedBox(height: 16), _buildThermometerGauges(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "thermometers"),
@@ -1424,6 +1439,624 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   Widget _dateBadge(DateTime d) => Container(width: 50, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: greenBrand.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Column(children: [Text(DateFormat('dd').format(d), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: greenBrand)), Text(DateFormat('MMM').format(d).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 9, color: greenBrand))]));
 
   Widget _buildClinicalTimeline(List<dynamic> history) => Container(height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade100)), child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.all(24), itemCount: history.length, itemBuilder: (context, index) { final h = history[index]; return SizedBox(width: 160, child: Column(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: (h['en_brote'] == true) ? Colors.red : greenBrand, shape: BoxShape.circle), child: Icon((h['en_brote'] == true) ? Icons.warning : Icons.check, color: Colors.white, size: 18)), const SizedBox(height: 12), Text(DateFormat('dd MMM yyyy').format(DateTime.parse(h['fecha_control'])), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900))])); }));
+
+  Widget _buildFoodIntakeSection() {
+    final data = _consumoAlimentario;
+    if (data == null) return const SizedBox.shrink();
+
+    final resumen = Map<String, dynamic>.from(data['resumen'] ?? {});
+    final items = _foodFilteredItems();
+    final total = items.length;
+    final totalPages = max(1, (total / 8).ceil());
+    final page = _foodPage.clamp(1, totalPages).toInt();
+    final start = total == 0 ? 0 : ((page - 1) * 8);
+    final end = min(start + 8, total);
+    final visible = total == 0 ? <Map<String, dynamic>>[] : items.sublist(start, end);
+    final adherence = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
+    final hasItems = total > 0;
+    final impact = _foodRiskLabel(adherence, hasItems);
+    final impactColor = _foodRiskColor(impact);
+    final badCount = (resumen['total_mala_aceptacion'] as num?)?.toInt() ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader("3. CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS", Icons.restaurant_menu_rounded),
+        const SizedBox(height: 12),
+        Text(
+          "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
+          style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blueGrey.shade100),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Resumen clínico", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                    const SizedBox(height: 10),
+                    _foodSummaryBullet("Adherencia general: ${adherence.toStringAsFixed(0)}% durante el periodo evaluado."),
+                    _foodSummaryBullet(badCount > 0 ? "Se registran $badCount recetas con mala aceptación." : "No se registran recetas con mala aceptación en el periodo."),
+                    _foodSummaryBullet("Correlacione con síntomas, brote y tolerancia alimentaria en la siguiente consulta."),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: impactColor.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: impactColor.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Posible impacto clínico:", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: impactColor)),
+                      const SizedBox(height: 6),
+                      Text(
+                        "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
+                        style: GoogleFonts.inter(fontSize: 12, height: 1.35, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.green.shade100),
+          ),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _foodPlanFilterChip("Plan", _foodPlanFilter, (value) => setState(() { _foodPlanFilter = value; _foodPage = 1; })),
+              _foodPlanFilterChip("Momento", _foodMomentFilter, (value) => setState(() { _foodMomentFilter = value; _foodPage = 1; })),
+              _foodPlanFilterChip("Estado", _foodStateFilter, (value) => setState(() { _foodStateFilter = value; _foodPage = 1; })),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: _foodMetricCard("Adherencia", "${adherence.toStringAsFixed(0)}%", _foodAdherenceColor(adherence, hasItems), subtitle: _foodStateLabel(adherence, hasItems))),
+            const SizedBox(width: 12),
+            Expanded(child: _foodMetricCard("Mala aceptación", badCount.toString(), Colors.red, subtitle: badCount == 0 ? "Sin alertas" : "Recetas con calificación baja")),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _foodHallazgosCard(resumen)),
+            const SizedBox(width: 12),
+            Expanded(child: _foodAlertsCard(resumen)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _foodTableHeader(),
+        if (visible.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+            child: Text("No hay comidas para los filtros aplicados.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+            child: Column(
+              children: [
+                for (int i = 0; i < visible.length; i++) ...[
+                  if (i > 0) Divider(height: 1, color: Colors.grey.shade200),
+                  _foodTableRow(visible[i]),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 10),
+        _foodPagination(total, start, end, totalPages),
+      ],
+    );
+  }
+
+  Widget _foodSummaryBullet(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.check_circle_rounded, size: 16, color: Colors.blue.shade700),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, height: 1.35, color: const Color(0xFF334155), fontWeight: FontWeight.w600))),
+      ],
+    ),
+  );
+
+  Widget _foodMetricCard(String title, String value, Color color, {String? subtitle}) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: color.withValues(alpha: 0.18)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueGrey)),
+        const SizedBox(height: 8),
+        Text(value, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+        ],
+      ],
+    ),
+  );
+
+  Widget _foodPlanFilterChip(String label, String value, void Function(String) onChanged) {
+    final options = label == "Estado"
+        ? const [
+            {"value": "todo", "label": "Todos"},
+            {"value": "solo_rechazadas", "label": "Solo rechazadas"},
+            {"value": "posible_reaccion", "label": "Posible reacción"},
+            {"value": "sin_registro", "label": "Sin registro"},
+          ]
+        : _foodOptionsFor(label);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: options.any((o) => o['value'] == value) ? value : "todo",
+          borderRadius: BorderRadius.circular(14),
+          icon: const Icon(Icons.expand_more_rounded, size: 18),
+          items: options
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt['value'] as String,
+                    child: Text("${label}: ${opt['label']}", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v == null) return;
+            onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, String>> _foodOptionsFor(String label) {
+    final data = _consumoAlimentario ?? {};
+    final items = (data['items'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (label == "Plan") {
+      final seen = <String>{};
+      return [
+        const {"value": "todo", "label": "Todos"},
+        ...((data['planes'] as List? ?? []).whereType<Map>().map((p) {
+          final id = p['id_plan']?.toString() ?? "";
+          final text = "${_formatIsoDate(p['fecha_inicio'])} - ${_formatIsoDate(p['fecha_fin'])}";
+          return {"value": id, "label": text};
+        }).where((m) => seen.add(m['value'] ?? ""))),
+      ];
+    }
+    if (label == "Momento") {
+      final seen = <String>{};
+      return [
+        const {"value": "todo", "label": "Todos"},
+        ...items.map((i) {
+          final value = (i['momento'] ?? "").toString();
+          return {"value": value, "label": value};
+        }).where((m) => seen.add(m['value'] ?? "")),
+      ];
+    }
+    return const [{"value": "todo", "label": "Todos"}];
+  }
+
+  List<Map<String, dynamic>> _foodFilteredItems() {
+    final data = _consumoAlimentario ?? {};
+    final items = (data['items'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return items.where((item) {
+      final planId = item['id_plan']?.toString() ?? "";
+      final momento = (item['momento'] ?? "").toString();
+      final stars = int.tryParse(item['estrellas']?.toString() ?? "");
+      final reason = _foodReason(item).toLowerCase();
+      if (_foodPlanFilter != "todo" && planId != _foodPlanFilter) return false;
+      if (_foodMomentFilter != "todo" && momento != _foodMomentFilter) return false;
+      switch (_foodStateFilter) {
+        case "solo_rechazadas":
+          return stars != null && stars <= 2;
+        case "posible_reaccion":
+          return reason.contains("reaccion") || reason.contains("reacción") || reason.contains("alerg") || reason.contains("roncha") || reason.contains("otro");
+        case "sin_registro":
+          return stars == null || stars <= 0;
+      }
+      return true;
+    }).toList();
+  }
+
+  Widget _foodHallazgosCard(Map<String, dynamic> resumen) {
+    final ingredients = (resumen['ingredientes_mas_consumidos'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Hallazgos clave", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: const Color(0xFF0F2A5F))),
+          const SizedBox(height: 10),
+          Text("El paciente consumió con mayor frecuencia:", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          if (ingredients.isEmpty)
+            Text("Sin consumo suficiente para generar hallazgos.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey))
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ingredients.take(10).map((ing) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(999), border: Border.all(color: Colors.green.shade100)),
+                  child: Text((ing['nombre'] ?? "-").toString(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.green.shade800)),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _foodAlertsCard(Map<String, dynamic> resumen) {
+    final alerts = (resumen['alertas_aceptacion'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+      ..sort((a, b) {
+        int score(Map<String, dynamic> item) {
+          final reason = _foodReason(item).toLowerCase();
+          final stars = int.tryParse(item['estrellas']?.toString() ?? "") ?? 5;
+          final hasOther = reason.contains("otro") || (item['comentario'] ?? '').toString().trim().isNotEmpty;
+          return (hasOther ? 0 : 10) + stars;
+        }
+        return score(a).compareTo(score(b));
+      });
+
+    if (alerts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Alertas relevantes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.red.shade800)),
+            const SizedBox(height: 8),
+            Text("Sin alertas para el periodo evaluado.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+    }
+
+    final visibleHeight = alerts.length > 3 ? 132.0 : null;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.shade100)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 18, color: Colors.red.shade700),
+              const SizedBox(width: 8),
+              Text("Alertas relevantes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.red.shade800)),
+              const Spacer(),
+              if (alerts.length > 3) Text("${alerts.length} alertas", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.red.shade700)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: visibleHeight,
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: alerts.length > 3 ? const ClampingScrollPhysics() : const NeverScrollableScrollPhysics(),
+              itemCount: alerts.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 7),
+              itemBuilder: (_, index) {
+                final item = alerts[index];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.shade100)),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel_outlined, color: Colors.red.shade700, size: 17),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "${item['receta_consumida'] ?? item['receta_asignada'] ?? 'Receta'}: ${_starsText(item['estrellas'])} · ${_foodReason(item)}",
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.red.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _foodTableHeader() => Container(
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    child: Row(
+      children: [
+        Expanded(flex: 2, child: _foodHeaderText("Fecha")),
+        Expanded(flex: 2, child: _foodHeaderText("Momento")),
+        Expanded(flex: 4, child: _foodHeaderText("Receta")),
+        Expanded(flex: 2, child: _foodHeaderText("Consumo")),
+        Expanded(flex: 2, child: _foodHeaderText("Calificación")),
+        Expanded(flex: 3, child: _foodHeaderText("Motivo")),
+        Expanded(flex: 2, child: Center(child: _foodHeaderText("Acción"))),
+      ],
+    ),
+  );
+
+  Widget _foodHeaderText(String t) => Text(t, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF334155)));
+
+  Widget _foodTableRow(Map<String, dynamic> item) {
+    final estado = (item['estado_consumo'] ?? "No marcada").toString();
+    final color = _foodStatusColor(estado);
+    final motivo = _foodReason(item);
+    final badRating = _isBadFoodRating(item);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: badRating ? Colors.red.shade50 : Colors.white,
+        border: Border(bottom: BorderSide(color: badRating ? Colors.red.shade100 : const Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          Expanded(flex: 2, child: _foodCell(_formatIsoDate(item['fecha']))),
+          Expanded(flex: 2, child: _foodCell(item['momento']?.toString() ?? "-")),
+          Expanded(flex: 4, child: _foodCell((item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(), weight: FontWeight.w800, color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
+          Expanded(flex: 2, child: _foodBadge(estado, color)),
+          Expanded(flex: 2, child: _foodCell(_starsText(item['estrellas']), color: _ratingColor(item['estrellas']), weight: badRating ? FontWeight.w900 : FontWeight.w700)),
+          Expanded(flex: 3, child: _foodCell(motivo, color: motivo == "-" ? Colors.blueGrey : Colors.red.shade700)),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () => _showFoodRecipeModal(item),
+                icon: const Icon(Icons.visibility_outlined, size: 15),
+                label: const Text("Ver"),
+                style: TextButton.styleFrom(textStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _foodCell(String text, {FontWeight weight = FontWeight.w600, Color? color}) => Text(
+    text,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    style: GoogleFonts.inter(fontSize: 11, fontWeight: weight, color: color ?? const Color(0xFF334155), height: 1.3),
+  );
+
+  Widget _foodBadge(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.2))),
+    child: Text(text, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+  );
+
+  String _starsText(dynamic value) {
+    final stars = int.tryParse(value?.toString() ?? "");
+    if (stars == null || stars <= 0) return "Sin calificación";
+    return "$stars/5";
+  }
+
+  bool _isBadFoodRating(Map<String, dynamic> item) {
+    final stars = int.tryParse(item['estrellas']?.toString() ?? "");
+    return stars != null && stars <= 2;
+  }
+
+  Color _ratingColor(dynamic value) {
+    final stars = int.tryParse(value?.toString() ?? "");
+    if (stars == null) return Colors.blueGrey;
+    if (stars <= 1) return Colors.red.shade900;
+    if (stars <= 2) return Colors.red;
+    if (stars == 3) return Colors.orange;
+    return Colors.green;
+  }
+
+  Color _foodStatusColor(String estado) {
+    final e = estado.toLowerCase();
+    if (e.contains("rechaz")) return Colors.red;
+    if (e.contains("consum")) return Colors.green;
+    if (e.contains("program")) return Colors.blue;
+    return Colors.blueGrey;
+  }
+
+  Color _foodAdherenceColor(double value, bool hasItems) {
+    if (!hasItems) return Colors.blueGrey;
+    if (value >= 80) return Colors.green;
+    if (value >= 50) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _foodStateLabel(double adherence, bool hasItems) {
+    if (!hasItems) return "Sin registro";
+    if (adherence >= 80) return "Alta";
+    if (adherence >= 50) return "Media";
+    return "Baja";
+  }
+
+  String _foodRiskLabel(double adherence, bool hasItems) {
+    if (!hasItems) return "Sin registro";
+    if (adherence >= 80) return "Bajo";
+    if (adherence >= 50) return "Medio";
+    return "Alto";
+  }
+
+  Color _foodRiskColor(String label) {
+    switch (label) {
+      case "Alto":
+        return Colors.red;
+      case "Medio":
+        return Colors.orange;
+      case "Bajo":
+        return Colors.green;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _foodReason(Map<String, dynamic> item) {
+    final motive = (item['motivo_rechazo'] ?? "").toString().trim();
+    if (motive.isNotEmpty) return motive;
+    final comment = (item['comentario'] ?? "").toString().trim();
+    if (comment.isNotEmpty) return comment;
+    return "-";
+  }
+
+  void _showFoodRecipeModal(Map<String, dynamic> item) {
+    final ingredientes = (item['ingredientes'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final recipeName = (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta").toString();
+    final description = (item['descripcion_receta'] ?? item['descripcion_larga'] ?? item['descripcion'] ?? "Sin descripción registrada.").toString();
+    final state = (item['estado_consumo'] ?? "No marcada").toString();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.restaurant_menu_rounded, color: _isBadFoodRating(item) ? Colors.red : greenBrand),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(recipeName, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                    ),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _foodBadge(state, _foodStatusColor(state)),
+                    _foodBadge(_starsText(item['estrellas']), _ratingColor(item['estrellas'])),
+                    if (_foodReason(item) != "-") _foodBadge(_foodReason(item), Colors.red),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text("Resumen", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueGrey)),
+                const SizedBox(height: 6),
+                Text(description, style: GoogleFonts.inter(fontSize: 13, height: 1.45, color: const Color(0xFF334155), fontWeight: FontWeight.w600)),
+                const SizedBox(height: 18),
+                Text("Ingredientes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueGrey)),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ingredientes.isEmpty
+                      ? Center(child: Text("Sin ingredientes registrados para esta receta.", style: GoogleFonts.inter(color: Colors.blueGrey, fontWeight: FontWeight.w700)))
+                      : ListView.separated(
+                          itemCount: ingredientes.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final ing = ingredientes[i];
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(ing['es_principal'] == true ? Icons.star_rounded : Icons.circle_outlined, size: 18, color: ing['es_principal'] == true ? Colors.orange : Colors.blueGrey),
+                              title: Text(ing['nombre']?.toString() ?? "-", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _foodPagination(int total, int start, int end, int totalPages) {
+    final displayStart = total == 0 ? 0 : start + 1;
+    final displayEnd = total == 0 ? 0 : end;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          total == 0 ? "Sin comidas para los filtros aplicados." : "Mostrando $displayStart a $displayEnd de $total comidas",
+          style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w700),
+        ),
+        Row(
+          children: [
+            IconButton(
+              tooltip: "Página anterior",
+              onPressed: _foodPage > 1 ? () => setState(() => _foodPage--) : null,
+              icon: const Icon(Icons.chevron_left_rounded),
+            ),
+            Text("$_foodPage / $totalPages", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF334155))),
+            IconButton(
+              tooltip: "Página siguiente",
+              onPressed: _foodPage < totalPages ? () => setState(() => _foodPage++) : null,
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _formatIsoDate(dynamic raw) {
+    final text = raw?.toString();
+    if (text == null || text.isEmpty) return "-";
+    try {
+      final dt = DateTime.parse(text);
+      return DateFormat('dd/MM/yyyy').format(dt);
+    } catch (_) {
+      return text.length >= 10 ? text.substring(0, 10) : text;
+    }
+  }
 
   void _autoRecomendarDerivados(String nombreSeleccionado) {
     final n = nombreSeleccionado.toLowerCase().trim();

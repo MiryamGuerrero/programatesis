@@ -4,13 +4,11 @@ import "package:google_fonts/google_fonts.dart";
 
 import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
-import "../../../shared/widgets/nutri_avatar.dart";
 import "../../../core/state/app_providers.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "registro_paciente_page.dart";
 import "registro_mensual_page.dart";
-import "patient_detail_modal.dart";
 
 class SupervisionPacientesPage extends ConsumerWidget {
   const SupervisionPacientesPage({super.key});
@@ -36,7 +34,6 @@ class SupervisionPacientesPage extends ConsumerWidget {
         if (patient == null) return const _ListaPacientesView();
         return RegistroMensualPage(paciente: patient);
       case MedicoView.list:
-      default:
         return const _ListaPacientesView();
     }
   }
@@ -52,6 +49,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   String _searchQuery = "";
   int _currentPage = 1;
   final int _itemsPerPage = 10;
+  bool _archiving = false;
+  bool _archiveSuccess = false;
 
   String _formatName(String fullName) {
     if (fullName.isEmpty) return "-";
@@ -70,19 +69,57 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
     return Scaffold(
       backgroundColor: AppTema.grisFondo,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildStatsRow(patientsAsync.valueOrNull ?? []),
-            const SizedBox(height: 24),
-            _buildSearchBarAndAddButton(),
-            const SizedBox(height: 16),
-            _buildPatientsTable(patientsAsync),
-          ],
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 24),
+                _buildStatsRow(patientsAsync.valueOrNull ?? []),
+                const SizedBox(height: 24),
+                _buildSearchBarAndAddButton(),
+                const SizedBox(height: 16),
+                _buildPatientsTable(patientsAsync),
+              ],
+            ),
+          ),
+          if (_archiving) _buildArchivingOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArchivingOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.72),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_archiveSuccess)
+                const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 5),
+                )
+              else
+                const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF4ADE80), size: 86),
+              const SizedBox(height: 24),
+              Text(
+                _archiveSuccess ? "Paciente archivado" : "Archivando paciente...",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -92,10 +129,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Gestión de Pacientes", 
-          style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Administre expedientes clínicos y monitoree niveles de severidad bajo estándares OMS.", 
-          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text("Gestión de pacientes", 
+          style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        Text("Registre pacientes, actualice expedientes clínicos y controle la evolución mensual bajo estándares OMS.", 
+          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -104,7 +141,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     final int total = patients.length;
     final int brotes = patients.where((p) {
       final s = p['severidad'].toString().toLowerCase();
-      return s.contains("brote") || s.contains("alta") || s.contains("grave");
+      return p['brote_activo'] == true || s.contains("brote") || s.contains("grave");
     }).length;
     
     final Map<String, int> counts = {};
@@ -122,7 +159,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           children: [
             Expanded(
               child: _KPICard(
-                title: "Total pacientes",
+                title: "Pacientes activos",
                 value: "$total",
                 color: AppTema.azulPrincipal,
                 imagePath: "assets/images/kpi_total.png",
@@ -131,7 +168,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             const SizedBox(width: spacing),
             Expanded(
               child: _KPICard(
-                title: "En brote / alta",
+                title: "Con brote activo",
                 value: "$brotes",
                 color: Colors.red,
                 icon: Icons.notifications_none_rounded,
@@ -140,7 +177,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             const SizedBox(width: spacing),
             Expanded(
               child: _KPICard(
-                title: "Patología principal",
+                title: "Patología más frecuente",
                 value: principal,
                 color: const Color(0xFF10B981),
                 imagePath: "assets/images/kpi_joint.png",
@@ -165,10 +202,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
-              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar por nombre o cédula del paciente...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -196,8 +233,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
             ),
             icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
-            label: Text("Nuevo paciente", 
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+            label: Text("Registrar paciente", 
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
           ),
         ),
       ],
@@ -213,7 +250,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                  p["cedula"].toString().toLowerCase().contains(term);
         }).toList();
 
-        if (filtered.isEmpty) return const NutriTableContainer(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron registros pediátricos."))));
+        if (filtered.isEmpty) return const NutriTableContainer(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron pacientes activos."))));
 
         final totalItems = filtered.length;
         final startIndex = (_currentPage - 1) * _itemsPerPage;
@@ -248,19 +285,20 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          Expanded(flex: 3, child: _tableHeaderLabel("Nombre del Paciente")),
+          Expanded(flex: 3, child: _tableHeaderLabel("Nombre del paciente")),
           Expanded(flex: 2, child: _tableHeaderLabel("Cédula")),
-          Expanded(flex: 3, child: _tableHeaderLabel("Enfermedad")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Severidad")),
+          Expanded(flex: 2, child: _tableHeaderLabel("Enfermedad principal")),
+          Expanded(flex: 2, child: _tableHeaderLabel("Severidad actual")),
           Expanded(flex: 1, child: _tableHeaderLabel("Edad")),
-          Expanded(flex: 3, child: Center(child: _tableHeaderLabel("Acciones"))),
+          Expanded(flex: 2, child: _tableHeaderLabel("Último registro")),
+          Expanded(flex: 5, child: Center(child: _tableHeaderLabel("Acciones"))),
         ],
       ),
     );
   }
 
   Widget _tableHeaderLabel(String label) {
-    return Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
+    return Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
   }
 
   Widget _buildTableRow(Map<String, dynamic> p) {
@@ -268,12 +306,12 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
     return InkWell(
       onTap: () => ref.read(selectedPatientProvider.notifier).state = p,
-      hoverColor: AppTema.azulPrincipal.withOpacity(0.02),
+      hoverColor: AppTema.azulPrincipal.withValues(alpha: 0.02),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTema.azulPrincipal.withOpacity(0.08) : Colors.transparent,
+          color: isSelected ? AppTema.azulPrincipal.withValues(alpha: 0.08) : Colors.transparent,
           border: Border(
             bottom: BorderSide(color: Colors.grey.shade100),
             left: BorderSide(color: isSelected ? AppTema.azulPrincipal : Colors.transparent, width: 4),
@@ -292,25 +330,26 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_formatName(p["nombre_completo"] ?? ""), 
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            Expanded(flex: 2, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500))),
-            Expanded(flex: 3, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.montserrat(fontSize: 11, color: AppTema.azulPrincipal, fontWeight: FontWeight.w600))),
+            Expanded(flex: 2, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(flex: 2, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.inter(fontSize: 11, color: AppTema.azulPrincipal, fontWeight: FontWeight.w600))),
             Expanded(flex: 2, child: _buildSeverityBadge(p["severidad"])),
-            Expanded(flex: 1, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(flex: 1, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(flex: 2, child: Text(_formatDate(p["ultimo_registro"]), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700))),
             Expanded(
-              flex: 3,
+              flex: 5,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _actionButton(
                     icon: Icons.calendar_month_outlined, 
-                    label: "Control", 
+                    label: "Registro mensual", 
                     color: AppTema.azulPrincipal,
                     onTap: () {
                       ref.read(selectedPatientProvider.notifier).state = p;
@@ -320,7 +359,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                   const SizedBox(width: 16),
                   _actionButton(
                     icon: Icons.edit_outlined, 
-                    label: "Editar", 
+                    label: "Editar expediente", 
                     color: Colors.orange,
                     onTap: () {
                       ref.read(selectedPatientProvider.notifier).state = p;
@@ -329,10 +368,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                   ),
                   const SizedBox(width: 16),
                   _actionButton(
-                    icon: Icons.delete_outline_rounded, 
-                    label: "Eliminar", 
+                    icon: Icons.archive_outlined, 
+                    label: "Archivar", 
                     color: Colors.red,
-                    onTap: () => _confirmarEliminar(p)
+                    onTap: () => _confirmarArchivarPaciente(p)
                   ),
                 ],
               ),
@@ -351,11 +390,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: AppTema.azulPrincipal.withOpacity(0.1),
+        color: AppTema.azulPrincipal.withValues(alpha: 0.1),
         shape: BoxShape.circle,
       ),
       child: Center(
-        child: Text(initials, style: GoogleFonts.montserrat(color: AppTema.azulPrincipal, fontWeight: FontWeight.w800, fontSize: 11)),
+        child: Text(initials, style: GoogleFonts.inter(color: AppTema.azulPrincipal, fontWeight: FontWeight.w800, fontSize: 11)),
       ),
     );
   }
@@ -385,13 +424,26 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       children: [
         Icon(icon, color: color, size: 16),
         const SizedBox(width: 6),
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+        Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
       ],
     );
   }
 
   Widget _actionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
     return _HoverActionButton(icon: icon, label: label, color: color, onTap: onTap);
+  }
+
+  String _formatDate(dynamic raw) {
+    final text = raw?.toString();
+    if (text == null || text.isEmpty) return "Sin registro";
+    try {
+      final date = DateTime.parse(text);
+      final day = date.day.toString().padLeft(2, "0");
+      final month = date.month.toString().padLeft(2, "0");
+      return "$day/$month/${date.year}";
+    } catch (_) {
+      return text.length >= 10 ? text.substring(0, 10) : text;
+    }
   }
 
   Widget _buildPagination(int total, int start, int end) {
@@ -401,7 +453,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text("Mostrando $start a $end de $total pacientes", 
-          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         Row(
           children: [
             _pageButton(Icons.chevron_left, _currentPage > 1 ? () => setState(() => _currentPage--) : null),
@@ -437,29 +489,54 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
   }
 
-  Future<void> _confirmarEliminar(Map<String, dynamic> p) async {
+  Future<void> _confirmarArchivarPaciente(Map<String, dynamic> p) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Eliminar Paciente", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-        content: Text("¿Deseas eliminar a ${p['nombre_completo']}? Esta acción limpiará todo el historial clínico y tutor si no tiene más hijos."),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text("Archivar paciente", style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        content: Text(
+          "El paciente ${p['nombre_completo'] ?? ''} dejará de aparecer en la gestión activa. Su expediente e historial clínico se conservan.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text("SÍ, ELIMINAR")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.archive_outlined, size: 18),
+            label: const Text("Archivar"),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          ),
         ],
       ),
     );
-    if (confirm == true) {
-      try {
-        await ref.read(repositorioMedicoProvider).eliminarPaciente(p["id"].toString());
-        ref.invalidate(medicoPatientsProvider);
-        if (mounted) NutriSnack.show(context, "Paciente eliminado con éxito", ref: ref);
-      } catch (e) {
-        if (mounted) NutriSnack.show(context, "Error al eliminar", isError: true, ref: ref);
+    if (confirm == true) await _archivarPaciente(p);
+  }
+
+  Future<void> _archivarPaciente(Map<String, dynamic> p) async {
+    if (_archiving) return;
+    setState(() {
+      _archiving = true;
+      _archiveSuccess = false;
+    });
+
+    try {
+      await ref.read(repositorioMedicoProvider).archivarPaciente(p["id"].toString());
+      ref.invalidate(medicoPatientsProvider);
+      if (!mounted) return;
+      setState(() => _archiveSuccess = true);
+      await Future.delayed(const Duration(milliseconds: 1200));
+    } catch (e) {
+      if (mounted) NutriSnack.show(context, "Error al archivar", isError: true, ref: ref);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _archiving = false;
+          _archiveSuccess = false;
+        });
       }
     }
   }
+
 }
 
 class _HoverActionButton extends StatefulWidget {
@@ -486,14 +563,14 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
         onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
         hoverColor: Colors.transparent,
-        splashColor: widget.color.withOpacity(0.2),
+        splashColor: widget.color.withValues(alpha: 0.2),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: _isHovered ? widget.color.withOpacity(0.12) : Colors.transparent,
+            color: _isHovered ? widget.color.withValues(alpha: 0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _isHovered ? widget.color.withOpacity(0.2) : Colors.transparent),
+            border: Border.all(color: _isHovered ? widget.color.withValues(alpha: 0.2) : Colors.transparent),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -502,7 +579,7 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
               const SizedBox(height: 4),
               Text(widget.label, 
                 textAlign: TextAlign.center,
-                style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+                style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
             ],
           ),
         ),
@@ -537,7 +614,7 @@ class _KPICard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: color, width: 4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -558,11 +635,11 @@ class _KPICard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(title, 
-                  style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey),
                 ),
                 const SizedBox(height: 4),
                 Text(value, 
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                     fontSize: isLargeValue ? 14 : 24, 
                     fontWeight: FontWeight.w800, 
                     color: AppTema.azulOscuro,

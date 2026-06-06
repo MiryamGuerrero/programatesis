@@ -297,6 +297,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     .map((e) => Map<String, dynamic>.from(e))
                     .toList();
 
+            if (widget.fixedOnly) {
+              _fixedInitialSnapshot = _buildFixedSnapshot();
+            }
             _loading = false;
           });
           _calculateOMS();
@@ -377,12 +380,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   double _tallaMediana = 0;
 
   final _formKey = GlobalKey<FormState>();
+  Map<String, dynamic> _fixedInitialSnapshot = {};
 
   @override
   Widget build(BuildContext context) {
     if (_loading && _parentescos.isEmpty)
       return const Scaffold(
           body: Center(child: CircularProgressIndicator(color: greenBrand)));
+
+    if (widget.fixedOnly) {
+      return _buildFixedOnlyPage();
+    }
 
     return Stack(
       children: [
@@ -449,6 +457,253 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     );
   }
 
+  Widget _buildFixedOnlyPage() {
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(48),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 32),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.light(primary: greenBrand),
+                      inputDecorationTheme: const InputDecorationTheme(
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
+                            borderSide: BorderSide(color: Color(0xFFE2E8F0))),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
+                            borderSide: BorderSide(color: Color(0xFFE2E8F0))),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
+                            borderSide:
+                                BorderSide(color: greenBrand, width: 2)),
+                        labelStyle: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey,
+                            fontSize: 13),
+                      )),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _fixedSection(
+                          "DATOS GENERALES DEL PACIENTE",
+                          Icons.badge_outlined,
+                          _buildFixedPatientFields(),
+                        ),
+                        const SizedBox(height: 24),
+                        _fixedSection(
+                          "ENFERMEDAD PRINCIPAL",
+                          Icons.add_box_outlined,
+                          _buildFixedDiseaseFields(),
+                        ),
+                        const SizedBox(height: 24),
+                        _fixedSection(
+                          "ALERGIAS E INTOLERANCIAS",
+                          Icons.warning_amber_rounded,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  "Registra restricciones alimentarias y alergias relevantes del paciente.",
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: Colors.blueGrey,
+                                      fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 32),
+                              _buildAlergiasStepContent(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 36),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _confirmAndFinishFixedOnly,
+                            icon: const Icon(Icons.save_alt_rounded),
+                            label: const Text("ACTUALIZAR DATOS CLÍNICOS"),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: greenBrand,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 24),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              textStyle: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_sending) _buildSendingOverlay(),
+      ],
+    );
+  }
+
+  Widget _fixedSection(String title, IconData icon, Widget child) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(title, icon),
+          const SizedBox(height: 24),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixedPatientFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _field(
+          _pacCedula,
+          "Cédula del Paciente*",
+          Icons.assignment_ind_outlined,
+          hint: "Ingrese los 10 dígitos",
+          keyboardType: TextInputType.number,
+          onChanged: _onCedulaPacienteChanged,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10)
+          ],
+        ),
+        if (_validandoCedulaPaciente || _mensajeCedulaPaciente != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Row(
+              children: [
+                if (_validandoCedulaPaciente)
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(Icons.error_outline_rounded,
+                      size: 14, color: Colors.red),
+                const SizedBox(width: 6),
+                Text(
+                  _validandoCedulaPaciente
+                      ? "Validando cédula..."
+                      : _mensajeCedulaPaciente!,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _validandoCedulaPaciente
+                        ? Colors.blueGrey
+                        : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+        _field(_pacNombre, "Nombres y Apellidos Completos*",
+            Icons.person_outline,
+            hint: "Ingrese los nombres y apellidos completos"),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: InkWell(
+                  onTap: _pickFechaNac,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border:
+                              Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Row(children: [
+                        const Icon(Icons.calendar_today_outlined,
+                            size: 20, color: greenBrand),
+                        const SizedBox(width: 16),
+                        Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("Fecha de nacimiento*",
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey)),
+                              Text(
+                                  _pacFechaNac == null
+                                      ? "Seleccione una fecha completa"
+                                      : _formatFechaCompleta(_pacFechaNac!),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _pacFechaNac == null
+                                          ? Colors.grey.shade400
+                                          : Colors.black87))
+                            ])
+                      ])))),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _dropdown(
+                  "Sexo Biológico*",
+                  _sexos,
+                  _pacSexo,
+                  (v) => setState(() {
+                        _pacSexo = v;
+                        _calculateOMS();
+                      }),
+                  hint: "Seleccione una opción")),
+        ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: _dropdown("Cantón de Residencia", _cantones, _pacCanton,
+                  (v) {
+            setState(() {
+              _pacCanton = v;
+              _updateParroquiasFiltradas();
+            });
+          }, hint: "Seleccione un cantón")),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _dropdown(
+                  "Parroquia de Residencia",
+                  _parroquiasFiltradas,
+                  _pacParroquia,
+                  (v) => setState(() => _pacParroquia = v),
+                  hint: "Seleccione una parroquia")),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildFixedDiseaseFields() {
+    return _dropdown(
+        "Patología / Enfermedad Base*",
+        _patologias,
+        _idPatologiaBase,
+        (v) => setState(() => _idPatologiaBase = v),
+        hint: "Seleccione...");
+  }
+
   Widget _buildHeader() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -462,8 +717,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               child: Text(
             _idPacienteEditando == null
                 ? "Registro Integral Pediátrico"
-                : "EXPEDIENTE: ${_pacNombre.text.toUpperCase()}",
-            style: GoogleFonts.montserrat(
+                : widget.fixedOnly
+                    ? "DATOS CLÍNICOS BASE: ${_pacNombre.text.toUpperCase()}"
+                    : "EXPEDIENTE: ${_pacNombre.text.toUpperCase()}",
+            style: GoogleFonts.inter(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A)),
@@ -482,8 +739,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           const Icon(Icons.check_circle_outline_rounded,
               color: Colors.green, size: 120),
         const SizedBox(height: 32),
-        Text(_showSuccess ? "GUARDADO" : "SINCRONIZANDO...",
-            style: GoogleFonts.montserrat(
+        Text(
+            widget.fixedOnly
+                ? (_showSuccess
+                    ? "DATOS CLÍNICOS ACTUALIZADOS"
+                    : "ACTUALIZANDO DATOS CLÍNICOS...")
+                : (_showSuccess ? "GUARDADO" : "SINCRONIZANDO..."),
+            style: GoogleFonts.inter(
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))
       ])));
 
@@ -619,6 +881,316 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     return true;
   }
 
+  bool _validateFixedOnly() {
+    if (_pacNombre.text.trim().isEmpty ||
+        !_cedulaValida(_pacCedula) ||
+        _validandoCedulaPaciente ||
+        _mensajeCedulaPaciente != null ||
+        _pacSexo == null ||
+        _pacFechaNac == null ||
+        _idPatologiaBase == null) {
+      NutriSnack.show(context,
+          "Complete los datos generales y la patología del paciente.",
+          isError: true, ref: ref);
+      return false;
+    }
+    return _validateAlergiasIntolerancias();
+  }
+
+  Map<String, dynamic> _buildFixedSnapshot() {
+    final restricciones = Set<String>.from(_restriccionesAlimentarias);
+    if (_lactosa == true) {
+      restricciones.add("INTOLERANCIA_LACTOSA");
+    } else {
+      restricciones.remove("INTOLERANCIA_LACTOSA");
+    }
+    final alergiasIng = _selectedIngredientes
+        .map((e) => (e['id'] as num?)?.toInt())
+        .whereType<int>()
+        .toList()
+      ..sort();
+    final alergiasSub = List<int>.from(_alergiasSub)..sort();
+    final restriccionesList = restricciones.toList()..sort();
+
+    return {
+      "cedula": _pacCedula.text.trim(),
+      "nombre": _pacNombre.text.trim(),
+      "fecha_nacimiento":
+          _pacFechaNac?.toIso8601String().split("T").first ?? "",
+      "sexo": _pacSexo,
+      "canton": _pacCanton,
+      "parroquia": _pacParroquia,
+      "patologia": _idPatologiaBase,
+      "lactosa": _lactosa,
+      "restricciones": restriccionesList,
+      "alergias_subgrupos": alergiasSub,
+      "alergias_ingredientes": alergiasIng,
+    };
+  }
+
+  String _nameById(List items, int? id) {
+    if (id == null) return "-";
+    for (final item in items) {
+      if (item is Map && item['id'] == id) {
+        return _norm(item['nombre'] ?? item['descripcion'] ?? "-");
+      }
+    }
+    return "-";
+  }
+
+  String _yesNo(dynamic value) {
+    if (value == true) return "Sí";
+    if (value == false) return "No";
+    return "-";
+  }
+
+  String _dateLabel(String iso) {
+    final date = DateTime.tryParse(iso);
+    return date == null ? "-" : _formatFechaCompleta(date);
+  }
+
+  String _namesByIds(List items, List ids) {
+    final names = ids
+        .map((id) => _nameById(items, (id as num?)?.toInt()))
+        .where((name) => name.trim().isNotEmpty && name != "-")
+        .toList();
+    return names.isEmpty ? "Ninguno" : names.join(", ");
+  }
+
+  String _restrictionNames(List codes) {
+    final names = <String>[];
+    for (final rawCode in codes) {
+      final code = rawCode.toString();
+      final item = _restriccionesAlimentariasCat.cast<Map?>().firstWhere(
+            (r) => r != null && (r['codigo'] ?? '').toString() == code,
+            orElse: () => null,
+          );
+      names.add(item == null ? code : _norm(item['nombre']));
+    }
+    return names.isEmpty ? "Ninguna" : names.join(", ");
+  }
+
+  bool _sameFixedValue(dynamic oldValue, dynamic newValue) {
+    if (oldValue is List && newValue is List) {
+      if (oldValue.length != newValue.length) return false;
+      for (var i = 0; i < oldValue.length; i++) {
+        if (oldValue[i] != newValue[i]) return false;
+      }
+      return true;
+    }
+    return oldValue == newValue;
+  }
+
+  List<Map<String, String>> _fixedChanges() {
+    final before = _fixedInitialSnapshot;
+    final after = _buildFixedSnapshot();
+    final changes = <Map<String, String>>[];
+
+    void addText(String key, String field,
+        {String Function(dynamic value)? label}) {
+      final oldValue = before[key];
+      final newValue = after[key];
+      if (_sameFixedValue(oldValue, newValue)) return;
+      changes.add({
+        "field": field,
+        "before": label == null ? (oldValue?.toString() ?? "-") : label(oldValue),
+        "after": label == null ? (newValue?.toString() ?? "-") : label(newValue),
+      });
+    }
+
+    addText("cedula", "Cédula");
+    addText("nombre", "Nombre completo");
+    addText("fecha_nacimiento", "Fecha de nacimiento",
+        label: (value) => _dateLabel(value?.toString() ?? ""));
+    addText("sexo", "Sexo biológico",
+        label: (value) => _nameById(_sexos, (value as num?)?.toInt()));
+    addText("canton", "Cantón",
+        label: (value) => _nameById(_cantones, (value as num?)?.toInt()));
+    addText("parroquia", "Parroquia",
+        label: (value) => _nameById(_parroquiasCat, (value as num?)?.toInt()));
+    addText("patologia", "Patología / enfermedad base",
+        label: (value) => _nameById(_patologias, (value as num?)?.toInt()));
+    addText("lactosa", "Intolerancia a la lactosa", label: _yesNo);
+    addText("restricciones", "Restricciones alimentarias",
+        label: (value) => _restrictionNames((value as List?) ?? const []));
+    addText("alergias_subgrupos", "Alergias a grupos alimentarios",
+        label: (value) => _namesByIds(_subgrupos, (value as List?) ?? const []));
+    addText("alergias_ingredientes", "Alergias a ingredientes",
+        label: (value) =>
+            _namesByIds(_ingredientes, (value as List?) ?? const []));
+
+    return changes;
+  }
+
+  Future<void> _confirmAndFinishFixedOnly() async {
+    if (!_validateFixedOnly()) return;
+
+    final changes = _fixedChanges();
+    if (changes.isEmpty) {
+      NutriSnack.show(context, "No hay cambios para actualizar.", ref: ref);
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text("Confirmar actualización",
+            style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+        content: SizedBox(
+          width: 620,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Se actualizarán los siguientes campos:",
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.blueGrey,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: changes
+                        .map((change) => _changePreviewRow(change))
+                        .toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: greenBrand),
+              child: const Text("SÍ, ACTUALIZAR")),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _finishFixedOnly();
+    }
+  }
+
+  Widget _changePreviewRow(Map<String, String> change) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(change["field"] ?? "",
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulOscuro)),
+        const SizedBox(height: 6),
+        Text("Antes: ${change["before"]}",
+            style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.red.shade700)),
+        const SizedBox(height: 3),
+        Text("Después: ${change["after"]}",
+            style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.green.shade700)),
+      ]),
+    );
+  }
+
+  Future<void> _finishFixedOnly() async {
+    setState(() {
+      _sending = true;
+      _showSuccess = false;
+    });
+    try {
+      final validCodes = _restriccionesAlimentariasCat
+          .map((e) => (e['codigo'] ?? '').toString())
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      final sanitizedRestricciones =
+          _restriccionesAlimentarias.where(validCodes.contains).toSet();
+      if (_lactosa == true) {
+        sanitizedRestricciones.add("INTOLERANCIA_LACTOSA");
+      } else {
+        sanitizedRestricciones.remove("INTOLERANCIA_LACTOSA");
+      }
+
+      final payload = {
+        "tutor": {
+          "nombre": _tutNombre.text,
+          "cedula": _tutCedula.text,
+          "email": _tutEmail.text,
+          "id_parentesco": _tutParentesco,
+          "telefono": _tutTelefono.text,
+          "direccion": _tutDireccion.text,
+          "password": null
+        },
+        "paciente": {
+          "id": _idPacienteEditando,
+          "nombre_completo": _pacNombre.text,
+          "cedula": _pacCedula.text,
+          "id_sexo": _pacSexo,
+          "id_canton": _pacCanton,
+          "id_parroquia": _pacParroquia,
+          "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first
+        },
+        "salud": {
+          "id_patologia_base": _idPatologiaBase,
+          "observaciones": _clinNotas.text,
+          "es_intolerante_lactosa": _lactosa,
+          "restricciones_alimentarias": sanitizedRestricciones.toList(),
+          "alergias_subgrupos": _alergiasSub,
+          "alergias_ingredientes":
+              _selectedIngredientes.map((e) => e['id']).toList(),
+          "recomendaciones_ingredientes":
+              _recomendacionesIng.map((e) => e['id']).toList(),
+        }
+      };
+
+      await ref
+          .read(repositorioMedicoProvider)
+          .actualizarExpedienteMaestro(_idPacienteEditando!, payload);
+
+      setState(() {
+        _showSuccess = true;
+        _fixedInitialSnapshot = _buildFixedSnapshot();
+      });
+      await Future.delayed(const Duration(milliseconds: 1500));
+      ref.invalidate(medicoPatientsProvider);
+      if (mounted) ref.read(medicoNavProvider.notifier).state = MedicoView.list;
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(
+          context,
+          "Error al actualizar: ${_mensajeError(e)}",
+          isError: true,
+          ref: ref,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _showSuccess = false;
+        });
+      }
+    }
+  }
+
   Future<void> _finish() async {
     if (_idPacienteEditando == null && !_tutorExistente) {
       _credencialesCopiadas = false;
@@ -634,7 +1206,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                         color: greenBrand, size: 48),
                     const SizedBox(height: 16),
                     Text("CREDENCIALES DEL TUTOR",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900, fontSize: 18))
                   ]),
                   content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -827,8 +1399,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Step _stepTutor() => Step(
       isActive: _currentStep >= 0,
       state: _currentStep > 0 ? StepState.complete : StepState.editing,
-      title: Text("REPRESENTANTE LEGAL",
-          style: GoogleFonts.montserrat(
+      title: Text(widget.fixedOnly ? "REFERENCIA DEL TUTOR" : "REPRESENTANTE LEGAL",
+          style: GoogleFonts.inter(
               fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -897,7 +1469,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     ),
                     const SizedBox(width: 12),
                     Text("Tutor no registrado. Por favor complete los datos.",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: Colors.orange.shade900)),
@@ -928,7 +1500,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     const SizedBox(width: 12),
                     Text(
                         "Tutor encontrado. Puede actualizar sus datos si es necesario.",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: Colors.green.shade900)),
@@ -980,8 +1552,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       state: _currentStep > (widget.fixedOnly ? 0 : 1)
           ? StepState.complete
           : StepState.editing,
-      title: Text("IDENTIDAD DEL PACIENTE",
-          style: GoogleFonts.montserrat(
+      title: Text(widget.fixedOnly ? "REFERENCIA DEL PACIENTE" : "IDENTIDAD DEL PACIENTE",
+          style: GoogleFonts.inter(
               fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1020,7 +1592,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                       _validandoCedulaPaciente
                           ? "Validando cédula..."
                           : _mensajeCedulaPaciente!,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: _validandoCedulaPaciente
@@ -1064,7 +1636,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                                       _pacFechaNac == null
                                           ? "Seleccione una fecha completa"
                                           : _formatFechaCompleta(_pacFechaNac!),
-                                      style: GoogleFonts.montserrat(
+                                      style: GoogleFonts.inter(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: _pacFechaNac == null
@@ -1110,8 +1682,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Step _stepClinico() => Step(
       isActive: _currentStep >= (widget.fixedOnly ? 1 : 2),
       state: StepState.editing,
-      title: Text("PROTOCOLO DE EVALUACIÓN CLÍNICA",
-          style: GoogleFonts.montserrat(
+      title: Text(widget.fixedOnly ? "DATOS CLÍNICOS BASE" : "PROTOCOLO DE EVALUACIÓN CLÍNICA",
+          style: GoogleFonts.inter(
               fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1286,7 +1858,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               const SizedBox(height: 8),
               Text(
                   "Registra restricciones alimentarias y alergias relevantes del paciente.",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 12,
                       color: Colors.blueGrey,
                       fontWeight: FontWeight.w500)),
@@ -1355,7 +1927,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     const SizedBox(height: 12),
                     Text(
                         "Opcional. El doctor puede recomendar ingredientes con búsqueda inteligente.",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 11,
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.w500)),
@@ -1403,7 +1975,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 ),
                 const SizedBox(width: 12),
                 Text(title,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: AppTema.azulOscuro)),
@@ -1415,7 +1987,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     color: AppTema.verdeSalud.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20)),
                 child: Text("${val.toInt()}/$max",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: AppTema.verdeSalud)),
@@ -1443,7 +2015,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     ),
                     child: Center(
                       child: Text("$index",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isSel ? Colors.white : Colors.blueGrey)),
@@ -1458,7 +2030,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: labels
                 .map((l) => Text(l,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)))
@@ -1475,7 +2047,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: Colors.blueGrey)),
@@ -1495,7 +2067,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   controller: ctrl,
                   textAlign: TextAlign.center,
                   keyboardType: TextInputType.number,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 14, fontWeight: FontWeight.w700),
                   decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -1546,13 +2118,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("MINUTOS DE RIGIDEZ",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: AppTema.azulOscuro)),
                 const SizedBox(height: 4),
                 Text("Rigidez matutina registrada en minutos",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)),
@@ -1569,7 +2141,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(3)
               ],
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: AppTema.azulOscuro),
@@ -1618,14 +2190,14 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: _brote
                             ? Colors.red.shade900
                             : Colors.green.shade900)),
                 Text("¿Presenta crisis hoy?",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         color: Colors.blueGrey,
                         fontWeight: FontWeight.w600)),
@@ -1658,7 +2230,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _stepCircleLabel("2", "Otras restricciones clínicas"),
         const SizedBox(height: 8),
         Text("Seleccione las condiciones que aplican al paciente.",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 11,
                 color: Colors.blueGrey,
                 fontWeight: FontWeight.w500)),
@@ -1701,7 +2273,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           title: Text("Tiene alergias a grupos alimentarios",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTema.azulOscuro)),
@@ -1741,7 +2313,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           dense: true,
           controlAffinity: ListTileControlAffinity.leading,
           title: Text("Tiene alergias a ingredientes específicos",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTema.azulOscuro)),
@@ -1818,7 +2390,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   children: [
                     Text(
                       (ing['nombre'] ?? "").toString(),
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.red.shade900),
@@ -1940,7 +2512,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             children: [
               if (title.trim().isNotEmpty) ...[
                 Text(title,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: AppTema.azulOscuro)),
@@ -1948,7 +2520,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               ],
               if (subtitle.trim().isNotEmpty) ...[
                 Text(subtitle,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: Colors.blueGrey)),
@@ -1992,7 +2564,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     onPressed: () => onMarkAll(filtered),
                     icon: const Icon(Icons.done_all, size: 16),
                     label: Text("Marcar ${filtered.length}",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 11, fontWeight: FontWeight.w700)),
                   ),
                 ),
@@ -2040,7 +2612,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                             const SizedBox(width: 8),
                             Text(
                               name,
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: locked
@@ -2088,7 +2660,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                         enabled: !locked,
                         title: Text(
                           _norm(item['nombre']),
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight:
                                   isSel ? FontWeight.w700 : FontWeight.w500,
@@ -2096,7 +2668,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                         ),
                         subtitle: locked
                             ? Text("Bloqueado por intolerancia/restricción",
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 9, color: Colors.grey))
                             : null,
                         trailing: isSel
@@ -2222,7 +2794,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                         fontWeight: FontWeight.bold)))),
         const SizedBox(width: 12),
         Text(text,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: AppTema.azulOscuro)),
@@ -2273,13 +2845,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: sel ? greenBrand : AppTema.azulOscuro)),
                     const SizedBox(height: 4),
                     Text(desc,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.w500)),
@@ -2339,7 +2911,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 size: 16, color: isSel ? AppTema.verdeSalud : Colors.blueGrey),
             const SizedBox(width: 10),
             Text(name,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: isSel ? AppTema.verdeSalud : Colors.blueGrey)),
@@ -2464,7 +3036,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text("Quedan $diasRestantes días",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF475569))),
@@ -2522,7 +3094,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               Expanded(
                 child: Text(
                   "$l: ${DateFormat('dd/MM/yyyy', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF334155)),
@@ -2551,7 +3123,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             Expanded(
               child: Text(
                 "$l: ${DateFormat('dd/MM/yyyy', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF334155)),
@@ -2698,7 +3270,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
             const SizedBox(width: 12),
             Text("DIAGNÓSTICO NUTRICIONAL OMS",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF475569)))
@@ -2718,7 +3290,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         const SizedBox(height: 24),
         Text(
             "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A))),
@@ -2795,14 +3367,14 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("•",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             color: _omsColor)),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(line,
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF334155),
@@ -2863,13 +3435,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF64748B))),
             const SizedBox(height: 2),
             Text(value,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
@@ -2994,7 +3566,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           onChanged: onChanged,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF1E293B)),
@@ -3003,7 +3575,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               prefixIcon: Icon(i, size: 20, color: const Color(0xFF334155)),
               helperText: helper,
               hintText: hint,
-              hintStyle: GoogleFonts.montserrat(
+              hintStyle: GoogleFonts.inter(
                   fontSize: 13,
                   color: Colors.grey.shade400,
                   fontWeight: FontWeight.w500),
@@ -3016,7 +3588,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           isExpanded: true,
           hint: hint != null
               ? Text(hint,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 13,
                       color: Colors.grey.shade400,
                       fontWeight: FontWeight.w500))
@@ -3025,7 +3597,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               .map((e) => DropdownMenuItem<int>(
                   value: e['id'],
                   child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF1E293B)))))
@@ -3051,7 +3623,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                         _currentStep == (widget.fixedOnly ? 1 : 2)
                             ? (_idPacienteEditando == null
                                 ? "REGISTRAR PACIENTE"
-                                : "GUARDAR CAMBIOS")
+                                : widget.fixedOnly
+                                    ? "ACTUALIZAR DATOS CLÍNICOS"
+                                    : "GUARDAR CAMBIOS")
                             : "SIGUIENTE PASO",
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w800)),
@@ -3087,7 +3661,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child: Icon(i, size: 20, color: greenBrand)),
         const SizedBox(width: 18),
         Text(t,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontWeight: FontWeight.w900,
                 fontSize: 13,
                 color: const Color(0xFF0F172A),

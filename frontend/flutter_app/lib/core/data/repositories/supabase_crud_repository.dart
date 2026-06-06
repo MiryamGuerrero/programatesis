@@ -213,8 +213,12 @@ class SupabaseCrudRepository {
     final data = response.data as Map<String, dynamic>;
     return data.map((key, value) => MapEntry(key, List<Map<String, dynamic>>.from(value)));
   }
+  Future<void> archivePatient(String idPaciente) async {
+    await _dio.patch("pacientes/$idPaciente/archivar", options: _authorizedOptions());
+  }
+
   Future<void> deletePatient(String idPaciente) async {
-    await _dio.delete("pacientes/$idPaciente", options: _authorizedOptions());
+    await archivePatient(idPaciente);
   }
 
   Future<void> registerPatientOnly({

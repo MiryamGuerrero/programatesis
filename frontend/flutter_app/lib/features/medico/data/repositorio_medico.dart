@@ -40,6 +40,17 @@ class RepositorioMedico {
     return Map<String, dynamic>.from(response.data);
   }
 
+  Future<Map<String, dynamic>> obtenerConsumoAlimentario(
+    String idPaciente, {
+    int dias = 30,
+  }) async {
+    final response = await _dio.get(
+      "pacientes/$idPaciente/consumo-alimentario",
+      queryParameters: {"dias": dias},
+    );
+    return Map<String, dynamic>.from(response.data);
+  }
+
   Future<void> registrarPacienteIntegral(Map<String, dynamic> payload) async {
     await _dio.post("registro/paciente-integral", data: payload);
   }
@@ -51,8 +62,12 @@ class RepositorioMedico {
     await _dio.put("pacientes/$idPaciente/expediente-maestro", data: payload);
   }
 
+  Future<void> archivarPaciente(String idPaciente) async {
+    await _dio.patch("pacientes/$idPaciente/archivar");
+  }
+
   Future<void> eliminarPaciente(String idPaciente) async {
-    await _dio.delete("pacientes/$idPaciente");
+    await archivarPaciente(idPaciente);
   }
 
   Future<Map<String, dynamic>> buscarTutorPorCedula(String cedula) async {

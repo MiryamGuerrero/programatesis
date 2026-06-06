@@ -99,9 +99,9 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Catálogo de Condiciones", 
-          style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Diccionario maestro de diagnósticos y eventos de salud para el sistema.", 
-          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -118,10 +118,10 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
-              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar por nombre o palabra clave...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -155,7 +155,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
             ),
             icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
             label: Text("Nueva condición", 
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
           ),
         ),
       ],
@@ -174,7 +174,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
         indicatorWeight: 3,
         labelColor: AppTema.verdeSalud,
         unselectedLabelColor: Colors.blueGrey,
-        labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 14),
+        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
         tabs: const [
           Tab(
             child: Row(
@@ -244,7 +244,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
   }
 
   Widget _tableHeaderLabel(String label) {
-    return Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: AppTema.azulOscuro));
+    return Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: AppTema.azulOscuro));
   }
 
   Widget _buildTableRow(Map<String, dynamic> c) {
@@ -270,10 +270,10 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(c["nombre"]?.toString() ?? "Condición", 
-                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
                       Text(_truncateDescription(c["descripcion"]), 
                         maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
                     ],
                   ),
                 ),
@@ -326,7 +326,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text("Mostrando 1 a $total de $total condiciones", 
-          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         Row(
           children: [
             _pageButton(Icons.chevron_left, null),
@@ -369,7 +369,7 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
         children: [
           Icon(Icons.manage_search_rounded, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text("No se encontraron condiciones", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.grey.shade400)),
+          Text("No se encontraron condiciones", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.grey.shade400)),
         ],
       ),
     );
@@ -392,10 +392,10 @@ class _CatalogoCondicionesPageState extends ConsumerState<CatalogoCondicionesPag
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text("¿Eliminar registro?", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
-        content: Text("¿Deseas eliminar '${c["nombre"]}'? Esta acción es irreversible.", style: GoogleFonts.montserrat(fontSize: 14)),
+        title: Text("¿Eliminar registro?", style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        content: Text("¿Deseas eliminar '${c["nombre"]}'? Esta acción es irreversible.", style: GoogleFonts.inter(fontSize: 14)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("CANCELAR", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.grey))),
           FilledButton(onPressed: () => Navigator.pop(context, true), style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), child: const Text("ELIMINAR")),
         ],
       ),
@@ -427,7 +427,7 @@ class _StatusBadge extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           isActive ? "Activa" : "Inactiva",
-          style: GoogleFonts.montserrat(color: color, fontWeight: FontWeight.w700, fontSize: 11),
+          style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700, fontSize: 11),
         ),
       ],
     );
@@ -474,7 +474,7 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
               const SizedBox(height: 4),
               Text(widget.label, 
                 textAlign: TextAlign.center,
-                style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+                style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
             ],
           ),
         ),
@@ -532,7 +532,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                           Expanded(
                             child: Text(
                               condicion["nombre"].toString().toUpperCase(),
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
                                 color: AppTema.azulOscuro,
@@ -582,7 +582,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             "DESCRIPCIÓN TÉCNICA",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               color: AppTema.azulOscuro.withOpacity(0.8),
@@ -604,7 +604,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                         ),
                         child: Text(
                           condicion["descripcion"] ?? "Información no disponible.",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                             fontSize: 13, 
                             color: const Color(0xFF475569),
                             height: 1.5,
@@ -620,7 +620,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               "VENTANA DE TIEMPO SUGERIDA",
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: AppTema.azulOscuro.withOpacity(0.8),
@@ -642,7 +642,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                           ),
                           child: Text(
                             "${condicion["duracion_dias_sugerida"] ?? '5'} días de seguimiento recomendado.",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                               fontSize: 13, 
                               color: const Color(0xFF475569),
                               height: 1.5,
@@ -672,7 +672,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                     children: [
                       Text(
                         "ASPECTOS RELACIONADOS",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: AppTema.azulOscuro.withOpacity(0.8),
@@ -735,7 +735,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                   icon: Icon(Icons.folder_open_rounded, size: 18, color: mainColor),
                   label: Text(
                     "CERRAR EXPEDIENTE",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
                       color: mainColor,
                       fontSize: 11,
@@ -768,7 +768,7 @@ class _DetalleCondicionModal extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
               fontSize: 9,
               fontWeight: FontWeight.w800,
               color: color,
@@ -800,7 +800,7 @@ class _DetalleCondicionModal extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: AppTema.azulOscuro,
@@ -809,7 +809,7 @@ class _DetalleCondicionModal extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 desc,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                   fontSize: 10,
                   color: Colors.blueGrey,
                   height: 1.3,
@@ -867,10 +867,10 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(isEdit ? "Modificar Registro" : "Alta de Nueva Condición", 
-                style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w900, color: AppTema.azulOscuro, letterSpacing: -0.8)),
+                style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: AppTema.azulOscuro, letterSpacing: -0.8)),
               const SizedBox(height: 6),
               Text("Complete la ficha técnica de la condición para el sistema.", 
-                style: GoogleFonts.montserrat(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
               const SizedBox(height: 24),
               
               _sectionTitle("CLASIFICACIÓN"),
@@ -906,8 +906,8 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Estado de Disponibilidad", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
-                          Text("Habilita esta condición para uso en pacientes.", style: GoogleFonts.montserrat(fontSize: 10, color: Colors.blueGrey)),
+                          Text("Estado de Disponibilidad", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+                          Text("Habilita esta condición para uso en pacientes.", style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey)),
                         ],
                       ),
                     ),
@@ -925,7 +925,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text("CANCELAR", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.grey, fontSize: 11)),
+                      child: Text("CANCELAR", style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: Colors.grey, fontSize: 11)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -940,7 +940,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
                         ),
-                        child: Text(_saving ? "PROCESANDO..." : "GUARDAR REGISTRO", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                        child: Text(_saving ? "PROCESANDO..." : "GUARDAR REGISTRO", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                       ),
                     ),
                   ),
@@ -955,14 +955,14 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
 
   Widget _sectionTitle(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(t, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal.withOpacity(0.5), letterSpacing: 1.5)),
+    child: Text(t, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal.withOpacity(0.5), letterSpacing: 1.5)),
   );
 
   Widget _minimalInput(TextEditingController c, String h, IconData i, {int lines = 1, bool isNum = false}) => TextFormField(
     controller: c,
     maxLines: lines,
     keyboardType: isNum ? TextInputType.number : TextInputType.text,
-    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: AppTema.azulOscuro),
+    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTema.azulOscuro),
     decoration: InputDecoration(
       hintText: h,
       prefixIcon: Icon(i, color: AppTema.azulPrincipal, size: 18),
@@ -970,7 +970,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
       fillColor: AppTema.grisLienzo,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      hintStyle: GoogleFonts.montserrat(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+      hintStyle: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
     ),
   );
 
@@ -994,8 +994,8 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             children: [
               Icon(icon, color: color, size: 24),
               const SizedBox(height: 8),
-              Text(title, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? AppTema.verdeSalud : Colors.grey.shade500)),
-              Text(sub, style: GoogleFonts.montserrat(fontSize: 9, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+              Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? AppTema.verdeSalud : Colors.grey.shade500)),
+              Text(sub, style: GoogleFonts.inter(fontSize: 9, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
             ],
           ),
         ),

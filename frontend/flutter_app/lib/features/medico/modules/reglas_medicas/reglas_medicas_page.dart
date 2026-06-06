@@ -171,9 +171,9 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Gestión de Reglas Médicas", 
-          style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+          style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
         Text("Configuración de restricciones nutricionales según diagnóstico médico.", 
-          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -190,10 +190,10 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
-              style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar por alimento o ingrediente objetivo...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
+                hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -219,7 +219,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
             ),
             icon: const Icon(Icons.add_moderator_rounded, size: 20, color: Colors.white),
             label: Text("Nueva regla", 
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
           ),
         ),
       ],
@@ -238,7 +238,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
         indicatorWeight: 3,
         labelColor: AppTema.verdeSalud,
         unselectedLabelColor: Colors.blueGrey,
-        labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 14),
+        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
         tabs: const [
           Tab(
             child: Row(
@@ -304,13 +304,13 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Tipo de enfermedad", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    Text("Tipo de enfermedad", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
                       key: ValueKey("tab_${_tabController.index}"),
                       isExpanded: true,
                       value: valueCondicionSeguro,
-                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
                       decoration: InputDecoration(
                         filled: true, fillColor: AppTema.grisLienzo,
                         prefixIcon: const Icon(Icons.health_and_safety_outlined, color: AppTema.verdeSalud, size: 20),
@@ -342,7 +342,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                     _currentPage = 1;
                   }),
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text("Limpiar filtros", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700)),
+                  label: Text("Limpiar filtros", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.blueGrey,
                     side: BorderSide(color: Colors.grey.shade200),
@@ -362,7 +362,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Acción médica", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    Text("Acción médica", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -384,7 +384,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Tipo de objetivo", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                    Text("Tipo de objetivo", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -435,7 +435,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
             children: [
               Icon(icon, size: 16, color: activeColor),
               const SizedBox(width: 6),
-              Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: activeColor)),
+              Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: activeColor)),
             ],
           ),
         ),
@@ -469,7 +469,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) Icon(icon, size: 14, color: sel ? AppTema.azulPrincipal : Colors.blueGrey),
-              Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700, color: sel ? AppTema.azulPrincipal : Colors.blueGrey)),
+              Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: sel ? AppTema.azulPrincipal : Colors.blueGrey)),
             ],
           ),
         ),
@@ -528,7 +528,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
   }
 
   Widget _tableHeaderLabel(String label) {
-    return Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
+    return Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
   }
 
   Widget _buildTableRow(Map<String, dynamic> r) {
@@ -557,7 +557,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                   width: 20, height: 20, fit: BoxFit.contain
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(nombresCondiciones, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(nombresCondiciones, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
               ],
             )
           ),
@@ -571,8 +571,8 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(r["objetivo_codigo"]?.toString() ?? "Ingrediente", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
-                Text(_getTargetName(r), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                Text(r["objetivo_codigo"]?.toString() ?? "Ingrediente", style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+                Text(_getTargetName(r), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
               ],
             )
           ),
@@ -587,7 +587,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
                   Icon(r["es_estricta"] == true ? Icons.lock_rounded : Icons.lock_open_rounded, 
                     color: r["es_estricta"] == true ? AppTema.verdeSalud : Colors.grey.shade400, size: 14),
                   const SizedBox(width: 4),
-                  Text(r["es_estricta"] == true ? "Sí" : "No", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+                  Text(r["es_estricta"] == true ? "Sí" : "No", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
                 ],
               )
             )
@@ -657,7 +657,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
-            Text(text, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+            Text(text, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
           ],
         ),
       ),
@@ -675,7 +675,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text("Mostrando $start a $end de $total reglas", 
-          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
         Row(
           children: [
             _pageButton(Icons.chevron_left, safePage > 1 ? () => setState(() => _currentPage = safePage - 1) : null),
@@ -722,7 +722,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> with Sing
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("¿Eliminar Regla?", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+        title: Text("¿Eliminar Regla?", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         content: const Text("Se eliminará la restricción clínica del sistema."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
@@ -779,7 +779,7 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
               const SizedBox(height: 4),
               Text(widget.label, 
                 textAlign: TextAlign.center,
-                style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+                style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
             ],
           ),
         ),
@@ -864,7 +864,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                   const Icon(Icons.settings_suggest_rounded, color: Colors.white, size: 24),
                   const SizedBox(width: 12),
                   Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA", 
-                    style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
+                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -896,7 +896,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                   items: widget.formData["objetivos"]?.map((o) => DropdownMenuItem<int>(
                                     value: o["id"], 
                                     child: Text(_norm(o["nombre"]).toUpperCase(), 
-                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                                   onChanged: (v) => setState(() { _idObjetivo = v; _idTarget = null; }),
                                 ),
                                 const SizedBox(height: 20),
@@ -908,7 +908,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                   items: targetList.map((t) => DropdownMenuItem<int>(
                                     value: t["id"], 
                                     child: Text(_norm(t["nombre"]).toUpperCase(), 
-                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                                   onChanged: (v) => setState(() => _idTarget = v),
                                 ),
                               ],
@@ -925,7 +925,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                   items: widget.formData["acciones"]?.map((a) => DropdownMenuItem<int>(
                                     value: a["id"], 
                                     child: Text(_norm(a["nombre"]).toUpperCase(), 
-                                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)))).toList(),
                                   onChanged: (v) => setState(() => _idAccion = v),
                                 ),
                               ],
@@ -950,7 +950,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                   const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 22),
                                   const SizedBox(width: 12),
                                   Text("Restricción estricta", 
-                                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
                                   const Spacer(),
                                   Switch.adaptive(
                                     value: _esEstricta, 
@@ -972,14 +972,14 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                       const Icon(Icons.assignment_ind_outlined, color: AppTema.azulPrincipal, size: 22),
                                       const SizedBox(width: 12),
                                       Text("Aplicabilidad por condición médica", 
-                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
                                   Padding(
                                     padding: const EdgeInsets.only(left: 34),
                                     child: Text("Seleccione las condiciones médicas para las que se aplicará esta regla clínica.", 
-                                      style: GoogleFonts.montserrat(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                      style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
                                   ),
                                 ],
                               ),
@@ -1002,7 +1002,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                                           child: CheckboxListTile(
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                                             title: Text(_norm(c["nombre"]).isEmpty ? "Condición" : _norm(c["nombre"]), 
-                                              style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? AppTema.azulPrincipal : Colors.blueGrey)), 
+                                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: isSel ? AppTema.azulPrincipal : Colors.blueGrey)), 
                                             value: isSel, 
                                             activeColor: AppTema.azulPrincipal, 
                                             onChanged: (v) => setState(() { if(v!) {
@@ -1035,7 +1035,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                       TextFormField(
                         controller: _mensajeController, 
                         maxLines: 3, 
-                        style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600), 
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600), 
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: AppTema.grisLienzo,
@@ -1052,7 +1052,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context), 
-                        child: Text("Cancelar", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.blueGrey, fontSize: 13))),
+                        child: Text("Cancelar", style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.blueGrey, fontSize: 13))),
                       const SizedBox(width: 24),
                       SizedBox(
                         height: 48,
@@ -1065,7 +1065,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
                           ),
                           icon: const Icon(Icons.save_outlined, size: 20),
                           label: Text(_saving ? "GUARDANDO..." : "Guardar regla", 
-                            style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13))),
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13))),
                       ),
                     ],
                   ),
@@ -1093,7 +1093,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
             children: [
               Icon(icon, color: AppTema.azulPrincipal, size: 22),
               const SizedBox(width: 12),
-              Text(title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+              Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
             ],
           ),
           const SizedBox(height: 16),
@@ -1105,7 +1105,7 @@ class _MedicalRuleFormDialogState extends ConsumerState<_MedicalRuleFormDialog> 
 
   Widget _fieldLabel(String l) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(l, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+    child: Text(l, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
   );
 
   InputDecoration _inputDecor(IconData i, {Color? iconColor}) => InputDecoration(

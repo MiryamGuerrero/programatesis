@@ -33,7 +33,7 @@ class AppTema {
     );
 
     final baseTextTheme = GoogleFonts.latoTextTheme();
-    final headlineTheme = GoogleFonts.montserratTextTheme();
+    final headlineTheme = GoogleFonts.interTextTheme();
 
     return ThemeData(
       useMaterial3: true,

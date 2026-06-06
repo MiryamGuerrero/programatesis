@@ -44,20 +44,20 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
     }
   }
 
-  Future<void> _eliminar(String id) async {
+  Future<void> eliminar(String id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Eliminar Paciente"),
+        title: const Text("Archivar paciente"),
         content: const Text(
-            "Esta acción borrará todo el historial y datos. Es irreversible. ¿Continuar?"),
+            "El paciente dejará de aparecer en la gestión activa, pero su historial se conservará. ¿Continuar?"),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("ELIMINAR")),
+              child: const Text("ARCHIVAR")),
         ],
       ),
     );
@@ -77,7 +77,7 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
         if (mounted) {
           setState(() => _deleting = false);
           ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+              .showSnackBar(SnackBar(content: Text("Error al archivar: $e")));
         }
       } finally {
         if (mounted) {
@@ -86,6 +86,36 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
             _deleteSuccess = false;
           });
         }
+      }
+    }
+  }
+
+  Future<void> _eliminarConOverlay(String id) async {
+    if (_deleting) return;
+    setState(() {
+      _deleting = true;
+      _deleteSuccess = false;
+    });
+
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      await repo.deletePatient(id);
+      if (!mounted) return;
+      setState(() => _deleteSuccess = true);
+      await Future.delayed(const Duration(milliseconds: 1200));
+      await _buscar("");
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error al archivar: $e")));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deleting = false;
+          _deleteSuccess = false;
+        });
       }
     }
   }
@@ -177,9 +207,10 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
                       children: [
                         if (esMedicoOAdmin)
                           IconButton(
-                              icon: const Icon(Icons.delete_outline,
+                              tooltip: "Archivar paciente",
+                              icon: const Icon(Icons.archive_outlined,
                                   color: Colors.red),
-                              onPressed: () => _eliminar(p['id'])),
+                              onPressed: () => _eliminarConOverlay(p['id'])),
                         const Icon(Icons.chevron_right),
                       ],
                     ),
@@ -192,7 +223,7 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
         if (_deleting)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.72),
+              color: Colors.black.withValues(alpha: 0.72),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -210,8 +241,8 @@ class _GestionPacientesPageState extends ConsumerState<GestionPacientesPage> {
                     const SizedBox(height: 24),
                     Text(
                       _deleteSuccess
-                          ? "Paciente eliminado correctamente"
-                          : "Eliminando datos del paciente...",
+                          ? "Paciente archivado correctamente"
+                          : "Archivando paciente...",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           color: Colors.white,
