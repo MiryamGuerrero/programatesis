@@ -3,6 +3,9 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../../core/theme/app_theme.dart";
+import "../../core/theme/app_sizes.dart";
+import "../../core/theme/app_responsive.dart";
 
 
 // Ruta de los logos
@@ -27,13 +30,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   late AnimationController _animController;
 
-  static const Color _azul = Color(0xFF0068B7);
-  static const Color _azulOscuro = Color(0xFF123D66);
-  static const Color _verde = Color(0xFF58A932);
+  static const Color _azul = AppTema.azulPrincipal;
+  static const Color _azulOscuro = AppTema.azulOscuro;
+  static const Color _verde = AppTema.verdeSalud;
   static const Color _grisTexto = Color(0xFF64748B);
   static const Color _grisFuerte = Color(0xFF334155);
   static const Color _borde = Color(0xFFD7E1EA);
-  static const Color _fondo = Color(0xFFF6FAFD);
+  static const Color _fondo = AppTema.grisFondo;
 
   @override
   void initState() {
@@ -80,14 +83,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isWide = size.width >= 1050;
+    final bool isWide = !context.isMobile && !context.isMobileSmall;
 
     return Scaffold(
-      backgroundColor: Colors.white, // Fondo base sólido
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Pintor de Fondo (Capas superpuestas)
+          // 1. Pintor de Fondo
           Positioned.fill(
             child: AnimatedBuilder(
               animation: _animController,
@@ -104,31 +106,31 @@ class _LoginPageState extends ConsumerState<LoginPage>
             child: Center(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 60 : 24,
-                  vertical: 40,
+                  horizontal: context.responsiveSpacing(AppSpacing.lg),
+                  vertical: context.responsiveSpacing(AppSpacing.xl),
                 ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1300),
+                child: ResponsiveMaxConstraints(
+                  maxWidth: 1300,
                   child: isWide
                       ? Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(flex: 10, child: _buildBrandPanel()),
-                            const SizedBox(width: 40),
+                            Expanded(flex: 10, child: _buildBrandPanel(context)),
+                            const SizedBox(width: AppSpacing.xl),
                             Expanded(
                               flex: 10, 
                               child: Align(
                                 alignment: Alignment.centerRight,
-                                child: _buildLoginCard(),
+                                child: _buildLoginCard(context),
                               ),
                             ),
                           ],
                         )
                       : Column(
                           children: [
-                            _buildMobileHeader(),
-                            const SizedBox(height: 60),
-                            _buildLoginCard(),
+                            _buildMobileHeader(context),
+                            const SizedBox(height: AppSpacing.xxl),
+                            _buildLoginCard(context),
                           ],
                         ),
                 ),
@@ -140,72 +142,72 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildBrandPanel() {
+  Widget _buildBrandPanel(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Image.asset(kLogoSinNombre, width: 120, height: 120, fit: BoxFit.contain),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: GoogleFonts.montserrat(
-                        fontSize: 48, fontWeight: FontWeight.w800, height: 1, letterSpacing: -1.5,
-                      ),
-                      children: const [
-                        TextSpan(text: "Nutri", style: TextStyle(color: _azul)),
-                        TextSpan(text: "Reuma", style: TextStyle(color: _verde)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Portal Profesional de Salud",
-                    style: GoogleFonts.lato(fontSize: 22, color: _grisTexto, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
+        RichText(
+          text: TextSpan(
+            style: GoogleFonts.montserrat(
+              fontSize: context.responsiveValue(mobile: 32, tablet: 40, desktop: 48),
+              fontWeight: FontWeight.w800,
+              height: 1,
+              letterSpacing: -1.5,
             ),
-          ],
+            children: const [
+              TextSpan(text: "Nutri", style: TextStyle(color: _azul)),
+              TextSpan(text: "Reuma", style: TextStyle(color: _verde)),
+            ],
+          ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          "Portal Profesional de Salud",
+          style: GoogleFonts.lato(
+              fontSize: AppTextSizes.headline(context.screenWidth) * 0.7, 
+              color: _grisTexto, 
+              fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: AppSpacing.xl),
         Container(
-          width: 80, height: 4,
+          width: 80,
+          height: 4,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
             gradient: const LinearGradient(colors: [_azul, _verde]),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: AppSpacing.lg),
         SizedBox(
           width: 480,
           child: Text(
             "Plataforma avanzada para la evaluación nutricional y seguimiento clínico pediátrico en reumatología.",
-            style: GoogleFonts.lato(fontSize: 20, color: _grisTexto, height: 1.4, fontWeight: FontWeight.w500),
+            style: GoogleFonts.lato(
+                fontSize: AppTextSizes.bodyLarge(context.screenWidth),
+                color: _grisTexto,
+                height: 1.4,
+                fontWeight: FontWeight.w500),
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: AppSpacing.xxl),
         Wrap(
-          spacing: 16, runSpacing: 16,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
           children: [
-            _buildFeatureCard(Icons.analytics_outlined, "Evaluación\nEspecializada", _verde),
-            _buildFeatureCard(Icons.monitor_heart_outlined, "Seguimiento\nClínico", _azul),
-            _buildFeatureCard(Icons.security_outlined, "Acceso\nAutorizado", _verde),
+            _buildFeatureCard(context, Icons.analytics_outlined, "Evaluación\nEspecializada", _verde),
+            _buildFeatureCard(context, Icons.monitor_heart_outlined, "Seguimiento\nClínico", _azul),
+            _buildFeatureCard(context, Icons.security_outlined, "Acceso\nAutorizado", _verde),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildFeatureCard(IconData icon, String title, Color accent) {
+  Widget _buildFeatureCard(BuildContext context, IconData icon, String title, Color accent) {
     return Container(
-      width: 140, height: 145,
-      padding: const EdgeInsets.all(18),
+      width: context.responsiveValue(mobile: 130, tablet: 140),
+      height: context.responsiveValue(mobile: 135, tablet: 145),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20),
@@ -218,27 +220,33 @@ class _LoginPageState extends ConsumerState<LoginPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: _azulOscuro, size: 36),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: _azulOscuro, height: 1.2),
+            style: GoogleFonts.montserrat(
+              fontSize: AppTextSizes.caption(context.screenWidth) * 1.2, 
+              fontWeight: FontWeight.w700, 
+              color: _azulOscuro, 
+              height: 1.2
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Container(width: 30, height: 3, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2))),
         ],
       ),
     );
   }
 
-  Widget _buildMobileHeader() {
+  Widget _buildMobileHeader(BuildContext context) {
     return Column(
       children: [
-        Image.asset(kLogoSinNombre, width: 110, fit: BoxFit.contain),
-        const SizedBox(height: 20),
         RichText(
           text: TextSpan(
-            style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w800),
+            style: GoogleFonts.montserrat(
+              fontSize: AppTextSizes.headline(context.screenWidth), 
+              fontWeight: FontWeight.w800
+            ),
             children: const [
               TextSpan(text: "Nutri", style: TextStyle(color: _azul)),
               TextSpan(text: "Reuma", style: TextStyle(color: _verde)),
@@ -249,34 +257,55 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildLoginCard() {
+  Widget _buildLoginCard(BuildContext context) {
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
         Container(
-          width: 440,
-          padding: const EdgeInsets.fromLTRB(40, 70, 40, 40),
+          width: AppSizes.maxFormWidth,
+          padding: EdgeInsets.fromLTRB(
+            context.responsiveSpacing(AppSpacing.xl),
+            context.responsiveSpacing(AppSpacing.xxl + 10),
+            context.responsiveSpacing(AppSpacing.xl),
+            context.responsiveSpacing(AppSpacing.xl),
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppSizes.cardRadius + 8),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 40, offset: const Offset(0, 20)),
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 40,
+                  offset: const Offset(0, 20)),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("Bienvenido/a", style: GoogleFonts.montserrat(fontSize: 30, fontWeight: FontWeight.w800, color: _azulOscuro, letterSpacing: -0.5)),
+              Text("Bienvenido/a",
+                  style: GoogleFonts.montserrat(
+                      fontSize: AppTextSizes.headline(context.screenWidth) * 0.9,
+                      fontWeight: FontWeight.w800,
+                      color: _azulOscuro,
+                      letterSpacing: -0.5)),
               const SizedBox(height: 6),
-              Text("Acceso al Portal Profesional", style: GoogleFonts.lato(fontSize: 16, color: _grisTexto)),
-              const SizedBox(height: 20),
-              Container(width: 40, height: 3, decoration: BoxDecoration(color: _verde, borderRadius: BorderRadius.circular(2))),
-              
+              Text("Acceso al Portal Profesional",
+                  style: GoogleFonts.lato(
+                    fontSize: AppTextSizes.body(context.screenWidth), 
+                    color: _grisTexto
+                  )),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                  width: 40,
+                  height: 3,
+                  decoration: BoxDecoration(
+                      color: _verde, borderRadius: BorderRadius.circular(2))),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.md),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -284,32 +313,43 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
+                      Icon(Icons.error_outline_rounded,
+                          color: Colors.red.shade700, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: GoogleFonts.lato(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.lato(
+                              color: Colors.red.shade700,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-
-              const SizedBox(height: 32),
-              _buildField(controller: _emailController, label: "CORREO ELECTRÓNICO", hint: "usuario@clinica.com", icon: Icons.mail_outline),
-              const SizedBox(height: 24),
-              _buildField(controller: _passwordController, label: "CONTRASEÑA", hint: "••••••••", icon: Icons.lock_outline, isPass: true),
-              const SizedBox(height: 36),
+              const SizedBox(height: AppSpacing.xl),
+              _buildField(
+                  context: context,
+                  controller: _emailController,
+                  label: "CORREO ELECTRÓNICO",
+                  hint: "usuario@clinica.com",
+                  icon: Icons.mail_outline),
+              const SizedBox(height: AppSpacing.lg),
+              _buildField(
+                  context: context,
+                  controller: _passwordController,
+                  label: "CONTRASEÑA",
+                  hint: "••••••••",
+                  icon: Icons.lock_outline,
+                  isPass: true),
+              const SizedBox(height: AppSpacing.xl),
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: AppSizes.buttonHeightLarge,
                 child: FilledButton(
                   onPressed: _loading ? null : _handleLogin,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                   child: _loading
                       ? const SizedBox(
                           width: 24,
@@ -329,7 +369,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.md),
               TextButton(
                 onPressed: () {},
                 child: Text(
@@ -347,7 +387,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         Positioned(
           top: -55,
           child: Container(
-            width: 100, height: 100,
+            width: 100,
+            height: 100,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -360,7 +401,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 )
               ],
             ),
-            child: ClipOval(child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
+            child:
+                ClipOval(child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
           ),
         ),
       ],
@@ -368,6 +410,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   }
 
   Widget _buildField({
+    required BuildContext context,
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -392,7 +435,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
         TextField(
           controller: controller,
           obscureText: isPass && _obscurePassword,
-          style: GoogleFonts.lato(fontSize: 16, color: _grisFuerte, fontWeight: FontWeight.w600),
+          style: GoogleFonts.lato(
+            fontSize: AppTextSizes.body(context.screenWidth), 
+            color: _grisFuerte, 
+            fontWeight: FontWeight.w600
+          ),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 22),
@@ -402,21 +449,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ) 
                 : null,
-            filled: true,
-            fillColor: _fondo,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _borde),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _azul, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
           ),
         ),
       ],

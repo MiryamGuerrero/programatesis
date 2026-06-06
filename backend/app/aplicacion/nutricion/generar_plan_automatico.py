@@ -130,18 +130,15 @@ class CasoUsoGenerarPlanAutomatico:
         # 3. Buscar alternativas seguras
         recetas_seguras = self.repo_receta.obtener_recetas_seguras_para_paciente(id_paciente, id_momento)
         
-        # Filtrar por tipo de plato y excluir la actual
+        # Filtrar estrictamente por tipo de plato y excluir la actual
         alternativas = [
             r for r in recetas_seguras 
             if r["id"] != id_receta_actual and any(t in (r.get("tipos_plato_ids") or []) for t in tipos_actuales)
         ]
         
         if not alternativas:
-            # Si no hay del mismo tipo, intentar cualquier otra segura para el momento
-            alternativas = [r for r in recetas_seguras if r["id"] != id_receta_actual]
-            
-        if not alternativas:
-            raise ValueError("No se encontraron recetas alternativas seguras")
+            # Ya no intentamos con cualquier tipo, lanzamos error descriptivo
+            raise ValueError("Por el momento no se tienen más recetas con este tipo de plato disponibles para el paciente.")
             
         # 4. Elegir una y actualizar
         nueva_receta = self._seleccionar_receta_con_prioridad(alternativas)

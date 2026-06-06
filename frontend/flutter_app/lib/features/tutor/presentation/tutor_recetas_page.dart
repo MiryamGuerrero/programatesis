@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_sizes.dart';
+import '../../../core/theme/app_responsive.dart';
 import 'tutor_receta_detalle_page.dart';
 
 class TutorRecetasPage extends ConsumerStatefulWidget {
@@ -127,10 +129,8 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
       backgroundColor: colorScheme.surface,
       body: Column(
         children: [
-          // Barra de búsqueda y filtros
-          _buildSearchAndFilters(),
+          _buildSearchAndFilters(context),
 
-          // Lista Scrollable
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator())
@@ -139,7 +139,10 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
                 : ListView.builder(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsiveSpacing(AppSpacing.md), 
+                      vertical: AppSpacing.sm
+                    ),
                     itemCount: _recetas.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == _recetas.length) {
@@ -151,11 +154,14 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
                       final r = _recetas[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: _RecipeCard(
-                          receta: r,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+                        child: ResponsiveMaxConstraints(
+                          maxWidth: 800,
+                          child: _RecipeCard(
+                            receta: r,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => TutorRecetaDetallePage(idReceta: r['id'])),
+                            ),
                           ),
                         ),
                       );
@@ -167,72 +173,79 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
     );
   }
 
-  Widget _buildSearchAndFilters() {
+  Widget _buildSearchAndFilters(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: EdgeInsets.fromLTRB(
+        context.responsiveSpacing(AppSpacing.md), 
+        context.responsiveSpacing(AppSpacing.md), 
+        context.responsiveSpacing(AppSpacing.md), 
+        AppSpacing.sm
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            onSubmitted: (v) => _cargarDatosIniciales(),
-            decoration: InputDecoration(
-              hintText: "Buscar recetas seguras...",
-              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-              suffixIcon: _searchController.text.isNotEmpty 
-                ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _cargarDatosIniciales(); })
-                : null,
-              filled: true,
-              fillColor: const Color(0xFFF1F5F9),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      child: ResponsiveMaxConstraints(
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              onSubmitted: (v) => _cargarDatosIniciales(),
+              decoration: InputDecoration(
+                hintText: "Buscar recetas seguras...",
+                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                suffixIcon: _searchController.text.isNotEmpty 
+                  ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _cargarDatosIniciales(); })
+                  : null,
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  label: _idMomento == null ? "Cualquier momento" : _momentos.firstWhere((m) => m['id'] == _idMomento)['nombre'],
-                  icon: Icons.access_time_rounded,
-                  onTap: () => _showFilterPicker("Momento de comida", _momentos, _idMomento, (val) {
-                    setState(() => _idMomento = val);
-                    _cargarDatosIniciales();
-                  }),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  label: _idTipoPlato == null ? "Todos los platos" : _tiposPlato.firstWhere((t) => t['id'] == _idTipoPlato)['nombre'],
-                  icon: Icons.restaurant_menu_rounded,
-                  onTap: () => _showFilterPicker("Tipo de plato", _tiposPlato, _idTipoPlato, (val) {
-                    setState(() => _idTipoPlato = val);
-                    _cargarDatosIniciales();
-                  }),
-                ),
-                if (_idMomento != null || _idTipoPlato != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _idMomento = null;
-                        _idTipoPlato = null;
-                      });
+            const SizedBox(height: AppSpacing.md),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    label: _idMomento == null ? "Cualquier momento" : _momentos.firstWhere((m) => m['id'] == _idMomento)['nombre'],
+                    icon: Icons.access_time_rounded,
+                    onTap: () => _showFilterPicker("Momento de comida", _momentos, _idMomento, (val) {
+                      setState(() => _idMomento = val);
                       _cargarDatosIniciales();
-                    },
-                    icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
-                    tooltip: "Limpiar filtros",
+                    }),
                   ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    label: _idTipoPlato == null ? "Todos los platos" : _tiposPlato.firstWhere((t) => t['id'] == _idTipoPlato)['nombre'],
+                    icon: Icons.restaurant_menu_rounded,
+                    onTap: () => _showFilterPicker("Tipo de plato", _tiposPlato, _idTipoPlato, (val) {
+                      setState(() => _idTipoPlato = val);
+                      _cargarDatosIniciales();
+                    }),
+                  ),
+                  if (_idMomento != null || _idTipoPlato != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _idMomento = null;
+                          _idTipoPlato = null;
+                        });
+                        _cargarDatosIniciales();
+                      },
+                      icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
+                      tooltip: "Limpiar filtros",
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -344,7 +357,8 @@ class _RecipeCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 110, height: 110,
+              width: context.responsiveValue(mobile: 110, tablet: 150), 
+              height: context.responsiveValue(mobile: 110, tablet: 150),
               color: const Color(0xFFF1F5F9),
               child: url.isNotEmpty
                   ? Image.network(url, fit: BoxFit.cover)
@@ -352,13 +366,16 @@ class _RecipeCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.md)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       receta['nombre'] ?? "Sin nombre",
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: AppTextSizes.bodyLarge(context.screenWidth)
+                      ),
                     ),
                     const SizedBox(height: 6),
                     if (receta['descripcion'] != null)
@@ -366,15 +383,24 @@ class _RecipeCard extends StatelessWidget {
                         receta['descripcion'],
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                        style: TextStyle(
+                          fontSize: AppTextSizes.caption(context.screenWidth), 
+                          color: const Color(0xFF64748B), 
+                          height: 1.3
+                        ),
                       ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _buildBadge(context, Icons.star_rounded, "$rating", Colors.amber),
-                        const SizedBox(width: 12),
-                        _buildBadge(context, Icons.timer_outlined, "${receta['tiempo_total_min'] ?? 0} min", AppTema.azulPrincipal),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildBadge(context, Icons.local_fire_department_rounded, "${(receta['calorias_por_porcion'] ?? receta['calorias_kcal'] ?? receta['calorias_totales'] ?? 0).toInt()} kcal", Colors.orange),
+                          const SizedBox(width: 12),
+                          _buildBadge(context, Icons.timer_outlined, "${receta['tiempo_total_min'] ?? ((receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0) + (receta['tiempo_coccion_min'] ?? receta['tiempo_coccion'] ?? 0))} min", AppTema.azulPrincipal),
+                          const SizedBox(width: 12),
+                          _buildBadge(context, Icons.bar_chart_rounded, "${receta['dificultad'] ?? 'Media'}", AppTema.verdeSalud),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -389,9 +415,14 @@ class _RecipeCard extends StatelessWidget {
   Widget _buildBadge(BuildContext context, IconData icon, String label, Color color) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: color),
+        Icon(icon, size: 16, color: color),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.bold)),
+        Text(label, 
+          style: TextStyle(
+            fontSize: AppTextSizes.caption(context.screenWidth), 
+            color: const Color(0xFF475569), 
+            fontWeight: FontWeight.bold
+          )),
       ],
     );
   }

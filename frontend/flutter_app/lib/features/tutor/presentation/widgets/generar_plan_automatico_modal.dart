@@ -69,23 +69,28 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Column(
         children: [
-          const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
+          const Icon(Icons.auto_awesome_rounded, size: 40, color: Colors.blue),
           const SizedBox(height: 12),
-          const Text("Configurar plan automático",
+          const Text("Configurar Plan",
+              textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ],
       ),
       content: SizedBox(
-        width: 500,
+        width: 400,
+        height: screenHeight * 0.55, // Altura restringida para móvil
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildModalSectionTitle("Periodo de Vigencia"),
+              _buildModalSectionTitle("Duración"),
               DropdownButtonFormField<String>(
                 value: _durationType,
                 decoration: InputDecoration(
@@ -94,6 +99,7 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 items: const [
                   DropdownMenuItem(value: "un día", child: Text("Un día")),
@@ -105,53 +111,49 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                   _updateEndDate();
                 },
               ),
-              const SizedBox(height: 16),
-              _buildModalSectionTitle("Resumen de Fechas"),
+              const SizedBox(height: 20),
+              _buildModalSectionTitle("Resumen"),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.blue.withOpacity(0.1)),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.calendar_month, color: Colors.blue),
-                    const SizedBox(height: 8),
                     Text(
-                      "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
+                      "${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
                       style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.blue,
-                          fontSize: 14),
+                          fontSize: 15),
                     ),
+                    const SizedBox(height: 4),
                     Text(
-                      "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                      "${_endDate.difference(_startDate).inDays + 1} días de vigencia",
                       style: TextStyle(
-                          color: Colors.blue.shade700, fontSize: 12),
+                          color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 32),
-              _buildModalSectionTitle("Tiempos obligatorios"),
-              const Text("Se establecerán 3 comidas base por día.",
-                  style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
-              const SizedBox(height: 12),
-              _buildConfigTile("Desayuno", "Principal", Icons.wb_twilight, true, null),
-              _buildConfigTile("Almuerzo", "Principal", Icons.wb_sunny, true, null),
-              _buildConfigTile("Merienda", "Principal", Icons.nightlight_round, true, null),
-              const Divider(height: 32),
+              const Divider(height: 40, thickness: 1),
+              _buildModalSectionTitle("Comidas base"),
+              const Text("Se establecerán Desayuno, Almuerzo y Merienda.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.blueGrey, height: 1.4)),
+              const SizedBox(height: 16),
               _buildModalSectionTitle("Snacks opcionales"),
               _buildConfigTile(
-                  "Snack media mañana",
+                  "Media mañana",
                   "Entre desayuno y almuerzo",
                   Icons.coffee,
                   _morningSnackEnabled,
                   (v) => setState(() => _morningSnackEnabled = v!)),
               _buildConfigTile(
-                  "Snack media tarde",
+                  "Media tarde",
                   "Entre almuerzo y cena",
                   Icons.apple,
                   _afternoonSnackEnabled,
@@ -166,7 +168,7 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
             Expanded(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 50),
+                  minimumSize: const Size(0, 48),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
@@ -176,10 +178,9 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
             ),
             const SizedBox(width: 12),
             Expanded(
-              flex: 2,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 50),
+                  minimumSize: const Size(0, 48),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
@@ -189,7 +190,7 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                         height: 20, width: 20,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
-                    : const Text("Generar Plan Inteligente"),
+                    : const Text("Generar"),
               ),
             ),
           ],

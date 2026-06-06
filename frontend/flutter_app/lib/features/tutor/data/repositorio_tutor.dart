@@ -80,6 +80,15 @@ class RepositorioTutor {
       throw Exception("Error al intercambiar receta: ${e.message}");
     }
   }
+
+  Future<Map<String, dynamic>> obtenerTipSaludable() async {
+    try {
+      final response = await _dio.get("tutor/tips-saludables");
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw Exception("Error al cargar tip saludable: ${e.message}");
+    }
+  }
 }
 
 extension DateTimeExtension on DateTime {
