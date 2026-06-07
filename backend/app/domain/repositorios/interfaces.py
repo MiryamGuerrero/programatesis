@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import date
 from ..modelos.paciente import PerfilPaciente
 from ..modelos.clinico import ClinicalDiagnosis
@@ -22,6 +22,19 @@ class IRepositorioPaciente(ABC):
 
     @abstractmethod
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def obtener_evolucion_mensual(
+        self,
+        id_paciente: str,
+        fecha_inicio: str | None = None,
+        fecha_fin: str | None = None,
+        estado_enfermedad: str | None = None,
+        en_brote: bool | None = None,
+        estado_nutricional: str | None = None,
+        solo_alterados: bool = False,
+    ) -> Dict[str, Any]:
         pass
 
     @abstractmethod

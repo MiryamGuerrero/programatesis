@@ -1,5 +1,5 @@
 from typing import Any
-from datetime import date
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles, UserContext
 from app.api.v1.dependencias import (
@@ -174,6 +174,187 @@ def evolucion_paciente(
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
     return caso_uso.obtener_resumen_evolucion(id_paciente)
+
+@router.get("/pacientes/{id_paciente}/evolucion-mensual")
+def evolucion_mensual_paciente(
+    id_paciente: str,
+    fecha_inicio: str | None = Query(default=None),
+    fecha_fin: str | None = Query(default=None),
+    estado_enfermedad: str | None = Query(default=None),
+    en_brote: bool | None = Query(default=None),
+    estado_nutricional: str | None = Query(default=None),
+    solo_alterados: bool = Query(default=False),
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
+):
+    return caso_uso.obtener_evolucion_mensual(
+        id_paciente,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        estado_enfermedad=estado_enfermedad,
+        en_brote=en_brote,
+        estado_nutricional=estado_nutricional,
+        solo_alterados=solo_alterados,
+    )
+
+
+@router.get("/pacientes/{id_paciente}/consumo-alimentario")
+def consumo_alimentario_paciente(
+    id_paciente: str,
+    dias: int = Query(default=180, ge=1, le=180),
+    _=Depends(require_roles("admin", "medico", "nutricionista")),
+):
+    fecha_fin = date.today()
+    fecha_inicio = fecha_fin - timedelta(days=max(dias - 1, 0))
+
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select
+                p.id::text as id_plan,
+                p.fecha_inicio,
+                p.fecha_fin,
+                pi.id::text as id_plan_item,
+                pi.fecha_programada as fecha,
+                m.nombre as momento,
+                m.orden as momento_orden,
+                pi.id_receta::text as id_receta,
+                coalesce(r.nombre, 'Receta no encontrada') as receta_consumida,
+                coalesce(r.nombre, 'Receta no encontrada') as receta_asignada,
+                coalesce(r.descripcion, '') as descripcion_receta,
+                coalesce(pi.consumida, false) as consumida,
+                er.estrellas,
+                er.comentario,
+                er.id_motivo_rechazo,
+                coalesce(cmr.nombre, '') as motivo_rechazo,
+                case
+                    when coalesce(pi.consumida, false) = true then 'Consumida'
+                    when er.estrellas is not null and er.estrellas <= 2 then 'Rechazada'
+                    when er.estrellas is null then 'Sin registro'
+                    else 'Parcial'
+                end as estado_consumo
+            from interaccion.plan_nutricional p
+            join interaccion.plan_item pi on pi.id_plan = p.id
+            join nutricion.momento_comida m on m.id = pi.id_momento
+            left join nutricion.receta r on r.id = pi.id_receta
+            left join interaccion.evaluacion_receta er
+                on er.id_paciente = p.id_paciente
+               and er.id_receta = pi.id_receta
+            left join interaccion.catalogo_motivo_rechazo cmr
+                on cmr.id = er.id_motivo_rechazo
+            where p.id_paciente = %s
+              and pi.fecha_programada >= %s
+              and pi.fecha_programada <= %s
+            order by pi.fecha_programada asc, m.orden asc, pi.id asc
+            """,
+            (id_paciente, fecha_inicio, fecha_fin),
+        )
+        cols = [d[0] for d in cur.description]
+        items = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    for item in items:
+        item["ingredientes"] = []
+
+    if items:
+        ids_receta = [item["id_receta"] for item in items if item.get("id_receta")]
+        if ids_receta:
+            with db_cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        pi.id_receta::text as id_receta,
+                        i.nombre as nombre
+                    from interaccion.plan_nutricional p
+                    join interaccion.plan_item pi on pi.id_plan = p.id
+                    join nutricion.receta_ingrediente ri on ri.id_receta = pi.id_receta
+                    join nutricion.ingrediente i on i.id = ri.id_ingrediente
+                    where p.id_paciente = %s
+                      and pi.fecha_programada >= %s
+                      and pi.fecha_programada <= %s
+                      and coalesce(pi.consumida, false) = true
+                    order by i.nombre asc
+                    """,
+                    (id_paciente, fecha_inicio, fecha_fin),
+                )
+                ingredientes_por_receta: dict[str, list[dict[str, Any]]] = {}
+                for id_receta, nombre in cur.fetchall():
+                    ingredientes_por_receta.setdefault(str(id_receta), []).append(
+                        {"nombre": nombre}
+                    )
+
+            for item in items:
+                item["ingredientes"] = ingredientes_por_receta.get(
+                    str(item.get("id_receta") or ""),
+                    [],
+                )
+
+    consumidos = sum(1 for item in items if item.get("consumida") is True)
+    total = len(items)
+    mala_aceptacion = sum(1 for item in items if int(item.get("estrellas") or 0) <= 2 and item.get("estrellas") is not None)
+
+    ingredientes_contador: dict[str, int] = {}
+    for item in items:
+        if item.get("consumida") is not True:
+            continue
+        for ing in item.get("ingredientes") or []:
+            nombre = (ing.get("nombre") or "").strip()
+            if not nombre:
+                continue
+            ingredientes_contador[nombre] = ingredientes_contador.get(nombre, 0) + 1
+
+    ingredientes_mas_consumidos = [
+        {"nombre": nombre}
+        for nombre, _total in sorted(
+            ingredientes_contador.items(),
+            key=lambda kv: (-kv[1], kv[0].lower()),
+        )
+    ][:10]
+
+    alertas = []
+    for item in items:
+        estrellas = item.get("estrellas")
+        if estrellas is None:
+            continue
+        try:
+            estrellas_num = int(estrellas)
+        except (TypeError, ValueError):
+            continue
+        if estrellas_num > 2:
+            continue
+        item_alerta = dict(item)
+        item_alerta["motivo_rechazo"] = item_alerta.get("motivo_rechazo") or item_alerta.get("comentario") or "-"
+        alertas.append(item_alerta)
+
+    planes_unicos = {}
+    for item in items:
+        id_plan = item.get("id_plan")
+        if not id_plan or id_plan in planes_unicos:
+            continue
+        planes_unicos[id_plan] = {
+            "id_plan": id_plan,
+            "fecha_inicio": item.get("fecha_inicio"),
+            "fecha_fin": item.get("fecha_fin"),
+        }
+
+    adherencia = round((consumidos / total * 100), 2) if total else 0
+
+    return {
+        "resumen": {
+            "adherencia_porcentaje": adherencia,
+            "total_planificado": total,
+            "total_consumido": consumidos,
+            "total_mala_aceptacion": mala_aceptacion,
+            "ingredientes_mas_consumidos": ingredientes_mas_consumidos,
+            "alertas_aceptacion": alertas,
+        },
+        "items": items,
+        "planes": list(planes_unicos.values()),
+        "periodo": {
+            "dias": dias,
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "fecha_fin": fecha_fin.isoformat(),
+        },
+    }
 
 @router.get("/pacientes")
 def listar_todos_los_pacientes(

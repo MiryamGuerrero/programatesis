@@ -40,9 +40,34 @@ class RepositorioMedico {
     return Map<String, dynamic>.from(response.data);
   }
 
+  Future<Map<String, dynamic>> obtenerEvolucionMensual(
+    String idPaciente, {
+    String? fechaInicio,
+    String? fechaFin,
+    String? estadoEnfermedad,
+    bool? enBrote,
+    String? estadoNutricional,
+    bool soloAlterados = false,
+  }) async {
+    final response = await _dio.get(
+      "pacientes/$idPaciente/evolucion-mensual",
+      queryParameters: {
+        if (fechaInicio != null) "fecha_inicio": fechaInicio,
+        if (fechaFin != null) "fecha_fin": fechaFin,
+        if (estadoEnfermedad != null && estadoEnfermedad.isNotEmpty)
+          "estado_enfermedad": estadoEnfermedad,
+        if (enBrote != null) "en_brote": enBrote,
+        if (estadoNutricional != null && estadoNutricional.isNotEmpty)
+          "estado_nutricional": estadoNutricional,
+        "solo_alterados": soloAlterados,
+      },
+    );
+    return Map<String, dynamic>.from(response.data);
+  }
+
   Future<Map<String, dynamic>> obtenerConsumoAlimentario(
     String idPaciente, {
-    int dias = 30,
+    int dias = 180,
   }) async {
     final response = await _dio.get(
       "pacientes/$idPaciente/consumo-alimentario",
