@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 import os
 import logging
 from typing import Optional, List, Dict, Any, Tuple, Set
@@ -111,7 +111,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             if str(i).strip()
         }
 
-        cur.execute("select id from usuarios.rol where lower(nombre) in ('medico', 'médico') limit 1")
+        cur.execute("select id from usuarios.rol where lower(nombre) in ('medico', 'mÃ©dico') limit 1")
         rol_row = cur.fetchone()
         id_rol_medico = rol_row[0] if rol_row else 2
 
@@ -126,7 +126,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 (id_paciente, id_rol_medico),
             )
 
-        motivo = "Recomendado por médico en registro integral"
+        motivo = "Recomendado por mÃ©dico en registro integral"
         for id_ingrediente in sorted(ids):
             cur.execute(
                 """
@@ -205,7 +205,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 "habilitado": False,
                 "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
                 "fecha_referencia": referencia.isoformat() if referencia else None,
-                "mensaje": "Ya existe un control mensual registrado en este periodo. Si desea modificarlo, vaya al monitor de evolución.",
+                "mensaje": "Ya existe un control mensual registrado en este periodo. Si desea modificarlo, vaya al monitor de evoluciÃ³n.",
             }
 
         if referencia is None or hoy >= referencia:
@@ -222,7 +222,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             "habilitado": False,
             "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
             "fecha_referencia": referencia.isoformat() if referencia else None,
-            "mensaje": "Aún no corresponde el control mensual. La ventana se habilitará al llegar la fecha programada.",
+            "mensaje": "AÃºn no corresponde el control mensual. La ventana se habilitarÃ¡ al llegar la fecha programada.",
         }
 
     def _obtener_codigos_catalogo_restricciones(self, cur) -> set[str]:
@@ -280,12 +280,12 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             row = cur.fetchone()
             if not row: return None
             
-            # 1. Diagnósticos permanentes (Patologías)
+            # 1. DiagnÃ³sticos permanentes (PatologÃ­as)
             cur.execute("select id_condicion from clinico.diagnostico_paciente where id_paciente = %s and esta_activo = true", (id_paciente,))
             condiciones = [r[0] for r in cur.fetchall()]
             
-            # 2. Condiciones de controles clínicos (Nutricionales, Talla, Temporales)
-            # Buscamos el último control y sus condiciones activas
+            # 2. Condiciones de controles clÃ­nicos (Nutricionales, Talla, Temporales)
+            # Buscamos el Ãºltimo control y sus condiciones activas
             cur.execute("""
                 select cca.id_condicion 
                 from clinico.control_condicion_activa cca
@@ -387,7 +387,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     paciente_existente = cur.fetchone()
                     if paciente_existente:
                         raise ValueError(
-                            f"__PACIENTE_CEDULA_DUP__La cédula {cedula_paciente} ya está registrada para otro paciente."
+                            f"__PACIENTE_CEDULA_DUP__La cÃ©dula {cedula_paciente} ya estÃ¡ registrada para otro paciente."
                         )
                 cur.execute("""
                     insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_canton, id_parroquia, cedula, activo) 
@@ -395,10 +395,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), cedula_paciente))
                 paciente_id = cur.fetchone()[0]
                 
-                # 3. Relación Tutor-Paciente
+                # 3. RelaciÃ³n Tutor-Paciente
                 cur.execute("insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) values (%s, %s, %s, true, true)", (tutor_id, paciente_id, tutor.get("id_parentesco")))
                 
-                # 4. Evaluación OMS
+                # 4. EvaluaciÃ³n OMS
                 fecha_nac = date.fromisoformat(paciente["fecha_nacimiento"])
                 peso = float(salud.get("peso_kg") or 0)
                 talla_cm = float(salud.get("talla_cm") or 0)
@@ -435,7 +435,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     if c_id and c_id > 0:
                         cur.execute("insert into clinico.control_condicion_activa (id_control, id_condicion, fecha_inicio, esta_activa) values (%s, %s, now(), true)", (control_id, c_id))
 
-                # 7. Diagnóstico Base
+                # 7. DiagnÃ³stico Base
                 if salud.get("id_patologia_base"):
                     cur.execute("insert into clinico.diagnostico_paciente (id_paciente, id_condicion, fecha_diagnostico, es_cronico, esta_activo, observaciones) values (%s, %s, now(), true, true, %s)", (paciente_id, salud["id_patologia_base"], salud.get("observaciones")))
                 
@@ -588,6 +588,281 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             except Exception as e:
                 cur.execute("ROLLBACK"); raise e
 
+    def obtener_evolucion_mensual(
+        self,
+        id_paciente: str,
+        fecha_inicio: str | None = None,
+        fecha_fin: str | None = None,
+        estado_enfermedad: str | None = None,
+        en_brote: bool | None = None,
+        estado_nutricional: str | None = None,
+        solo_alterados: bool = False,
+    ) -> dict:
+        def _parse_date(value: str | None) -> date | None:
+            if not value:
+                return None
+            try:
+                return date.fromisoformat(value[:10])
+            except Exception:
+                return None
+
+        def _parse_bool(value) -> bool:
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return False
+            return str(value).strip().lower() in {"true", "1", "t", "yes", "si", "sÃ­"}
+
+        fecha_inicio_dt = _parse_date(fecha_inicio)
+        fecha_fin_dt = _parse_date(fecha_fin)
+
+        with db_cursor() as cur:
+            cur.execute(
+                """
+                select
+                    p.id::text,
+                    p.nombre_completo::text,
+                    p.fecha_nacimiento::text,
+                    p.id_sexo,
+                    coalesce(dp.condicion_nombre, 'Sin diagnÃ³stico')::text as diagnostico_principal
+                from usuarios.paciente p
+                left join lateral (
+                    select c.nombre::text as condicion_nombre
+                    from clinico.diagnostico_paciente dp
+                    join heuristico.condicion c on c.id = dp.id_condicion
+                    where dp.id_paciente = p.id
+                      and dp.esta_activo = true
+                    order by dp.fecha_diagnostico desc, dp.id desc
+                    limit 1
+                ) dp on true
+                where p.id = %s
+                limit 1
+                """,
+                (id_paciente,),
+            )
+            row_paciente = cur.fetchone()
+            if not row_paciente:
+                return {"error": "No existe"}
+
+            paciente = {
+                "id_paciente": row_paciente[0],
+                "nombre": row_paciente[1],
+                "fecha_nacimiento": row_paciente[2],
+                "id_sexo": row_paciente[3],
+                "diagnostico_principal": row_paciente[4],
+            }
+            try:
+                fecha_nac = date.fromisoformat(str(row_paciente[2])[:10])
+            except Exception:
+                fecha_nac = date.today()
+
+            cur.execute(
+                """
+                select
+                    cp.id::text,
+                    cp.fecha_control::text,
+                    cp.peso_kg,
+                    cp.talla_cm,
+                    cp.imc_calculado,
+                    cp.estado_nutricional::text,
+                    cp.id_condicion_nutricional_resultado,
+                    cp.puntos_dolor,
+                    cp.escala_inflamacion,
+                    cp.nivel_fatiga,
+                    cp.articulaciones_inflamadas,
+                    cp.articulaciones_dolorosas,
+                    cp.minutos_rigidez,
+                    cp.en_brote,
+                    cp.estado_enfermedad::text,
+                    cp.nota_evolucion::text,
+                    cp.fecha_proxima_cita::text,
+                    cp.created_at::text,
+                    vc.confirmado as validacion_confirmada,
+                    vc.fecha_confirmacion::text as fecha_confirmacion,
+                    coalesce(cca.condiciones_activas, '')::text as condiciones_activas
+                from clinico.control_paciente cp
+                left join clinico.validacion_control_nutricional_mensual vc
+                  on vc.id_control = cp.id
+                 and vc.anio = extract(year from cp.fecha_control)::int
+                 and vc.mes = extract(month from cp.fecha_control)::int
+                left join lateral (
+                    select string_agg(c.nombre::text, ', ' order by c.nombre) as condiciones_activas
+                    from clinico.control_condicion_activa cca
+                    join heuristico.condicion c on c.id = cca.id_condicion
+                    where cca.id_control = cp.id
+                      and cca.esta_activa = true
+                ) cca on true
+                where cp.id_paciente = %s
+                order by cp.fecha_control asc, cp.id asc
+                """,
+                (id_paciente,),
+            )
+            cols = [d[0] for d in cur.description]
+            controles_raw = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        controles = []
+        for raw in controles_raw:
+            fecha_texto = raw.get("fecha_control")
+            try:
+                fecha_control = date.fromisoformat(str(fecha_texto)[:10])
+            except Exception:
+                fecha_control = None
+
+            if fecha_inicio_dt and fecha_control and fecha_control < fecha_inicio_dt:
+                continue
+            if fecha_fin_dt and fecha_control and fecha_control > fecha_fin_dt:
+                continue
+
+            if estado_enfermedad and (raw.get("estado_enfermedad") or "").strip().lower() != estado_enfermedad.strip().lower():
+                continue
+            if en_brote is not None and _parse_bool(raw.get("en_brote")) != en_brote:
+                continue
+            if estado_nutricional and (raw.get("estado_nutricional") or "").strip().lower() != estado_nutricional.strip().lower():
+                continue
+
+            try:
+                evaluacion = ServicioOMS.evaluar_paciente_integral(
+                    float(raw.get("peso_kg") or 0),
+                    float(raw.get("talla_cm") or 0),
+                    int(paciente["id_sexo"]),
+                    fecha_nac,
+                    fecha_control or date.today(),
+                )
+            except Exception:
+                evaluacion = {}
+
+            def _to_list_text(value):
+                if value is None:
+                    return []
+                if isinstance(value, list):
+                    return [str(v) for v in value if str(v).strip()]
+                if isinstance(value, tuple):
+                    return [str(v) for v in value if str(v).strip()]
+                text = str(value).strip()
+                return [text] if text else []
+
+            prediagnostico = {
+                "imc": evaluacion.get("imc", raw.get("imc_calculado")),
+                "z_score_bmi": evaluacion.get("z_score_principal", raw.get("z_score_bmi")),
+                "diagnostico_nutri_texto": evaluacion.get("diagnostico_nutri_texto"),
+                "diagnostico_talla_texto": evaluacion.get("diagnostico_talla_texto"),
+                "diagnostico_combinado": evaluacion.get("diagnostico_combinado") or raw.get("estado_nutricional"),
+                "peso_ideal": evaluacion.get("peso_ideal_estimado"),
+                "talla_ideal": evaluacion.get("talla_ideal"),
+                "ganancia_peso_necesaria": evaluacion.get("ganancia_peso_necesaria"),
+                "ganancia_talla_necesaria": evaluacion.get("ganancia_talla_necesaria"),
+                "estado_peso": evaluacion.get("estado_peso"),
+                "resumen_clinico": _to_list_text(evaluacion.get("resumen_clinico")),
+                "advertencias": _to_list_text(evaluacion.get("advertencias")),
+            }
+
+            if solo_alterados:
+                z = float(prediagnostico.get("z_score_bmi") or 0)
+                dolor = int(raw.get("puntos_dolor") or 0)
+                fatiga = int(raw.get("nivel_fatiga") or 0)
+                inflamacion = int(raw.get("escala_inflamacion") or 0)
+                inflamadas = int(raw.get("articulaciones_inflamadas") or 0)
+                dolorosas = int(raw.get("articulaciones_dolorosas") or 0)
+                rigidez = int(raw.get("minutos_rigidez") or 0)
+                estado_nut = (raw.get("estado_nutricional") or "").lower()
+                if not (
+                    dolor >= 5
+                    or fatiga <= 4
+                    or inflamacion >= 2
+                    or inflamadas > 0
+                    or dolorosas > 0
+                    or rigidez >= 30
+                    or _parse_bool(raw.get("en_brote"))
+                    or estado_nut not in {"normal", "eutrofico"}
+                    or abs(z) > 2
+                ):
+                    continue
+
+            raw["prediagnostico"] = prediagnostico
+            raw["mes"] = fecha_control.strftime("%b %Y") if fecha_control else "-"
+            raw["fecha_control"] = fecha_control.isoformat() if fecha_control else raw.get("fecha_control")
+            raw["condiciones_activas"] = [
+                c.strip()
+                for c in (raw.get("condiciones_activas") or "").split(",")
+                if c.strip()
+            ]
+            controles.append(raw)
+
+        ultimo = controles[-1] if controles else {}
+        def _num(v, default=0.0):
+            try:
+                return float(v if v is not None else default)
+            except Exception:
+                return float(default)
+
+        resumen_actual = {
+            "dolor_actual": int(ultimo.get("puntos_dolor") or 0),
+            "energia_actual": int(ultimo.get("nivel_fatiga") or 10),
+            "inflamacion_actual": int(ultimo.get("escala_inflamacion") or 0),
+            "articulaciones_inflamadas": int(ultimo.get("articulaciones_inflamadas") or 0),
+            "articulaciones_dolorosas": int(ultimo.get("articulaciones_dolorosas") or 0),
+            "rigidez_minutos": int(ultimo.get("minutos_rigidez") or 0),
+            "estado_enfermedad": ultimo.get("estado_enfermedad"),
+            "estado_nutricional": ultimo.get("estado_nutricional"),
+            "z_score_bmi": _num((ultimo.get("prediagnostico") or {}).get("z_score_bmi", ultimo.get("z_score_bmi"))),
+            "en_brote": bool(ultimo.get("en_brote")),
+        }
+
+        dolor = [_num(c.get("puntos_dolor")) for c in controles]
+        energia = [_num(c.get("nivel_fatiga"), 10) for c in controles]
+        inflamacion = [_num(c.get("escala_inflamacion")) for c in controles]
+        brotes = sum(1 for c in controles if c.get("en_brote") is True)
+
+        resumen = {
+            "promedio_dolor": round(sum(dolor) / len(dolor), 2) if dolor else None,
+            "promedio_energia": round(sum(energia) / len(energia), 2) if energia else None,
+            "dolor_maximo": max(dolor) if dolor else None,
+            "energia_minima": min(energia) if energia else None,
+            "cantidad_controles": len(controles),
+            "cantidad_controles_con_brote": brotes,
+            "inflamacion_maxima": max(inflamacion) if inflamacion else None,
+        }
+
+        if controles:
+            resumen["ultimo_control"] = controles[-1]["fecha_control"]
+        else:
+            resumen["ultimo_control"] = None
+
+        if controles:
+            ult = controles[-1]
+            prev = controles[-2] if len(controles) > 1 else None
+            note_parts = []
+            if bool(ult.get("en_brote")):
+                note_parts.append("El Ãºltimo control muestra brote activo.")
+            elif int(ult.get("puntos_dolor") or 0) <= 2 and int(ult.get("nivel_fatiga") or 10) >= 7:
+                note_parts.append("El Ãºltimo control muestra remisiÃ³n clÃ­nica.")
+            else:
+                note_parts.append("El Ãºltimo control requiere seguimiento clÃ­nico.")
+
+            if prev:
+                if (int(ult.get("puntos_dolor") or 0) > int(prev.get("puntos_dolor") or 0)) or (int(ult.get("escala_inflamacion") or 0) > int(prev.get("escala_inflamacion") or 0)):
+                    note_parts.append("Hay aumento de actividad clÃ­nica frente al control anterior.")
+                if float((ult.get("prediagnostico") or {}).get("z_score_bmi") or 0) and abs(float((ult.get("prediagnostico") or {}).get("z_score_bmi") or 0)) > 2:
+                    note_parts.append("Existe alerta nutricional por z-score fuera de rango.")
+
+            insight = " ".join(note_parts)
+        else:
+            insight = "No hay controles suficientes para generar una interpretaciÃ³n clÃ­nica."
+
+        return {
+            "paciente": {
+                "id_paciente": paciente["id_paciente"],
+                "nombre": paciente["nombre"],
+                "edad": ServicioOMS.calcular_edad_meses(fecha_nac, date.today()) // 12,
+                "diagnostico_principal": paciente["diagnostico_principal"],
+                "ultimo_control": ultimo.get("fecha_control"),
+            },
+            "resumen_actual": resumen_actual,
+            "resumen": resumen,
+            "controles": controles,
+            "insight_automatico": insight,
+        }
+
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[dict]:
         with db_cursor() as cur:
             cur.execute("""
@@ -672,7 +947,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         where id = %s
                     """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
 
-                # 3. Diagnóstico Base
+                # 3. DiagnÃ³stico Base
                 if salud.get("id_patologia_base"):
                     cur.execute("update clinico.diagnostico_paciente set esta_activo = false where id_paciente = %s", (id_paciente,))
                     cur.execute("""
@@ -717,7 +992,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             except Exception as e:
                 cur.execute("ROLLBACK")
                 logging.error(f"Error en actualizar_paciente_integral: {str(e)}", exc_info=True)
-                raise Exception(f"Fallo en la actualización integral: {str(e)}")
+                raise Exception(f"Fallo en la actualizaciÃ³n integral: {str(e)}")
 
     def eliminar_paciente_integral(self, id_paciente: str) -> bool:
         from app.core.auth_onboarding import delete_auth_user
@@ -873,7 +1148,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             ultimo_control = historial_controles[-1] if historial_controles else {}
             estado_control_mensual = self._construir_estado_control_mensual(historial_controles)
             
-            # También traer alergias para el expediente mensual
+            # TambiÃ©n traer alergias para el expediente mensual
             cur.execute("""
                 select s.id, s.nombre::text
                 from clinico.alergia_paciente_subgrupo ap
@@ -966,3 +1241,5 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     "ingredientes": recomendaciones_ingredientes,
                 },
             }
+
+

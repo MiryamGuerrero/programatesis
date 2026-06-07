@@ -266,7 +266,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
   Widget _buildTabSeguridad() {
     final alergias = _data!['alergias'];
     final subgrupos = (alergias['subgrupos'] as List);
-    final ingredientes = (alergias['ingredientes'] as List);
+    final ingredientes = _ingredientesPrincipalesVista(alergias['ingredientes'] as List);
     final restricciones = (_data!['restricciones_alimentarias_detalle'] as List? ?? []);
 
     return SingleChildScrollView(
@@ -392,6 +392,83 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
         ],
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _ingredientesPrincipalesVista(List raw) {
+    final items = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final baseCandidates = items.where((item) {
+      final name = _allergyNameKey(item['nombre']);
+      return name.contains(" fresco") ||
+          name.contains(" fresca") ||
+          name.contains(" natural") ||
+          name.contains(" entero") ||
+          name.contains(" entera");
+    }).toList();
+    if (baseCandidates.isEmpty) return items;
+
+    return items.where((item) {
+      final name = _allergyNameKey(item['nombre']);
+      final isDerivative = _isDerivativeIngredientName(name);
+      if (!isDerivative) return true;
+      return !baseCandidates.any((base) {
+        final baseTokens = _allergyTokens(base['nombre']);
+        final itemTokens = _allergyTokens(item['nombre']);
+        return baseTokens.any(itemTokens.contains);
+      });
+    }).toList();
+  }
+
+  bool _isDerivativeIngredientName(String name) {
+    const derivativeWords = [
+      "aceite",
+      "leche",
+      "harina",
+      "crema",
+      "bebida",
+      "mantequilla",
+      "rallado",
+      "deshidratado",
+      "extracto",
+      "polvo",
+      "yogur",
+      "queso",
+    ];
+    return derivativeWords.any((word) => name.contains(word));
+  }
+
+  List<String> _allergyTokens(dynamic value) {
+    const ignored = {
+      "de",
+      "del",
+      "la",
+      "el",
+      "los",
+      "las",
+      "fresco",
+      "fresca",
+      "natural",
+      "entero",
+      "entera",
+    };
+    return _allergyNameKey(value)
+        .split(" ")
+        .where((token) => token.length > 2 && !ignored.contains(token))
+        .toList();
+  }
+
+  String _allergyNameKey(dynamic value) {
+    return (value ?? "")
+        .toString()
+        .toLowerCase()
+        .replaceAll("á", "a")
+        .replaceAll("é", "e")
+        .replaceAll("í", "i")
+        .replaceAll("ó", "o")
+        .replaceAll("ú", "u")
+        .replaceAll("ñ", "n")
+        .replaceAll(RegExp(r"[^a-z0-9 ]"), " ")
+        .replaceAll(RegExp(r"\s+"), " ")
+        .trim();
   }
 
   Widget _sectionTitle(String title, IconData icon) {

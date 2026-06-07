@@ -66,6 +66,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
     return MaterialApp(
       title: "NutriReuma",
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _AppScrollBehavior(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
@@ -84,6 +85,15 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
       ],
       supportedLocales: const [Locale('es', 'EC')],
     );
+  }
+}
+
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    return child;
   }
 }
 

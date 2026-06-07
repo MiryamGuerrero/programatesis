@@ -14,6 +14,26 @@ class CasoUsoGestionarPacientes:
     def obtener_resumen_evolucion(self, id_paciente: str) -> List[Dict[str, Any]]:
         return self.repo_paciente.obtener_resumen_evolucion(id_paciente)
 
+    def obtener_evolucion_mensual(
+        self,
+        id_paciente: str,
+        fecha_inicio: str | None = None,
+        fecha_fin: str | None = None,
+        estado_enfermedad: str | None = None,
+        en_brote: bool | None = None,
+        estado_nutricional: str | None = None,
+        solo_alterados: bool = False,
+    ) -> Dict[str, Any]:
+        return self.repo_paciente.obtener_evolucion_mensual(
+            id_paciente,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            estado_enfermedad=estado_enfermedad,
+            en_brote=en_brote,
+            estado_nutricional=estado_nutricional,
+            solo_alterados=solo_alterados,
+        )
+
     def obtener_expediente_completo(self, id_paciente: str) -> Dict[str, Any]:
         return self.repo_paciente.obtener_expediente_completo(id_paciente)
 

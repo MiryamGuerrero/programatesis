@@ -48,7 +48,7 @@ class PatientDetailModal extends ConsumerWidget {
                     children: [
                       const Icon(Icons.error_outline, color: Colors.red, size: 48),
                       const SizedBox(height: 16),
-                      Text("Error al cargar datos", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+                      Text("Error al cargar datos", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Text(err.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
@@ -79,7 +79,7 @@ class PatientDetailModal extends ConsumerWidget {
           const SizedBox(width: 16),
           Text(
             "Información del Paciente",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -135,7 +135,7 @@ class PatientDetailModal extends ConsumerWidget {
         const SizedBox(width: 10),
         Text(
           title.toUpperCase(),
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w800,
             color: AppTema.azulOscuro,
@@ -168,7 +168,7 @@ class PatientDetailModal extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 item.value?.toString() ?? "No registrado",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: item.isHighlight ? FontWeight.bold : FontWeight.w600,
                   color: item.isHighlight ? AppTema.verdeSalud : Colors.blueGrey.shade800,
@@ -198,7 +198,7 @@ class PatientDetailModal extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
             child: Text(
               "CERRAR",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
               ),
