@@ -9,6 +9,8 @@ from ...domain.repositorios.interfaces import (
 )
 from .evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
 
+from ...domain.modelos.plan_nutricional import PlanSemanal, DiaPlan, ItemPlan
+
 class CasoUsoGenerarPlanAutomatico:
     def __init__(
         self,
@@ -22,7 +24,7 @@ class CasoUsoGenerarPlanAutomatico:
         self.repo_paciente = repo_paciente
         self.repo_composicion = repo_composicion
 
-    def ejecutar(
+    def ejecutar_tutor(
         self, 
         id_paciente: str, 
         dias: int, 
@@ -30,6 +32,55 @@ class CasoUsoGenerarPlanAutomatico:
         momentos_obligatorios: List[int],
         momentos_opcionales: List[int]
     ) -> dict:
+        # 1. Generar la estructura del plan en memoria usando la misma lógica
+        plan_semanal = self.generar_plan_objeto(
+            id_paciente=id_paciente,
+            fecha_inicio=fecha_inicio,
+            dias=dias,
+            momentos_ids=sorted(list(set(momentos_obligatorios + momentos_opcionales)))
+        )
+        
+        # 2. Crear el plan nutricional (cabecera) en la BD
+        id_plan = self.repo_seguimiento.crear_plan_nutricional({
+            "id_paciente": id_paciente,
+            "id_origen_plan": 2, # Sistema
+            "id_estado_plan": 2, # Activo
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": plan_semanal.dias[-1].fecha,
+            "comidas_por_dia": len(momentos_obligatorios) + len(momentos_opcionales)
+        })
+
+        # 3. Preparar items para insertar
+        items_a_insertar = []
+        for dia in plan_semanal.dias:
+            for comida in dia.comidas:
+                items_a_insertar.append({
+                    "id_plan": id_plan,
+                    "fecha_programada": dia.fecha,
+                    "id_momento": comida.id_momento,
+                    "id_receta": comida.id_receta,
+                    "semaforo": comida.semaforo
+                })
+
+        # 4. Guardar items
+        if items_a_insertar:
+            self.repo_seguimiento.agregar_items_plan(items_a_insertar)
+            
+        return {
+            "id_plan": id_plan, 
+            "dias_generados": dias, 
+            "items_generated": len(items_a_insertar),
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "fecha_fin": plan_semanal.dias[-1].fecha.isoformat()
+        }
+
+    def generar_plan_objeto(
+        self,
+        id_paciente: str,
+        fecha_inicio: date,
+        dias: int,
+        momentos_ids: List[int]
+    ) -> PlanSemanal:
         # 1. Obtener perfil del paciente (para condiciones)
         perfil = self.repo_paciente.obtener_por_id(id_paciente)
         if not perfil:
@@ -37,30 +88,22 @@ class CasoUsoGenerarPlanAutomatico:
         
         condiciones_ids = perfil.condiciones_activas
         
-        # 2. Crear el plan nutricional (cabecera)
-        fecha_fin = fecha_inicio + timedelta(days=dias - 1)
-        id_plan = self.repo_seguimiento.crear_plan_nutricional({
-            "id_paciente": id_paciente,
-            "id_origen_plan": 2, # Sistema
-            "id_estado_plan": 2, # Activo
-            "fecha_inicio": fecha_inicio,
-            "fecha_fin": fecha_fin,
-            "comidas_por_dia": len(momentos_obligatorios) + len(momentos_opcionales)
-        })
-        
-        # 3. Preparar catálogo de recetas seguras
-        momentos_todos = sorted(list(set(momentos_obligatorios + momentos_opcionales)))
+        # 2. Preparar catálogo de recetas seguras
         recetas_seguras_cache = {}
-        for m_id in momentos_todos:
+        for m_id in momentos_ids:
             recetas_seguras_cache[m_id] = self.repo_receta.obtener_recetas_seguras_para_paciente(id_paciente, m_id)
 
-        items_a_insertar = []
+        # 3. Obtener nombres de los momentos para el objeto de respuesta
+        momentos_cat = {m["id"]: m["nombre"] for m in self.repo_receta.listar_momentos_comida()}
+
+        dias_plan = []
         
         # 4. Generar items día por día
         for i in range(dias):
             fecha_dia = fecha_inicio + timedelta(days=i)
+            comidas_dia = []
             
-            for m_id in momentos_todos:
+            for m_id in momentos_ids:
                 # Buscar combinaciones aplicables
                 combinaciones = self.repo_composicion.obtener_combinaciones_por_condiciones(m_id, condiciones_ids)
                 
@@ -69,17 +112,19 @@ class CasoUsoGenerarPlanAutomatico:
                     recetas_posibles = recetas_seguras_cache.get(m_id, [])
                     if recetas_posibles:
                         receta_elegida = self._seleccionar_receta_con_prioridad(recetas_posibles)
-                        items_a_insertar.append({
-                            "id_plan": id_plan,
-                            "fecha_programada": fecha_dia,
-                            "id_momento": m_id,
-                            "id_receta": receta_elegida["id"]
-                        })
+                        comidas_dia.append(ItemPlan(
+                            id_receta=receta_elegida["id"],
+                            nombre_receta=receta_elegida["nombre"],
+                            id_momento=m_id,
+                            nombre_momento=momentos_cat.get(m_id, "Momento"),
+                            semaforo=receta_elegida.get("semaforo", "neutral"),
+                            imagen_url=receta_elegida.get("imagen_url")
+                        ))
                     continue
 
                 # Elegir una combinación al azar
                 combinacion = random.choice(combinaciones)
-                platillos = combinacion["platillos"] # List of {id: tipo_plato_id, nombre: ...}
+                platillos = combinacion["platillos"]
                 
                 for platillo in platillos:
                     tipo_plato_id = platillo["id"]
@@ -88,12 +133,18 @@ class CasoUsoGenerarPlanAutomatico:
                     
                     if recetas_tipo:
                         receta_elegida = self._seleccionar_receta_con_prioridad(recetas_tipo)
-                        items_a_insertar.append({
-                            "id_plan": id_plan,
-                            "fecha_programada": fecha_dia,
-                            "id_momento": m_id,
-                            "id_receta": receta_elegida["id"]
-                        })
+                        comidas_dia.append(ItemPlan(
+                            id_receta=receta_elegida["id"],
+                            nombre_receta=receta_elegida["nombre"],
+                            id_momento=m_id,
+                            nombre_momento=momentos_cat.get(m_id, "Momento"),
+                            semaforo=receta_elegida.get("semaforo", "neutral"),
+                            imagen_url=receta_elegida.get("imagen_url")
+                        ))
+
+            dias_plan.append(DiaPlan(fecha=fecha_dia, comidas=comidas_dia))
+            
+        return PlanSemanal(id_paciente=id_paciente, fecha_inicio=fecha_inicio, dias=dias_plan)
 
         # 5. Guardar items
         if items_a_insertar:

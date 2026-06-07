@@ -3,7 +3,10 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles
 from app.core.security import UserContext
-from app.api.v1.dependencias import obtener_caso_uso_gestionar_seguimiento
+from app.api.v1.dependencias import (
+    obtener_caso_uso_gestionar_seguimiento,
+    obtener_caso_uso_generar_plan
+)
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
 from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
 from app.infraestructura.database.db import db_cursor
@@ -25,19 +28,6 @@ class GenerarPlanRequest(BaseModel):
 
 class IntercambiarRecetaRequest(BaseModel):
     id_plan_item: int
-
-def obtener_caso_uso_generar_plan_automatico() -> CasoUsoGenerarPlanAutomatico:
-    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
-    from app.infraestructura.repositorios.repositorio_seguimiento import RepositorioSeguimientoPostgres
-    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-    from app.infraestructura.repositorios.repositorio_composicion import RepositorioComposicionPostgres
-    
-    return CasoUsoGenerarPlanAutomatico(
-        repo_receta=RepositorioRecetaPostgres(),
-        repo_seguimiento=RepositorioSeguimientoPostgres(),
-        repo_paciente=RepositorioPacientePostgres(),
-        repo_composicion=RepositorioComposicionPostgres()
-    )
 
 @router.get("/mis-pacientes")
 def obtener_mis_pacientes(
@@ -289,10 +279,10 @@ def obtener_lista_compras(
 def generar_plan_automatico(
     request: GenerarPlanRequest,
     user: UserContext = Depends(require_roles("tutor", "admin")),
-    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan_automatico)
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
-        return caso_uso.ejecutar(
+        return caso_uso.ejecutar_tutor(
             id_paciente=request.id_paciente,
             dias=request.dias,
             fecha_inicio=request.fecha_inicio,
@@ -306,7 +296,7 @@ def generar_plan_automatico(
 def intercambiar_receta_plan(
     request: IntercambiarRecetaRequest,
     user: UserContext = Depends(require_roles("tutor", "admin")),
-    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan_automatico)
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
         return caso_uso.intercambiar_receta(request.id_plan_item)

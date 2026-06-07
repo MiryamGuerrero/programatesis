@@ -5,15 +5,16 @@ from ..modelos.plan_nutricional import PlanSemanal, DiaPlan, ItemPlan
 
 class ServicioPlanificadorNutricional:
     @staticmethod
-    def generar_plan_7_dias(
+    def generar_plan_automatico(
         id_paciente: str,
         fecha_inicio: date,
         recetas_por_momento: Dict[int, List[dict]],
-        momentos_catalogo: List[dict]
+        momentos_catalogo: List[dict],
+        dias: int = 7
     ) -> PlanSemanal:
         dias_plan = []
         
-        for i in range(7):
+        for i in range(dias):
             fecha_dia = fecha_inicio + timedelta(days=i)
             comidas_dia = []
             
@@ -39,7 +40,9 @@ class ServicioPlanificadorNutricional:
                         id_receta=seleccionada["id"],
                         nombre_receta=seleccionada["nombre"],
                         id_momento=id_m,
-                        nombre_momento=nombre_m
+                        nombre_momento=nombre_m,
+                        semaforo="verde" if seleccionada.get("es_potenciada") else "neutral",
+                        imagen_url=seleccionada.get("imagen_url")
                     ))
             
             dias_plan.append(DiaPlan(fecha=fecha_dia, comidas=comidas_dia))

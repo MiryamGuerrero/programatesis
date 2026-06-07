@@ -7,6 +7,8 @@ class ItemPlan(BaseModel):
     nombre_receta: str
     id_momento: int
     nombre_momento: str
+    semaforo: str = "neutral"
+    imagen_url: Optional[str] = None
 
 class DiaPlan(BaseModel):
     fecha: date

@@ -7,13 +7,13 @@ from app.api.v1.dependencias import (
 )
 from app.aplicacion.nutricion.evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
 from app.aplicacion.clinica.gestionar_pacientes import CasoUsoGestionarPacientes
-from app.aplicacion.nutricion.generar_plan_semanal import CasoUsoGenerarPlanSemanal
+from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
 from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngredientes
 from app.api.v1.dtos.clinico import PacienteRegistroCompleto
 from app.api.v1.dtos.nutricion import (
     PlanManualRequest, PlanManualResponse,
     RecetasPermitidasRequest, RecetasPermitidasResponse,
-    RecomendacionIngredienteRequest
+    RecomendacionIngredienteRequest, PlanAutomaticoRequest
 )
 from app.infraestructura.database.db import db_cursor
 
@@ -122,13 +122,17 @@ def buscar_ingredientes_para_paciente(
 
 @router.post("/plan-automatico")
 def generar_plan_automatico(
-    id_paciente: str, 
-    fecha_inicio: date = date.today(),
-    caso_uso: CasoUsoGenerarPlanSemanal = Depends(obtener_caso_uso_generar_plan),
+    payload: PlanAutomaticoRequest,
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     try:
-        return caso_uso.ejecutar(id_paciente, fecha_inicio)
+        return caso_uso.generar_plan_objeto(
+            id_paciente=payload.id_paciente, 
+            fecha_inicio=payload.fecha_inicio, 
+            dias=payload.dias, 
+            momentos_ids=payload.momentos_ids or [1, 2, 3, 4, 5]
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

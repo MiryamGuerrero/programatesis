@@ -5,7 +5,7 @@ from app.aplicacion.clinica.gestionar_perfil_usuario import CasoUsoObtenerPerfil
 from app.aplicacion.clinica.gestionar_usuarios import CasoUsoGestionarUsuarios
 from app.aplicacion.clinica.supervisar_adherencia import CasoUsoSupervisarAdherenciaPacientes
 from app.aplicacion.nutricion.evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
-from app.aplicacion.nutricion.generar_plan_semanal import CasoUsoGenerarPlanSemanal
+from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
 from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngredientes
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
 from app.aplicacion.nutricion.gestionar_variables import CasoUsoGestionarVariables
@@ -60,10 +60,12 @@ def obtener_caso_uso_gestionar_pacientes() -> CasoUsoGestionarPacientes:
     return CasoUsoGestionarPacientes(repo_paciente=RepositorioPacientePostgres())
 
 
-def obtener_caso_uso_generar_plan() -> CasoUsoGenerarPlanSemanal:
-    return CasoUsoGenerarPlanSemanal(
-        caso_evaluacion=obtener_caso_uso_evaluar_reglas(),
+def obtener_caso_uso_generar_plan() -> CasoUsoGenerarPlanAutomatico:
+    return CasoUsoGenerarPlanAutomatico(
         repo_receta=RepositorioRecetaPostgres(),
+        repo_seguimiento=RepositorioSeguimientoPostgres(),
+        repo_paciente=RepositorioPacientePostgres(),
+        repo_composicion=RepositorioComposicionPostgres()
     )
 
 

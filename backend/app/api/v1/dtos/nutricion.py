@@ -1,3 +1,4 @@
+from datetime import date
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -31,3 +32,9 @@ class RecomendacionIngredienteRequest(BaseModel):
     id_ingrediente: int
     motivo: Optional[str] = None
     prioridad: int = 1
+
+class PlanAutomaticoRequest(BaseModel):
+    id_paciente: str
+    fecha_inicio: date
+    dias: int = 7
+    momentos_ids: Optional[List[int]] = None

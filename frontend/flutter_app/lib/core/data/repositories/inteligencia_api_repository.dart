@@ -47,9 +47,15 @@ class InteligenciaApiRepository {
     return _post("recetas-permitidas", {"id_paciente": idPaciente, "id_momento": idMomento});
   }
 
-  Future<Map<String, dynamic>> planAutomatico({required String idPaciente, required DateTime fechaInicio, int dias = 7, int comidasPorDia = 4}) {
-    return _post("plan-automatico", {"id_paciente": idPaciente, "fecha_inicio": fechaInicio.toIso8601String().split("T").first, "dias": dias, "comidas_por_dia": comidasPorDia});
+  Future<Map<String, dynamic>> planAutomatico({required String idPaciente, required DateTime fechaInicio, int dias = 7, List<int>? momentosIds}) {
+    return _post("plan-automatico", {
+      "id_paciente": idPaciente,
+      "fecha_inicio": fechaInicio.toIso8601String().split("T").first,
+      "dias": dias,
+      if (momentosIds != null) "momentos_ids": momentosIds,
+    });
   }
+
 
   Future<Map<String, dynamic>> reemplazoEquivalente({required int idIngredienteOriginal, double? cantidadGramos}) {
     return _post("reemplazo-equivalente", {"id_ingrediente_original": idIngredienteOriginal, "cantidad_gramos": cantidadGramos});

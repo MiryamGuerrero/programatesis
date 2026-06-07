@@ -1811,6 +1811,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     bool morningSnack = _morningSnackEnabled;
     bool afternoonSnack = _afternoonSnackEnabled;
     final isAdjusting = _planInitialized;
+    bool isGenerating = false;
 
     showDialog(
       context: context,
@@ -1934,15 +1935,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: () {
-                      if (isAdjusting) {
-                        Navigator.pop(context);
-                      } else {
-                        // Si es creación, cancelar vuelve al historial
-                        setState(() => _viewingHistory = true);
-                        Navigator.pop(context);
-                      }
-                    },
+                    onPressed: isGenerating
+                        ? null
+                        : () {
+                            if (isAdjusting) {
+                              Navigator.pop(context);
+                            } else {
+                              // Si es creación, cancelar vuelve al historial
+                              setState(() => _viewingHistory = true);
+                              Navigator.pop(context);
+                            }
+                          },
                     child: const Text("Cancelar"),
                   ),
                 ),
@@ -1955,48 +1958,66 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: () {
-                      // VALIDACIÓN CRÍTICA: Fecha de Control
-                      final proximaCitaStr = _patientProfile?['ultimo_control']
-                          ?['fecha_proxima_cita'];
-                      if (proximaCitaStr != null) {
-                        final proximaCita = DateTime.parse(proximaCitaStr);
-                        if (_endDate.isAfter(proximaCita)) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            backgroundColor: Colors.redAccent,
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                    "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                                Text(
-                                    "El plan excede la fecha del próximo control ($proximaCitaStr)."),
-                                const Text("Acciones sugeridas:"),
-                                const Text(
-                                    "• Edite un plan existente para ampliarlo."),
-                                const Text(
-                                    "• Cree un plan de menor duración (Día/Semana)."),
-                                const Text(
-                                    "• Elimine planes futuros para liberar el calendario."),
-                              ],
-                            ),
-                            duration: const Duration(seconds: 8),
-                          ));
-                          return; // No cerrar el modal
-                        }
-                      }
+                    onPressed: isGenerating
+                        ? null
+                        : () async {
+                            // VALIDACIÓN CRÍTICA: Fecha de Control
+                            final proximaCitaStr = _patientProfile?['ultimo_control']
+                                ?['fecha_proxima_cita'];
+                            if (proximaCitaStr != null) {
+                              final proximaCita = DateTime.parse(proximaCitaStr);
+                              if (_endDate.isAfter(proximaCita)) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  backgroundColor: Colors.redAccent,
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                          "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
+                                          style:
+                                              TextStyle(fontWeight: FontWeight.bold)),
+                                      Text(
+                                          "El plan excede la fecha del próximo control ($proximaCitaStr)."),
+                                      const Text("Acciones sugeridas:"),
+                                      const Text(
+                                          "• Edite un plan existente para ampliarlo."),
+                                      const Text(
+                                          "• Cree un plan de menor duración (Día/Semana)."),
+                                      const Text(
+                                          "• Elimine planes futuros para liberar el calendario."),
+                                    ],
+                                  ),
+                                  duration: const Duration(seconds: 8),
+                                ));
+                                return; // No cerrar el modal
+                              }
+                            }
 
-                      _morningSnackEnabled = morningSnack;
-                      _afternoonSnackEnabled = afternoonSnack;
-                      _initPlan(morningSnack, afternoonSnack);
-                      Navigator.pop(context);
-                    },
-                    child: Text(isAdjusting
-                        ? "Actualizar Plan"
-                        : "Continuar y generar tabla"),
+                            setModalState(() => isGenerating = true);
+                            _morningSnackEnabled = morningSnack;
+                            _afternoonSnackEnabled = afternoonSnack;
+                            
+                            if (isAdjusting) {
+                              _initPlan(morningSnack, afternoonSnack);
+                            } else {
+                              await _initPlanAutomatic(morningSnack, afternoonSnack);
+                            }
+                            
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                    child: isGenerating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(isAdjusting
+                            ? "Actualizar Plan"
+                            : "Continuar y generar tabla"),
                   ),
                 ),
               ],
@@ -2025,6 +2046,77 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       _weeklyPlan = plan;
       _planInitialized = true;
     });
+  }
+
+  Future<void> _initPlanAutomatic(bool morning, bool afternoon) async {
+    final List<PlanDay> plan = [];
+    final idPaciente = _selectedPatient?['id']?.toString();
+    if (idPaciente == null) return;
+
+    try {
+      final repo = ref.read(inteligenciaRepositoryProvider);
+
+      final List<int> momentosIds = [1, 3, 5];
+      if (morning) momentosIds.add(2);
+      if (afternoon) momentosIds.add(4);
+
+      final totalDias = _endDate.difference(_startDate).inDays + 1;
+
+      final resp = await repo.planAutomatico(
+        idPaciente: idPaciente,
+        fechaInicio: _startDate,
+        dias: totalDias,
+        momentosIds: momentosIds,
+      );
+
+      final List<dynamic> diasData = resp['dias'] ?? [];
+
+      for (var diaData in diasData) {
+        final DateTime fecha = DateTime.parse(diaData['fecha']);
+        final List<dynamic> comidas = diaData['comidas'] ?? [];
+
+        // Agrupamos recetas por momentId para no duplicar slots en la UI
+        final Map<int, MealSlot> groupedSlots = {};
+
+        for (var comida in comidas) {
+          final int mId = comida['id_momento'];
+          final recipe = {
+            "id": comida['id_receta'],
+            "nombre": comida['nombre_receta'],
+            "semaforo": comida['semaforo'] ?? "neutral",
+            "imagen_url": comida['imagen_url'],
+          };
+
+          if (groupedSlots.containsKey(mId)) {
+            // Si el momento ya existe, solo añadimos la receta a la lista
+            groupedSlots[mId]!.recipes.add(recipe);
+          } else {
+            // Si es un nuevo momento, creamos el slot con la primera receta
+            groupedSlots[mId] = MealSlot(
+              mealType: comida['nombre_momento'],
+              momentId: mId,
+              recipes: [recipe],
+            );
+          }
+        }
+        
+        // Convertimos el mapa a una lista ordenada por momentId
+        final sortedSlots = groupedSlots.keys.toList()..sort();
+        plan.add(PlanDay(
+          date: fecha, 
+          slots: sortedSlots.map((id) => groupedSlots[id]!).toList()
+        ));
+      }
+
+      setState(() {
+        _weeklyPlan = plan;
+        _planInitialized = true;
+      });
+    } catch (e) {
+      debugPrint("Error generando plan automático: $e");
+      // Fallback a plan vacío si falla la generación automática
+      _initPlan(morning, afternoon);
+    }
   }
 
   IconData _getMomentIcon(int momentId) {
