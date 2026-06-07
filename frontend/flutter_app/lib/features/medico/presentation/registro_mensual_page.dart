@@ -16,6 +16,26 @@ import "../data/supervision_provider.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
+class _HeatLabel extends StatelessWidget {
+  const _HeatLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: SizedBox(
+        height: 32,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(text, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900)),
+        ),
+      ),
+    );
+  }
+}
+
 class RegistroMensualPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> paciente;
   const RegistroMensualPage({super.key, required this.paciente});
@@ -32,6 +52,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   bool _controlMensualHabilitado = false;
   String _mensajeControlMensual = "";
   Map<String, dynamic>? _expediente;
+  Map<String, dynamic>? _evolucionMensual;
+  Map<String, dynamic>? _controlSeleccionadoEvo;
   Map<String, dynamic>? _consumoAlimentario;
   String? _idControlEditando;
   Timer? _debounceOMS;
@@ -77,6 +99,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   String _foodMomentFilter = "todo";
   String _foodStateFilter = "todo";
   int _foodPage = 1;
+  String _evoRango = "12";
+  String _evoEstadoEnfermedad = "todo";
+  String _evoBrote = "todos";
+  String _evoEstadoNutricional = "todo";
+  bool _evoSoloAlterados = false;
 
   final _ingRecomSearchCtrl = TextEditingController();
   final _ingRecomFocus = FocusNode();
@@ -102,6 +129,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
     _cargarExpediente();
     _loadCatalogos();
   }
@@ -159,9 +191,20 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
       Map<String, dynamic>? consumo;
       try {
         final repo = ref.read(repositorioMedicoProvider);
-        consumo = await repo.obtenerConsumoAlimentario(widget.paciente['id'].toString(), dias: 30);
+        consumo = await repo.obtenerConsumoAlimentario(widget.paciente['id'].toString(), dias: 180);
       } catch (e) {
         debugPrint("Error cargando consumo alimentario: $e");
+      }
+      try {
+        final repo = ref.read(repositorioMedicoProvider);
+        final evo = await repo.obtenerEvolucionMensual(widget.paciente['id'].toString());
+        if (mounted) {
+          _evolucionMensual = evo;
+          final controls = List<Map<String, dynamic>>.from((evo['controles'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
+          _controlSeleccionadoEvo = controls.isNotEmpty ? controls.last : null;
+        }
+      } catch (e) {
+        debugPrint("Error cargando evolución mensual: $e");
       }
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
@@ -559,16 +602,16 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
             children: [
               _buildLeftSummary(),
               Expanded(
-                child: Column(
-                  children: [
-                    _buildTopBar(),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [_buildFormTab(), _buildHistoryTab()]
-                      )
-                    )
-                  ],
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildTopBar(),
+                      if (_tabController.index == 0)
+                        _buildFormTab(isNested: true)
+                      else
+                        _buildHistoryTab(isNested: true),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -633,72 +676,68 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     )
   );
 
-  Widget _buildFormTab() {
+  Widget _buildFormTab({bool isNested = false}) {
     final bloqueado = !_controlMensualHabilitado && _idControlEditando == null;
+    Widget content;
     if (bloqueado) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    _controlMensualYaHecho
-                        ? Icons.check_circle_outline
-                        : Icons.lock_outline,
-                    color: _controlMensualYaHecho ? Colors.blue : Colors.orange,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _mensajeControlMensual.isNotEmpty
-                          ? _mensajeControlMensual
-                          : "Aún no corresponde el control mensual.",
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: _controlMensualYaHecho
-                            ? Colors.blue
-                            : Colors.orange,
-                      ),
+      content = Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _controlMensualYaHecho
+                      ? Icons.check_circle_outline
+                      : Icons.lock_outline,
+                  color: _controlMensualYaHecho ? Colors.blue : Colors.orange,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _mensajeControlMensual.isNotEmpty
+                        ? _mensajeControlMensual
+                        : "Aún no corresponde el control mensual.",
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: _controlMensualYaHecho
+                          ? Colors.blue
+                          : Colors.orange,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _controlMensualYaHecho
-                    ? "Si necesita corregir el control, vaya al monitor de evolución y edite ese registro."
-                    : "La ventana de registro se habilitará cuando se cumpla la fecha programada.",
-                style: GoogleFonts.montserrat(
-                  fontSize: 12,
-                  color: Colors.blueGrey,
-                  height: 1.5,
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _controlMensualYaHecho
+                  ? "Si necesita corregir el control, vaya al monitor de evolución y edite ese registro."
+                  : "La ventana de registro se habilitará cuando se cumpla la fecha programada.",
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                color: Colors.blueGrey,
+                height: 1.5,
               ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () => _tabController.animateTo(1),
-                icon: const Icon(Icons.show_chart_rounded),
-                label: const Text("Ir al monitor de evolución"),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => _tabController.animateTo(1),
+              icon: const Icon(Icons.show_chart_rounded),
+              label: const Text("Ir al monitor de evolución"),
+            ),
+          ],
         ),
       );
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    } else {
+      content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (_yaEvaluadoHoy && _idControlEditando == null) ...[
           Container(
             padding: const EdgeInsets.all(16),
@@ -844,8 +883,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
         const SizedBox(height: 48),
 
         SizedBox(width: double.infinity, height: 60, child: FilledButton.icon(onPressed: _loading ? null : _guardarConsulta, icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save_rounded), label: Text(_idControlEditando == null ? "REGISTRAR VALORACIÓN" : "GUARDAR CAMBIOS", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), style: FilledButton.styleFrom(backgroundColor: greenBrand, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
-      ]),
-    );
+      ]);
+    }
+    
+    if (isNested) return Padding(padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40), child: content);
+    return SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40), child: content);
   }
 
   Widget _lactoseCard(bool val, String title, String desc) {
@@ -1233,26 +1275,42 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _field(TextEditingController c, String l, IconData i, {int maxLines = 1, Function(String)? onChanged, bool enabled = true, String? helper}) => TextFormField(controller: c, maxLines: maxLines, enabled: enabled, onChanged: onChanged, decoration: InputDecoration(labelText: l, helperText: helper, prefixIcon: Icon(i, size: 18), border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)))));
 
-  Widget _buildHistoryTab() {
+  Widget _buildHistoryTab({bool isNested = false}) {
     if (_loading && _expediente == null) return const Center(child: CircularProgressIndicator());
-    final historial = _expediente?['historial_controles'] as List? ?? [];
-    if (historial.isEmpty) return const Center(child: Text("No hay registros previos para graficar."));
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text("CENTRO DE ANÁLISIS CLÍNICA", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF0F172A))), const SizedBox(height: 8), const Text("Prioridad Reumatológica: Monitoreo de actividad de enfermedad AIJ + Estado nutricional integral.", style: TextStyle(color: Colors.blueGrey, fontSize: 13)),
-        const SizedBox(height: 40), _buildSectionHeader("REUMATOLOGÍA", "Actividad de enfermedad AIJ, marcadores inflamatorios y conteo articular", Icons.medical_services, Colors.red),
-        const SizedBox(height: 24), _sectionHeader("1. MONITOREO DE SÍNTOMAS (EVA 0-10) - DOLOR Y ENERGÍA", Icons.healing_outlined), const SizedBox(height: 16), _buildSymptomsChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "symptoms"), _buildChartExplanation("¿Qué significa esta gráfica?", "• DOLOR (EVA 0-10): 0=Sin dolor, 10=Dolor insoportable.\n• ENERGÍA / FATIGA (0-10): 10=Energía máxima, 0=Agotado.\n✅ OBJETIVO: Remisión de síntomas (Dolor <=2, Energía/Bienestar >=7).", Colors.orange),
-        const SizedBox(height: 40), _sectionHeader("2. ACTIVIDAD DE LA ENFERMEDAD (0-10) - INFLAMACIÓN ARTICULAR", Icons.coronavirus_outlined), const SizedBox(height: 16), _buildInflammationChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "inflammation_scale"), _buildChartExplanation("¿Qué significa esta gráfica?", "• INFLAMACIÓN (0-10): Grado de actividad inflamatoria sistémica percibida.\n✅ OBJETIVO: Mantener nivel de inflamación en 0.", Colors.red),
-        const SizedBox(height: 40), _sectionHeader("3. CONTEOS ARTICULARES - AIJ", Icons.adjust), const SizedBox(height: 16), _buildJointCountChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "joints"), _buildChartExplanation("¿Qué significa esta gráfica?", "• ARTICULACIONES INFLAMADAS/DOLOROSAS: Signos de sinovitis activa.\n✅ OBJETIVO: Cero articulaciones inflamadas.", Colors.red),
-        const SizedBox(height: 56), _buildFoodIntakeSection(),
-        const SizedBox(height: 56), _buildSectionHeader("NUTRICIÓN", "Estado nutricional según OMS, objetivos de peso y talla para el crecimiento", Icons.restaurant_menu, Colors.green),
-        const SizedBox(height: 24), _sectionHeader("4. MONITOR Z-SCORE BMI/EDAD (OMS)", Icons.analytics_outlined), const SizedBox(height: 16), _buildZScoreChart(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "z_score"), _buildChartExplanation("¿Qué significa esta gráfica?", "• Z-SCORE BMI/EDAD: 0 = promedio. Rango normal: -2.0 a +2.0.\n✅ OBJETIVO: Mantener Z-Score entre -1 y +1.", Colors.green),
-        const SizedBox(height: 40), _sectionHeader("5. TERMÓMETROS DE PROGRESO - PESO Y TALLA", Icons.thermostat_rounded), const SizedBox(height: 16), _buildThermometerGauges(historial), const SizedBox(height: 12), _buildDynamicConclusion(historial, "thermometers"),
-        const SizedBox(height: 56), _sectionHeader("LÍNEA DE TIEMPO DE EVENTOS CLÍNICOS", Icons.timeline_rounded), const SizedBox(height: 24), _buildClinicalTimeline(historial),
-        const SizedBox(height: 56), _sectionHeader("REGISTROS CRONOLÓGICOS", Icons.list_alt_rounded), const SizedBox(height: 24), ListView.separated(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: historial.length, separatorBuilder: (_, __) => const SizedBox(height: 12), itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index])),
-      ]),
+    final evo = _evolucionMensual;
+    final historial = (evo?['controles'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (evo == null || historial.isEmpty) {
+      return const Center(child: Text("No hay registros previos para graficar."));
+    }
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("CENTRO DE ANÁLISIS CLÍNICA", style: GoogleFonts.montserrat(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF0F172A))),
+        const SizedBox(height: 8),
+        const Text("Prioridad Reumatológica: Monitoreo de actividad de enfermedad AIJ + Estado nutricional integral.", style: TextStyle(color: Colors.blueGrey, fontSize: 13)),
+        const SizedBox(height: 28),
+        _buildEvolutionDashboard(evo),
+        const SizedBox(height: 56),
+        _buildFoodIntakeSection(),
+        const SizedBox(height: 56),
+        _sectionHeader("LÍNEA DE TIEMPO DE EVENTOS CLÍNICOS", Icons.timeline_rounded),
+        const SizedBox(height: 24),
+        _buildClinicalTimeline(historial),
+        const SizedBox(height: 56),
+        _sectionHeader("REGISTROS CRONOLÓGICOS", Icons.list_alt_rounded),
+        const SizedBox(height: 24),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: historial.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+        ),
+      ],
     );
+
+    if (isNested) return Padding(padding: const EdgeInsets.all(40), child: content);
+    return SingleChildScrollView(padding: const EdgeInsets.all(40), child: content);
   }
 
   Widget _buildChartExplanation(String title, String content, Color color) => Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.03), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.15))), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lightbulb_outline, color: color, size: 20), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5)), const SizedBox(height: 8), Text(content, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.blueGrey, height: 1.6))]))]));
@@ -1440,6 +1498,2128 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
 
   Widget _buildClinicalTimeline(List<dynamic> history) => Container(height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade100)), child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.all(24), itemCount: history.length, itemBuilder: (context, index) { final h = history[index]; return SizedBox(width: 160, child: Column(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: (h['en_brote'] == true) ? Colors.red : greenBrand, shape: BoxShape.circle), child: Icon((h['en_brote'] == true) ? Icons.warning : Icons.check, color: Colors.white, size: 18)), const SizedBox(height: 12), Text(DateFormat('dd MMM yyyy').format(DateTime.parse(h['fecha_control'])), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900))])); }));
 
+  Map<String, dynamic> _calculateEvoStats(List<Map<String, dynamic>> controls) {
+    if (controls.isEmpty) return {};
+    
+    final last = controls.last;
+    final double ultimoDolor = (last['puntos_dolor'] ?? 0).toDouble();
+    final double ultimaEnergia = (last['nivel_fatiga'] ?? 10).toDouble();
+    final bool ultimoBrote = last['en_brote'] == true;
+    
+    final totalControles = controls.length;
+    final promedioDolor = controls.map((c) => (c['puntos_dolor'] ?? 0) as num).reduce((a, b) => a + b) / totalControles;
+    final promedioEnergia = controls.map((c) => (c['nivel_fatiga'] ?? 0) as num).reduce((a, b) => a + b) / totalControles;
+    final controlesConBrote = controls.where((c) => c['en_brote'] == true).length;
+    
+    // Patrón clínico
+    String patronClinico = "evolución en seguimiento";
+    if (promedioDolor >= 7 && promedioEnergia <= 3) {
+      patronClinico = "dolor persistente y energía baja";
+    } else if (promedioDolor >= 7 && controlesConBrote > totalControles / 2) {
+      patronClinico = "alta actividad clínica sostenida";
+    } else if (promedioDolor <= 3 && promedioEnergia >= 7) {
+      patronClinico = "evolución favorable";
+    } else if (totalControles < 3) {
+      patronClinico = "datos insuficientes";
+    }
+    
+    // Interpretación
+    String interpretacion = "";
+    if (totalControles < 3) {
+      interpretacion = "Se requieren más registros para generar una interpretación clínica de la tendencia mensual.";
+    } else {
+      String dolorStr = promedioDolor >= 7 ? "persistentemente alto" : (promedioDolor >= 3 ? "moderado" : "bajo");
+      String energiaStr = promedioEnergia <= 3 ? "consistentemente baja" : (promedioEnergia <= 6 ? "moderada" : "adecuada");
+      interpretacion = "En los últimos $totalControles controles, el paciente presenta dolor $dolorStr, con valores promedio de ${promedioDolor.toStringAsFixed(1)} sobre 10, y energía $energiaStr, promedio de ${promedioEnergia.toStringAsFixed(1)} sobre 10. Se observan $controlesConBrote controles con brote, lo que sugiere ${controlesConBrote > totalControles / 2 ? 'actividad clínica sostenida' : 'periodos de posible actividad'}. El patrón general indica ${promedioDolor >= 7 ? 'alta actividad de la enfermedad y requiere seguimiento estrecho' : 'una tendencia clínica que requiere correlación médica'}.";
+    }
+
+    return {
+      'ultimoDolor': ultimoDolor,
+      'ultimaEnergia': ultimaEnergia,
+      'ultimoBrote': ultimoBrote,
+      'totalControles': totalControles,
+      'promedioDolor': promedioDolor,
+      'promedioEnergia': promedioEnergia,
+      'controlesConBrote': controlesConBrote,
+      'patronClinico': patronClinico,
+      'interpretacion': interpretacion,
+      'ultimoControlFecha': last['fecha_control'],
+      'altaActividad': promedioDolor >= 7 || ultimoDolor >= 7 || (controlesConBrote > totalControles / 3),
+    };
+  }
+
+  Widget _redesignHeader() => Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade100)),
+        child: const Icon(Icons.add_box_outlined, color: Color(0xFF2E7D32), size: 20),
+      ),
+      const SizedBox(width: 12),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("1. Evolución mensual de síntomas", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+          Text("Seguimiento de dolor y energía reportados en los controles del paciente", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+        ],
+      ),
+    ],
+  );
+
+  Widget _redesignMetricCard(String title, String value, Color color, IconData icon, String status) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 6, offset: const Offset(0, 2))]),
+    child: Row(
+      children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.08), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+            const SizedBox(height: 2),
+            Text(value, style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+            Text(status, style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w800, color: color)),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _redesignSummaryCards(Map<String, dynamic> stats) {
+    return Row(
+      children: [
+        Expanded(child: _redesignMetricCard("Dolor actual", "${stats['ultimoDolor'].toInt()}/10", _severityColor(stats['ultimoDolor'].toInt(), 0, 2, 6), Icons.track_changes_outlined, stats['ultimoDolor'] >= 7 ? "Alta actividad" : (stats['ultimoDolor'] >= 3 ? "Moderado" : "Objetivo"))),
+        const SizedBox(width: 12),
+        Expanded(child: _redesignMetricCard("Energía actual", "${stats['ultimaEnergia'].toInt()}/10", stats['ultimaEnergia'] >= 7 ? Colors.green : (stats['ultimaEnergia'] >= 4 ? Colors.orange : Colors.red), Icons.bolt, stats['ultimaEnergia'] >= 7 ? "Adecuada" : (stats['ultimaEnergia'] >= 4 ? "Moderada" : "Baja"))),
+        const SizedBox(width: 12),
+        Expanded(child: _redesignMetricCard("Controles", "${stats['totalControles']}", const Color(0xFF2563EB), Icons.assignment_outlined, "En el periodo")),
+        const SizedBox(width: 12),
+        Expanded(child: _redesignMetricCard("Brote", stats['ultimoBrote'] ? "Sí" : "No", stats['ultimoBrote'] ? Colors.red : Colors.green, Icons.warning_amber_rounded, stats['ultimoBrote'] ? "Activo" : "Sin brote")),
+      ],
+    );
+  }
+
+  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Tendencia clínica", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 12, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Text("Pase el cursor para ver detalle", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _redesignSingleChart("Dolor EVA (0–10)", controls, (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, "pain"),
+          const SizedBox(height: 20),
+          _redesignSingleChart("Energía (0–10)", controls, (c) => (c['nivel_fatiga'] ?? 10).toDouble(), Colors.green, "energy"),
+        ],
+      ),
+    );
+  }
+
+  Widget _redesignSingleChart(String title, List<Map<String, dynamic>> controls, double Function(Map<String, dynamic>) getValue, Color color, String type) {
+    final spots = controls.asMap().entries.map((e) => FlSpot(e.key.toDouble(), getValue(e.value))).toList();
+    final double maxVal = spots.isEmpty ? 10 : spots.map((s) => s.y).reduce(max);
+    
+    // Escala dinámica: se adapta pero mantiene bases lógicas para EVA (5 o 10)
+    double calculatedMaxY = 10.0;
+    if (maxVal <= 5) {
+      calculatedMaxY = 5.0;
+    } else if (maxVal <= 10) {
+      calculatedMaxY = 10.0;
+    } else {
+      calculatedMaxY = (maxVal * 1.2).ceilToDouble();
+    }
+
+    final bool isPain = type == "pain";
+    final List<(double, double, Color)> bands = isPain 
+      ? const [(0, 2, Color(0x0D2E7D32)), (3, 6, Color(0x0DF59E0B)), (7, 10, Color(0x0DF87171))]
+      : const [(0, 3, Color(0x0DF87171)), (4, 6, Color(0x0DF59E0B)), (7, 10, Color(0x0D2E7D32))];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text(title, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF334155))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: LineChart(
+            LineChartData(
+              minY: 0, maxY: calculatedMaxY,
+              rangeAnnotations: RangeAnnotations(horizontalRangeAnnotations: [for (final b in bands) HorizontalRangeAnnotation(y1: b.$1, y2: b.$2, color: b.$3)]),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1, dashArray: [4, 4])),
+              borderData: FlBorderData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots, isCurved: true, color: color, barWidth: 2.5, dotData: const FlDotData(show: true, getDotPainter: _getSmallDot),
+                  belowBarData: BarAreaData(show: false),
+                ),
+              ],
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, interval: calculatedMaxY / 2, getTitlesWidget: (v, meta) => Text(v.toInt().toString(), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))))),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, meta) {
+                  int idx = v.toInt();
+                  if (idx < 0 || idx >= controls.length) return const SizedBox.shrink();
+                  return Padding(padding: const EdgeInsets.only(top: 4), child: Text(_monthShort(controls[idx]['fecha_control'] ?? ""), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))));
+                })),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              lineTouchData: LineTouchData(
+                enabled: true,
+                handleBuiltInTouches: true,
+                getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes.map((i) => TouchedSpotIndicatorData(FlLine(color: color.withOpacity(0.15), strokeWidth: 1.5), FlDotData(show: true, getDotPainter: _getSmallDot))).toList(),
+                touchTooltipData: _redesignTooltipData(controls, type),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static FlDotPainter _getSmallDot(FlSpot spot, double xPercentage, LineChartBarData bar, int index) => FlDotCirclePainter(radius: 3, color: bar.color ?? Colors.red, strokeWidth: 1, strokeColor: Colors.white);
+
+  LineTouchTooltipData _redesignTooltipData(List<Map<String, dynamic>> controls, String type) {
+    return LineTouchTooltipData(
+      getTooltipColor: (_) => Colors.white,
+      tooltipPadding: const EdgeInsets.all(8),
+      tooltipBorder: const BorderSide(color: Color(0xFFE2E8F0)),
+      getTooltipItems: (items) {
+        if (items.isEmpty) return [];
+        final idx = items.first.x.toInt();
+        if (idx < 0 || idx >= controls.length) return [];
+        final c = controls[idx];
+        final bool isPain = type == "pain";
+        final value = isPain ? (c['puntos_dolor'] ?? 0) : (c['nivel_fatiga'] ?? 10);
+        final color = isPain ? Colors.red : Colors.green;
+        final label = isPain ? "Dolor" : "Energía";
+        
+        String estado = "";
+        if (isPain) {
+          int v = (value as num).toInt();
+          if (v <= 2) estado = "Bajo";
+          else if (v <= 6) estado = "Moderado";
+          else estado = "Alta actividad";
+        } else {
+          int v = (value as num).toInt();
+          if (v <= 3) estado = "Baja";
+          else if (v <= 6) estado = "Moderada";
+          else estado = "Adecuada";
+        }
+
+        return [
+          LineTooltipItem(
+            "",
+            const TextStyle(),
+            children: [
+              TextSpan(text: "${_formatIsoDate(c['fecha_control'])}\n", style: GoogleFonts.montserrat(fontSize: 8, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              TextSpan(text: "$label: ", style: GoogleFonts.montserrat(fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+              TextSpan(text: "$value/10\n", style: GoogleFonts.montserrat(fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+              TextSpan(text: "Estado: ", style: GoogleFonts.montserrat(fontSize: 9, color: const Color(0xFF0F172A), fontWeight: FontWeight.w800)),
+              TextSpan(text: "$estado\n", style: GoogleFonts.montserrat(fontSize: 9, color: const Color(0xFF334155), fontWeight: FontWeight.w600)),
+              TextSpan(text: "Brote: ", style: GoogleFonts.montserrat(fontSize: 9, color: const Color(0xFF0F172A), fontWeight: FontWeight.w800)),
+              TextSpan(text: "${c['en_brote'] == true ? 'Sí' : 'No'}", style: GoogleFonts.montserrat(fontSize: 9, color: c['en_brote'] == true ? Colors.red : Colors.green, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ];
+      },
+    );
+  }
+
+  Widget _redesignLecturaRapida(Map<String, dynamic> stats) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            decoration: const BoxDecoration(color: Color(0xFF004FC4), borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
+            child: Text("Lectura clínica rápida", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                _lecturaItem(Icons.track_changes_outlined, "Promedio dolor:", stats['promedioDolor'].toStringAsFixed(1), Colors.red),
+                _lecturaItem(Icons.bolt, "Promedio energía:", stats['promedioEnergia'].toStringAsFixed(1), Colors.green),
+                _lecturaItem(Icons.warning_amber_rounded, "Controles brote:", "${stats['controlesConBrote']}/${stats['totalControles']}", Colors.red),
+                _lecturaItem(Icons.calendar_today_outlined, "Último control:", _formatIsoDate(stats['ultimoControlFecha']), const Color(0xFF004FC4)),
+                _lecturaItem(Icons.show_chart_rounded, "Patrón clínico:", stats['patronClinico'], const Color(0xFF004FC4), isMultiLine: true),
+                if (stats['altaActividad'] == true) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFFEE2E2))),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text("Alta actividad", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _lecturaItem(IconData icon, String label, String value, Color color, {bool isMultiLine = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(
+      crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+            children: [
+              Flexible(child: Text(label, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)), overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
+              Flexible(child: Text(value, textAlign: TextAlign.right, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: isMultiLine ? const Color(0xFF0F172A) : color))),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _redesignUltimosControles(List<Map<String, dynamic>> controls) {
+    final recent = controls.reversed.take(3).toList();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_toggle_off_rounded, size: 14, color: Color(0xFF0F172A)),
+              const SizedBox(width: 8),
+              Text("Top 3 Controles Recientes", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Table(
+            columnWidths: const {0: FlexColumnWidth(1.8), 1: FlexColumnWidth(4), 2: FlexColumnWidth(4), 3: FlexColumnWidth(1)},
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+                children: [
+                  _tableHeader("Fecha"), _tableHeader("Dolor (0-10)"), _tableHeader("Energía (0-10)"), _tableHeader("Brote"),
+                ],
+              ),
+              for (final c in recent)
+                TableRow(
+                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF8FAFC)))),
+                  children: [
+                    _tableCell(_formatIsoDate(c['fecha_control'])),
+                    _tableBarCell((c['puntos_dolor'] ?? 0).toInt(), Colors.red),
+                    _tableBarCell((c['nivel_fatiga'] ?? 10).toInt(), Colors.green),
+                    _tableBadgeCell(c['en_brote'] == true),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(String t) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(t, style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))));
+  Widget _tableCell(String t) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(t, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))));
+  Widget _tableBarCell(int val, Color color) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+    child: Row(
+      children: [
+        SizedBox(width: 14, child: Text("$val", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))),
+        const SizedBox(width: 6),
+        Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(2), child: LinearProgressIndicator(value: val / 10, minHeight: 3.5, backgroundColor: color.withOpacity(0.08), valueColor: AlwaysStoppedAnimation<Color>(color)))),
+      ],
+    ),
+  );
+  Widget _tableBadgeCell(bool brote) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: brote ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
+        child: Text(brote ? "Sí" : "No", style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w800, color: brote ? Colors.red : Colors.green)),
+      ),
+    ),
+  );
+
+  Widget _redesignInterpretacion(Map<String, dynamic> stats) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFDBEAFE))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: Color(0xFF004FC4), shape: BoxShape.circle), child: const Icon(Icons.description_outlined, color: Colors.white, size: 12)),
+              const SizedBox(width: 10),
+              Text("Interpretación", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF004FC4))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(stats['interpretacion'], style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF334155), height: 1.3)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (stats['altaActividad'] == true) _interpretPill("Alta actividad", Colors.red),
+              if (stats['promedioDolor'] >= 7 || stats['controlesConBrote'] > 0) _interpretPill("Seguimiento estrecho", const Color(0xFF004FC4)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _interpretPill(String t, Color color) => Container(
+    margin: const EdgeInsets.only(right: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withOpacity(0.2))),
+    child: Text(t, style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w800, color: color)),
+  );
+
+  Widget _buildEvolutionDashboard(Map<String, dynamic>? evo) {
+    if (evo == null) return const SizedBox.shrink();
+    final controls = _evoFilteredControls(evo);
+    if (controls.isEmpty) return const SizedBox.shrink();
+
+    final stats = _calculateEvoStats(controls);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _redesignHeader(),
+        const SizedBox(height: 14),
+        _redesignSummaryCards(stats),
+        const SizedBox(height: 14),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 2, child: _redesignTendenciaClinica(controls)),
+              const SizedBox(width: 14),
+              Expanded(
+                flex: 1, 
+                child: Column(
+                  children: [
+                    Expanded(child: _redesignLecturaRapida(stats)),
+                    const SizedBox(height: 14),
+                    _redesignInterpretacion(stats),
+                  ],
+                )
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _redesignUltimosControles(controls),
+        const SizedBox(height: 32),
+        _buildEvoActivitySection(controls),
+        const SizedBox(height: 10),
+        _buildEvoInflammationSection(controls),
+        const SizedBox(height: 10),
+        _buildEvoHeatmapSection(controls),
+        const SizedBox(height: 10),
+        _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {})),
+        const SizedBox(height: 10),
+        _buildEvoScatterSection(controls),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> _evoFilteredControls(Map<String, dynamic> evo) {
+    final raw = (evo['controles'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    final ranges = {
+      "6": 6,
+      "12": 12,
+      "24": 24,
+    };
+    var items = raw;
+    if (_evoRango != "all" && ranges.containsKey(_evoRango) && raw.length > ranges[_evoRango]!) {
+      items = raw.sublist(raw.length - ranges[_evoRango]!).toList();
+    } else if (_evoRango == "year") {
+      final currentYear = DateTime.now().year;
+      items = raw.where((c) => DateTime.tryParse((c['fecha_control'] ?? '').toString())?.year == currentYear).toList();
+    } else if (_evoRango == "custom" && _expediente != null) {
+      items = raw;
+    }
+    if (_evoEstadoEnfermedad != "todo") {
+      items = items.where((c) => (c['estado_enfermedad'] ?? '').toString().toLowerCase() == _evoEstadoEnfermedad.toLowerCase()).toList();
+    }
+    if (_evoBrote != "todos") {
+      final want = _evoBrote == "si";
+      items = items.where((c) => bool.tryParse(c['en_brote']?.toString() ?? "false") == want || (c['en_brote'] == true) == want).toList();
+    }
+    if (_evoEstadoNutricional != "todo") {
+      items = items.where((c) => (c['estado_nutricional'] ?? '').toString().toLowerCase() == _evoEstadoNutricional.toLowerCase()).toList();
+    }
+    if (_evoSoloAlterados) {
+      items = items.where((c) {
+        final z = double.tryParse((c['prediagnostico']?['z_score_bmi'] ?? c['z_score_bmi'] ?? 0).toString()) ?? 0;
+        return (int.tryParse(c['puntos_dolor']?.toString() ?? "0") ?? 0) >= 5 ||
+            (int.tryParse(c['nivel_fatiga']?.toString() ?? "10") ?? 10) <= 4 ||
+            (int.tryParse(c['escala_inflamacion']?.toString() ?? "0") ?? 0) >= 2 ||
+            (int.tryParse(c['articulaciones_inflamadas']?.toString() ?? "0") ?? 0) > 0 ||
+            (int.tryParse(c['articulaciones_dolorosas']?.toString() ?? "0") ?? 0) > 0 ||
+            (int.tryParse(c['minutos_rigidez']?.toString() ?? "0") ?? 0) >= 30 ||
+            c['en_brote'] == true ||
+            !["normal", "eutrófico", "eutrofico"].contains((c['estado_nutricional'] ?? '').toString().toLowerCase()) ||
+            z.abs() > 2;
+      }).toList();
+    }
+    return items;
+  }
+
+  Widget _buildEvoFilterBar(Map<String, dynamic> evo) {
+    final controls = (evo['controles'] as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    final states = <String>{};
+    final nutritions = <String>{};
+    for (final c in controls) {
+      if ((c['estado_enfermedad'] ?? '').toString().isNotEmpty) states.add(c['estado_enfermedad'].toString());
+      if ((c['estado_nutricional'] ?? '').toString().isNotEmpty) nutritions.add(c['estado_nutricional'].toString());
+    }
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _evoDropdown("Rango", _evoRango, {
+          "6": "Últimos 6 controles",
+          "12": "Últimos 12 controles",
+          "24": "Últimos 24 controles",
+          "year": "Año actual",
+          "all": "Todo el historial",
+        }, (v) => setState(() => _evoRango = v)),
+        _evoDropdown("Estado", _evoEstadoEnfermedad, {
+          "todo": "Todos",
+          for (final s in states) s: s,
+        }, (v) => setState(() => _evoEstadoEnfermedad = v)),
+        _evoDropdown("Brote", _evoBrote, {
+          "todos": "Todos",
+          "si": "Solo con brote",
+          "no": "Solo sin brote",
+        }, (v) => setState(() => _evoBrote = v)),
+        _evoDropdown("Nutrición", _evoEstadoNutricional, {
+          "todo": "Todos",
+          for (final s in nutritions) s: s,
+        }, (v) => setState(() => _evoEstadoNutricional = v)),
+        FilterChip(
+          label: const Text("Solo alterados"),
+          selected: _evoSoloAlterados,
+          onSelected: (v) => setState(() => _evoSoloAlterados = v),
+          selectedColor: Colors.red.shade50,
+          checkmarkColor: Colors.red,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEvoTopBanner(Map<String, dynamic> selected, Map<String, dynamic> resumen) {
+    final estado = (selected['estado_enfermedad'] ?? 'Seguimiento').toString();
+    final dolor = (selected['puntos_dolor'] ?? 0).toString();
+    final energia = (selected['nivel_fatiga'] ?? 10).toString();
+    final inflamacion = (selected['escala_inflamacion'] ?? 0).toString();
+    final brote = selected['en_brote'] == true;
+    final z = _formatNum((selected['prediagnostico']?['z_score_bmi'] ?? selected['z_score_bmi'] ?? 0));
+    final info = "Dolor $dolor/10, energía $energia/10, inflamación $inflamacion/3, brote ${brote ? 'sí' : 'no'} y z-score $z.";
+    final color = brote || (int.tryParse(dolor) ?? 0) >= 7 || (int.tryParse(inflamacion) ?? 0) >= 2
+        ? Colors.red
+        : ((int.tryParse(dolor) ?? 0) <= 2 && (int.tryParse(energia) ?? 10) >= 7 ? Colors.green : Colors.orange);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FFFA),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: color, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Paciente en $estado. $info",
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), height: 1.35),
+            ),
+          ),
+          const SizedBox(width: 12),
+          _stateChip(brote ? "Brote activo" : "Sin brote", brote ? Colors.red : Colors.green),
+        ],
+      ),
+    );
+  }
+
+  Widget _evoDropdown(String label, String value, Map<String, String> options, void Function(String) onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: options.containsKey(value) ? value : options.keys.first,
+          icon: const Icon(Icons.expand_more_rounded, size: 18),
+          items: options.entries.map((e) => DropdownMenuItem(value: e.key, child: Text("$label: ${e.value}", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)))).toList(),
+          onChanged: (v) { if (v != null) onChanged(v); },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEvoSummaryCards(List<Map<String, dynamic>> controls, Map<String, dynamic> resumen) {
+    final last = controls.last;
+    final z = double.tryParse((last['prediagnostico']?['z_score_bmi'] ?? last['z_score_bmi'] ?? 0).toString()) ?? 0;
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _smallMetricCard("Dolor actual", "${last['puntos_dolor'] ?? 0}/10", _severityColor((last['puntos_dolor'] ?? 0).toInt(), 0, 2, 6)),
+        _smallMetricCard("Energía", "${last['nivel_fatiga'] ?? 10}/10", _energyColor((last['nivel_fatiga'] ?? 10).toInt())),
+        _smallMetricCard("Inflamación", "${last['escala_inflamacion'] ?? 0}/3", _inflammationColor((last['escala_inflamacion'] ?? 0).toInt())),
+        _smallMetricCard("Art. inflamadas", "${last['articulaciones_inflamadas'] ?? 0}", Colors.blueGrey),
+        _smallMetricCard("Rigidez", "${last['minutos_rigidez'] ?? 0} min", Colors.indigo),
+        _smallMetricCard("Estado nut.", last['estado_nutricional']?.toString() ?? "-", _nutriColor(last['estado_nutricional']?.toString() ?? "")),
+        _smallMetricCard("Z-score", z.toStringAsFixed(1), _zScoreColor(z)),
+        _smallMetricCard("Brote", last['en_brote'] == true ? "Sí" : "No", last['en_brote'] == true ? Colors.red : Colors.green),
+      ],
+    );
+  }
+
+  Widget _smallMetricCard(String title, String value, Color color) => SizedBox(
+    width: 150,
+    child: _metricCard(title, value, color),
+  );
+
+  Widget _metricCard(String title, String value, Color color) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: color.withValues(alpha: 0.15))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey)),
+        const SizedBox(height: 6),
+        Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+      ],
+    ),
+  );
+
+  Color _severityColor(int v, int low, int medium, int high) {
+    if (v <= low) return Colors.green;
+    if (v <= medium) return Colors.orange;
+    return Colors.red;
+  }
+
+  Color _energyColor(int v) {
+    if (v <= 3) return Colors.red;
+    if (v <= 6) return Colors.orange;
+    return Colors.green;
+  }
+
+  Color _inflammationColor(int v) {
+    if (v == 0) return Colors.green;
+    if (v == 1) return Colors.yellow.shade800;
+    if (v == 2) return Colors.orange;
+    return Colors.red;
+  }
+
+  Color _zScoreColor(double z) {
+    if (z < -2 || z > 2) return Colors.red;
+    if (z > 1) return Colors.orange;
+    return Colors.green;
+  }
+
+  Widget _buildEvoSymptomsSection(List<Map<String, dynamic>> controls) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader("1. Evolución mensual de síntomas", Icons.healing_outlined),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _realLineChart("Dolor EVA 0-10", controls, (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, (c) => _painTooltip(c), bands: const [(0, 2, Color(0x1A2E7D32)), (3, 6, Color(0x1AF59E0B)), (7, 10, Color(0x1AF87171))])),
+              const SizedBox(width: 12),
+              Expanded(child: _realLineChart("Energía 0-10", controls, (c) => (c['nivel_fatiga'] ?? 10).toDouble(), Colors.green, (c) => _energyTooltip(c), bands: const [(0, 3, Color(0x1AF87171)), (4, 6, Color(0x1AF59E0B)), (7, 10, Color(0x1A2E7D32))])),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _evoSummaryRow(controls, type: "symptoms"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEvoActivitySection(List<Map<String, dynamic>> controls) {
+    if (controls.isEmpty) return const SizedBox.shrink();
+    
+    // Cálculos dinámicos
+    final last = controls.last;
+    final prev = controls.length > 1 ? controls[controls.length - 2] : null;
+    
+    final int inflActual = (last['articulaciones_inflamadas'] ?? 0).toInt();
+    final int dolActual = (last['articulaciones_dolorosas'] ?? 0).toInt();
+    final int rigActual = (last['minutos_rigidez'] ?? 0).toInt();
+    
+    final int inflMax = controls.map((c) => (c['articulaciones_inflamadas'] ?? 0) as num).reduce(max).toInt();
+    final int dolMax = controls.map((c) => (c['articulaciones_dolorosas'] ?? 0) as num).reduce(max).toInt();
+    final int rigMax = controls.map((c) => (c['minutos_rigidez'] ?? 0) as num).reduce(max).toInt();
+    
+    final double rigAvg = controls.map((c) => (c['minutos_rigidez'] ?? 0) as num).reduce((a, b) => a + b) / controls.length;
+    final int rigCambio = rigActual - ((prev?['minutos_rigidez'] ?? rigActual) as num).toInt();
+
+    // Interpretación dinámica
+    String interpretacion = "Durante el periodo observado, el paciente presenta ";
+    if (inflMax > 0 || dolMax > 0) {
+      interpretacion += "actividad articular ${inflActual > 5 ? 'persistente' : 'variable'}, con hasta $inflMax articulaciones inflamadas y $dolMax dolorosas. ";
+    } else {
+      interpretacion += "ausencia de inflamación y dolor articular significativo. ";
+    }
+    interpretacion += "La rigidez matutina alcanzó un máximo de $rigMax minutos. ";
+    if (rigCambio < 0) interpretacion += "Se observa una mejoría en la rigidez respecto al control anterior.";
+    else if (rigCambio > 0) interpretacion += "La rigidez ha aumentado, lo que sugiere mayor actividad matutina.";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Encabezado
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade100)),
+              child: const Icon(Icons.accessibility_new_rounded, color: Color(0xFF2E7D32), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("2. Actividad articular", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text("Seguimiento de articulaciones inflamadas, dolorosas y rigidez matutina del paciente", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        
+        // Área principal de gráficas
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.show_chart_rounded, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 8),
+                  Text("Evolución articular", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 12, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    Text("Cada gráfica ajusta automáticamente su escala según el rango de valores del paciente.", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // 1. Inflamadas
+              _jointRowChart("Articulaciones inflamadas", controls, (c) => (c['articulaciones_inflamadas'] ?? 0).toDouble(), Colors.green, inflActual, inflMax, "inflamadas"),
+              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              
+              // 2. Dolorosas
+              _jointRowChart("Articulaciones dolorosas", controls, (c) => (c['articulaciones_dolorosas'] ?? 0).toDouble(), Colors.orange, dolActual, dolMax, "dolorosas"),
+              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              
+              // 3. Rigidez
+              _jointRowChart("Rigidez matutina (min)", controls, (c) => (c['minutos_rigidez'] ?? 0).toDouble(), Colors.blue, rigActual, rigMax, "rigidez"),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 14),
+        
+        // Footer de Resumen e Interpretación
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Resumen del periodo
+            Expanded(
+              flex: 1,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [const Icon(Icons.assignment_outlined, size: 14, color: Color(0xFF2563EB)), const SizedBox(width: 8), Text("Resumen del periodo", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800))]),
+                    const SizedBox(height: 16),
+                    _footerStatItem(Icons.analytics_outlined, "Prom. rigidez", "${rigAvg.toStringAsFixed(1)} min"),
+                    _footerStatItem(Icons.timer_outlined, "Última rigidez", "$rigActual min"),
+                    _footerStatItem(Icons.compare_arrows_rounded, "Cambio vs anterior", "${rigCambio > 0 ? '+' : ''}$rigCambio min"),
+                    _footerStatItem(Icons.fact_check_outlined, "Controles analizados", "${controls.length}"),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            // Interpretación
+            Expanded(
+              flex: 1,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [const Icon(Icons.description_outlined, size: 14, color: Colors.green), const SizedBox(width: 8), Text("Interpretación de la actividad articular", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800))]),
+                    const SizedBox(height: 10),
+                    Text(interpretacion, style: GoogleFonts.montserrat(fontSize: 10, color: const Color(0xFF334155), height: 1.4, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        if (inflActual > 0 || dolActual > 0) _interpretPill("Actividad persistente", Colors.green),
+                        _interpretPill("Seguimiento clínico", Colors.blue),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _jointRowChart(String title, List<Map<String, dynamic>> controls, double Function(Map<String, dynamic>) getValue, Color color, int actual, int maxVal, String type) {
+    // Cálculo de escala dinámica con margen de seguridad
+    double maxY = 5.0;
+    if (type == "rigidez") {
+      if (maxVal <= 30) maxY = 30;
+      else if (maxVal <= 60) maxY = 60;
+      else if (maxVal <= 120) maxY = 120;
+      else maxY = ((maxVal / 30).ceil() * 30 + 30).toDouble();
+    } else {
+      if (maxVal < 5) maxY = 5;
+      else if (maxVal < 10) maxY = 10;
+      else if (maxVal < 20) maxY = 20;
+      else maxY = ((maxVal / 5).ceil() * 5 + 5).toDouble();
+    }
+
+    final spots = controls.asMap().entries.map((e) => FlSpot(e.key.toDouble(), getValue(e.value))).toList();
+
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          // Etiqueta lateral
+          Container(
+            width: 100,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                const SizedBox(height: 6),
+                Text(title, textAlign: TextAlign.center, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Gráfica
+          Expanded(
+            child: SizedBox(
+              height: 120,
+              child: LineChart(
+                LineChartData(
+                  minY: 0, maxY: maxY,
+                  gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: const Color(0xFFF1F5F9), strokeWidth: 1)),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots, isCurved: true, color: color, barWidth: 2, 
+                      dotData: FlDotData(show: true, getDotPainter: (spot, p, bar, i) => FlDotCirclePainter(radius: 3, color: color, strokeWidth: 1, strokeColor: Colors.white)),
+                      belowBarData: BarAreaData(show: true, color: color.withOpacity(0.02)),
+                    ),
+                  ],
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: maxY / 2, getTitlesWidget: (v, meta) => Text(v.toInt().toString(), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))))),
+                    bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 20, getTitlesWidget: (v, meta) {
+                      int idx = v.toInt();
+                      if (idx < 0 || idx >= controls.length) return const SizedBox.shrink();
+                      return Text(_monthShort(controls[idx]['fecha_control'] ?? ""), style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)));
+                    })),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  lineTouchData: LineTouchData(
+                    handleBuiltInTouches: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (_) => Colors.white,
+                      tooltipPadding: const EdgeInsets.all(8),
+                      tooltipBorder: BorderSide(color: color.withOpacity(0.2)),
+                      getTooltipItems: (items) => items.map((it) => LineTooltipItem(
+                        "", const TextStyle(),
+                        children: [
+                          TextSpan(text: "${_formatIsoDate(controls[it.x.toInt()]['fecha_control'])}\n", style: GoogleFonts.montserrat(fontSize: 8, color: const Color(0xFF64748B))),
+                          TextSpan(text: "${type == 'rigidez' ? 'Rigidez' : (type == 'inflamadas' ? 'Inflamadas' : 'Dolorosas')}: ", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600)),
+                          TextSpan(text: "${it.y.toInt()}${type == 'rigidez' ? ' min' : ''}", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w900, color: color)),
+                        ]
+                      )).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Indicadores Actual/Máximo
+          Container(
+            width: 70,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text("Actual", style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                Text("$actual", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w900, color: color)),
+                const SizedBox(height: 6),
+                Text("Máximo", style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                Text("$maxVal", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: color.withOpacity(0.7))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _footerStatItem(IconData icon, String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Text(label, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+        const Spacer(),
+        Text(value, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+      ],
+    ),
+  );
+
+  Widget _buildEvoInflammationSection(List<Map<String, dynamic>> controls) {
+    if (controls.isEmpty) return const SizedBox.shrink();
+
+    // 1. Cálculos de estadísticas
+    final int total = controls.length;
+    final int conBrote = controls.where((c) => c['en_brote'] == true).length;
+    
+    int countAlta = 0, countMod = 0, countBaja = 0, countRem = 0;
+    for (final c in controls) {
+      final s = (c['estado_enfermedad'] ?? '').toString().toLowerCase();
+      if (s.contains("alta") || s.contains("grave")) countAlta++;
+      else if (s.contains("moderada")) countMod++;
+      else if (s.contains("baja")) countBaja++;
+      else if (s.contains("remisión") || s.contains("remision")) countRem++;
+    }
+
+    final last = controls.last;
+    final String ultimoEstadoStr = last['estado_enfermedad'] ?? 'Seguimiento';
+    final Color ultimoEstadoColor = _stateColor(ultimoEstadoStr);
+    final String ultimoMes = _monthShort(last['fecha_control'] ?? '');
+
+    // 2. Interpretación dinámica
+    String interpretacion = "El paciente muestra una tendencia ";
+    if (total >= 2) {
+      final firstInfl = (controls.first['escala_inflamacion'] ?? 0) as num;
+      final lastInfl = (last['escala_inflamacion'] ?? 0) as num;
+      if (lastInfl < firstInfl) interpretacion += "general a la disminución de la inflamación. ";
+      else if (lastInfl > firstInfl) interpretacion += "al aumento de la actividad inflamatoria. ";
+      else interpretacion += "estable en sus niveles de inflamación. ";
+    }
+    interpretacion += "Se han documentado $conBrote episodios con brote en el período evaluado. El estado actual es de $ultimoEstadoStr.";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Encabezado
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.purple.shade100)),
+              child: const Icon(Icons.coronavirus_outlined, color: Colors.purple, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("3. Inflamación y estado clínico", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text("Seguimiento del nivel de inflamación y actividad clínica a lo largo del tiempo", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Panel Izquierdo: Gráfica
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Evolución de la inflamación (0-3)", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800)),
+                              Text("Puntuación de inflamación por visita", style: GoogleFonts.montserrat(fontSize: 9, color: Colors.blueGrey)),
+                            ],
+                          ),
+                          _legendItem("Inflamación", Colors.purple),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 200,
+                        child: LineChart(
+                          LineChartData(
+                            minY: 0, maxY: max(3.0, controls.map((c) => (c['escala_inflamacion'] ?? 0) as num).reduce(max).toDouble() + 0.5),
+                            gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: const Color(0xFFF1F5F9), strokeWidth: 1, dashArray: [4, 4])),
+                            borderData: FlBorderData(show: false),
+                            lineBarsData: [
+                              LineChartBarData(
+                                spots: controls.asMap().entries.map((e) => FlSpot(e.key.toDouble(), (e.value['escala_inflamacion'] ?? 0).toDouble())).toList(),
+                                isCurved: true, color: Colors.purple, barWidth: 3,
+                                dotData: const FlDotData(show: true, getDotPainter: _getInflammationDot),
+                                belowBarData: BarAreaData(show: true, gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.purple.withOpacity(0.15), Colors.purple.withOpacity(0.01)])),
+                              ),
+                            ],
+                            titlesData: FlTitlesData(
+                              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 1, getTitlesWidget: (v, meta) => Text(v.toInt().toString(), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))))),
+                              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, meta) {
+                                int idx = v.toInt();
+                                if (idx < 0 || idx >= controls.length) return const SizedBox.shrink();
+                                return Padding(padding: const EdgeInsets.only(top: 4), child: Text(_monthShort(controls[idx]['fecha_control'] ?? ""), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))));
+                              })),
+                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            ),
+                            lineTouchData: LineTouchData(
+                              handleBuiltInTouches: true,
+                              touchTooltipData: LineTouchTooltipData(
+                                getTooltipColor: (_) => Colors.white,
+                                tooltipPadding: const EdgeInsets.all(8),
+                                tooltipBorder: const BorderSide(color: Color(0xFFE2E8F0)),
+                                getTooltipItems: (items) => items.map((it) => LineTooltipItem(
+                                  "", const TextStyle(),
+                                  children: [
+                                    TextSpan(text: "${_formatIsoDate(controls[it.x.toInt()]['fecha_control'])}\n", style: GoogleFonts.montserrat(fontSize: 8, color: const Color(0xFF64748B))),
+                                    TextSpan(text: "Inflamación: ", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600)),
+                                    TextSpan(text: "${it.y.toInt()}/3", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.purple)),
+                                  ]
+                                )).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: Colors.purple.withOpacity(0.03), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.purple.withOpacity(0.1))),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 14, color: Colors.purple),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_generateInflammationHint(controls), style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF334155)))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Panel Derecho: Distribución y Estado
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    // Distribución de estado
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [const Icon(Icons.bar_chart_rounded, size: 14, color: Color(0xFF004FC4)), const SizedBox(width: 8), Text("Estado de enfermedad", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800))]),
+                          const SizedBox(height: 12),
+                          _distRow("Actividad alta", countAlta, total, Colors.red),
+                          _distRow("Actividad moderada", countMod, total, Colors.orange),
+                          _distRow("Actividad baja", countBaja, total, Colors.green),
+                          _distRow("Remisión clínica", countRem, total, Colors.blue),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Último estado
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.green.withOpacity(0.2))),
+                      child: Row(
+                        children: [
+                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.verified_user_rounded, color: Colors.green, size: 20)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Último estado", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                                Text(ultimoEstadoStr, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w900, color: ultimoEstadoColor)),
+                                Text("Evaluación en $ultimoMes", style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Brote Tracker
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [const Icon(Icons.coronavirus_outlined, size: 14, color: Colors.purple), const SizedBox(width: 8), Text("Brote (últimas evaluaciones)", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800))]),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              for (final c in controls.reversed.take(6).toList().reversed)
+                                _broteSmallPill(c['en_brote'] == true),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 14),
+
+        // Footer: Summary Cards
+        Row(
+          children: [
+            Expanded(child: _footerMetricCard("Con brote", "$conBrote", Colors.purple, Icons.coronavirus_outlined)),
+            const SizedBox(width: 10),
+            Expanded(child: _footerMetricCard("Alta", "$countAlta", Colors.red, Icons.trending_up_rounded)),
+            const SizedBox(width: 10),
+            Expanded(child: _footerMetricCard("Moderada", "$countMod", Colors.orange, Icons.bubble_chart_outlined)),
+            const SizedBox(width: 10),
+            Expanded(child: _footerMetricCard("Baja", "$countBaja", Colors.green, Icons.check_circle_outline_rounded)),
+            const SizedBox(width: 10),
+            Expanded(child: _footerMetricCard("Remisión", "$countRem", Colors.blue, Icons.shield_outlined)),
+            const SizedBox(width: 10),
+            Expanded(child: _footerMetricCard("Total evaluaciones", "$total", Colors.purple, Icons.calendar_today_outlined)),
+          ],
+        ),
+
+        const SizedBox(height: 14),
+        
+        // Interpretación Final
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: const Color(0xFFFBFDFF), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF0F172A).withOpacity(0.05), shape: BoxShape.circle), child: const Icon(Icons.assignment_outlined, size: 18, color: Color(0xFF0F172A))),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Interpretación clínica", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    Text(interpretacion, style: GoogleFonts.montserrat(fontSize: 10, color: const Color(0xFF334155), height: 1.4, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static FlDotPainter _getInflammationDot(FlSpot spot, double p, LineChartBarData bar, int index) => FlDotCirclePainter(radius: 4, color: Colors.purple, strokeWidth: 2, strokeColor: Colors.white);
+
+  Widget _legendItem(String text, Color color) => Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), const SizedBox(width: 6), Text(text, style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)))]);
+
+  Widget _distRow(String label, int count, int total, Color color) {
+    double pct = total > 0 ? count / total : 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)))),
+          const SizedBox(width: 8),
+          SizedBox(width: 60, child: ClipRRect(borderRadius: BorderRadius.circular(2), child: LinearProgressIndicator(value: pct, minHeight: 4, backgroundColor: color.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(color)))),
+          const SizedBox(width: 8),
+          Text("$count", style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _broteSmallPill(bool isBrote) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(color: isBrote ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(6), border: Border.all(color: (isBrote ? Colors.red : Colors.green).withOpacity(0.1))),
+    child: Text(isBrote ? "Sí" : "No", style: GoogleFonts.montserrat(fontSize: 8, fontWeight: FontWeight.w800, color: isBrote ? Colors.red : Colors.green)),
+  );
+
+  Widget _footerMetricCard(String title, String value, Color color, IconData icon) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+    child: Row(
+      children: [
+        Icon(icon, size: 14, color: color.withOpacity(0.6)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: GoogleFonts.montserrat(fontSize: 7, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+            Text(value, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  String _generateInflammationHint(List<Map<String, dynamic>> controls) {
+    if (controls.isEmpty) return "Sin datos suficientes.";
+    final last = controls.last;
+    final val = (last['escala_inflamacion'] ?? 0) as num;
+    final mes = _monthShort(last['fecha_control'] ?? '');
+    return "La inflamación se encuentra en nivel $val en la evaluación de $mes.";
+  }
+
+  Widget _stateStrip(List<Map<String, dynamic>> controls) {
+    final states = controls.map((c) => c['estado_enfermedad']?.toString() ?? 'Seguimiento').toList();
+    return Container(
+      height: 240,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Estado de enfermedad", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in states)
+                _stateChip(s, _stateColor(s)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text("Brote", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final c in controls)
+                _stateChip(c['en_brote'] == true ? "Sí" : "No", c['en_brote'] == true ? Colors.red : Colors.green),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stateChip(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.22))),
+    child: Text(text, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+  );
+
+  Color _stateColor(String s) {
+    final e = s.toLowerCase();
+    if (e.contains("remisión") || e.contains("remision")) return Colors.green;
+    if (e.contains("baja")) return Colors.amber.shade700;
+    if (e.contains("moderada")) return Colors.orange;
+    if (e.contains("alta")) return Colors.red;
+    return Colors.blueGrey;
+  }
+
+  Widget _buildEvoHeatmapSection(List<Map<String, dynamic>> controls) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader("4. Mapa de calor mensual", Icons.grid_on_rounded),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 230,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 120,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SizedBox(height: 36),
+                        _HeatLabel("Dolor"),
+                        _HeatLabel("Energía"),
+                        _HeatLabel("Inflamación"),
+                        _HeatLabel("Brote"),
+                        _HeatLabel("Estado nut."),
+                      ],
+                    ),
+                  ),
+                  for (final c in controls) _heatColumn(c),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heatColumn(Map<String, dynamic> c) {
+    final label = _monthShort(c['fecha_control']?.toString() ?? '');
+    return GestureDetector(
+      onTap: () => setState(() => _controlSeleccionadoEvo = c),
+      child: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Column(
+          children: [
+            Container(width: 72, height: 28, alignment: Alignment.center, child: Text(label, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800))),
+            _heatCell((c['puntos_dolor'] ?? 0).toString(), _heatColor('dolor', (c['puntos_dolor'] ?? 0).toDouble())),
+            _heatCell((c['nivel_fatiga'] ?? 10).toString(), _heatColor('energia', (c['nivel_fatiga'] ?? 10).toDouble())),
+            _heatCell((c['escala_inflamacion'] ?? 0).toString(), _heatColor('inflamacion', (c['escala_inflamacion'] ?? 0).toDouble())),
+            _heatCell(c['en_brote'] == true ? "Sí" : "No", c['en_brote'] == true ? Colors.red : Colors.green),
+            _heatCell(c['estado_nutricional']?.toString() ?? "-", _nutriColor(c['estado_nutricional']?.toString() ?? "")),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heatCell(String text, Color color) => Container(
+    width: 72,
+    height: 32,
+    margin: const EdgeInsets.only(bottom: 6),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withValues(alpha: 0.18))),
+    child: Text(text, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+  );
+
+  Color _heatColor(String tipo, double v) {
+    switch (tipo) {
+      case 'dolor':
+        if (v <= 2) return Colors.green;
+        if (v <= 6) return Colors.orange;
+        return Colors.red;
+      case 'energia':
+        if (v >= 7) return Colors.green;
+        if (v >= 4) return Colors.orange;
+        return Colors.red;
+      case 'inflamacion':
+        if (v == 0) return Colors.green;
+        if (v == 1) return Colors.yellow.shade800;
+        if (v == 2) return Colors.orange;
+        return Colors.red;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  Color _nutriColor(String s) {
+    final e = s.toLowerCase();
+    if (e.contains("normal") || e.contains("eutrófico") || e.contains("eutrofico")) return Colors.green;
+    if (e.contains("bajo")) return Colors.orange;
+    if (e.contains("delg")) return Colors.amber;
+    if (e.contains("sobre")) return Colors.red.shade400;
+    return Colors.blueGrey;
+  }
+
+  Widget _buildEvoGrowthSection(List<Map<String, dynamic>> controls, Map<String, dynamic> paciente) {
+    final selected = _controlSeleccionadoEvo ?? controls.last;
+    final pre = Map<String, dynamic>.from(selected['prediagnostico'] ?? {});
+    final wide = MediaQuery.of(context).size.width >= 1100;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader("5. Crecimiento y nutrición", Icons.restaurant_menu),
+          const SizedBox(height: 12),
+          if (wide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _realLineChart("Peso mensual (kg)", controls, (c) => (c['peso_kg'] ?? 0).toDouble(), Colors.green, (c) => _growthTooltip(c, "Peso"))),
+                const SizedBox(width: 12),
+                Expanded(child: _realLineChart("Talla mensual (cm)", controls, (c) => (c['talla_cm'] ?? 0).toDouble(), Colors.teal, (c) => _growthTooltip(c, "Talla"))),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 170,
+                  child: Column(
+                    children: [
+                      _sideStatCard("Peso actual", "${selected['peso_kg'] ?? '-'} kg", Icons.monitor_weight_outlined, Colors.green),
+                      const SizedBox(height: 10),
+                      _sideStatCard("Talla actual", "${selected['talla_cm'] ?? '-'} cm", Icons.height, Colors.green),
+                      const SizedBox(height: 10),
+                      _sideStatCard("IMC actual", "${selected['imc_calculado'] ?? '-'}", Icons.badge_outlined, Colors.green),
+                      const SizedBox(height: 10),
+                      _sideStatCard("Z-score", _formatNum(pre['z_score_bmi'] ?? selected['z_score_bmi']), Icons.show_chart_rounded, _zScoreColor(double.tryParse((pre['z_score_bmi'] ?? selected['z_score_bmi'] ?? 0).toString()) ?? 0)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                _realLineChart("Peso mensual (kg)", controls, (c) => (c['peso_kg'] ?? 0).toDouble(), Colors.green, (c) => _growthTooltip(c, "Peso")),
+                const SizedBox(height: 12),
+                _realLineChart("Talla mensual (cm)", controls, (c) => (c['talla_cm'] ?? 0).toDouble(), Colors.teal, (c) => _growthTooltip(c, "Talla")),
+              ],
+            ),
+          const SizedBox(height: 12),
+          _realLineChart("IMC mensual", controls, (c) => (c['imc_calculado'] ?? 0).toDouble(), Colors.indigo, (c) => _simpleControlTooltip(c)),
+          const SizedBox(height: 12),
+          _realLineChart(
+            "Z-score IMC",
+            controls,
+            (c) => double.tryParse((c['prediagnostico']?['z_score_bmi'] ?? c['z_score_bmi'] ?? 0).toString()) ?? 0,
+            Colors.purple,
+            (c) => _simpleControlTooltip(c),
+            minY: -3,
+            maxY: 3,
+            bands: const [(-3, -2, Color(0x1AF87171)), (-2, 1, Color(0x1A2E7D32)), (1, 2, Color(0x1AF59E0B)), (2, 3, Color(0x1AF87171))],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in controls) _stateChip(c['estado_nutricional']?.toString() ?? '-', _nutriColor(c['estado_nutricional']?.toString() ?? '')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (wide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _prediBlock(selected)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Detalle del control seleccionado", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 8),
+                        _selectedEvoGrid(selected),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                _prediBlock(selected),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Detalle del control seleccionado", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      _selectedEvoGrid(selected),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _selectedEvoGrid(Map<String, dynamic> c) {
+    final pre = Map<String, dynamic>.from(c['prediagnostico'] ?? {});
+    return Wrap(
+      spacing: 14,
+      runSpacing: 8,
+      children: [
+        _kv("Fecha", _formatIsoDate(c['fecha_control'])),
+        _kv("Dolor", "${c['puntos_dolor'] ?? '-'}"),
+        _kv("Energía", "${c['nivel_fatiga'] ?? '-'}"),
+        _kv("Inflamación", "${c['escala_inflamacion'] ?? '-'}"),
+        _kv("Art. inflamadas", "${c['articulaciones_inflamadas'] ?? '-'}"),
+        _kv("Art. dolorosas", "${c['articulaciones_dolorosas'] ?? '-'}"),
+        _kv("Rigidez", "${c['minutos_rigidez'] ?? '-'} min"),
+        _kv("Brote", c['en_brote'] == true ? "Sí" : "No"),
+        _kv("Estado", c['estado_enfermedad']?.toString() ?? "-"),
+        _kv("Peso", "${c['peso_kg'] ?? '-'} kg"),
+        _kv("Talla", "${c['talla_cm'] ?? '-'} cm"),
+        _kv("IMC", (pre['imc'] ?? c['imc_calculado'] ?? '-').toString()),
+        _kv("Z-score", (pre['z_score_bmi'] ?? c['z_score_bmi'] ?? '-').toString()),
+        _kv("Nutrición", c['estado_nutricional']?.toString() ?? "-"),
+      ],
+    );
+  }
+
+  Widget _sideStatCard(String title, String value, IconData icon, Color color) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: color.withValues(alpha: 0.16))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 8),
+        Text(title, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+      ],
+    ),
+  );
+
+  Widget _kv(String k, String v) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+    child: RichText(
+      text: TextSpan(
+        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+        children: [
+          TextSpan(text: "$k: ", style: const TextStyle(fontWeight: FontWeight.w800)),
+          TextSpan(text: v, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    ),
+  );
+
+  Widget _prediBlock(Map<String, dynamic> c) {
+    final pre = Map<String, dynamic>.from(c['prediagnostico'] ?? {});
+    final confirmado = c['validacion_confirmada'] == true;
+    final resumenClinico = _asStringList(pre['resumen_clinico']);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: const Color(0xFFF8FFF8), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.green.shade100)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Text("Diagnóstico nutricional OMS", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey)),
+            const SizedBox(width: 8),
+            if (confirmado) _stateChip("Confirmado por nutrición", Colors.green),
+          ]),
+          const SizedBox(height: 6),
+          Text(pre['diagnostico_combinado']?.toString() ?? c['estado_nutricional']?.toString() ?? "-", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 4),
+          Text("IMC ideal ${_formatNum(pre['imc'] ?? c['imc_calculado'])} · Z-score ${_formatNum(pre['z_score_bmi'] ?? c['z_score_bmi'])}", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _smallInfoPill("Peso ideal", _formatNum(pre['peso_ideal'])),
+              _smallInfoPill("Talla ideal", _formatNum(pre['talla_ideal'])),
+              _smallInfoPill("Estado peso", pre['estado_peso']?.toString() ?? "-"),
+            ],
+          ),
+          if (resumenClinico.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final item in resumenClinico.take(4))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6, right: 8),
+                      child: Icon(Icons.fiber_manual_record, size: 6, color: Colors.green),
+                    ),
+                    Expanded(child: Text(item, style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade700, height: 1.35))),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _smallInfoPill(String title, String value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+    child: RichText(
+      text: TextSpan(
+        style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF334155)),
+        children: [
+          TextSpan(text: "$title: ", style: const TextStyle(fontWeight: FontWeight.w800)),
+          TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    ),
+  );
+
+  List<String> _asStringList(dynamic value) {
+    if (value == null) return const [];
+    if (value is String) {
+      final text = value.trim();
+      return text.isEmpty ? const [] : [text];
+    }
+    if (value is List) {
+      return value.where((e) => e != null).map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+    }
+    return [value.toString()];
+  }
+
+  String _formatNum(dynamic v) {
+    final n = double.tryParse(v?.toString() ?? "");
+    if (n == null) return "-";
+    return n.toStringAsFixed(1);
+  }
+
+  Widget _buildEvoScatterSection(List<Map<String, dynamic>> controls) {
+    final spots = <ScatterSpot>[];
+    final hasBrote = controls.any((c) => c['en_brote'] == true);
+    for (final c in controls) {
+      final x = (c['puntos_dolor'] ?? 0).toDouble();
+      final y = (c['nivel_fatiga'] ?? 10).toDouble();
+      final size = 6 + ((c['articulaciones_inflamadas'] ?? 0).toDouble() * 3);
+      final color = c['en_brote'] == true ? Colors.red.withOpacity(0.75) : Colors.green.withOpacity(0.65);
+      spots.add(
+        ScatterSpot(
+          x,
+          y,
+          dotPainter: FlDotCirclePainter(
+            radius: size.toDouble(),
+            color: color,
+          ),
+        ),
+      );
+    }
+
+    double maxX = 10;
+    double maxY = 10;
+    if (spots.isNotEmpty) {
+      double curMaxX = spots.map((s) => s.x).reduce(max);
+      double curMaxY = spots.map((s) => s.y).reduce(max);
+      maxX = max(10, curMaxX + 2);
+      maxY = max(10, curMaxY + 2);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader("6. Relación dolor - energía - brote", Icons.scatter_plot_rounded),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 320,
+                  child: ScatterChart(
+                    ScatterChartData(
+                      scatterSpots: spots,
+                      minX: 0,
+                      maxX: maxX,
+                      minY: 0,
+                      maxY: maxY,
+                      gridData: FlGridData(show: true, drawHorizontalLine: true, drawVerticalLine: true, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.05)), getDrawingVerticalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.05))),
+                      borderData: FlBorderData(show: true, border: Border.all(color: const Color(0xFFF1F5F9))),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(axisNameWidget: const Text("ENERGÍA", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: maxY / 5)),
+                        bottomTitles: AxisTitles(axisNameWidget: const Text("DOLOR", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: maxX / 5)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      scatterTouchData: ScatterTouchData(
+                        enabled: true,
+                        touchCallback: (event, response) {
+                          final spot = response?.touchedSpot;
+                          if (spot == null) return;
+                          final idx = spot.spotIndex;
+                          if (idx >= 0 && idx < controls.length) {
+                            setState(() => _controlSeleccionadoEvo = controls[idx]);
+                          }
+                        },
+                        touchTooltipData: ScatterTouchTooltipData(
+                          getTooltipColor: (_) => Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 180,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _legendChip("Tamaño: Art. inflamadas", Colors.blueGrey, "0 - 3"),
+                    const SizedBox(height: 10),
+                    _legendChip("Color: Brote", Colors.red, "Sí"),
+                    _legendChip("", Colors.green, "No"),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                      child: Text(
+                        hasBrote
+                            ? "Los controles con brote se concentran en mayor dolor y menor energía."
+                            : "No se observa relación marcada entre dolor y energía en el período seleccionado.",
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueGrey.shade700, height: 1.45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendChip(String title, Color color, String value) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+    child: Row(
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title.isEmpty ? value : "$title: $value",
+            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey.shade700),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _realLineChart(
+    String title,
+    List<Map<String, dynamic>> controls,
+    double Function(Map<String, dynamic>) getValue,
+    Color lineColor,
+    String Function(Map<String, dynamic>) tooltipBuilder, {
+    double minY = 0,
+    double? maxY,
+    List<(double, double, Color)> bands = const [],
+  }) {
+    final spots = <FlSpot>[];
+    for (var i = 0; i < controls.length; i++) {
+      spots.add(FlSpot(i.toDouble(), getValue(controls[i])));
+    }
+    
+    // Escala dinámica automática: asegura que los puntos nunca se desborden arriba ni abajo
+    double calculatedMaxY = 10.0;
+    double calculatedMinY = minY;
+    if (spots.isNotEmpty) {
+      double maxVal = spots.map((s) => s.y).reduce(max);
+      double minVal = spots.map((s) => s.y).reduce(min);
+      
+      double hintMaxY = maxY ?? (maxVal > 0 ? maxVal * 1.2 : 10.0);
+      calculatedMaxY = max(hintMaxY, (maxVal * 1.2).ceilToDouble());
+      
+      // Ajuste dinámico para el mínimo (especialmente importante para Z-scores)
+      if (minVal < minY) {
+        calculatedMinY = (minVal * 1.2).floorToDouble();
+      }
+
+      if (calculatedMaxY <= calculatedMinY) calculatedMaxY = calculatedMinY + 1;
+    }
+
+    return Container(
+      height: 240,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: const Color(0xFFFBFDFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 8),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minY: calculatedMinY,
+                maxY: calculatedMaxY,
+                rangeAnnotations: RangeAnnotations(
+                  horizontalRangeAnnotations: [
+                    for (final band in bands)
+                      HorizontalRangeAnnotation(y1: band.$1, y2: band.$2, color: band.$3),
+                  ],
+                ),
+                gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: lineColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(show: true, color: lineColor.withOpacity(0.05)),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: calculatedMaxY > 0 ? (calculatedMaxY / 2).clamp(1, 100) : 1, getTitlesWidget: (v, meta) => Text(v.toInt().toString(), style: const TextStyle(fontSize: 9)))),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 26,
+                      getTitlesWidget: (v, meta) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= controls.length) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(_monthShort(controls[idx]['fecha_control']?.toString() ?? ''), style: const TextStyle(fontSize: 9)),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                lineTouchData: LineTouchData(
+                  handleBuiltInTouches: true,
+                  touchCallback: (event, response) {
+                    final spotsTouched = response?.lineBarSpots;
+                    if (spotsTouched == null || spotsTouched.isEmpty) return;
+                    final idx = spotsTouched.first.spotIndex;
+                    if (idx >= 0 && idx < controls.length) {
+                      setState(() => _controlSeleccionadoEvo = controls[idx]);
+                    }
+                  },
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => Colors.black87,
+                    getTooltipItems: (items) {
+                      if (items.isEmpty) return [];
+                      final idx = items.first.x.toInt();
+                      if (idx < 0 || idx >= controls.length) return [];
+                      final c = controls[idx];
+                      return [
+                        LineTooltipItem(
+                          "${_formatIsoDate(c['fecha_control'])}\n${tooltipBuilder(c)}",
+                          const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ];
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _realStepChart(
+    String title,
+    List<Map<String, dynamic>> controls,
+    double Function(Map<String, dynamic>) getValue,
+    Color lineColor,
+    String Function(Map<String, dynamic>) tooltipBuilder, {
+    double minY = 0,
+    double? maxY,
+    List<(double, double, Color)> bands = const [],
+  }) {
+    final spots = <FlSpot>[];
+    for (var i = 0; i < controls.length; i++) {
+      spots.add(FlSpot(i.toDouble(), getValue(controls[i])));
+    }
+
+    double calculatedMaxY = 3.0;
+    if (spots.isNotEmpty) {
+      double maxVal = spots.map((s) => s.y).reduce(max);
+      calculatedMaxY = maxY ?? (maxVal < 3 ? 3 : maxVal + 1);
+    }
+
+    return Container(
+      height: 220,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: const Color(0xFFFBFDFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 8),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minY: minY,
+                maxY: calculatedMaxY,
+                rangeAnnotations: RangeAnnotations(horizontalRangeAnnotations: [for (final band in bands) HorizontalRangeAnnotation(y1: band.$1, y2: band.$2, color: band.$3)]),
+                gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: false,
+                    color: lineColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: true),
+                  )
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 1, getTitlesWidget: (v, meta) => Text(v.toInt().toString(), style: const TextStyle(fontSize: 9)))),
+                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 26, getTitlesWidget: (v, meta) {
+                    final idx = v.toInt();
+                    if (idx < 0 || idx >= controls.length) return const SizedBox.shrink();
+                    return Text(_monthShort(controls[idx]['fecha_control']?.toString() ?? ''), style: const TextStyle(fontSize: 9));
+                  })),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                lineTouchData: LineTouchData(
+                  touchCallback: (event, response) {
+                    final spotsTouched = response?.lineBarSpots;
+                    if (spotsTouched == null || spotsTouched.isEmpty) return;
+                    final idx = spotsTouched.first.spotIndex;
+                    if (idx >= 0 && idx < controls.length) {
+                      setState(() => _controlSeleccionadoEvo = controls[idx]);
+                    }
+                  },
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => Colors.black87,
+                    getTooltipItems: (items) {
+                      if (items.isEmpty) return [];
+                      final idx = items.first.x.toInt();
+                      if (idx < 0 || idx >= controls.length) return [];
+                      final c = controls[idx];
+                      return [LineTooltipItem("${_formatIsoDate(c['fecha_control'])}\n${tooltipBuilder(c)}", const TextStyle(color: Colors.white, fontSize: 11))];
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _evoSummaryRow(List<Map<String, dynamic>> controls, {required String type}) {
+    if (controls.isEmpty) return const SizedBox.shrink();
+    if (type == "symptoms") {
+      final dolor = <double>[for (final e in controls) (e['puntos_dolor'] ?? 0).toDouble()];
+      final energia = <double>[for (final e in controls) (e['nivel_fatiga'] ?? 10).toDouble()];
+      final brotes = controls.where((e) => e['en_brote'] == true).length;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _miniSummary("Promedio dolor", _avg(dolor).toStringAsFixed(1)),
+          _miniSummary("Promedio energía", _avg(energia).toStringAsFixed(1)),
+          _miniSummary("Dolor máximo", dolor.fold<double>(double.negativeInfinity, max).toStringAsFixed(0)),
+          _miniSummary("Energía mínima", energia.fold<double>(double.infinity, min).toStringAsFixed(0)),
+          _miniSummary("Cantidad controles", controls.length.toString()),
+          _miniSummary("Con brote", brotes.toString()),
+        ],
+      );
+    }
+    if (type == "joints") {
+      final infl = <double>[for (final e in controls) (e['articulaciones_inflamadas'] ?? 0).toDouble()];
+      final dolor = <double>[for (final e in controls) (e['articulaciones_dolorosas'] ?? 0).toDouble()];
+      final rig = <double>[for (final e in controls) (e['minutos_rigidez'] ?? 0).toDouble()];
+      final prev = controls.length > 1 ? controls[controls.length - 2] : null;
+      final last = controls.last;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _miniSummary("Máx. inflamadas", infl.fold<double>(double.negativeInfinity, max).toStringAsFixed(0)),
+          _miniSummary("Máx. dolorosas", dolor.fold<double>(double.negativeInfinity, max).toStringAsFixed(0)),
+          _miniSummary("Rigidez máxima", rig.fold<double>(double.negativeInfinity, max).toStringAsFixed(0)),
+          _miniSummary("Prom. rigidez", _avg(rig).toStringAsFixed(1)),
+          _miniSummary("Última rigidez", (last['minutos_rigidez'] ?? 0).toString()),
+          _miniSummary("Cambio vs anterior", prev == null ? "-" : "${((last['minutos_rigidez'] ?? 0) as num) - ((prev['minutos_rigidez'] ?? 0) as num)}"),
+        ],
+      );
+    }
+    if (type == "inflammation") {
+      final estados = controls.map((e) => (e['estado_enfermedad'] ?? '').toString()).toList();
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _miniSummary("Remisión", estados.where((e) => e.toLowerCase().contains("remisión") || e.toLowerCase().contains("remision")).length.toString()),
+          _miniSummary("Baja", estados.where((e) => e.toLowerCase().contains("baja")).length.toString()),
+          _miniSummary("Moderada", estados.where((e) => e.toLowerCase().contains("moderada")).length.toString()),
+          _miniSummary("Alta", estados.where((e) => e.toLowerCase().contains("alta")).length.toString()),
+          _miniSummary("Con brote", controls.where((e) => e['en_brote'] == true).length.toString()),
+          _miniSummary("Último estado", controls.last['estado_enfermedad']?.toString() ?? "-"),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _miniSummary(String title, String value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+    child: RichText(
+      text: TextSpan(
+        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+        children: [
+          TextSpan(text: "$title: ", style: const TextStyle(fontWeight: FontWeight.w800)),
+          TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    ),
+  );
+
+  double _avg(List<double> values) => values.isEmpty ? 0 : values.reduce((a, b) => a + b) / values.length;
+
+  Widget _buildEvoDetailPanel(Map<String, dynamic> c) {
+    final pre = Map<String, dynamic>.from(c['prediagnostico'] ?? {});
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFFFFF8ED), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.orange.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [const Icon(Icons.info_outline, color: Colors.orange), const SizedBox(width: 8), Text("Detalle del control seleccionado", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900))]),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              _miniSummary("Fecha", _formatIsoDate(c['fecha_control'])),
+              _miniSummary("Dolor", "${c['puntos_dolor'] ?? '-'}"),
+              _miniSummary("Energía", "${c['nivel_fatiga'] ?? '-'}"),
+              _miniSummary("Inflamación", "${c['escala_inflamacion'] ?? '-'}"),
+              _miniSummary("Art. inflamadas", "${c['articulaciones_inflamadas'] ?? '-'}"),
+              _miniSummary("Art. dolorosas", "${c['articulaciones_dolorosas'] ?? '-'}"),
+              _miniSummary("Rigidez", "${c['minutos_rigidez'] ?? '-'} min"),
+              _miniSummary("Brote", c['en_brote'] == true ? "Sí" : "No"),
+              _miniSummary("Estado", c['estado_enfermedad']?.toString() ?? "-"),
+              _miniSummary("Peso", "${c['peso_kg'] ?? '-'} kg"),
+              _miniSummary("Talla", "${c['talla_cm'] ?? '-'} cm"),
+              _miniSummary("IMC", _formatNum(pre['imc'] ?? c['imc_calculado'])),
+              _miniSummary("Z-score", _formatNum(pre['z_score_bmi'] ?? c['z_score_bmi'])),
+              _miniSummary("Nutrición", c['estado_nutricional']?.toString() ?? "-"),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if ((c['nota_evolucion'] ?? '').toString().isNotEmpty)
+            Text("Nota: ${c['nota_evolucion']}", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700)),
+        ],
+      ),
+    );
+  }
+
+  String _monthShort(String raw) {
+    try {
+      final dt = DateTime.parse(raw);
+      return DateFormat('MMM').format(dt);
+    } catch (_) {
+      return raw.length >= 3 ? raw.substring(0, 3) : raw;
+    }
+  }
+
+  String _painTooltip(Map<String, dynamic> c) => "Dolor: ${c['puntos_dolor'] ?? 0}/10\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
+
+  String _energyTooltip(Map<String, dynamic> c) => "Energía: ${c['nivel_fatiga'] ?? 10}/10\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
+
+  String _jointTooltip(Map<String, dynamic> c, String label) => "$label: ${c[label == 'Inflamadas' ? 'articulaciones_inflamadas' : 'articulaciones_dolorosas'] ?? 0}\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
+
+  String _rigidezTooltip(Map<String, dynamic> c) => "Rigidez: ${c['minutos_rigidez'] ?? 0} min\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
+
+  String _growthTooltip(Map<String, dynamic> c, String label) => "$label: ${label == 'Peso' ? c['peso_kg'] : c['talla_cm']}\nPrediagnóstico: ${(c['prediagnostico']?['diagnostico_combinado'] ?? c['estado_nutricional'] ?? '-').toString()}\n${(c['nota_evolucion'] ?? '').toString()}";
+
+  String _simpleControlTooltip(Map<String, dynamic> c) => "Fecha: ${_formatIsoDate(c['fecha_control'])}\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
+
   Widget _buildFoodIntakeSection() {
     final data = _consumoAlimentario;
     if (data == null) return const SizedBox.shrink();
@@ -1461,7 +3641,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage> with 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("3. CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS", Icons.restaurant_menu_rounded),
+        _sectionHeader("7. CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS", Icons.restaurant_menu_rounded),
         const SizedBox(height: 12),
         Text(
           "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
