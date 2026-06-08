@@ -19,9 +19,7 @@ class AdminAccountsSupabaseRepository {
       return const [];
     }
 
-    return payload
-        .map((row) => Map<String, dynamic>.from(row as Map))
-        .toList();
+    return payload.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
   Options _authorizedOptions() {
@@ -65,10 +63,12 @@ class AdminAccountsSupabaseRepository {
       if (detail is String && detail.trim().isNotEmpty) {
         return Exception(detail);
       }
-      if (map["message"] is String && (map["message"] as String).trim().isNotEmpty) {
+      if (map["message"] is String &&
+          (map["message"] as String).trim().isNotEmpty) {
         return Exception(map["message"].toString());
       }
-      if (map["error"] is String && (map["error"] as String).trim().isNotEmpty) {
+      if (map["error"] is String &&
+          (map["error"] as String).trim().isNotEmpty) {
         return Exception(map["error"].toString());
       }
     }
@@ -88,7 +88,8 @@ class AdminAccountsSupabaseRepository {
       );
 
       return _toRows(response.data)
-          .where((row) => _allowedRoleCodes.contains((row["codigo"] ?? "").toString().toLowerCase()))
+          .where((row) => _allowedRoleCodes
+              .contains((row["codigo"] ?? "").toString().toLowerCase()))
           .toList();
     } on DioException catch (error) {
       throw _mapDioException(error, "No fue posible cargar roles");
@@ -137,8 +138,9 @@ class AdminAccountsSupabaseRepository {
         .join(" ")
         .toLowerCase();
 
-    final isDuplicate =
-        code == "23505" || raw.contains("duplicate key") || raw.contains("unique constraint");
+    final isDuplicate = code == "23505" ||
+        raw.contains("duplicate key") ||
+        raw.contains("unique constraint");
     if (isDuplicate) {
       if (raw.contains("cedula")) {
         return Exception("La cedula ya existe.");
@@ -152,8 +154,7 @@ class AdminAccountsSupabaseRepository {
       return Exception("Ya existe un registro con esos datos.");
     }
 
-    final denied =
-        code == "42501" ||
+    final denied = code == "42501" ||
         code == "pgrst301" ||
         raw.contains("permission denied") ||
         raw.contains("row-level security") ||
@@ -210,7 +211,8 @@ class AdminAccountsSupabaseRepository {
       final response = await _client.rpc(
         "admin_listar_cuentas_hu01",
         params: {
-          "p_search": (search == null || search.trim().isEmpty) ? null : search.trim(),
+          "p_search":
+              (search == null || search.trim().isEmpty) ? null : search.trim(),
           "p_include_inactive": includeInactive,
         },
       );
@@ -281,7 +283,9 @@ class AdminAccountsSupabaseRepository {
     }
     if (activo != null) {
       payload["activo"] = activo;
-      payload["deactivated_reason"] = activo ? null : (deactivatedReason ?? "Desactivado por administrador");
+      payload["deactivated_reason"] = activo
+          ? null
+          : (deactivatedReason ?? "Desactivado por administrador");
     }
 
     if (payload.isEmpty) {
@@ -307,7 +311,11 @@ class AdminAccountsSupabaseRepository {
     }
 
     try {
-      await _client.schema("usuarios").from("usuario").update(payload).eq("id", userId);
+      await _client
+          .schema("usuarios")
+          .from("usuario")
+          .update(payload)
+          .eq("id", userId);
     } on PostgrestException catch (error) {
       if (_isSchemaCacheUnavailable(error)) {
         try {
@@ -317,7 +325,8 @@ class AdminAccountsSupabaseRepository {
               if (cedula != null) "cedula": cedula.trim(),
               if (username != null) "username": username.trim().toLowerCase(),
               if (email != null) "email": email.trim().toLowerCase(),
-              if (nombreCompleto != null) "nombre_completo": nombreCompleto.trim(),
+              if (nombreCompleto != null)
+                "nombre_completo": nombreCompleto.trim(),
               if (idRol != null) "id_rol": idRol,
               if (activo != null) "activo": activo,
             },
@@ -325,10 +334,12 @@ class AdminAccountsSupabaseRepository {
           );
           return;
         } on DioException catch (dioError) {
-          throw _mapDioException(dioError, "No fue posible actualizar la cuenta");
+          throw _mapDioException(
+              dioError, "No fue posible actualizar la cuenta");
         }
       }
-      throw _mapPostgrestException(error, "No fue posible actualizar la cuenta");
+      throw _mapPostgrestException(
+          error, "No fue posible actualizar la cuenta");
     }
   }
 
@@ -356,7 +367,11 @@ class AdminAccountsSupabaseRepository {
     }
 
     try {
-      await _client.schema("usuarios").from("usuario").delete().eq("id", userId);
+      await _client
+          .schema("usuarios")
+          .from("usuario")
+          .delete()
+          .eq("id", userId);
     } on PostgrestException catch (error) {
       throw _mapPostgrestException(error, "No fue posible eliminar la cuenta");
     }

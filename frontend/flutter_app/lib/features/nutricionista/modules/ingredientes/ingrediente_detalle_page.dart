@@ -19,10 +19,12 @@ class IngredienteDetallePage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<IngredienteDetallePage> createState() => _IngredienteDetallePageState();
+  ConsumerState<IngredienteDetallePage> createState() =>
+      _IngredienteDetallePageState();
 }
 
-class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage> {
+class _IngredienteDetallePageState
+    extends ConsumerState<IngredienteDetallePage> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
@@ -43,9 +45,17 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
       final res = await repo.obtenerIngredienteDetalle(widget.idIngrediente);
-      if (mounted) setState(() { _data = res; _loading = false; });
+      if (mounted)
+        setState(() {
+          _data = res;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
     }
   }
 
@@ -57,12 +67,16 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTema.azulPrincipal, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppTema.azulPrincipal, size: 20),
           onPressed: widget.onBack,
         ),
         title: Text(
           "Ficha Técnica del Alimento",
-          style: GoogleFonts.montserrat(color: AppTema.azulOscuro, fontSize: 18, fontWeight: FontWeight.bold),
+          style: GoogleFonts.montserrat(
+              color: AppTema.azulOscuro,
+              fontSize: 18,
+              fontWeight: FontWeight.bold),
         ),
         actions: [
           if (!_loading && _error == null)
@@ -70,7 +84,8 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: IconButton(
                 onPressed: widget.onEdit,
-                icon: const Icon(Icons.edit_note_rounded, color: AppTema.azulPrincipal, size: 28),
+                icon: const Icon(Icons.edit_note_rounded,
+                    color: AppTema.azulPrincipal, size: 28),
                 tooltip: "Editar ingrediente",
               ),
             ),
@@ -81,20 +96,28 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
   }
 
   Widget _buildBody() {
-    if (_loading) return const Center(child: NutriLoading(mensaje: "Consultando base nutricional..."));
+    if (_loading)
+      return const Center(
+          child: NutriLoading(mensaje: "Consultando base nutricional..."));
 
     if (_error != null || _data == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.redAccent, size: 64),
             const SizedBox(height: 24),
-            Text("Error al cargar la información", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text("Error al cargar la información",
+                style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
-            Text(_error ?? "No se encontraron datos", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+            Text(_error ?? "No se encontraron datos",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
-            FilledButton(onPressed: widget.onBack, child: const Text("REGRESAR")),
+            FilledButton(
+                onPressed: widget.onBack, child: const Text("REGRESAR")),
           ],
         ),
       );
@@ -116,7 +139,6 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
         children: [
           _buildInfoSection(nombre, categoria, subgrupo),
           const SizedBox(height: 40),
-
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -154,11 +176,19 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withOpacity(0.05))),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withOpacity(0.05))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("DISTRIBUCIÓN DE MACROS", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+          Text("DISTRIBUCIÓN DE MACROS",
+              style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.blueGrey,
+                  letterSpacing: 1)),
           const SizedBox(height: 32),
           SizedBox(
             height: 200,
@@ -167,9 +197,33 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
                 sectionsSpace: 4,
                 centerSpaceRadius: 50,
                 sections: [
-                  PieChartSectionData(color: Colors.blue, value: prot, title: '${(prot*100/total).toStringAsFixed(1)}%', radius: 40, titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                  PieChartSectionData(color: Colors.amber, value: gras, title: '${(gras*100/total).toStringAsFixed(1)}%', radius: 40, titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                  PieChartSectionData(color: Colors.green, value: carb, title: '${(carb*100/total).toStringAsFixed(1)}%', radius: 40, titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                  PieChartSectionData(
+                      color: Colors.blue,
+                      value: prot,
+                      title: '${(prot * 100 / total).toStringAsFixed(1)}%',
+                      radius: 40,
+                      titleStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                  PieChartSectionData(
+                      color: Colors.amber,
+                      value: gras,
+                      title: '${(gras * 100 / total).toStringAsFixed(1)}%',
+                      radius: 40,
+                      titleStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                  PieChartSectionData(
+                      color: Colors.green,
+                      value: carb,
+                      title: '${(carb * 100 / total).toStringAsFixed(1)}%',
+                      radius: 40,
+                      titleStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
                 ],
               ),
             ),
@@ -191,9 +245,16 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
   Widget _chartLegend(String label, Color color) {
     return Row(
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+        Text(label,
+            style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueGrey)),
       ],
     );
   }
@@ -252,24 +313,45 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("OTROS COMPONENTES RELEVANTES", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+        Text("OTROS COMPONENTES RELEVANTES",
+            style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.blueGrey,
+                letterSpacing: 1)),
         const SizedBox(height: 24),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withOpacity(0.05))),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black.withOpacity(0.05))),
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
-            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 24, endIndent: 24),
+            separatorBuilder: (context, index) => Divider(
+                height: 1,
+                color: Colors.grey.shade100,
+                indent: 24,
+                endIndent: 24),
             itemBuilder: (context, index) {
               final item = items[index];
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(nombresFormateados[item.key]!, style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700)),
-                    Text(_fmt(item.value), style: GoogleFonts.lato(fontSize: 15, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+                    Text(nombresFormateados[item.key]!,
+                        style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blueGrey.shade700)),
+                    Text(_fmt(item.value),
+                        style: GoogleFonts.lato(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppTema.azulOscuro)),
                   ],
                 ),
               );
@@ -290,13 +372,18 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     return Center(
       child: TextButton.icon(
         onPressed: _confirmDelete,
-        icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 22),
-        label: Text("ELIMINAR ALIMENTO", style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+        icon: const Icon(Icons.delete_sweep_rounded,
+            color: Colors.redAccent, size: 22),
+        label: Text("ELIMINAR ALIMENTO",
+            style: GoogleFonts.montserrat(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
         style: TextButton.styleFrom(
-          backgroundColor: Colors.redAccent.withOpacity(0.05),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-        ),
+            backgroundColor: Colors.redAccent.withOpacity(0.05),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16))),
       ),
     );
   }
@@ -306,10 +393,16 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("¿Eliminar ingrediente?"),
-        content: const Text("Esta acción eliminará permanentemente el ingrediente del catálogo nutricional."),
+        content: const Text(
+            "Esta acción eliminará permanentemente el ingrediente del catálogo nutricional."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCELAR")),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("ELIMINAR", style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("CANCELAR")),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child:
+                  const Text("ELIMINAR", style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -320,7 +413,9 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
         await repo.eliminarIngrediente(widget.idIngrediente);
         widget.onBack();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al eliminar: $e"), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Error al eliminar: $e"),
+            backgroundColor: Colors.red));
       }
     }
   }
@@ -329,7 +424,12 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(nombre.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 28, fontWeight: FontWeight.w900, color: AppTema.azulOscuro, letterSpacing: -0.8)),
+        Text(nombre.toUpperCase(),
+            style: GoogleFonts.montserrat(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: AppTema.azulOscuro,
+                letterSpacing: -0.8)),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -345,27 +445,47 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
   Widget _buildSmallTag(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-      child: Text(label.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.8)),
+      decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10)),
+      child: Text(label.toUpperCase(),
+          style: GoogleFonts.montserrat(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: 0.8)),
     );
   }
 
-  Widget _buildNutritionSummary(double kcal, double prot, double gras, double carb) {
+  Widget _buildNutritionSummary(
+      double kcal, double prot, double gras, double carb) {
     return Container(
       padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withOpacity(0.05))),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withOpacity(0.05))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("VALORES NUTRICIONALES (POR 100G)", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.blueGrey, letterSpacing: 1)),
+          Text("VALORES NUTRICIONALES (POR 100G)",
+              style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.blueGrey,
+                  letterSpacing: 1)),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNutriItem("ENERGÍA", "${kcal.toStringAsFixed(0)} kcal", Icons.bolt_rounded, Colors.orange),
-              _buildNutriItem("PROTEÍNA", "${prot.toStringAsFixed(1)} g", Icons.fitness_center_rounded, Colors.blue),
-              _buildNutriItem("GRASAS", "${gras.toStringAsFixed(1)} g", Icons.water_drop_rounded, Colors.amber),
-              _buildNutriItem("CARBS", "${carb.toStringAsFixed(1)} g", Icons.bakery_dining_rounded, Colors.green),
+              _buildNutriItem("ENERGÍA", "${kcal.toStringAsFixed(0)} kcal",
+                  Icons.bolt_rounded, Colors.orange),
+              _buildNutriItem("PROTEÍNA", "${prot.toStringAsFixed(1)} g",
+                  Icons.fitness_center_rounded, Colors.blue),
+              _buildNutriItem("GRASAS", "${gras.toStringAsFixed(1)} g",
+                  Icons.water_drop_rounded, Colors.amber),
+              _buildNutriItem("CARBS", "${carb.toStringAsFixed(1)} g",
+                  Icons.bakery_dining_rounded, Colors.green),
             ],
           ),
         ],
@@ -373,18 +493,26 @@ class _IngredienteDetallePageState extends ConsumerState<IngredienteDetallePage>
     );
   }
 
-  Widget _buildNutriItem(String label, String value, IconData icon, Color color) {
+  Widget _buildNutriItem(
+      String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color, size: 24),
         ),
         const SizedBox(height: 12),
-        Text(value, style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+        Text(value,
+            style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1E293B))),
         const SizedBox(height: 2),
-        Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey)),
+        Text(label,
+            style: GoogleFonts.montserrat(
+                fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey)),
       ],
     );
   }

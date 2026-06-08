@@ -64,7 +64,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTema.grisLienzo, 
+      backgroundColor: AppTema.grisLienzo,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
         child: Column(
@@ -77,8 +77,15 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.withOpacity(0.2))),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.2))),
+                child: Text(_error!,
+                    style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
               ),
             ],
             const SizedBox(height: 24),
@@ -93,10 +100,17 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Configuración de Catálogos", 
-          style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Administración de tablas maestras del sistema.", 
-          style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text("Configuración de Catálogos",
+            style: GoogleFonts.montserrat(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text("Administración de tablas maestras del sistema.",
+            style: GoogleFonts.montserrat(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -104,7 +118,10 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
   Widget _buildToolbar() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEEEEEE))),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEEEEEE))),
       child: Row(
         children: [
           Expanded(
@@ -112,17 +129,25 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               initialValue: "$_schema.$_table",
               decoration: InputDecoration(
                 labelText: "Seleccionar Catálogo",
-                labelStyle: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.bold, color: AppTema.azulPrincipal),
+                labelStyle: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTema.azulPrincipal),
                 filled: true,
                 fillColor: AppTema.grisLienzo.withOpacity(0.5),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               items: [
                 for (final item in _catalogs)
                   DropdownMenuItem(
                     value: "${item.$1}.${item.$2}",
-                    child: Text("${item.$1}.${item.$2}".toUpperCase(), style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600)),
+                    child: Text("${item.$1}.${item.$2}".toUpperCase(),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
               ],
               onChanged: (value) {
@@ -143,14 +168,22 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               onPressed: _loading ? null : _loadCatalog,
               style: FilledButton.styleFrom(
                 backgroundColor: AppTema.azulPrincipal,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 24),
               ),
-              icon: _loading 
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(_loading ? "CARGANDO..." : "RECARGAR", 
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              icon: _loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(_loading ? "CARGANDO..." : "RECARGAR",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Colors.white)),
             ),
           ),
         ],
@@ -161,25 +194,44 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
   Widget _buildTableContainer() {
     return NutriTableContainer(
       child: _loading
-        ? const Padding(padding: EdgeInsets.all(100), child: NutriLoading(mensaje: "Sincronizando registros..."))
-        : _rows.isEmpty
-          ? const Padding(padding: EdgeInsets.all(60), child: Center(child: Text("No hay registros en este catálogo.")))
-          : Theme(
-              data: Theme.of(context).copyWith(
-                cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-              ),
-              child: PaginatedDataTable(
-                header: null,
-                rowsPerPage: 5,
-                showFirstLastButtons: true,
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-                columns: [
-                  DataColumn(label: Text("ID", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-                  DataColumn(label: Text("CONTENIDO DEL REGISTRO (JSON)", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-                ],
-                source: _CatalogDataSource(rows: _rows),
-              ),
-            ),
+          ? const Padding(
+              padding: EdgeInsets.all(100),
+              child: NutriLoading(mensaje: "Sincronizando registros..."))
+          : _rows.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(60),
+                  child:
+                      Center(child: Text("No hay registros en este catálogo.")))
+              : Theme(
+                  data: Theme.of(context).copyWith(
+                    cardTheme: const CardThemeData(
+                        elevation: 0,
+                        color: Colors.white,
+                        margin: EdgeInsets.zero),
+                  ),
+                  child: PaginatedDataTable(
+                    header: null,
+                    rowsPerPage: 5,
+                    showFirstLastButtons: true,
+                    headingRowColor:
+                        WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                    columns: [
+                      DataColumn(
+                          label: Text("ID",
+                              style: GoogleFonts.montserrat(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: AppTema.azulOscuro))),
+                      DataColumn(
+                          label: Text("CONTENIDO DEL REGISTRO (JSON)",
+                              style: GoogleFonts.montserrat(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: AppTema.azulOscuro))),
+                    ],
+                    source: _CatalogDataSource(rows: _rows),
+                  ),
+                ),
     );
   }
 }
@@ -194,10 +246,18 @@ class _CatalogDataSource extends DataTableSource {
     if (index >= rows.length) return null;
     final row = rows[index];
     return DataRow(cells: [
-      DataCell(Text(row["id"]?.toString() ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+      DataCell(Text(row["id"]?.toString() ?? "-",
+          style: GoogleFonts.lato(
+              fontSize: 13,
+              color: const Color(0xFF1E293B),
+              fontWeight: FontWeight.w600))),
       DataCell(SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Text(row.toString(), style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600)),
+        child: Text(row.toString(),
+            style: GoogleFonts.lato(
+                fontSize: 13,
+                color: const Color(0xFF1E293B),
+                fontWeight: FontWeight.w600)),
       )),
     ]);
   }

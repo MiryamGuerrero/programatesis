@@ -27,9 +27,13 @@ class SupervisionPacientesPage extends ConsumerWidget {
   Widget _buildBody(MedicoView view, Map<String, dynamic>? patient) {
     switch (view) {
       case MedicoView.register:
-        return RegistroPacientePage(key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
+        return RegistroPacientePage(
+            key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
       case MedicoView.fixedEdit:
-        return RegistroPacientePage(key: ValueKey('fixed_${patient?['id']}'), initialData: patient, fixedOnly: true);
+        return RegistroPacientePage(
+            key: ValueKey('fixed_${patient?['id']}'),
+            initialData: patient,
+            fixedOnly: true);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
         return RegistroMensualPage(paciente: patient);
@@ -42,7 +46,8 @@ class SupervisionPacientesPage extends ConsumerWidget {
 class _ListaPacientesView extends ConsumerStatefulWidget {
   const _ListaPacientesView();
   @override
-  ConsumerState<_ListaPacientesView> createState() => _ListaPacientesViewState();
+  ConsumerState<_ListaPacientesView> createState() =>
+      _ListaPacientesViewState();
 }
 
 class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
@@ -72,7 +77,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -104,13 +110,17 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                 const SizedBox(
                   width: 56,
                   height: 56,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 5),
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 5),
                 )
               else
-                const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF4ADE80), size: 86),
+                const Icon(Icons.check_circle_outline_rounded,
+                    color: Color(0xFF4ADE80), size: 86),
               const SizedBox(height: 24),
               Text(
-                _archiveSuccess ? "Paciente archivado" : "Archivando paciente...",
+                _archiveSuccess
+                    ? "Paciente archivado"
+                    : "Archivando paciente...",
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: Colors.white,
@@ -129,10 +139,18 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Gestión de pacientes", 
-          style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-        Text("Registre pacientes, actualice expedientes clínicos y controle la evolución mensual bajo estándares OMS.", 
-          style: GoogleFonts.inter(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text("Gestión de pacientes",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Registre pacientes, actualice expedientes clínicos y controle la evolución mensual bajo estándares OMS.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -141,15 +159,18 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     final int total = patients.length;
     final int brotes = patients.where((p) {
       final s = p['severidad'].toString().toLowerCase();
-      return p['brote_activo'] == true || s.contains("brote") || s.contains("grave");
+      return p['brote_activo'] == true ||
+          s.contains("brote") ||
+          s.contains("grave");
     }).length;
-    
+
     final Map<String, int> counts = {};
     for (var p in patients) {
       final name = p['enfermedad_principal'] ?? "OTRA";
       counts[name] = (counts[name] ?? 0) + 1;
     }
-    final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final principal = sorted.isNotEmpty ? sorted.first.key : "N/A";
 
     return LayoutBuilder(
@@ -202,11 +223,14 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
-              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+              style:
+                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar por nombre o cédula del paciente...",
-                hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon:
+                    const Icon(Icons.search, size: 20, color: Colors.grey),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -229,32 +253,44 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 24),
             ),
             icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
-            label: Text("Registrar paciente", 
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+            label: Text("Registrar paciente",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.white)),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPatientsTable(AsyncValue<List<Map<String, dynamic>>> patientsAsync) {
+  Widget _buildPatientsTable(
+      AsyncValue<List<Map<String, dynamic>>> patientsAsync) {
     return patientsAsync.when(
       data: (patients) {
         final filtered = patients.where((p) {
           final term = _searchQuery.toLowerCase();
           return p["nombre_completo"].toString().toLowerCase().contains(term) ||
-                 p["cedula"].toString().toLowerCase().contains(term);
+              p["cedula"].toString().toLowerCase().contains(term);
         }).toList();
 
-        if (filtered.isEmpty) return const NutriTableContainer(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text("No se encontraron pacientes activos."))));
+        if (filtered.isEmpty)
+          return const NutriTableContainer(
+              child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                      child: Text("No se encontraron pacientes activos."))));
 
         final totalItems = filtered.length;
         final startIndex = (_currentPage - 1) * _itemsPerPage;
-        final endIndex = startIndex + _itemsPerPage > totalItems ? totalItems : startIndex + _itemsPerPage;
+        final endIndex = startIndex + _itemsPerPage > totalItems
+            ? totalItems
+            : startIndex + _itemsPerPage;
         final currentItems = filtered.sublist(startIndex, endIndex);
 
         return Column(
@@ -274,7 +310,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           ],
         );
       },
-      loading: () => const NutriLoading(mensaje: "Sincronizando expedientes..."),
+      loading: () =>
+          const NutriLoading(mensaje: "Sincronizando expedientes..."),
       error: (e, _) => Center(child: Text("Error: $e")),
     );
   }
@@ -290,19 +327,25 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           Expanded(flex: 2, child: _tableHeaderLabel("Enfermedad principal")),
           Expanded(flex: 2, child: _tableHeaderLabel("Severidad actual")),
           Expanded(flex: 1, child: _tableHeaderLabel("Edad")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Último registro")),
-          Expanded(flex: 5, child: Center(child: _tableHeaderLabel("Acciones"))),
+          Expanded(flex: 2, child: _tableHeaderLabel("Última atención")),
+          Expanded(
+              flex: 5, child: Center(child: _tableHeaderLabel("Acciones"))),
         ],
       ),
     );
   }
 
   Widget _tableHeaderLabel(String label) {
-    return Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11, color: AppTema.azulOscuro));
+    return Text(label,
+        style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            color: AppTema.azulOscuro));
   }
 
   Widget _buildTableRow(Map<String, dynamic> p) {
-    final bool isSelected = ref.watch(selectedPatientProvider)?['id'] == p['id'];
+    final bool isSelected =
+        ref.watch(selectedPatientProvider)?['id'] == p['id'];
 
     return InkWell(
       onTap: () => ref.read(selectedPatientProvider.notifier).state = p,
@@ -311,10 +354,14 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTema.azulPrincipal.withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected
+              ? AppTema.azulPrincipal.withValues(alpha: 0.08)
+              : Colors.transparent,
           border: Border(
             bottom: BorderSide(color: Colors.grey.shade100),
-            left: BorderSide(color: isSelected ? AppTema.azulPrincipal : Colors.transparent, width: 4),
+            left: BorderSide(
+                color: isSelected ? AppTema.azulPrincipal : Colors.transparent,
+                width: 4),
           ),
         ),
         child: Row(
@@ -329,50 +376,72 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_formatName(p["nombre_completo"] ?? ""), 
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                        Text(_formatName(p["nombre_completo"] ?? ""),
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1E293B))),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            Expanded(flex: 2, child: Text(p["cedula"]?.toString() ?? "-", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500))),
-            Expanded(flex: 2, child: Text(p["enfermedad_principal"]?.toString() ?? "-", style: GoogleFonts.inter(fontSize: 11, color: AppTema.azulPrincipal, fontWeight: FontWeight.w600))),
+            Expanded(
+                flex: 2,
+                child: Text(p["cedula"]?.toString() ?? "-",
+                    style: GoogleFonts.inter(
+                        fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(
+                flex: 2,
+                child: Text(p["enfermedad_principal"]?.toString() ?? "-",
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppTema.azulPrincipal,
+                        fontWeight: FontWeight.w600))),
             Expanded(flex: 2, child: _buildSeverityBadge(p["severidad"])),
-            Expanded(flex: 1, child: Text("${p["edad_anios"] ?? 0} años", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500))),
-            Expanded(flex: 2, child: Text(_formatDate(p["ultimo_registro"]), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700))),
+            Expanded(
+                flex: 1,
+                child: Text("${p["edad_anios"] ?? 0} años",
+                    style: GoogleFonts.inter(
+                        fontSize: 11, fontWeight: FontWeight.w500))),
+            Expanded(
+                flex: 2,
+                child: Text(_formatDate(p["ultima_atencion"]),
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueGrey.shade700))),
             Expanded(
               flex: 5,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _actionButton(
-                    icon: Icons.calendar_month_outlined, 
-                    label: "Registro mensual", 
-                    color: AppTema.azulPrincipal,
-                    onTap: () {
-                      ref.read(selectedPatientProvider.notifier).state = p;
-                      ref.read(medicoNavProvider.notifier).state = MedicoView.control;
-                    }
-                  ),
+                      icon: Icons.calendar_month_outlined,
+                      label: "Registro mensual",
+                      color: AppTema.azulPrincipal,
+                      onTap: () {
+                        ref.read(selectedPatientProvider.notifier).state = p;
+                        ref.read(medicoNavProvider.notifier).state =
+                            MedicoView.control;
+                      }),
                   const SizedBox(width: 16),
                   _actionButton(
-                    icon: Icons.edit_outlined, 
-                    label: "Editar expediente", 
-                    color: Colors.orange,
-                    onTap: () {
-                      ref.read(selectedPatientProvider.notifier).state = p;
-                      ref.read(medicoNavProvider.notifier).state = MedicoView.fixedEdit;
-                    }
-                  ),
+                      icon: Icons.edit_outlined,
+                      label: "Editar expediente",
+                      color: Colors.orange,
+                      onTap: () {
+                        ref.read(selectedPatientProvider.notifier).state = p;
+                        ref.read(medicoNavProvider.notifier).state =
+                            MedicoView.fixedEdit;
+                      }),
                   const SizedBox(width: 16),
                   _actionButton(
-                    icon: Icons.archive_outlined, 
-                    label: "Archivar", 
-                    color: Colors.red,
-                    onTap: () => _confirmarArchivarPaciente(p)
-                  ),
+                      icon: Icons.archive_outlined,
+                      label: "Archivar",
+                      color: Colors.red,
+                      onTap: () => _confirmarArchivarPaciente(p)),
                 ],
               ),
             ),
@@ -383,7 +452,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 
   Widget _buildAvatar(String? name) {
-    final initials = name != null && name.isNotEmpty 
+    final initials = name != null && name.isNotEmpty
         ? name.trim().split(' ').take(2).map((e) => e[0].toUpperCase()).join()
         : "P";
     return Container(
@@ -394,7 +463,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         shape: BoxShape.circle,
       ),
       child: Center(
-        child: Text(initials, style: GoogleFonts.inter(color: AppTema.azulPrincipal, fontWeight: FontWeight.w800, fontSize: 11)),
+        child: Text(initials,
+            style: GoogleFonts.inter(
+                color: AppTema.azulPrincipal,
+                fontWeight: FontWeight.w800,
+                fontSize: 11)),
       ),
     );
   }
@@ -424,13 +497,20 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       children: [
         Icon(icon, color: color, size: 16),
         const SizedBox(width: 6),
-        Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 11, fontWeight: FontWeight.w700, color: color)),
       ],
     );
   }
 
-  Widget _actionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
-    return _HoverActionButton(icon: icon, label: label, color: color, onTap: onTap);
+  Widget _actionButton(
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap}) {
+    return _HoverActionButton(
+        icon: icon, label: label, color: color, onTap: onTap);
   }
 
   String _formatDate(dynamic raw) {
@@ -448,15 +528,19 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
   Widget _buildPagination(int total, int start, int end) {
     final totalPages = (total / _itemsPerPage).ceil();
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text("Mostrando $start a $end de $total pacientes", 
-          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+        Text("Mostrando $start a $end de $total pacientes",
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueGrey)),
         Row(
           children: [
-            _pageButton(Icons.chevron_left, _currentPage > 1 ? () => setState(() => _currentPage--) : null),
+            _pageButton(Icons.chevron_left,
+                _currentPage > 1 ? () => setState(() => _currentPage--) : null),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -464,10 +548,18 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                 color: AppTema.azulPrincipal,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text("$_currentPage", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text("$_currentPage",
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
-            _pageButton(Icons.chevron_right, _currentPage < totalPages ? () => setState(() => _currentPage++) : null),
+            _pageButton(
+                Icons.chevron_right,
+                _currentPage < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null),
           ],
         ),
       ],
@@ -484,7 +576,9 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Icon(icon, size: 20, color: onTap == null ? Colors.grey.shade300 : Colors.black),
+        child: Icon(icon,
+            size: 20,
+            color: onTap == null ? Colors.grey.shade300 : Colors.black),
       ),
     );
   }
@@ -494,12 +588,15 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text("Archivar paciente", style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        title: Text("Archivar paciente",
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
         content: Text(
           "El paciente ${p['nombre_completo'] ?? ''} dejará de aparecer en la gestión activa. Su expediente e historial clínico se conservan.",
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.archive_outlined, size: 18),
@@ -520,13 +617,16 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     });
 
     try {
-      await ref.read(repositorioMedicoProvider).archivarPaciente(p["id"].toString());
+      await ref
+          .read(repositorioMedicoProvider)
+          .archivarPaciente(p["id"].toString());
       ref.invalidate(medicoPatientsProvider);
       if (!mounted) return;
       setState(() => _archiveSuccess = true);
       await Future.delayed(const Duration(milliseconds: 1200));
     } catch (e) {
-      if (mounted) NutriSnack.show(context, "Error al archivar", isError: true, ref: ref);
+      if (mounted)
+        NutriSnack.show(context, "Error al archivar", isError: true, ref: ref);
     } finally {
       if (mounted) {
         setState(() {
@@ -536,7 +636,6 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       }
     }
   }
-
 }
 
 class _HoverActionButton extends StatefulWidget {
@@ -545,7 +644,11 @@ class _HoverActionButton extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _HoverActionButton({required this.icon, required this.label, required this.color, required this.onTap});
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   State<_HoverActionButton> createState() => _HoverActionButtonState();
@@ -568,18 +671,27 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: _isHovered ? widget.color.withValues(alpha: 0.12) : Colors.transparent,
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _isHovered ? widget.color.withValues(alpha: 0.2) : Colors.transparent),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(widget.icon, color: widget.color, size: 20),
               const SizedBox(height: 4),
-              Text(widget.label, 
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: widget.color, height: 1.0)),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
             ],
           ),
         ),
@@ -590,9 +702,9 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
 class _KPICard extends StatelessWidget {
   const _KPICard({
-    required this.title, 
-    required this.value, 
-    required this.color, 
+    required this.title,
+    required this.value,
+    required this.color,
     this.icon,
     this.imagePath,
     this.isLargeValue = false,
@@ -608,13 +720,16 @@ class _KPICard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 100, 
+      height: 100,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: color, width: 4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -623,9 +738,10 @@ class _KPICard extends StatelessWidget {
           SizedBox(
             width: 50,
             child: Center(
-              child: imagePath != null 
-                ? Image.asset(imagePath!, width: 42, height: 42, fit: BoxFit.contain)
-                : Icon(icon, size: 36, color: color),
+              child: imagePath != null
+                  ? Image.asset(imagePath!,
+                      width: 42, height: 42, fit: BoxFit.contain)
+                  : Icon(icon, size: 36, color: color),
             ),
           ),
           const SizedBox(width: 16),
@@ -634,14 +750,19 @@ class _KPICard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(title, 
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blueGrey),
                 ),
                 const SizedBox(height: 4),
-                Text(value, 
+                Text(
+                  value,
                   style: GoogleFonts.inter(
-                    fontSize: isLargeValue ? 14 : 24, 
-                    fontWeight: FontWeight.w800, 
+                    fontSize: isLargeValue ? 14 : 24,
+                    fontWeight: FontWeight.w800,
                     color: AppTema.azulOscuro,
                     letterSpacing: -0.5,
                   ),

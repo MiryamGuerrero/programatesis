@@ -39,11 +39,12 @@ class RecetaCard extends StatelessWidget {
         children: [
           // Sección 1: Cabecera Visual (40% aprox)
           _buildHeader(),
-          
+
           // Sección 2: Cuerpo de Información
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -67,11 +68,14 @@ class RecetaCard extends StatelessWidget {
                       _buildDificultadBadge(receta['dificultad'] ?? 'Media'),
                     ],
                   ),
-                  
+
                   // Fila 2: Categoría
                   const SizedBox(height: 2),
                   Text(
-                    (momentos.isNotEmpty ? momentos : (receta['categoria'] ?? 'General').toString()).toUpperCase(),
+                    (momentos.isNotEmpty
+                            ? momentos
+                            : (receta['categoria'] ?? 'General').toString())
+                        .toUpperCase(),
                     style: GoogleFonts.montserrat(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -93,7 +97,7 @@ class RecetaCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  
+
                   // Fila 3: Descripción
                   const SizedBox(height: 6),
                   Text(
@@ -107,20 +111,23 @@ class RecetaCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   const Spacer(),
 
                   // Fila 5: Datos Nutricionales
                   Row(
                     children: [
-                      _buildMacroColumn('CALORÍAS', '${receta['calorias_totales'] ?? 0}'),
-                      _buildMacroColumn('PROTEÍNAS', '${receta['proteinas_totales'] ?? 0}g'),
-                      _buildMacroColumn('CARBOS', '${receta['carbohidratos_totales'] ?? 0}g'),
+                      _buildMacroColumn(
+                          'CALORÍAS', '${receta['calorias_totales'] ?? 0}'),
+                      _buildMacroColumn(
+                          'PROTEÍNAS', '${receta['proteinas_totales'] ?? 0}g'),
+                      _buildMacroColumn(
+                          'CARBOS', '${receta['carbohidratos_totales'] ?? 0}g'),
                     ],
                   ),
 
                   const SizedBox(height: 6),
-                  
+
                   // Fila 4: Metadatos de Preparación
                   Row(
                     children: [
@@ -135,14 +142,14 @@ class RecetaCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 6),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 ],
               ),
             ),
           ),
-          
+
           // Sección 3: Pie de Tarjeta
           _buildFooter(),
         ],
@@ -170,16 +177,21 @@ class RecetaCard extends StatelessWidget {
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: (receta['imagen_url'] != null && receta['imagen_url'].toString().isNotEmpty)
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              child: (receta['imagen_url'] != null &&
+                      receta['imagen_url'].toString().isNotEmpty)
                   ? Image.network(
                       receta['imagen_url'],
                       fit: BoxFit.cover,
-                      key: ValueKey(receta['imagen_url']), // Forzar rebuild si cambia la URL
-                      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                      key: ValueKey(receta[
+                          'imagen_url']), // Forzar rebuild si cambia la URL
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildPlaceholder(),
                     )
                   : _buildPlaceholder(),
             ),
@@ -193,14 +205,21 @@ class RecetaCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     receta['activa'] == true ? 'ACTIVA' : 'INACTIVA',
-                    style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: receta['activa'] == true ? AppTema.verdeSalud : Colors.grey),
+                    style: GoogleFonts.montserrat(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: receta['activa'] == true
+                            ? AppTema.verdeSalud
+                            : Colors.grey),
                   ),
                   const SizedBox(width: 4),
                   SizedBox(
@@ -352,13 +371,15 @@ class RecetaCard extends StatelessWidget {
           // Botones Secundarios
           _buildSecondaryButton(Icons.edit_rounded, onEditar),
           const SizedBox(width: 8),
-          _buildSecondaryButton(Icons.delete_outline_rounded, onEliminar, isDanger: true),
+          _buildSecondaryButton(Icons.delete_outline_rounded, onEliminar,
+              isDanger: true),
         ],
       ),
     );
   }
 
-  Widget _buildSecondaryButton(IconData icon, VoidCallback? onPressed, {bool isDanger = false}) {
+  Widget _buildSecondaryButton(IconData icon, VoidCallback? onPressed,
+      {bool isDanger = false}) {
     return Container(
       height: 44,
       width: 44,

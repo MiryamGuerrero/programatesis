@@ -59,7 +59,8 @@ final dioProvider = Provider<Dio>((ref) {
           final data = error.response?.data;
           if (data is Map && data["detail"] == "Account deactivated") {
             try {
-              ref.read(authErrorProvider.notifier).state = "Tu cuenta ha sido desactivada. Contacta al administrador.";
+              ref.read(authErrorProvider.notifier).state =
+                  "Tu cuenta ha sido desactivada. Contacta al administrador.";
               await _safeSignOut(client);
             } catch (_) {}
           }
@@ -68,8 +69,8 @@ final dioProvider = Provider<Dio>((ref) {
         if (statusCode == 401 && !alreadyRetried) {
           try {
             final refreshed = await client.auth.refreshSession();
-            final newToken =
-                refreshed.session?.accessToken ?? client.auth.currentSession?.accessToken;
+            final newToken = refreshed.session?.accessToken ??
+                client.auth.currentSession?.accessToken;
 
             if (newToken != null && newToken.isNotEmpty) {
               request.headers["Authorization"] = "Bearer $newToken";
@@ -150,7 +151,8 @@ final authSessionProvider = StreamProvider<Session?>((ref) async* {
   final client = ref.watch(supabaseClientProvider);
 
   if (_isPasswordRecoveryUrl()) {
-    ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
+    ref.read(authFlowIntentProvider.notifier).state =
+        AuthFlowIntent.setPassword;
     await _restoreRecoverySessionFromUrl(client);
   }
 
@@ -158,7 +160,8 @@ final authSessionProvider = StreamProvider<Session?>((ref) async* {
 
   await for (final event in client.auth.onAuthStateChange) {
     if (event.event == AuthChangeEvent.passwordRecovery) {
-      ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
+      ref.read(authFlowIntentProvider.notifier).state =
+          AuthFlowIntent.setPassword;
     } else if (event.event == AuthChangeEvent.signedOut) {
       ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.none;
     }
@@ -301,7 +304,7 @@ final miPerfilProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   if (session == null) {
     return {}; // O manejar como error/limpio si no hay sesión
   }
-  
+
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchMyProfile();
 });
@@ -313,50 +316,65 @@ final tipSaludableProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return Map<String, dynamic>.from(resp.data);
 });
 
-final usersListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final usersListProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return ref.watch(supabaseCrudRepositoryProvider).fetchUsers();
 });
 
-final patientsListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final patientsListProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return ref.watch(supabaseCrudRepositoryProvider).fetchPatients();
 });
 
-final misPacientesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final misPacientesProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return ref.watch(supabaseCrudRepositoryProvider).fetchMyPatients();
 });
 
-final patientExpedienteProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, idPaciente) async {
+final patientExpedienteProvider =
+    FutureProvider.family<Map<String, dynamic>, String>(
+        (ref, idPaciente) async {
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchExpedienteCompleto(idPaciente);
 });
 
-final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, DateTime fecha})>((ref, arg) async {
+final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>,
+    ({String idPaciente, DateTime fecha})>((ref, arg) async {
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchPlanItemsByPaciente(arg.idPaciente, fecha: arg.fecha);
 });
 
-final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String idPaciente, int mes, int anio})>((ref, arg) async {
+final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>,
+    ({String idPaciente, int mes, int anio})>((ref, arg) async {
   final dio = ref.watch(dioProvider);
-  final resp = await dio.get('tutor/dias-con-plan/${arg.idPaciente}', queryParameters: {
+  final resp =
+      await dio.get('tutor/dias-con-plan/${arg.idPaciente}', queryParameters: {
     'mes': arg.mes,
     'anio': arg.anio,
   });
   final List<dynamic> data = resp.data;
-  return data.map((d) => {
-    "fecha": DateTime.parse(d['fecha'].toString()),
-    "id_plan": d['id_plan'] as int,
-  }).toList();
+  return data
+      .map((d) => {
+            "fecha": DateTime.parse(d['fecha'].toString()),
+            "id_plan": d['id_plan'] as int,
+          })
+      .toList();
 });
 
-final listaComprasProvider = FutureProvider.family<Map<String, List<Map<String, dynamic>>>, ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
+final listaComprasProvider = FutureProvider.family<
+    Map<String, List<Map<String, dynamic>>>,
+    ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
   final repo = ref.watch(supabaseCrudRepositoryProvider);
-  return await repo.fetchShoppingList(arg.idPaciente, start: arg.start, end: arg.end);
+  return await repo.fetchShoppingList(arg.idPaciente,
+      start: arg.start, end: arg.end);
 });
 
 // NAVEGACIÓN INTERNA MÉDICO
 enum MedicoView { list, register, control, fixedEdit }
+
 final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);
-final selectedPatientProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+final selectedPatientProvider =
+    StateProvider<Map<String, dynamic>?>((ref) => null);
 
 final supabaseCrudRepositoryProvider = Provider<SupabaseCrudRepository>((ref) {
   return SupabaseCrudRepository(

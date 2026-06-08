@@ -8,7 +8,8 @@ class ConsultaEvolucionPage extends ConsumerStatefulWidget {
   const ConsultaEvolucionPage({super.key});
 
   @override
-  ConsumerState<ConsultaEvolucionPage> createState() => _ConsultaEvolucionPageState();
+  ConsumerState<ConsultaEvolucionPage> createState() =>
+      _ConsultaEvolucionPageState();
 }
 
 class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
@@ -65,8 +66,10 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
       }
       setState(() {
         _pacientes = rows;
-        _selectedPacienteId = rows.isEmpty ? null : rows.first["id"]?.toString();
-        _selectedPacienteNombre = rows.isEmpty ? null : rows.first["nombre_completo"]?.toString();
+        _selectedPacienteId =
+            rows.isEmpty ? null : rows.first["id"]?.toString();
+        _selectedPacienteNombre =
+            rows.isEmpty ? null : rows.first["nombre_completo"]?.toString();
       });
     } catch (error) {
       if (!mounted) {
@@ -79,7 +82,8 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
   Future<void> _cargarResumen() async {
     final idPaciente = _selectedPacienteId;
     if (idPaciente == null || idPaciente.isEmpty) {
-      setState(() => _error = "Selecciona un paciente para consultar su evolución.");
+      setState(
+          () => _error = "Selecciona un paciente para consultar su evolución.");
       return;
     }
 
@@ -97,7 +101,9 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
       ]);
       final historial = List<Map<String, dynamic>>.from(resultados[0] as List);
       final expediente = Map<String, dynamic>.from(resultados[1] as Map);
-      final paciente = expediente["paciente"] is Map ? Map<String, dynamic>.from(expediente["paciente"]) : <String, dynamic>{};
+      final paciente = expediente["paciente"] is Map
+          ? Map<String, dynamic>.from(expediente["paciente"])
+          : <String, dynamic>{};
 
       if (!mounted) {
         return;
@@ -110,21 +116,31 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
               historial.length;
       setState(() {
         _resumen = {
-          "paciente_nombre": _selectedPacienteNombre ?? paciente["nombre_completo"]?.toString() ?? "-",
+          "paciente_nombre": _selectedPacienteNombre ??
+              paciente["nombre_completo"]?.toString() ??
+              "-",
           "historial_controles": historial,
           "total_controles": historial.length,
-          "total_alergias_ingrediente": ((expediente["alergias"]?["ingredientes"] as List?)?.length ?? 0),
-          "total_alergias_grupo": ((expediente["alergias"]?["subgrupos"] as List?)?.length ?? 0),
+          "total_alergias_ingrediente":
+              ((expediente["alergias"]?["ingredientes"] as List?)?.length ?? 0),
+          "total_alergias_grupo":
+              ((expediente["alergias"]?["subgrupos"] as List?)?.length ?? 0),
           "adherencia_pct": historial.isEmpty
               ? null
-              : ((historial.where((h) => (h["en_brote"] ?? false) != true).length / historial.length) * 100),
+              : ((historial
+                          .where((h) => (h["en_brote"] ?? false) != true)
+                          .length /
+                      historial.length) *
+                  100),
           "dolor_promedio": dolorPromedio,
           "comparacion_adherencia_dolor": historial.isEmpty
               ? "Sin datos suficientes."
               : "Tendencia clínica disponible: revise dolor, inflamación, articulaciones y brotes.",
         };
         _resumen!["condiciones_temporales_activas"] =
-            expediente["condiciones_temporales_activas"] ?? expediente["condiciones_temporales"] ?? [];
+            expediente["condiciones_temporales_activas"] ??
+                expediente["condiciones_temporales"] ??
+                [];
         _resultado = "Resumen cargado correctamente.";
       });
     } catch (error) {
@@ -143,18 +159,24 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
   Widget build(BuildContext context) {
     final resumen = _resumen;
     final historial = (resumen?["historial_controles"] is List)
-        ? List<Map<String, dynamic>>.from(resumen!["historial_controles"] as List)
+        ? List<Map<String, dynamic>>.from(
+            resumen!["historial_controles"] as List)
         : <Map<String, dynamic>>[];
-    final condicionesTemporales = (resumen?["condiciones_temporales_activas"] is List)
-        ? List<Map<String, dynamic>>.from(resumen!["condiciones_temporales_activas"] as List)
-        : <Map<String, dynamic>>[];
+    final condicionesTemporales =
+        (resumen?["condiciones_temporales_activas"] is List)
+            ? List<Map<String, dynamic>>.from(
+                resumen!["condiciones_temporales_activas"] as List)
+            : <Map<String, dynamic>>[];
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
           "Consulta y Evolución",
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
         Card(
@@ -179,15 +201,20 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
                       .map(
                         (p) => DropdownMenuItem<String>(
                           value: p["id"]?.toString(),
-                          child: Text(p["nombre_completo"]?.toString() ?? "Paciente"),
+                          child: Text(
+                              p["nombre_completo"]?.toString() ?? "Paciente"),
                         ),
                       )
                       .toList(),
                   onChanged: (value) {
                     setState(() {
                       _selectedPacienteId = value;
-                      final match = _pacientes.where((p) => p["id"]?.toString() == value).toList();
-                      _selectedPacienteNombre = match.isEmpty ? null : match.first["nombre_completo"]?.toString();
+                      final match = _pacientes
+                          .where((p) => p["id"]?.toString() == value)
+                          .toList();
+                      _selectedPacienteNombre = match.isEmpty
+                          ? null
+                          : match.first["nombre_completo"]?.toString();
                     });
                   },
                 ),
@@ -211,8 +238,12 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _MetricCard(label: "Paciente", value: resumen["paciente_nombre"]?.toString() ?? "-"),
-              _MetricCard(label: "Controles", value: resumen["total_controles"]?.toString() ?? "0"),
+              _MetricCard(
+                  label: "Paciente",
+                  value: resumen["paciente_nombre"]?.toString() ?? "-"),
+              _MetricCard(
+                  label: "Controles",
+                  value: resumen["total_controles"]?.toString() ?? "0"),
               _MetricCard(
                 label: "Alergias Ingredientes",
                 value: resumen["total_alergias_ingrediente"]?.toString() ?? "0",
@@ -223,7 +254,9 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
               ),
               _MetricCard(
                 label: "Adherencia",
-                value: resumen["adherencia_pct"] == null ? "-" : "${_fmtNum(resumen["adherencia_pct"])}%",
+                value: resumen["adherencia_pct"] == null
+                    ? "-"
+                    : "${_fmtNum(resumen["adherencia_pct"])}%",
               ),
               _MetricCard(
                 label: "Dolor Promedio",
@@ -235,17 +268,20 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
             const SizedBox(height: 12),
             _ChartCard(
               title: "Actividad clínica",
-              child: SizedBox(height: 280, child: _buildClinicalActivityChart(historial)),
+              child: SizedBox(
+                  height: 280, child: _buildClinicalActivityChart(historial)),
             ),
             const SizedBox(height: 12),
             _ChartCard(
               title: "Compromiso articular",
-              child: SizedBox(height: 280, child: _buildJointImpactChart(historial)),
+              child: SizedBox(
+                  height: 280, child: _buildJointImpactChart(historial)),
             ),
             const SizedBox(height: 12),
             _ChartCard(
               title: "Peso e IMC",
-              child: SizedBox(height: 260, child: _buildAnthropometryChart(historial)),
+              child: SizedBox(
+                  height: 260, child: _buildAnthropometryChart(historial)),
             ),
             const SizedBox(height: 12),
             _ChartCard(
@@ -265,9 +301,11 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Comparativa adherencia vs dolor", style: Theme.of(context).textTheme.titleSmall),
+                  Text("Comparativa adherencia vs dolor",
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 6),
-                  Text(resumen["comparacion_adherencia_dolor"]?.toString() ?? "Sin datos suficientes."),
+                  Text(resumen["comparacion_adherencia_dolor"]?.toString() ??
+                      "Sin datos suficientes."),
                 ],
               ),
             ),
@@ -279,7 +317,8 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Condiciones temporales activas", style: Theme.of(context).textTheme.titleSmall),
+                  Text("Condiciones temporales activas",
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   if (condicionesTemporales.isEmpty)
                     const Text("No hay condiciones temporales activas."),
@@ -289,7 +328,9 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
                       runSpacing: 8,
                       children: condicionesTemporales
                           .map(
-                            (item) => Chip(label: Text(item["nombre"]?.toString() ?? "Condición")),
+                            (item) => Chip(
+                                label: Text(
+                                    item["nombre"]?.toString() ?? "Condición")),
                           )
                           .toList(),
                     ),
@@ -304,16 +345,19 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Historial de controles", style: Theme.of(context).textTheme.titleSmall),
+                  Text("Historial de controles",
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   if (historial.isEmpty)
-                    const Text("No hay controles registrados para este paciente."),
+                    const Text(
+                        "No hay controles registrados para este paciente."),
                   ...historial.map(
                     (control) => ListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.timeline),
-                      title: Text("Fecha: ${_fmtDate(control["fecha_control"])}"),
+                      title:
+                          Text("Fecha: ${_fmtDate(control["fecha_control"])}"),
                       subtitle: Text(
                         "Peso: ${_fmtNum(control["peso_kg"])} kg | Talla: ${_fmtNum(control["talla_cm"])} cm | IMC: ${_fmtNum(control["imc_calculado"])}\n"
                         "Dolor EVA: ${control["puntos_dolor"] ?? "-"} | Inflamación: ${control["escala_inflamacion"] ?? "-"} | Fatiga: ${control["nivel_fatiga"] ?? "-"}",
@@ -362,7 +406,10 @@ class _MetricCard extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 170),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -370,7 +417,11 @@ class _MetricCard extends StatelessWidget {
         children: [
           Text(label, style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          Text(value,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -415,31 +466,42 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
         maxY: 10,
         gridData: const FlGridData(show: true),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length) return const SizedBox.shrink();
-                return Text(_fmtDate(historial[idx]["fecha_control"]), style: const TextStyle(fontSize: 9));
+                if (idx < 0 || idx >= historial.length)
+                  return const SizedBox.shrink();
+                return Text(_fmtDate(historial[idx]["fecha_control"]),
+                    style: const TextStyle(fontSize: 9));
               },
             ),
           ),
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i][keyA] as num? ?? 0).toDouble())),
+            spots: List.generate(
+                historial.length,
+                (i) => FlSpot(i.toDouble(),
+                    (historial[i][keyA] as num? ?? 0).toDouble())),
             isCurved: true,
             color: colorA,
             barWidth: 3,
             dotData: const FlDotData(show: false),
           ),
           LineChartBarData(
-            spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i][keyB] as num? ?? 0).toDouble())),
+            spots: List.generate(
+                historial.length,
+                (i) => FlSpot(i.toDouble(),
+                    (historial[i][keyB] as num? ?? 0).toDouble())),
             isCurved: true,
             color: colorB,
             barWidth: 3,
@@ -456,38 +518,52 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
         minY: 0,
         gridData: const FlGridData(show: true),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length) return const SizedBox.shrink();
-                return Text(_fmtDate(historial[idx]["fecha_control"]), style: const TextStyle(fontSize: 9));
+                if (idx < 0 || idx >= historial.length)
+                  return const SizedBox.shrink();
+                return Text(_fmtDate(historial[idx]["fecha_control"]),
+                    style: const TextStyle(fontSize: 9));
               },
             ),
           ),
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]["peso_kg"] as num? ?? 0).toDouble())),
+            spots: List.generate(
+                historial.length,
+                (i) => FlSpot(i.toDouble(),
+                    (historial[i]["peso_kg"] as num? ?? 0).toDouble())),
             isCurved: true,
             color: Colors.green,
             barWidth: 3,
             dotData: const FlDotData(show: false),
           ),
           LineChartBarData(
-            spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]["talla_cm"] as num? ?? 0).toDouble())),
+            spots: List.generate(
+                historial.length,
+                (i) => FlSpot(i.toDouble(),
+                    (historial[i]["talla_cm"] as num? ?? 0).toDouble())),
             isCurved: true,
             color: Colors.blue,
             barWidth: 3,
             dotData: const FlDotData(show: false),
           ),
           LineChartBarData(
-            spots: List.generate(historial.length, (i) => FlSpot(i.toDouble(), (historial[i]["z_score_bmi"] as num? ?? 0).toDouble())),
+            spots: List.generate(
+                historial.length,
+                (i) => FlSpot(i.toDouble(),
+                    (historial[i]["z_score_bmi"] as num? ?? 0).toDouble())),
             isCurved: true,
             color: Colors.orange,
             barWidth: 3,
@@ -574,13 +650,16 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
         maxY: maxY.isFinite && maxY > 0 ? maxY : 10,
         gridData: const FlGridData(show: true),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 50,
-              getTitlesWidget: (value, meta) => Text(leftLabelBuilder(value), style: const TextStyle(fontSize: 9)),
+              getTitlesWidget: (value, meta) => Text(leftLabelBuilder(value),
+                  style: const TextStyle(fontSize: 9)),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -589,8 +668,10 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length) return const SizedBox.shrink();
-                return Text(_fmtDate(historial[idx]["fecha_control"]), style: const TextStyle(fontSize: 9));
+                if (idx < 0 || idx >= historial.length)
+                  return const SizedBox.shrink();
+                return Text(_fmtDate(historial[idx]["fecha_control"]),
+                    style: const TextStyle(fontSize: 9));
               },
             ),
           ),
@@ -600,7 +681,8 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
               (cfg) => LineChartBarData(
                 spots: List.generate(
                   historial.length,
-                  (i) => FlSpot(i.toDouble(), (historial[i][cfg.key] as num? ?? 0).toDouble()),
+                  (i) => FlSpot(i.toDouble(),
+                      (historial[i][cfg.key] as num? ?? 0).toDouble()),
                 ),
                 isCurved: true,
                 color: cfg.color,
@@ -626,13 +708,17 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
             width: 190,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_fmtDate(h["fecha_control"]), style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(_fmtDate(h["fecha_control"]),
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 Text("Peso: ${_fmtNum(h["peso_kg"])} kg"),
                 Text("IMC: ${_fmtNum(h["imc_calculado"])}"),
@@ -640,7 +726,9 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
                 Text("Inflamación: ${h["escala_inflamacion"] ?? "-"}"),
                 Text("Fatiga: ${h["nivel_fatiga"] ?? "-"}"),
                 if (h["en_brote"] == true)
-                  const Text("Brote activo", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                  const Text("Brote activo",
+                      style: TextStyle(
+                          color: Colors.red, fontWeight: FontWeight.w700)),
               ],
             ),
           );

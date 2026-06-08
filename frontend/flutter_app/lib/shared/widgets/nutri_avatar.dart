@@ -19,7 +19,7 @@ class NutriAvatar extends StatelessWidget {
   String _obtenerIniciales(String nombre) {
     if (nombre.isEmpty) return "?";
     List<String> partes = nombre.trim().split(RegExp(r'\s+'));
-    
+
     // Regla: Primera letra del primer nombre + Primera letra del primer apellido
     if (partes.length >= 2) {
       return (partes[0][0] + partes[1][0]).toUpperCase();

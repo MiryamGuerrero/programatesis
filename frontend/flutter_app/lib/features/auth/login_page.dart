@@ -7,7 +7,6 @@ import "../../core/theme/app_theme.dart";
 import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 
-
 // Ruta de los logos
 const String kLogoConNombre = "assets/images/logo 1.png";
 const String kLogoSinNombre = "assets/images/logo sin.png";
@@ -70,11 +69,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
     try {
       await Supabase.instance.client.auth.signInWithPassword(
-        email: email, password: password,
+        email: email,
+        password: password,
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = "Credenciales incorrectas o error de acceso");
+        setState(
+            () => _errorMessage = "Credenciales incorrectas o error de acceso");
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -95,7 +96,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
               animation: _animController,
               builder: (_, __) {
                 return CustomPaint(
-                  painter: _ProfessionalBackgroundPainter(value: _animController.value),
+                  painter: _ProfessionalBackgroundPainter(
+                      value: _animController.value),
                 );
               },
             ),
@@ -115,10 +117,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ? Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(flex: 10, child: _buildBrandPanel(context)),
+                            Expanded(
+                                flex: 10, child: _buildBrandPanel(context)),
                             const SizedBox(width: AppSpacing.xl),
                             Expanded(
-                              flex: 10, 
+                              flex: 10,
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: _buildLoginCard(context),
@@ -149,7 +152,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         RichText(
           text: TextSpan(
             style: GoogleFonts.montserrat(
-              fontSize: context.responsiveValue(mobile: 32, tablet: 40, desktop: 48),
+              fontSize:
+                  context.responsiveValue(mobile: 32, tablet: 40, desktop: 48),
               fontWeight: FontWeight.w800,
               height: 1,
               letterSpacing: -1.5,
@@ -164,8 +168,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         Text(
           "Portal Profesional de Salud",
           style: GoogleFonts.lato(
-              fontSize: AppTextSizes.headline(context.screenWidth) * 0.7, 
-              color: _grisTexto, 
+              fontSize: AppTextSizes.headline(context.screenWidth) * 0.7,
+              color: _grisTexto,
               fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -194,16 +198,20 @@ class _LoginPageState extends ConsumerState<LoginPage>
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,
           children: [
-            _buildFeatureCard(context, Icons.analytics_outlined, "Evaluación\nEspecializada", _verde),
-            _buildFeatureCard(context, Icons.monitor_heart_outlined, "Seguimiento\nClínico", _azul),
-            _buildFeatureCard(context, Icons.security_outlined, "Acceso\nAutorizado", _verde),
+            _buildFeatureCard(context, Icons.analytics_outlined,
+                "Evaluación\nEspecializada", _verde),
+            _buildFeatureCard(context, Icons.monitor_heart_outlined,
+                "Seguimiento\nClínico", _azul),
+            _buildFeatureCard(
+                context, Icons.security_outlined, "Acceso\nAutorizado", _verde),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildFeatureCard(BuildContext context, IconData icon, String title, Color accent) {
+  Widget _buildFeatureCard(
+      BuildContext context, IconData icon, String title, Color accent) {
     return Container(
       width: context.responsiveValue(mobile: 130, tablet: 140),
       height: context.responsiveValue(mobile: 135, tablet: 145),
@@ -213,7 +221,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 10)),
         ],
       ),
       child: Column(
@@ -225,14 +236,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
             title,
             textAlign: TextAlign.center,
             style: GoogleFonts.montserrat(
-              fontSize: AppTextSizes.caption(context.screenWidth) * 1.2, 
-              fontWeight: FontWeight.w700, 
-              color: _azulOscuro, 
-              height: 1.2
-            ),
+                fontSize: AppTextSizes.caption(context.screenWidth) * 1.2,
+                fontWeight: FontWeight.w700,
+                color: _azulOscuro,
+                height: 1.2),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Container(width: 30, height: 3, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2))),
+          Container(
+              width: 30,
+              height: 3,
+              decoration: BoxDecoration(
+                  color: accent, borderRadius: BorderRadius.circular(2))),
         ],
       ),
     );
@@ -244,9 +258,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         RichText(
           text: TextSpan(
             style: GoogleFonts.montserrat(
-              fontSize: AppTextSizes.headline(context.screenWidth), 
-              fontWeight: FontWeight.w800
-            ),
+                fontSize: AppTextSizes.headline(context.screenWidth),
+                fontWeight: FontWeight.w800),
             children: const [
               TextSpan(text: "Nutri", style: TextStyle(color: _azul)),
               TextSpan(text: "Reuma", style: TextStyle(color: _verde)),
@@ -285,16 +298,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
             children: [
               Text("Bienvenido/a",
                   style: GoogleFonts.montserrat(
-                      fontSize: AppTextSizes.headline(context.screenWidth) * 0.9,
+                      fontSize:
+                          AppTextSizes.headline(context.screenWidth) * 0.9,
                       fontWeight: FontWeight.w800,
                       color: _azulOscuro,
                       letterSpacing: -0.5)),
               const SizedBox(height: 6),
               Text("Acceso al Portal Profesional",
                   style: GoogleFonts.lato(
-                    fontSize: AppTextSizes.body(context.screenWidth), 
-                    color: _grisTexto
-                  )),
+                      fontSize: AppTextSizes.body(context.screenWidth),
+                      color: _grisTexto)),
               const SizedBox(height: AppSpacing.md),
               Container(
                   width: 40,
@@ -401,8 +414,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 )
               ],
             ),
-            child:
-                ClipOval(child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
+            child: ClipOval(
+                child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
           ),
         ),
       ],
@@ -436,20 +449,25 @@ class _LoginPageState extends ConsumerState<LoginPage>
           controller: controller,
           obscureText: isPass && _obscurePassword,
           style: GoogleFonts.lato(
-            fontSize: AppTextSizes.body(context.screenWidth), 
-            color: _grisFuerte, 
-            fontWeight: FontWeight.w600
-          ),
+              fontSize: AppTextSizes.body(context.screenWidth),
+              color: _grisFuerte,
+              fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 22),
-            suffixIcon: isPass 
+            suffixIcon: isPass
                 ? IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ) 
+                    icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  )
                 : null,
-            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
           ),
         ),
       ],
@@ -464,22 +482,25 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final float = math.sin(value * 2 * math.pi);
-    
+
     // 1. CAPA BLANCA (FONDO - DIBUJADA PRIMERO)
     final paintWhite = Paint()..color = const Color(0xFFF8FAFD);
     final pathWhite = Path()
       ..moveTo(0, 0)
       ..lineTo(size.width * 0.6, 0)
-      ..cubicTo(size.width * 0.5, size.height * 0.3, size.width * 0.7, size.height * 0.7, size.width * 0.5, size.height)
+      ..cubicTo(size.width * 0.5, size.height * 0.3, size.width * 0.7,
+          size.height * 0.7, size.width * 0.5, size.height)
       ..lineTo(0, size.height)
       ..close();
     canvas.drawPath(pathWhite, paintWhite);
 
     // 2. DETALLE VERDE (FONDO)
-    final paintGreen = Paint()..color = const Color(0xFF58A932).withOpacity(0.9);
+    final paintGreen = Paint()
+      ..color = const Color(0xFF58A932).withOpacity(0.9);
     final pathGreen = Path()
       ..moveTo(0, size.height * 0.8)
-      ..quadraticBezierTo(size.width * 0.1, size.height * 0.75, size.width * 0.3, size.height)
+      ..quadraticBezierTo(
+          size.width * 0.1, size.height * 0.75, size.width * 0.3, size.height)
       ..lineTo(0, size.height)
       ..close();
     canvas.drawPath(pathGreen, paintGreen);
@@ -487,18 +508,22 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
     // 3. CAPA AZUL (ENCIMA DE TODO - DIBUJADA AL FINAL)
     final paintBlue = Paint()
       ..shader = const LinearGradient(
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [Color(0xFF008BD2), Color(0xFF0068B7), Color(0xFF00579D)],
-      ).createShader(Rect.fromLTWH(size.width * 0.45, 0, size.width * 0.55, size.height));
+      ).createShader(
+          Rect.fromLTWH(size.width * 0.45, 0, size.width * 0.55, size.height));
 
     final pathBlue = Path()
-      ..moveTo(size.width * (0.45 + float * 0.01), 0) // Inicia sobre la capa blanca
-      ..cubicTo(size.width * 0.6, size.height * 0.2, size.width * 0.4, size.height * 0.6, size.width * (0.5 + float * 0.02), size.height)
+      ..moveTo(
+          size.width * (0.45 + float * 0.01), 0) // Inicia sobre la capa blanca
+      ..cubicTo(size.width * 0.6, size.height * 0.2, size.width * 0.4,
+          size.height * 0.6, size.width * (0.5 + float * 0.02), size.height)
       ..lineTo(size.width, size.height)
       ..lineTo(size.width, 0)
       ..close();
     canvas.drawPath(pathBlue, paintBlue);
-    
+
     // 4. CUADRITOS DINÁMICOS (POR ENCIMA DEL AZUL)
     _drawFloatingSquares(canvas, size);
   }
@@ -510,25 +535,30 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
       ..strokeWidth = 1.5;
 
     final random = math.Random(42);
-    
+
     for (int i = 0; i < 20; i++) {
       double baseX = size.width * (0.52 + random.nextDouble() * 0.43);
       double baseY = size.height * random.nextDouble();
-      
+
       double x = baseX + math.sin(value * 2 * math.pi + i) * 10;
       double y = baseY + math.cos(value * 2 * math.pi + i) * 12;
       double rotation = value * 2 * math.pi * (i % 2 == 0 ? 1 : -1) * 0.1;
-      
-      double pSize = (i % 3 == 0) ? (30.0 + random.nextDouble() * 10.0) : (10.0 + random.nextDouble() * 5.0);
+
+      double pSize = (i % 3 == 0)
+          ? (30.0 + random.nextDouble() * 10.0)
+          : (10.0 + random.nextDouble() * 5.0);
 
       canvas.save();
       canvas.translate(x, y);
       canvas.rotate(rotation);
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: pSize, height: pSize), paint);
+      canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: pSize, height: pSize),
+          paint);
       canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ProfessionalBackgroundPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ProfessionalBackgroundPainter oldDelegate) =>
+      true;
 }

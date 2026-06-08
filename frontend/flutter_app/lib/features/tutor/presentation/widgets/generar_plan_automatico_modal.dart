@@ -10,16 +10,18 @@ class GenerarPlanAutomaticoModal extends ConsumerStatefulWidget {
   const GenerarPlanAutomaticoModal({super.key, required this.idPaciente});
 
   @override
-  ConsumerState<GenerarPlanAutomaticoModal> createState() => _GenerarPlanAutomaticoModalState();
+  ConsumerState<GenerarPlanAutomaticoModal> createState() =>
+      _GenerarPlanAutomaticoModalState();
 }
 
-class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomaticoModal> {
+class _GenerarPlanAutomaticoModalState
+    extends ConsumerState<GenerarPlanAutomaticoModal> {
   String _durationType = "una semana";
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 6));
   bool _morningSnackEnabled = false;
   bool _afternoonSnackEnabled = false;
-  
+
   bool _isLoading = false;
 
   void _updateEndDate() {
@@ -38,8 +40,12 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(repositorioTutorProvider);
-      
-      final List<int> momentosObligatorios = [1, 3, 5]; // Desayuno, Almuerzo, Merienda
+
+      final List<int> momentosObligatorios = [
+        1,
+        3,
+        5
+      ]; // Desayuno, Almuerzo, Merienda
       final List<int> momentosOpcionales = [];
       if (_morningSnackEnabled) momentosOpcionales.add(2);
       if (_afternoonSnackEnabled) momentosOpcionales.add(4);
@@ -53,16 +59,15 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
         momentosObligatorios: momentosObligatorios,
         momentosOpcionales: momentosOpcionales,
       );
-      
+
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al generar plan: $e"))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error al generar plan: $e")));
       }
     }
   }
@@ -70,7 +75,7 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -99,11 +104,13 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 items: const [
                   DropdownMenuItem(value: "un día", child: Text("Un día")),
-                  DropdownMenuItem(value: "una semana", child: Text("Una semana")),
+                  DropdownMenuItem(
+                      value: "una semana", child: Text("Una semana")),
                   DropdownMenuItem(value: "un mes", child: Text("Un mes")),
                 ],
                 onChanged: (v) {
@@ -134,7 +141,9 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                     Text(
                       "${_endDate.difference(_startDate).inDays + 1} días de vigencia",
                       style: TextStyle(
-                          color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.w600),
+                          color: Colors.blue.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -143,7 +152,8 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
               _buildModalSectionTitle("Comidas base"),
               const Text("Se establecerán Desayuno, Almuerzo y Merienda.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.blueGrey, height: 1.4)),
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.blueGrey, height: 1.4)),
               const SizedBox(height: 16),
               _buildModalSectionTitle("Snacks opcionales"),
               _buildConfigTile(
@@ -187,8 +197,10 @@ class _GenerarPlanAutomaticoModalState extends ConsumerState<GenerarPlanAutomati
                 onPressed: _isLoading ? null : _generar,
                 child: _isLoading
                     ? const SizedBox(
-                        height: 20, width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : const Text("Generar"),
               ),

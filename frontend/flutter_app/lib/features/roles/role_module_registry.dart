@@ -153,7 +153,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         perfilItem,
       ];
-    
+
     default:
       return [perfilItem];
   }

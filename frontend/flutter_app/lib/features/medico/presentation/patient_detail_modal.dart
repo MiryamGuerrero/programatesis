@@ -12,7 +12,8 @@ class PatientDetailModal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expedienteAsync = ref.watch(medicoPatientExpedienteProvider(idPaciente));
+    final expedienteAsync =
+        ref.watch(medicoPatientExpedienteProvider(idPaciente));
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -46,11 +47,17 @@ class PatientDetailModal extends ConsumerWidget {
                   padding: const EdgeInsets.all(40.0),
                   child: Column(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 48),
                       const SizedBox(height: 16),
-                      Text("Error al cargar datos", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                      Text("Error al cargar datos",
+                          style:
+                              GoogleFonts.inter(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      Text(err.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(err.toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ),
@@ -104,24 +111,39 @@ class PatientDetailModal extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle(Icons.person_outline_rounded, "Datos del Paciente"),
+          _buildSectionTitle(
+              Icons.person_outline_rounded, "Datos del Paciente"),
           _buildInfoGrid([
-            _InfoItem(label: "Nombre Completo", value: paciente['nombre_completo']),
+            _InfoItem(
+                label: "Nombre Completo", value: paciente['nombre_completo']),
             _InfoItem(label: "Cédula", value: paciente['cedula']),
-            _InfoItem(label: "Fecha Nacimiento", value: paciente['fecha_nacimiento']),
+            _InfoItem(
+                label: "Fecha Nacimiento", value: paciente['fecha_nacimiento']),
             _InfoItem(label: "Género", value: paciente['sexo_nombre']),
-            _InfoItem(label: "Provincia/Cantón", value: "${paciente['canton_nombre'] ?? '-'} / ${paciente['parroquia_nombre'] ?? '-'}"),
-            _InfoItem(label: "Enfermedad", value: paciente['enfermedad_principal'], isHighlight: true),
+            _InfoItem(
+                label: "Provincia/Cantón",
+                value:
+                    "${paciente['canton_nombre'] ?? '-'} / ${paciente['parroquia_nombre'] ?? '-'}"),
+            _InfoItem(
+                label: "Enfermedad",
+                value: paciente['enfermedad_principal'],
+                isHighlight: true),
           ]),
           const Divider(height: 40),
-          _buildSectionTitle(Icons.supervised_user_circle_outlined, "Datos del Tutor a Cargo"),
+          _buildSectionTitle(
+              Icons.supervised_user_circle_outlined, "Datos del Tutor a Cargo"),
           _buildInfoGrid([
-            _InfoItem(label: "Nombre del Tutor", value: tutor['nombre_completo']),
-            _InfoItem(label: "Parentesco", value: tutor['parentesco_nombre'], isHighlight: true),
+            _InfoItem(
+                label: "Nombre del Tutor", value: tutor['nombre_completo']),
+            _InfoItem(
+                label: "Parentesco",
+                value: tutor['parentesco_nombre'],
+                isHighlight: true),
             _InfoItem(label: "Cédula Tutor", value: tutor['cedula']),
             _InfoItem(label: "Teléfono", value: tutor['telefono']),
             _InfoItem(label: "Correo Electrónico", value: tutor['email']),
-            _InfoItem(label: "Dirección Domiciliaria", value: tutor['direccion']),
+            _InfoItem(
+                label: "Dirección Domiciliaria", value: tutor['direccion']),
           ]),
         ],
       ),
@@ -152,31 +174,37 @@ class PatientDetailModal extends ConsumerWidget {
       child: Wrap(
         spacing: 24,
         runSpacing: 16,
-        children: items.map((item) => SizedBox(
-          width: 200,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.label,
-                style: GoogleFonts.lato(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.value?.toString() ?? "No registrado",
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: item.isHighlight ? FontWeight.bold : FontWeight.w600,
-                  color: item.isHighlight ? AppTema.verdeSalud : Colors.blueGrey.shade800,
-                ),
-              ),
-            ],
-          ),
-        )).toList(),
+        children: items
+            .map((item) => SizedBox(
+                  width: 200,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: GoogleFonts.lato(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.value?.toString() ?? "No registrado",
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: item.isHighlight
+                              ? FontWeight.bold
+                              : FontWeight.w600,
+                          color: item.isHighlight
+                              ? AppTema.verdeSalud
+                              : Colors.blueGrey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -215,5 +243,6 @@ class _InfoItem {
   final dynamic value;
   final bool isHighlight;
 
-  _InfoItem({required this.label, required this.value, this.isHighlight = false});
+  _InfoItem(
+      {required this.label, required this.value, this.isHighlight = false});
 }

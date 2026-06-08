@@ -682,12 +682,12 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       case 'facil':
       case 'fácil':
       case 'fã¡cil':
-      case 'fãƒâ¡cil':
+      case 'fácil':
         return 'Fácil';
       case 'dificil':
       case 'difícil':
       case 'difã­cil':
-      case 'difãƒâ­cil':
+      case 'difícil':
         return 'Difícil';
       case 'media':
         return 'Media';
@@ -1051,7 +1051,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     if (catalogo.isEmpty && _etiquetasSeleccionadas.isNotEmpty) {
       NutriSnack.show(
         context,
-        'No se pudo validar el catÃ¡logo de etiquetas. Intenta guardar nuevamente.',
+        'No se pudo validar el catálogo de etiquetas. Intenta guardar nuevamente.',
         isError: true,
       );
       return null;
@@ -1080,7 +1080,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       });
       NutriSnack.show(
         context,
-        'Se retiraron ${invalidas.length} etiqueta(s) fuera del catÃ¡logo backend. Revisa y guarda nuevamente.',
+        'Se retiraron ${invalidas.length} etiqueta(s) fuera del catálogo backend. Revisa y guarda nuevamente.',
         isError: true,
       );
       return null;
@@ -1690,9 +1690,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             size: 14,
             color: isRoja
                 ? const Color(0xFFB71C1C)
-                : (isAlerta
-                    ? const Color(0xFF9A6700)
-                    : AppTema.azulPrincipal),
+                : (isAlerta ? const Color(0xFF9A6700) : AppTema.azulPrincipal),
           ),
           const SizedBox(width: 8),
           Text(_textoEtiquetaVisible(e),
@@ -1762,7 +1760,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     if (_nombresCriticosAmigables.containsKey(codigo)) {
       return _nombresCriticosAmigables[codigo]!;
     }
-    return (etiqueta['titulo'] ?? etiqueta['nombre_visible'] ?? etiqueta['nombre'])
+    return (etiqueta['titulo'] ??
+                etiqueta['nombre_visible'] ??
+                etiqueta['nombre'])
             ?.toString() ??
         '-';
   }

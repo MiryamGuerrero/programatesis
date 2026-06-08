@@ -31,7 +31,7 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
       final dio = ref.read(dioProvider);
       final resp = await dio.get('tutor/subgrupos-preferencia/$idPaciente');
       final List<dynamic> data = resp.data;
-      
+
       if (mounted) {
         setState(() {
           _subgrupos = List<Map<String, dynamic>>.from(data);
@@ -86,7 +86,8 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final size = MediaQuery.of(context).size;
-    final itemWidth = (size.width - 48 - 12) / 2; // (Pantalla - padding lateral - espacio entre items) / 2 columnas
+    final itemWidth = (size.width - 48 - 12) /
+        2; // (Pantalla - padding lateral - espacio entre items) / 2 columnas
 
     if (_isLoading) return const Center(child: CircularProgressIndicator());
 
@@ -118,13 +119,17 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: itemWidth,
-                      constraints: const BoxConstraints(minHeight: 100), // Altura mínima base
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+                      constraints: const BoxConstraints(
+                          minHeight: 100), // Altura mínima base
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 16),
                       decoration: BoxDecoration(
                         color: isSelected ? colorScheme.primary : Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: isSelected ? colorScheme.primary : const Color(0xFFF1F5F9),
+                          color: isSelected
+                              ? colorScheme.primary
+                              : const Color(0xFFF1F5F9),
                           width: 2,
                         ),
                         boxShadow: [
@@ -154,8 +159,12 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
                             softWrap: true,
                             style: GoogleFonts.montserrat(
                               fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                              color: isSelected ? Colors.white : AppTema.azulOscuro,
+                              fontWeight: isSelected
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTema.azulOscuro,
                               height: 1.25,
                             ),
                           ),
@@ -166,7 +175,9 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
                             style: TextStyle(
                               fontSize: 7.5,
                               fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white60 : Colors.grey.shade400,
+                              color: isSelected
+                                  ? Colors.white60
+                                  : Colors.grey.shade400,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -193,7 +204,8 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
                             color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.check_circle_outline_rounded),
                 label: const Text("Confirmar Preferencias",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
           ),

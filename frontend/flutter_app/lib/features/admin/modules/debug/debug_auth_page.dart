@@ -40,9 +40,12 @@ class DebugAuthPage extends ConsumerWidget {
                       const SizedBox(height: 8),
                       _KeyValue("User ID", session.user.id),
                       _KeyValue("Email", session.user.email ?? "N/A"),
-                      _KeyValue("Proveedor", session.user.appMetadata["provider"] ?? "N/A"),
-                      _KeyValue("Creado", session.user.createdAt.toString() ?? "N/A"),
-                      _KeyValue("Expira", session.expiresAt?.toString() ?? "N/A"),
+                      _KeyValue("Proveedor",
+                          session.user.appMetadata["provider"] ?? "N/A"),
+                      _KeyValue(
+                          "Creado", session.user.createdAt.toString() ?? "N/A"),
+                      _KeyValue(
+                          "Expira", session.expiresAt?.toString() ?? "N/A"),
                       const SizedBox(height: 8),
                       const Text(
                         "📋 App Metadata (del JWT):",
@@ -71,19 +74,24 @@ class DebugAuthPage extends ConsumerWidget {
               child: roleAsync.when(
                 data: (role) {
                   final roleLabel = {
-                    AppRole.admin: "👨‍💼 Admin",
-                    AppRole.medico: "🩺 Médico",
-                    AppRole.nutricionista: "🥗 Nutricionista",
-                    AppRole.tutor: "👨‍👧 Tutor",
-                  }[role] ?? "❓ Desconocido";
+                        AppRole.admin: "👨‍💼 Admin",
+                        AppRole.medico: "🩺 Médico",
+                        AppRole.nutricionista: "🥗 Nutricionista",
+                        AppRole.tutor: "👨‍👧 Tutor",
+                      }[role] ??
+                      "❓ Desconocido";
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("✅ Rol resuelto: $roleLabel", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text("✅ Rol resuelto: $roleLabel",
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      const Text("Este rol se obtuvo de (en orden de prioridad):"),
-                      const Text("1. Backend /auth-context (timeout: 6 segundos)"),
+                      const Text(
+                          "Este rol se obtuvo de (en orden de prioridad):"),
+                      const Text(
+                          "1. Backend /auth-context (timeout: 6 segundos)"),
                       const Text("2. JWT app_metadata.role"),
                       const Text("3. Tabla usuarios.usuario"),
                       const Text("4. Fallback: 'tutor'"),
@@ -102,7 +110,8 @@ class DebugAuthPage extends ConsumerWidget {
               title: "3. Errores de Autenticación",
               child: authError == null
                   ? const Text("✅ Sin errores")
-                  : Text("❌ Error: $authError", style: const TextStyle(color: Colors.red)),
+                  : Text("❌ Error: $authError",
+                      style: const TextStyle(color: Colors.red)),
             ),
 
             const SizedBox(height: 24),
@@ -115,19 +124,23 @@ class DebugAuthPage extends ConsumerWidget {
                 children: [
                   _Recommendation(
                     icon: "✅",
-                    text: "Si ves un rol (admin/medico/nutricionista/tutor), todo está bien.",
+                    text:
+                        "Si ves un rol (admin/medico/nutricionista/tutor), todo está bien.",
                   ),
                   _Recommendation(
                     icon: "⚠️",
-                    text: "Si siempre ves 'tutor', el rol no se sincroniza desde Supabase.",
+                    text:
+                        "Si siempre ves 'tutor', el rol no se sincroniza desde Supabase.",
                   ),
                   _Recommendation(
                     icon: "🔧",
-                    text: "Ejecuta: supabase/sql/fix_jwt_role_metadata.sql en Supabase",
+                    text:
+                        "Ejecuta: supabase/sql/fix_jwt_role_metadata.sql en Supabase",
                   ),
                   _Recommendation(
                     icon: "⏱️",
-                    text: "Si hay timeout, verifica que el backend está en http://localhost:8000",
+                    text:
+                        "Si hay timeout, verifica que el backend está en http://localhost:8000",
                   ),
                 ],
               ),
@@ -140,7 +153,11 @@ class DebugAuthPage extends ConsumerWidget {
 
   List<Widget> _buildMetadataList(Map<String, dynamic> metadata) {
     if (metadata.isEmpty) {
-      return [const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text("  (vacío)"))];
+      return [
+        const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text("  (vacío)"))
+      ];
     }
     return metadata.entries
         .map((e) => _KeyValue("  ${e.key}", e.value.toString()))

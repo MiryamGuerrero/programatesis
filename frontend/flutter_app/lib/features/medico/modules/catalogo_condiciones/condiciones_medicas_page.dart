@@ -48,10 +48,15 @@ class _CondicionesMedicasPageState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Eliminar Condición"),
-        content: const Text("Si la condición ha sido asignada a pacientes, solo se desactivará. ¿Continuar?"),
+        content: const Text(
+            "Si la condición ha sido asignada a pacientes, solo se desactivará. ¿Continuar?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Aceptar")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Aceptar")),
         ],
       ),
     );
@@ -62,7 +67,9 @@ class _CondicionesMedicasPageState
       await _dio.delete("catalogos/condiciones/$id");
       _loadData();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al eliminar")));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Error al eliminar")));
     }
   }
 
@@ -100,10 +107,12 @@ class _CondicionesMedicasPageState
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.medical_information_outlined, color: Colors.indigo.shade800, size: 28),
+                      Icon(Icons.medical_information_outlined,
+                          color: Colors.indigo.shade800, size: 28),
                       const SizedBox(width: 12),
-                      const Text("Catálogo de Condiciones Médicas", 
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      const Text("Catálogo de Condiciones Médicas",
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   FilledButton.icon(
@@ -114,50 +123,77 @@ class _CondicionesMedicasPageState
                 ],
               ),
               const SizedBox(height: 8),
-              const Text("Gestione las condiciones Clínicas y Temporales que los médicos pueden diagnosticar.",
-                style: TextStyle(color: Colors.black54)),
+              const Text(
+                  "Gestione las condiciones Clínicas y Temporales que los médicos pueden diagnosticar.",
+                  style: TextStyle(color: Colors.black54)),
             ],
           ),
         ),
         Expanded(
-          child: _conditions.isEmpty 
-          ? const Center(child: Text("No hay condiciones médicas configuradas."))
-          : ListView.builder(
-            padding: const EdgeInsets.only(top: 8),
-            itemCount: _conditions.length,
-            itemBuilder: (ctx, i) {
-              final c = _conditions[i] as Map<String, dynamic>;
-              final isTemporal = c['id_tipo_condicion'] == 2;
-              
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isTemporal ? Colors.orange.shade100 : Colors.blue.shade100,
-                    child: Icon(isTemporal ? Icons.timer_outlined : Icons.monitor_heart, 
-                               color: isTemporal ? Colors.orange.shade800 : Colors.blue.shade800),
-                  ),
-                  title: Text(c['nombre']?.toString() ?? "Condición", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Tipo: ${c['tipo_nombre'] ?? '-'}", style: TextStyle(color: isTemporal ? Colors.orange.shade900 : Colors.blue.shade900, fontWeight: FontWeight.w600, fontSize: 12)),
-                      Text(c['descripcion']?.toString() ?? 'Sin descripción'),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (c['activa'] == false)
-                        const Chip(label: Text("Inactiva", style: TextStyle(fontSize: 10))),
-                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showForm(c)),
-                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteCondition(c["id"])),
-                    ],
-                  ),
+          child: _conditions.isEmpty
+              ? const Center(
+                  child: Text("No hay condiciones médicas configuradas."))
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 8),
+                  itemCount: _conditions.length,
+                  itemBuilder: (ctx, i) {
+                    final c = _conditions[i] as Map<String, dynamic>;
+                    final isTemporal = c['id_tipo_condicion'] == 2;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isTemporal
+                              ? Colors.orange.shade100
+                              : Colors.blue.shade100,
+                          child: Icon(
+                              isTemporal
+                                  ? Icons.timer_outlined
+                                  : Icons.monitor_heart,
+                              color: isTemporal
+                                  ? Colors.orange.shade800
+                                  : Colors.blue.shade800),
+                        ),
+                        title: Text(c['nombre']?.toString() ?? "Condición",
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Tipo: ${c['tipo_nombre'] ?? '-'}",
+                                style: TextStyle(
+                                    color: isTemporal
+                                        ? Colors.orange.shade900
+                                        : Colors.blue.shade900,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12)),
+                            Text(c['descripcion']?.toString() ??
+                                'Sin descripción'),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (c['activa'] == false)
+                              const Chip(
+                                  label: Text("Inactiva",
+                                      style: TextStyle(fontSize: 10))),
+                            IconButton(
+                                icon:
+                                    const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () => _showForm(c)),
+                            IconButton(
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _deleteCondition(c["id"])),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -187,17 +223,18 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
     final c = widget.initialCondition;
     _nombreController = TextEditingController(text: c?["nombre"]);
     _descripcionController = TextEditingController(text: c?["descripcion"]);
-    _idTipo = c?["id_tipo"] ?? c?["id_tipo_condicion"] ?? 1; // 1: CLINICA por defecto
+    _idTipo =
+        c?["id_tipo"] ?? c?["id_tipo_condicion"] ?? 1; // 1: CLINICA por defecto
     _activa = c?["activa"] ?? true;
   }
 
   Future<void> _save(WidgetRef ref) async {
     if (_nombreController.text.isEmpty) return;
-    
+
     setState(() => _saving = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      
+
       if (widget.initialCondition != null) {
         await repo.updateCondition(
           idCondicion: widget.initialCondition!['id'],
@@ -218,7 +255,9 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
       widget.onSaved();
     } catch (e) {
       setState(() => _saving = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al guardar")));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Error al guardar")));
     }
   }
 
@@ -226,29 +265,36 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
   Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) => AlertDialog(
-        title: Text(widget.initialCondition != null ? "Editar Condición" : "Nueva Condición Médica"),
+        title: Text(widget.initialCondition != null
+            ? "Editar Condición"
+            : "Nueva Condición Médica"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: _nombreController,
-                decoration: const InputDecoration(labelText: "Nombre de la Condición"),
+                decoration:
+                    const InputDecoration(labelText: "Nombre de la Condición"),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 initialValue: _idTipo,
-                decoration: const InputDecoration(labelText: "Tipo de Condición"),
+                decoration:
+                    const InputDecoration(labelText: "Tipo de Condición"),
                 items: const [
-                  DropdownMenuItem(value: 1, child: Text("Clínica (Permanente)")),
-                  DropdownMenuItem(value: 2, child: Text("Temporal (Ej: Gripe, Embarazo)")),
+                  DropdownMenuItem(
+                      value: 1, child: Text("Clínica (Permanente)")),
+                  DropdownMenuItem(
+                      value: 2, child: Text("Temporal (Ej: Gripe, Embarazo)")),
                 ],
                 onChanged: (v) => setState(() => _idTipo = v!),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _descripcionController,
-                decoration: const InputDecoration(labelText: "Descripción / Detalles"),
+                decoration:
+                    const InputDecoration(labelText: "Descripción / Detalles"),
                 maxLines: 3,
               ),
               if (widget.initialCondition != null)
@@ -261,10 +307,17 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancelar")),
           FilledButton(
             onPressed: _saving ? null : () => _save(ref),
-            child: _saving ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("Guardar"),
+            child: _saving
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text("Guardar"),
           ),
         ],
       ),

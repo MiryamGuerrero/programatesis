@@ -13,7 +13,8 @@ class TutorComprasPage extends ConsumerStatefulWidget {
 
 class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
   int _selectedTab = 0; // 0: Pendientes, 1: Comprados
-  int _selectedDateRange = 1; // 0: 3 días, 1: Esta Semana (7 días), 2: Próxima Semana
+  int _selectedDateRange =
+      1; // 0: 3 días, 1: Esta Semana (7 días), 2: Próxima Semana
   final Set<String> _localComprados = {}; // Manejo visual temporal
 
   void _toggleItem(String id) {
@@ -29,13 +30,16 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
   ({DateTime start, DateTime end}) _getDateRange() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     switch (_selectedDateRange) {
       case 0:
         return (start: today, end: today.add(const Duration(days: 3)));
       case 2:
         final nextWeekStart = today.add(const Duration(days: 7));
-        return (start: nextWeekStart, end: nextWeekStart.add(const Duration(days: 7)));
+        return (
+          start: nextWeekStart,
+          end: nextWeekStart.add(const Duration(days: 7))
+        );
       case 1:
       default:
         return (start: today, end: today.add(const Duration(days: 7)));
@@ -46,14 +50,14 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     final idPaciente = ref.watch(selectedPatientIdProvider);
     final dateRange = _getDateRange();
-    
+
     final comprasAsync = idPaciente != null
         ? ref.watch(listaComprasProvider((
-            idPaciente: idPaciente, 
-            start: dateRange.start, 
+            idPaciente: idPaciente,
+            start: dateRange.start,
             end: dateRange.end
           )))
         : const AsyncValue<Map<String, List<Map<String, dynamic>>>>.data({});
@@ -74,7 +78,7 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
             ],
           ),
         ),
-        
+
         Expanded(
           child: Stack(
             children: [
@@ -101,9 +105,11 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                       };
                     }).toList();
 
-                    final displayItems = processedItems.where((item) => 
-                      _selectedTab == 0 ? !(item["comprado"] as bool) : (item["comprado"] as bool)
-                    ).toList();
+                    final displayItems = processedItems
+                        .where((item) => _selectedTab == 0
+                            ? !(item["comprado"] as bool)
+                            : (item["comprado"] as bool))
+                        .toList();
 
                     if (displayItems.isEmpty) {
                       return Center(
@@ -111,24 +117,31 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _selectedTab == 0 ? Icons.shopping_basket_outlined : Icons.check_circle_outline,
+                              _selectedTab == 0
+                                  ? Icons.shopping_basket_outlined
+                                  : Icons.check_circle_outline,
                               size: 64,
                               color: colorScheme.outline.withOpacity(0.5),
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _selectedTab == 0 ? "¡Todo comprado!" : "No hay items comprados aún",
-                              style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.outline),
+                              _selectedTab == 0
+                                  ? "¡Todo comprado!"
+                                  : "No hay items comprados aún",
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(color: colorScheme.outline),
                             ),
                           ],
                         ),
                       );
                     }
 
-                    final Map<String, List<Map<String, dynamic>>> groupedItems = {};
+                    final Map<String, List<Map<String, dynamic>>> groupedItems =
+                        {};
                     for (var item in displayItems) {
                       final cat = item["categoria"] ?? "OTROS";
-                      if (!groupedItems.containsKey(cat)) groupedItems[cat] = [];
+                      if (!groupedItems.containsKey(cat))
+                        groupedItems[cat] = [];
                       groupedItems[cat]!.add(item);
                     }
 
@@ -139,30 +152,31 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                       itemBuilder: (context, index) {
                         final categoria = groupedItems.keys.elementAt(index);
                         final itemsEnCategoria = groupedItems[categoria]!;
-                        
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildCategoryHeader(context, categoria),
-                            ...itemsEnCategoria.map((item) => _buildShoppingItem(
-                              context, 
-                              item["nombre"] ?? "Ingrediente", 
-                              "", 
-                              "${item["cantidad"]} ${item["unidad"]}",
-                              item["id_virtual"],
-                              item["comprado"] as bool,
-                            )),
+                            ...itemsEnCategoria
+                                .map((item) => _buildShoppingItem(
+                                      context,
+                                      item["nombre"] ?? "Ingrediente",
+                                      "",
+                                      "${item["cantidad"]} ${item["unidad"]}",
+                                      item["id_virtual"],
+                                      item["comprado"] as bool,
+                                    )),
                             const SizedBox(height: 16),
                           ],
                         );
                       },
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text("Error: $err")),
                 ),
               ),
-
               Positioned(
                 left: 0,
                 right: 0,
@@ -195,7 +209,8 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                               ButtonSegment(
                                 value: 1,
                                 label: Text("Comprados"),
-                                icon: Icon(Icons.check_circle_outline, size: 20),
+                                icon:
+                                    Icon(Icons.check_circle_outline, size: 20),
                               ),
                             ],
                             selected: {_selectedTab},
@@ -249,7 +264,8 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
     );
   }
 
-  Widget _buildShoppingItem(BuildContext context, String titulo, String subtitulo, String cantidad, String id, bool comprado) {
+  Widget _buildShoppingItem(BuildContext context, String titulo,
+      String subtitulo, String cantidad, String id, bool comprado) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -265,7 +281,8 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
               Checkbox(
                 value: comprado,
                 onChanged: (val) => _toggleItem(id),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4)),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -275,7 +292,8 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                     Text(
                       titulo,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        decoration: comprado ? TextDecoration.lineThrough : null,
+                        decoration:
+                            comprado ? TextDecoration.lineThrough : null,
                         color: comprado ? const Color(0xFF94A3B8) : null,
                       ),
                     ),

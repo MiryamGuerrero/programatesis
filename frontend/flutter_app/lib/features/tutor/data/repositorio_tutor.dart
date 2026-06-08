@@ -12,9 +12,11 @@ class RepositorioTutor {
   RepositorioTutor(this._dio);
 
   /// Obtiene el menú planificado para un día específico
-  Future<List<Map<String, dynamic>>> obtenerPlanDiario(String idPaciente, String fecha) async {
+  Future<List<Map<String, dynamic>>> obtenerPlanDiario(
+      String idPaciente, String fecha) async {
     try {
-      final response = await _dio.get("tutor/plan-diario/$idPaciente", queryParameters: {
+      final response =
+          await _dio.get("tutor/plan-diario/$idPaciente", queryParameters: {
         "fecha": fecha,
       });
       return List<Map<String, dynamic>>.from(response.data);
@@ -24,7 +26,8 @@ class RepositorioTutor {
   }
 
   /// Registra si una comida fue consumida o no
-  Future<bool> registrarConsumo(int idPlanItem, int idEstadoConsumo, {String? observacion}) async {
+  Future<bool> registrarConsumo(int idPlanItem, int idEstadoConsumo,
+      {String? observacion}) async {
     try {
       final response = await _dio.post("tutor/registrar-consumo", data: {
         "id_plan_item": idPlanItem,
@@ -38,9 +41,11 @@ class RepositorioTutor {
   }
 
   /// Obtiene las estadísticas de cumplimiento
-  Future<Map<String, dynamic>> obtenerEstadisticasAdherencia(String idPaciente, {int dias = 7}) async {
+  Future<Map<String, dynamic>> obtenerEstadisticasAdherencia(String idPaciente,
+      {int dias = 7}) async {
     try {
-      final response = await _dio.get("tutor/adherencia/$idPaciente", queryParameters: {
+      final response =
+          await _dio.get("tutor/adherencia/$idPaciente", queryParameters: {
         "dias": dias,
       });
       return Map<String, dynamic>.from(response.data);
@@ -95,5 +100,4 @@ extension DateTimeExtension on DateTime {
   String toIsoformat() {
     return "${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
   }
-  }
-
+}

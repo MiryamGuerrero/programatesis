@@ -34,7 +34,7 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
     try {
       final payload = {
@@ -44,11 +44,13 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
 
       final dio = ref.read(dioProvider);
       if (widget.etiquetaInicial != null) {
-        await dio.put('nutricionista/etiquetas/${widget.etiquetaInicial!['id']}', data: payload);
+        await dio.put(
+            'nutricionista/etiquetas/${widget.etiquetaInicial!['id']}',
+            data: payload);
       } else {
         await dio.post('nutricionista/etiquetas', data: payload);
       }
-      
+
       if (!mounted) return;
       Navigator.pop(context, true);
       NutriSnack.show(context, 'Etiqueta guardada con éxito');
@@ -76,7 +78,9 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.etiquetaInicial == null ? 'Nueva Etiqueta' : 'Editar Etiqueta',
+                    widget.etiquetaInicial == null
+                        ? 'Nueva Etiqueta'
+                        : 'Editar Etiqueta',
                     style: GoogleFonts.quicksand(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -90,7 +94,8 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
                 ],
               ),
               const SizedBox(height: 24),
-              _buildSectionHeader('Información de la Etiqueta', Icons.label_important_rounded),
+              _buildSectionHeader(
+                  'Información de la Etiqueta', Icons.label_important_rounded),
               const SizedBox(height: 24),
               _buildTextField(
                 label: 'Nombre Visible',
@@ -197,9 +202,12 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
               backgroundColor: AppTema.azulPrincipal,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(widget.etiquetaInicial == null ? 'CREAR ETIQUETA' : 'GUARDAR CAMBIOS'),
+            child: Text(widget.etiquetaInicial == null
+                ? 'CREAR ETIQUETA'
+                : 'GUARDAR CAMBIOS'),
           ),
       ],
     );

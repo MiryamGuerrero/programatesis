@@ -8,7 +8,9 @@ extension ResponsiveContext on BuildContext {
 
   bool get isMobileSmall => screenWidth <= AppBreakpoints.mobileSmall;
   bool get isMobile => screenWidth <= AppBreakpoints.mobile;
-  bool get isTablet => screenWidth > AppBreakpoints.mobile && screenWidth <= AppBreakpoints.desktop;
+  bool get isTablet =>
+      screenWidth > AppBreakpoints.mobile &&
+      screenWidth <= AppBreakpoints.desktop;
   bool get isDesktop => screenWidth > AppBreakpoints.desktop;
 
   /// Retorna un valor basado en el tipo de dispositivo

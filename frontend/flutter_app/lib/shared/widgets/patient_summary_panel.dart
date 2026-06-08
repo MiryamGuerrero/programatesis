@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'nutri_avatar.dart';
 
-class PatientSummaryPanel extends StatelessWidget {
+class PatientSummaryPanel extends StatefulWidget {
   final Map<String, dynamic> expediente;
   final String Function(String?) formatEdad;
   final VoidCallback onVerExpediente;
@@ -19,17 +19,25 @@ class PatientSummaryPanel extends StatelessWidget {
   });
 
   @override
+  State<PatientSummaryPanel> createState() => _PatientSummaryPanelState();
+}
+
+class _PatientSummaryPanelState extends State<PatientSummaryPanel> {
+  bool _isCollapsed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final p = expediente['paciente'] ?? {};
-    final d = expediente['diagnostico'] ?? {};
-    final c = expediente['ultimo_control'] ?? {};
-    final al = expediente['alergias'] ?? {};
+    final p = widget.expediente['paciente'] ?? {};
+    final d = widget.expediente['diagnostico'] ?? {};
+    final c = widget.expediente['ultimo_control'] ?? {};
+    final al = widget.expediente['alergias'] ?? {};
     final restriccionesDetalle =
-        (expediente['restricciones_alimentarias_detalle'] as List? ?? []);
+        (widget.expediente['restricciones_alimentarias_detalle'] as List? ??
+            []);
 
     final restriccionesActivas = _buildRestriccionesActivas(
       restriccionesDetalle,
-      esIntoleranteLactosa: expediente['es_intolerante_lactosa'] == true,
+      esIntoleranteLactosa: widget.expediente['es_intolerante_lactosa'] == true,
     );
 
     final subgrupos = (al['subgrupos'] as List? ?? [])
@@ -44,151 +52,200 @@ class PatientSummaryPanel extends StatelessWidget {
         .toList();
     final restriccionesLabel = 'RESTRICCIONES MEDICAS';
 
-    return Container(
-      width: width,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      width: _isCollapsed ? 85 : widget.width,
+      curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(left: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                children: [
-                  Text(
-                    'RESUMEN CLINICO',
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 10,
-                      color: AppTema.verdeSalud,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  NutriAvatar(
-                    nombreCompleto: p['nombre_completo'] ?? 'P',
-                    radio: 40,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    p['nombre_completo'] ?? '-',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatEdad(p['fecha_nacimiento']),
-                    style: GoogleFonts.lato(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _SummaryCard(
-                          label: 'PESO ACTUAL',
-                          value: "${c['peso_kg'] ?? '-'} kg",
-                          icon: Icons.scale_outlined,
-                          iconColor: const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _SummaryCard(
-                          label: 'TALLA ACTUAL',
-                          value: "${c['talla_cm'] ?? '-'} cm",
-                          icon: Icons.straighten_rounded,
-                          iconColor: AppTema.verdeSalud,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _SummaryCard(
-                    label: 'ESTADO NUTRICIONAL',
-                    value: c['estado_nutricional'] ?? 'PENDIENTE',
-                    icon: Icons.analytics_outlined,
-                    iconColor: AppTema.verdeSalud,
-                    isFullWidth: true,
-                  ),
-                  const SizedBox(height: 12),
-                  _SummaryCard(
-                    label: 'ENFERMEDAD PRINCIPAL',
-                    value:
-                        d['condicion_nombre'] ?? d['nombre_condicion'] ?? '-',
-                    icon: Icons.medical_services_outlined,
-                    iconColor: AppTema.azulPrincipal,
-                    isFullWidth: true,
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Divider(),
-                  ),
-                  if (restriccionesTexto.isNotEmpty) ...[
-                    _ListSummaryCard(
-                      label: restriccionesLabel,
-                      items: restriccionesTexto,
-                      icon: Icons.health_and_safety_outlined,
-                      iconColor: Colors.deepPurple,
-                    ),
-                  ],
-                  if (subgrupos.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _ListSummaryCard(
-                      label: 'ALERGIAS / SUBGRUPOS',
-                      items: subgrupos,
-                      icon: Icons.warning_amber_rounded,
-                      iconColor: Colors.orange,
-                    ),
-                  ],
-                  if (ingredientes.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _ListSummaryCard(
-                      label: 'ALERGIAS / ESPECIFICAS',
-                      items: ingredientes,
-                      icon: Icons.security_rounded,
-                      iconColor: Colors.orange,
-                    ),
-                  ],
-                ],
-              ),
+      child: _isCollapsed
+          ? _buildCollapsed(p)
+          : _buildExpanded(p, d, c, subgrupos, ingredientes, restriccionesTexto,
+              restriccionesLabel),
+    );
+  }
+
+  Widget _buildCollapsed(Map<String, dynamic> p) {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        IconButton(
+          onPressed: () => setState(() => _isCollapsed = false),
+          icon: const Icon(Icons.chevron_right_rounded,
+              color: AppTema.verdeSalud, size: 28),
+          tooltip: 'Desplegar expediente',
+        ),
+        const SizedBox(height: 30),
+        NutriAvatar(
+          nombreCompleto: p['nombre_completo'] ?? 'P',
+          radio: 24,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpanded(
+    Map<String, dynamic> p,
+    Map<String, dynamic> d,
+    Map<String, dynamic> c,
+    List<String> subgrupos,
+    List<String> ingredientes,
+    List<String> restriccionesTexto,
+    String restriccionesLabel,
+  ) {
+    return Column(
+      children: [
+        // Botón para contraer
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, right: 8),
+            child: IconButton(
+              onPressed: () => setState(() => _isCollapsed = true),
+              icon: const Icon(Icons.chevron_left_rounded,
+                  color: AppTema.verdeSalud, size: 28),
+              tooltip: 'Contraer expediente',
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onVerExpediente,
-                icon: const Icon(Icons.assignment_ind_outlined),
-                label: const Text('VER EXPEDIENTE MAESTRO'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTema.verdeSalud,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding:
+                const EdgeInsets.only(left: 24, right: 24, bottom: 32, top: 8),
+            child: Column(
+              children: [
+                Text(
+                  'RESUMEN CLINICO',
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    color: AppTema.verdeSalud,
+                    letterSpacing: 2,
                   ),
-                  textStyle: GoogleFonts.montserrat(
+                ),
+                const SizedBox(height: 24),
+                NutriAvatar(
+                  nombreCompleto: p['nombre_completo'] ?? 'P',
+                  radio: 40,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  p['nombre_completo'] ?? '-',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    color: const Color(0xFF1E293B),
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.formatEdad(p['fecha_nacimiento']),
+                  style: GoogleFonts.lato(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'PESO ACTUAL',
+                        value: "${c['peso_kg'] ?? '-'} kg",
+                        icon: Icons.scale_outlined,
+                        iconColor: const Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'TALLA ACTUAL',
+                        value: "${c['talla_cm'] ?? '-'} cm",
+                        icon: Icons.straighten_rounded,
+                        iconColor: AppTema.verdeSalud,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _SummaryCard(
+                  label: 'ESTADO NUTRICIONAL',
+                  value: c['estado_nutricional'] ?? 'PENDIENTE',
+                  icon: Icons.analytics_outlined,
+                  iconColor: AppTema.verdeSalud,
+                  isFullWidth: true,
+                ),
+                const SizedBox(height: 12),
+                _SummaryCard(
+                  label: 'ENFERMEDAD PRINCIPAL',
+                  value: d['condicion_nombre'] ?? d['nombre_condicion'] ?? '-',
+                  icon: Icons.medical_services_outlined,
+                  iconColor: AppTema.azulPrincipal,
+                  isFullWidth: true,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Divider(),
+                ),
+                if (restriccionesTexto.isNotEmpty) ...[
+                  _ListSummaryCard(
+                    label: restriccionesLabel,
+                    items: restriccionesTexto,
+                    icon: Icons.health_and_safety_outlined,
+                    iconColor: Colors.deepPurple,
+                  ),
+                ],
+                if (subgrupos.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _ListSummaryCard(
+                    label: 'ALERGIAS / SUBGRUPOS',
+                    items: subgrupos,
+                    icon: Icons.warning_amber_rounded,
+                    iconColor: Colors.orange,
+                  ),
+                ],
+                if (ingredientes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ListSummaryCard(
+                    label: 'ALERGIAS / ESPECIFICAS',
+                    items: ingredientes,
+                    icon: Icons.security_rounded,
+                    iconColor: Colors.orange,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onVerExpediente,
+              icon: const Icon(Icons.assignment_ind_outlined),
+              label: const Text('VER EXPEDIENTE MAESTRO'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTema.verdeSalud,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

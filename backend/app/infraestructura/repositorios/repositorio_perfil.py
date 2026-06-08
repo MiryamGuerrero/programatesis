@@ -273,18 +273,21 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         else:
             activa = str(activa).lower() == 'true' or activa is True
 
-        # Generar indicador_codigo automáticamente (ej: "diarrea_aguda")
-        indicador = re.sub(r'[^a-z0-9_]', '', nombre.lower().replace(" ", "_"))
+        # Generar indicador_codigo automáticamente si no se proporciona
+        indicador = datos.get("indicador_codigo")
         if not indicador:
-            indicador = f"condicion_{int(time.time())}"
+            indicador = re.sub(r'[^a-z0-9_]', '', nombre.lower().replace(" ", "_"))
+            if not indicador:
+                indicador = f"condicion_{int(time.time())}"
         
         # Limitar longitud para seguridad (BD tiene 100 ahora)
         indicador = indicador[:90]
         
-        # Verificar si ya existe el indicador para evitar conflicto
-        existente = self.ejecutar_uno("select id from heuristico.condicion where indicador_codigo = %s", (indicador,))
-        if existente:
-            indicador = f"{indicador[:80]}_{int(time.time())}"
+        # Verificar si ya existe el indicador para evitar conflicto (solo si se generó automáticamente)
+        if not datos.get("indicador_codigo"):
+            existente = self.ejecutar_uno("select id from heuristico.condicion where indicador_codigo = %s", (indicador,))
+            if existente:
+                indicador = f"{indicador[:80]}_{int(time.time())}"
 
         sql = """
             insert into heuristico.condicion (nombre, descripcion, id_tipo_condicion, activa, dias_duracion_estandar, indicador_codigo)
@@ -334,21 +337,28 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         else:
             activa = str(activa).lower() == 'true' or activa is True
 
-        sql = """
-            update heuristico.condicion 
-            set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s, dias_duracion_estandar = %s 
-            where id = %s
-            returning id
-        """
+        # Permitir actualizar el indicador si se proporciona (útil para corregir categorización)
+        indicador = datos.get("indicador_codigo")
+        
+        if indicador:
+            sql = """
+                update heuristico.condicion 
+                set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s, dias_duracion_estandar = %s, indicador_codigo = %s
+                where id = %s
+                returning id
+            """
+            params = (nombre, datos.get("descripcion", ""), id_tipo, activa, duracion, indicador, id_condicion)
+        else:
+            sql = """
+                update heuristico.condicion 
+                set nombre = %s, descripcion = %s, id_tipo_condicion = %s, activa = %s, dias_duracion_estandar = %s 
+                where id = %s
+                returning id
+            """
+            params = (nombre, datos.get("descripcion", ""), id_tipo, activa, duracion, id_condicion)
+            
         try:
-            res = self.ejecutar_comando(sql, (
-                nombre, 
-                datos.get("descripcion", ""), 
-                id_tipo, 
-                activa, 
-                duracion,
-                id_condicion
-            ))
+            res = self.ejecutar_comando(sql, params)
             return res is not None
         except Exception as e:
             raise ValueError(f"Error de base de datos al actualizar condición: {str(e)}")

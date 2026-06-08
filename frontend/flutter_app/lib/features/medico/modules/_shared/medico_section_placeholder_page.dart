@@ -21,7 +21,8 @@ class MedicoSectionPlaceholderPage extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style:
+              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(description),
@@ -34,7 +35,8 @@ class MedicoSectionPlaceholderPage extends StatelessWidget {
               children: [
                 Text(
                   "Subsecciones planificadas",
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -43,7 +45,8 @@ class MedicoSectionPlaceholderPage extends StatelessWidget {
                   children: [
                     for (final subsection in subsections)
                       Chip(
-                        avatar: const Icon(Icons.subdirectory_arrow_right, size: 16),
+                        avatar: const Icon(Icons.subdirectory_arrow_right,
+                            size: 16),
                         label: Text(subsection),
                       ),
                   ],

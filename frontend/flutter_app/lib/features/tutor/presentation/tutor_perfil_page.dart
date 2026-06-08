@@ -40,17 +40,20 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
   void _initializeFields(Map<String, dynamic> profile) {
     if (_initialized) return;
-    
+
     final fullName = profile["nombre_completo"]?.toString() ?? "";
     List<String> partes = fullName.trim().split(" ");
-    String nombres = ""; String apellidos = "";
-    
+    String nombres = "";
+    String apellidos = "";
+
     if (partes.length >= 2) {
       int mid = (partes.length / 2).floor();
       if (partes.length == 3) mid = 1;
       nombres = partes.sublist(0, mid).join(" ");
       apellidos = partes.sublist(mid).join(" ");
-    } else { nombres = fullName; }
+    } else {
+      nombres = fullName;
+    }
 
     _nombresController.text = nombres;
     _apellidosController.text = apellidos;
@@ -68,7 +71,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
     if (nombres.isEmpty || apellidos.isEmpty || email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor, completa los campos obligatorios")),
+        const SnackBar(
+            content: Text("Por favor, completa los campos obligatorios")),
       );
       return;
     }
@@ -93,7 +97,9 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al guardar: $error"), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text("Error al guardar: $error"),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -112,9 +118,14 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       body: perfilAsync.when(
         data: (profile) {
           _initializeFields(profile);
-          final String parentesco = profile["parentesco"]?.toString() ?? "Tutor";
-          final String iniciales = (_nombresController.text.isNotEmpty ? _nombresController.text[0] : "") + 
-                                   (_apellidosController.text.isNotEmpty ? _apellidosController.text[0] : "");
+          final String parentesco =
+              profile["parentesco"]?.toString() ?? "Tutor";
+          final String iniciales = (_nombresController.text.isNotEmpty
+                  ? _nombresController.text[0]
+                  : "") +
+              (_apellidosController.text.isNotEmpty
+                  ? _apellidosController.text[0]
+                  : "");
 
           return SingleChildScrollView(
             child: ResponsiveMaxConstraints(
@@ -124,9 +135,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                   _buildProfileHeader(context, iniciales, parentesco),
                   Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: context.responsiveSpacing(AppSpacing.md), 
-                      vertical: context.responsiveSpacing(AppSpacing.xl)
-                    ),
+                        horizontal: context.responsiveSpacing(AppSpacing.md),
+                        vertical: context.responsiveSpacing(AppSpacing.xl)),
                     child: Column(
                       children: [
                         _buildFormCard(context),
@@ -149,16 +159,16 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, String iniciales, String parentesco) {
+  Widget _buildProfileHeader(
+      BuildContext context, String iniciales, String parentesco) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(
-        top: context.responsiveSpacing(40), 
-        bottom: context.responsiveSpacing(40)
-      ),
+          top: context.responsiveSpacing(40),
+          bottom: context.responsiveSpacing(40)),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withOpacity(0.4),
         borderRadius: const BorderRadius.only(
@@ -184,9 +194,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           Text(
             "${_nombresController.text} ${_apellidosController.text}",
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontSize: AppTextSizes.headline(context.screenWidth) * 0.8,
-              fontWeight: FontWeight.bold
-            ),
+                fontSize: AppTextSizes.headline(context.screenWidth) * 0.8,
+                fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Container(
@@ -198,11 +207,10 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
             child: Text(
               parentesco.toUpperCase(),
               style: theme.textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: colorScheme.primary,
-                letterSpacing: 1,
-                fontSize: AppTextSizes.caption(context.screenWidth)
-              ),
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.primary,
+                  letterSpacing: 1,
+                  fontSize: AppTextSizes.caption(context.screenWidth)),
             ),
           ),
         ],
@@ -219,24 +227,30 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           children: [
             _buildSectionTitle(context, "Información Personal"),
             const SizedBox(height: 24),
-            _buildField(context, "Nombres", _nombresController, Icons.person_outline_rounded),
+            _buildField(context, "Nombres", _nombresController,
+                Icons.person_outline_rounded),
             const SizedBox(height: 20),
-            _buildField(context, "Apellidos", _apellidosController, Icons.person_outline_rounded),
+            _buildField(context, "Apellidos", _apellidosController,
+                Icons.person_outline_rounded),
             const SizedBox(height: 20),
-            _buildField(context, "Cédula / ID", _cedulaController, Icons.badge_outlined),
+            _buildField(context, "Cédula / ID", _cedulaController,
+                Icons.badge_outlined),
             const SizedBox(height: 20),
-            _buildField(context, "Teléfono", _telefonoController, Icons.phone_android_rounded),
-            
+            _buildField(context, "Teléfono", _telefonoController,
+                Icons.phone_android_rounded),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Divider(height: 1),
             ),
-            
             _buildSectionTitle(context, "Cuenta y Contacto"),
             const SizedBox(height: 24),
-            _buildField(context, "Correo Electrónico", _emailController, Icons.alternate_email_rounded, enabled: false),
+            _buildField(context, "Correo Electrónico", _emailController,
+                Icons.alternate_email_rounded,
+                enabled: false),
             const SizedBox(height: 20),
-            _buildField(context, "Dirección", _direccionController, Icons.location_on_outlined, maxLines: 2),
+            _buildField(context, "Dirección", _direccionController,
+                Icons.location_on_outlined,
+                maxLines: 2),
           ],
         ),
       ),
@@ -255,14 +269,17 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     );
   }
 
-  Widget _buildField(BuildContext context, String label, TextEditingController controller, IconData icon, {bool enabled = true, int maxLines = 1}) {
+  Widget _buildField(BuildContext context, String label,
+      TextEditingController controller, IconData icon,
+      {bool enabled = true, int maxLines = 1}) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: theme.textTheme.labelMedium?.copyWith(color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
+          style: theme.textTheme.labelMedium?.copyWith(
+              color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -284,7 +301,11 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       child: FilledButton(
         onPressed: _saving ? null : _saveProfile,
         child: _saving
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
             : const Text("GUARDAR CAMBIOS"),
       ),
     );
@@ -295,7 +316,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: _handleSignOut,
-        icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+        icon:
+            const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
         label: const Text("CERRAR SESIÓN"),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.redAccent,
@@ -312,8 +334,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
         title: const Text("Cerrar Sesión"),
         content: const Text("¿Estás seguro de que deseas salir?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("SÍ, SALIR")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("SÍ, SALIR")),
         ],
       ),
     );

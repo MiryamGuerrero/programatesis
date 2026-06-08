@@ -23,7 +23,8 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
     super.initState();
     // Listener crítico para navegación inmediata sin recargar
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn || data.event == AuthChangeEvent.tokenRefreshed) {
+      if (data.event == AuthChangeEvent.signedIn ||
+          data.event == AuthChangeEvent.tokenRefreshed) {
         ref.invalidate(appRoleProvider);
         ref.invalidate(miPerfilProvider);
       }
@@ -34,7 +35,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
   Widget build(BuildContext context) {
     final authSession = ref.watch(authSessionProvider);
     final authFlowIntent = ref.watch(authFlowIntentProvider);
-    
+
     // COLORES CORPORATIVOS
     final colorScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF0171BB),
@@ -45,20 +46,25 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
 
     final rootPage = authSession.when(
       data: (session) {
-        if (authFlowIntent == AuthFlowIntent.setPassword) return const SetPasswordPage();
+        if (authFlowIntent == AuthFlowIntent.setPassword)
+          return const SetPasswordPage();
         if (session == null) return const LoginPage();
 
         final roleAsync = ref.watch(appRoleProvider);
         return roleAsync.when(
           data: (role) => RoleShell(role: role),
-          loading: () => RoleShell(role: _resolveRoleFromSession(session) ?? AppRole.tutor),
-          error: (_, __) => RoleShell(role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          loading: () => RoleShell(
+              role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          error: (_, __) => RoleShell(
+              role: _resolveRoleFromSession(session) ?? AppRole.tutor),
         );
       },
       error: (_, __) => const LoginPage(),
       loading: () {
         final session = Supabase.instance.client.auth.currentSession;
-        if (session != null) return RoleShell(role: _resolveRoleFromSession(session) ?? AppRole.tutor);
+        if (session != null)
+          return RoleShell(
+              role: _resolveRoleFromSession(session) ?? AppRole.tutor);
         return const LoginPage();
       },
     );
@@ -74,7 +80,10 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         textTheme: GoogleFonts.latoTextTheme(),
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
-          titleTextStyle: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF334155)),
+          titleTextStyle: GoogleFonts.lato(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF334155)),
         ),
       ),
       home: rootPage,
@@ -92,7 +101,8 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
   const _AppScrollBehavior();
 
   @override
-  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+  Widget buildScrollbar(
+      BuildContext context, Widget child, ScrollableDetails details) {
     return child;
   }
 }

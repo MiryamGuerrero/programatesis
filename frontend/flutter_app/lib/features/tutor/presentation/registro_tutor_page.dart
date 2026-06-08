@@ -37,7 +37,8 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
     final idParentesco = int.tryParse(_parentescoController.text.trim());
 
     if (email.isEmpty || name.isEmpty || idPaciente.isEmpty) {
-      setState(() => _error = "El email, nombre e ID de paciente son obligatorios");
+      setState(
+          () => _error = "El email, nombre e ID de paciente son obligatorios");
       return;
     }
 
@@ -55,10 +56,11 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
         email: email,
         nombreCompleto: name,
       );
-      
+
       // 2. Vincular con paciente
       await repo.linkTutorToPatient(
-        idUsuarioTutor: email, // El backend suele usar email o cedula como lookup si no tiene UUID aun
+        idUsuarioTutor:
+            email, // El backend suele usar email o cedula como lookup si no tiene UUID aun
         idPaciente: idPaciente,
         idParentesco: idParentesco ?? 1,
         esPrincipal: _esPrincipal,
@@ -67,7 +69,8 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
       if (!mounted) return;
 
       setState(() {
-        _resultado = "El usuario tutor fue registrado y vinculado correctamente.";
+        _resultado =
+            "El usuario tutor fue registrado y vinculado correctamente.";
         _emailController.clear();
         _nameController.clear();
         _pacienteController.clear();
@@ -97,7 +100,8 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
         const SizedBox(height: 12),
         _text(_pacienteController, "ID del Paciente a vincular (UUID)"),
         const SizedBox(height: 12),
-        _text(_parentescoController, "ID de Parentesco (Opcional, Ej: 1)", number: true),
+        _text(_parentescoController, "ID de Parentesco (Opcional, Ej: 1)",
+            number: true),
         const SizedBox(height: 12),
         SwitchListTile(
           title: const Text("Es el tutor principal"),
@@ -135,13 +139,17 @@ class _RegistroTutorPageState extends ConsumerState<RegistroTutorPage> {
     );
   }
 
-  Widget _text(TextEditingController controller, String label, {bool number = false, bool email = false}) {
+  Widget _text(TextEditingController controller, String label,
+      {bool number = false, bool email = false}) {
     return TextField(
       controller: controller,
-      keyboardType: number ? TextInputType.number : (email ? TextInputType.emailAddress : TextInputType.text),
+      keyboardType: number
+          ? TextInputType.number
+          : (email ? TextInputType.emailAddress : TextInputType.text),
       decoration: InputDecoration(
         labelText: label,
-        contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
       ),
       style: const TextStyle(fontSize: 16),
     );

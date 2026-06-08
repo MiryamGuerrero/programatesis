@@ -41,7 +41,8 @@ class Ingrediente {
       nombre: json['nombre'],
       categoria: json['subgrupo_alimentario'] ?? json['categoria_nombre'],
       idGrupoAlimentario: json['grupo_alimentario_id'],
-      etiquetas: (json['etiquetas'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      etiquetas:
+          (json['etiquetas'] as List?)?.map((e) => e.toString()).toList() ?? [],
       energiaKcal: (json['energia_kcal'] ?? 0).toDouble(),
       proteinasG: (json['proteinas_g'] ?? 0).toDouble(),
       carbohidratosG: (json['carbohidratos_g'] ?? 0).toDouble(),

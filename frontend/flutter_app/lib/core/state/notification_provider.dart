@@ -23,7 +23,8 @@ class NutriNotification {
 class NotificationNotifier extends StateNotifier<List<NutriNotification>> {
   NotificationNotifier() : super([]);
 
-  void add(String title, String message, {NutriNotificationType type = NutriNotificationType.info}) {
+  void add(String title, String message,
+      {NutriNotificationType type = NutriNotificationType.info}) {
     final newNotif = NutriNotification(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -37,16 +38,29 @@ class NotificationNotifier extends StateNotifier<List<NutriNotification>> {
   void markAsRead(String id) {
     state = [
       for (final n in state)
-        if (n.id == id) NutriNotification(
-          id: n.id, title: n.title, message: n.message, type: n.type, timestamp: n.timestamp, read: true
-        ) else n,
+        if (n.id == id)
+          NutriNotification(
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              timestamp: n.timestamp,
+              read: true)
+        else
+          n,
     ];
   }
 
   void markAllAsRead() {
     state = [
       for (final n in state)
-        NutriNotification(id: n.id, title: n.title, message: n.message, type: n.type, timestamp: n.timestamp, read: true),
+        NutriNotification(
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            timestamp: n.timestamp,
+            read: true),
     ];
   }
 
@@ -55,6 +69,7 @@ class NotificationNotifier extends StateNotifier<List<NutriNotification>> {
   int get unreadCount => state.where((n) => !n.read).length;
 }
 
-final notificationProvider = StateNotifierProvider<NotificationNotifier, List<NutriNotification>>((ref) {
+final notificationProvider =
+    StateNotifierProvider<NotificationNotifier, List<NutriNotification>>((ref) {
   return NotificationNotifier();
 });

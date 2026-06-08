@@ -844,9 +844,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
               fontWeight: FontWeight.w700,
               color: isRoja
                   ? const Color(0xFFB71C1C)
-                  : (isAlerta
-                      ? const Color(0xFF7A5200)
-                      : AppTema.azulOscuro),
+                  : (isAlerta ? const Color(0xFF7A5200) : AppTema.azulOscuro),
             ),
           ),
         ],

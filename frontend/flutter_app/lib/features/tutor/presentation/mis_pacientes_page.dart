@@ -50,9 +50,7 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
                 ],
               ),
             ),
-            
             const SizedBox(height: 24),
-            
             Expanded(
               child: patientsAsync.when(
                 data: (patients) {
@@ -61,10 +59,12 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.person_off_rounded, size: 80, color: colorScheme.outline.withOpacity(0.1)),
+                          Icon(Icons.person_off_rounded,
+                              size: 80,
+                              color: colorScheme.outline.withOpacity(0.1)),
                           const SizedBox(height: 20),
                           Text(
-                            "No tienes pacientes asignados", 
+                            "No tienes pacientes asignados",
                             style: GoogleFonts.montserrat(
                               fontWeight: FontWeight.bold,
                               color: colorScheme.outline,
@@ -76,17 +76,20 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0, vertical: 8),
                     itemCount: patients.length,
                     itemBuilder: (context, index) {
                       final p = patients[index];
                       return _PatientCard(
                         patientData: p,
                         onTap: () {
-                          ref.read(selectedPatientIdProvider.notifier).state = p["id"].toString();
+                          ref.read(selectedPatientIdProvider.notifier).state =
+                              p["id"].toString();
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const TutorHomePage()),
+                            MaterialPageRoute(
+                                builder: (context) => const TutorHomePage()),
                           );
                         },
                       );
@@ -117,19 +120,24 @@ class _PatientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
-    final String nombre = patientData["nombre_completo"] ?? "Paciente sin nombre";
-    final String diagnostico = patientData["diagnostico"] ?? "Diagnóstico no especificado";
-    final String id = patientData["id"]?.toString().substring(0, 8).toUpperCase() ?? "ID-TEMP";
+
+    final String nombre =
+        patientData["nombre_completo"] ?? "Paciente sin nombre";
+    final String diagnostico =
+        patientData["diagnostico"] ?? "Diagnóstico no especificado";
+    final String id =
+        patientData["id"]?.toString().substring(0, 8).toUpperCase() ??
+            "ID-TEMP";
     final String fechaNac = patientData["fecha_nacimiento"] ?? "";
-    
+
     String edad = "N/A";
     if (fechaNac.isNotEmpty) {
       try {
         final birth = DateTime.parse(fechaNac);
         final now = DateTime.now();
         int years = now.year - birth.year;
-        if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
+        if (now.month < birth.month ||
+            (now.month == birth.month && now.day < birth.day)) {
           years--;
         }
         edad = "$years años";
@@ -170,7 +178,10 @@ class _PatientCard extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.primary.withOpacity(0.8)
+                          ],
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
@@ -184,7 +195,10 @@ class _PatientCard extends StatelessWidget {
                       child: Center(
                         child: Text(
                           nombre.isNotEmpty ? nombre[0].toUpperCase() : "?",
-                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -196,11 +210,13 @@ class _PatientCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.cake_outlined, size: 14, color: Colors.grey.shade400),
+                              Icon(Icons.cake_outlined,
+                                  size: 14, color: Colors.grey.shade400),
                               const SizedBox(width: 4),
                               Text(
                                 edad,
-                                style: theme.textTheme.labelSmall?.copyWith(color: Colors.grey.shade600),
+                                style: theme.textTheme.labelSmall
+                                    ?.copyWith(color: Colors.grey.shade600),
                               ),
                             ],
                           ),
@@ -228,7 +244,8 @@ class _PatientCard extends StatelessWidget {
                     Expanded(
                       child: Row(
                         children: [
-                          Icon(Icons.medical_services_outlined, size: 18, color: AppTema.azulPrincipal),
+                          Icon(Icons.medical_services_outlined,
+                              size: 18, color: AppTema.azulPrincipal),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -245,7 +262,8 @@ class _PatientCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     // Badge de Acceso
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppTema.verdeSalud.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(12),
@@ -253,7 +271,8 @@ class _PatientCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.arrow_forward_rounded, color: AppTema.verdeSalud, size: 16),
+                          const Icon(Icons.arrow_forward_rounded,
+                              color: AppTema.verdeSalud, size: 16),
                         ],
                       ),
                     ),

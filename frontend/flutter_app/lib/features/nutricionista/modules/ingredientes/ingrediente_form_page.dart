@@ -18,7 +18,8 @@ class IngredienteFormPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<IngredienteFormPage> createState() => _IngredienteFormPageState();
+  ConsumerState<IngredienteFormPage> createState() =>
+      _IngredienteFormPageState();
 }
 
 class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
@@ -53,59 +54,192 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
 
   final Map<String, List<Map<String, dynamic>>> _camposPorSeccion = {
     "MACRONUTRIENTES Y GENERAL": [
-      {"label": "Energía (kcal)", "key": "energia_kcal", "icon": Icons.bolt_rounded},
+      {
+        "label": "Energía (kcal)",
+        "key": "energia_kcal",
+        "icon": Icons.bolt_rounded
+      },
       {"label": "Agua (g)", "key": "agua_g", "icon": Icons.water_drop_outlined},
-      {"label": "Proteínas (g)", "key": "proteinas_g", "icon": Icons.fitness_center_rounded},
-      {"label": "Grasas Totales (g)", "key": "grasa_total_g", "icon": Icons.water_drop_rounded},
-      {"label": "Carbohidratos (g)", "key": "hidratos_carbono_g", "icon": Icons.bakery_dining_rounded},
-      {"label": "Fibra (g)", "key": "fibra_vegetal_g", "icon": Icons.grass_rounded},
+      {
+        "label": "Proteínas (g)",
+        "key": "proteinas_g",
+        "icon": Icons.fitness_center_rounded
+      },
+      {
+        "label": "Grasas Totales (g)",
+        "key": "grasa_total_g",
+        "icon": Icons.water_drop_rounded
+      },
+      {
+        "label": "Carbohidratos (g)",
+        "key": "hidratos_carbono_g",
+        "icon": Icons.bakery_dining_rounded
+      },
+      {
+        "label": "Fibra (g)",
+        "key": "fibra_vegetal_g",
+        "icon": Icons.grass_rounded
+      },
     ],
     "AZÚCARES Y ALMIDÓN": [
-      {"label": "Azúcares Sencillos (g)", "key": "azucares_sencillos_g", "icon": Icons.icecream_rounded},
-      {"label": "Azúcares Libres (g)", "key": "azucares_libres_g", "icon": Icons.warning_amber_rounded},
+      {
+        "label": "Azúcares Sencillos (g)",
+        "key": "azucares_sencillos_g",
+        "icon": Icons.icecream_rounded
+      },
+      {
+        "label": "Azúcares Libres (g)",
+        "key": "azucares_libres_g",
+        "icon": Icons.warning_amber_rounded
+      },
       {"label": "Almidón (g)", "key": "almidon_g", "icon": Icons.grain_rounded},
     ],
     "DETALLE DE GRASAS": [
       {"label": "AGS (g)", "key": "ags_g", "icon": Icons.opacity},
       {"label": "AGM (g)", "key": "agm_g", "icon": Icons.opacity},
       {"label": "AGP (g)", "key": "agp_g", "icon": Icons.opacity},
-      {"label": "Colesterol (mg)", "key": "colesterol_mg", "icon": Icons.monitor_heart_rounded},
-      {"label": "Omega 3 (g)", "key": "omega3_g", "icon": Icons.set_meal_rounded},
-      {"label": "Tipo Omega 3", "key": "tipo_omega3", "icon": Icons.label_important_outline_rounded, "isNum": false},
-      {"label": "Grasas Trans (g)", "key": "grasas_trans_g", "icon": Icons.block_flipped},
+      {
+        "label": "Colesterol (mg)",
+        "key": "colesterol_mg",
+        "icon": Icons.monitor_heart_rounded
+      },
+      {
+        "label": "Omega 3 (g)",
+        "key": "omega3_g",
+        "icon": Icons.set_meal_rounded
+      },
+      {
+        "label": "Tipo Omega 3",
+        "key": "tipo_omega3",
+        "icon": Icons.label_important_outline_rounded,
+        "isNum": false
+      },
+      {
+        "label": "Grasas Trans (g)",
+        "key": "grasas_trans_g",
+        "icon": Icons.block_flipped
+      },
     ],
     "VITAMINAS": [
-      {"label": "Vit A (ug)", "key": "vitamina_a_eq_retinol_ug", "icon": Icons.visibility_rounded},
-      {"label": "Vit D (ug)", "key": "vit_d_ug", "icon": Icons.wb_sunny_rounded},
-      {"label": "Vit E (mg)", "key": "vit_e_eq_alpha_tocoferol_mg", "icon": Icons.health_and_safety_rounded},
+      {
+        "label": "Vit A (ug)",
+        "key": "vitamina_a_eq_retinol_ug",
+        "icon": Icons.visibility_rounded
+      },
+      {
+        "label": "Vit D (ug)",
+        "key": "vit_d_ug",
+        "icon": Icons.wb_sunny_rounded
+      },
+      {
+        "label": "Vit E (mg)",
+        "key": "vit_e_eq_alpha_tocoferol_mg",
+        "icon": Icons.health_and_safety_rounded
+      },
       {"label": "Vit K (ug)", "key": "vit_k_ug", "icon": Icons.healing_rounded},
-      {"label": "Vit B1 (mg)", "key": "vitamina_b1_mg", "icon": Icons.vibration_rounded},
-      {"label": "Vit B2 (mg)", "key": "vitamina_b2_mg", "icon": Icons.vibration_rounded},
-      {"label": "Niacina (mg)", "key": "eq_niacina_mg", "icon": Icons.vibration_rounded},
-      {"label": "Vit B6 (mg)", "key": "vit_b6_mg", "icon": Icons.vibration_rounded},
-      {"label": "Folato (ug)", "key": "eq_folato_dietetico_ug", "icon": Icons.vibration_rounded},
-      {"label": "Vit B12 (ug)", "key": "vit_b12_ug", "icon": Icons.vibration_rounded},
-      {"label": "Pantoténico (mg)", "key": "pantotenico_mg", "icon": Icons.vibration_rounded},
-      {"label": "Biotina (ug)", "key": "biotina_ug", "icon": Icons.vibration_rounded},
-      {"label": "Vit C (mg)", "key": "vit_c_mg", "icon": Icons.vibration_rounded},
+      {
+        "label": "Vit B1 (mg)",
+        "key": "vitamina_b1_mg",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Vit B2 (mg)",
+        "key": "vitamina_b2_mg",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Niacina (mg)",
+        "key": "eq_niacina_mg",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Vit B6 (mg)",
+        "key": "vit_b6_mg",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Folato (ug)",
+        "key": "eq_folato_dietetico_ug",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Vit B12 (ug)",
+        "key": "vit_b12_ug",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Pantoténico (mg)",
+        "key": "pantotenico_mg",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Biotina (ug)",
+        "key": "biotina_ug",
+        "icon": Icons.vibration_rounded
+      },
+      {
+        "label": "Vit C (mg)",
+        "key": "vit_c_mg",
+        "icon": Icons.vibration_rounded
+      },
     ],
     "MINERALES": [
-      {"label": "Calcio (mg)", "key": "calcio_mg", "icon": Icons.diamond_rounded},
-      {"label": "Fósforo (mg)", "key": "fosforo_mg", "icon": Icons.diamond_rounded},
-      {"label": "Hierro (mg)", "key": "hierro_mg", "icon": Icons.diamond_rounded},
+      {
+        "label": "Calcio (mg)",
+        "key": "calcio_mg",
+        "icon": Icons.diamond_rounded
+      },
+      {
+        "label": "Fósforo (mg)",
+        "key": "fosforo_mg",
+        "icon": Icons.diamond_rounded
+      },
+      {
+        "label": "Hierro (mg)",
+        "key": "hierro_mg",
+        "icon": Icons.diamond_rounded
+      },
       {"label": "Iodo (ug)", "key": "iodo_ug", "icon": Icons.diamond_rounded},
       {"label": "Cinc (mg)", "key": "cinc_mg", "icon": Icons.diamond_rounded},
-      {"label": "Magnesio (mg)", "key": "magnesio_mg", "icon": Icons.diamond_rounded},
+      {
+        "label": "Magnesio (mg)",
+        "key": "magnesio_mg",
+        "icon": Icons.diamond_rounded
+      },
       {"label": "Sodio (mg)", "key": "sodio_mg", "icon": Icons.diamond_rounded},
-      {"label": "Potasio (mg)", "key": "potasio_mg", "icon": Icons.diamond_rounded},
-      {"label": "Manganeso (mg)", "key": "manganeso_mg", "icon": Icons.diamond_rounded},
+      {
+        "label": "Potasio (mg)",
+        "key": "potasio_mg",
+        "icon": Icons.diamond_rounded
+      },
+      {
+        "label": "Manganeso (mg)",
+        "key": "manganeso_mg",
+        "icon": Icons.diamond_rounded
+      },
       {"label": "Cobre (mg)", "key": "cobre_mg", "icon": Icons.diamond_rounded},
-      {"label": "Selenio (ug)", "key": "selenio_ug", "icon": Icons.diamond_rounded},
+      {
+        "label": "Selenio (ug)",
+        "key": "selenio_ug",
+        "icon": Icons.diamond_rounded
+      },
     ],
     "OTROS": [
-      {"label": "Alcohol (g)", "key": "alcohol_g", "icon": Icons.local_bar_rounded},
-      {"label": "Polifenoles (mg)", "key": "polifenoles_mg", "icon": Icons.energy_savings_leaf_rounded},
-      {"label": "Probióticos (B ufc)", "key": "probioticos_billones_ufc", "icon": Icons.bug_report_rounded},
+      {
+        "label": "Alcohol (g)",
+        "key": "alcohol_g",
+        "icon": Icons.local_bar_rounded
+      },
+      {
+        "label": "Polifenoles (mg)",
+        "key": "polifenoles_mg",
+        "icon": Icons.energy_savings_leaf_rounded
+      },
+      {
+        "label": "Probióticos (B ufc)",
+        "key": "probioticos_billones_ufc",
+        "icon": Icons.bug_report_rounded
+      },
     ],
   };
 
@@ -119,13 +253,16 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
     for (var seccion in _camposPorSeccion.values) {
       for (var campo in seccion) {
         final key = campo['key'] as String;
-        _composicionCtrls[key] = TextEditingController(text: key == 'tipo_omega3' ? "" : "0");
+        _composicionCtrls[key] =
+            TextEditingController(text: key == 'tipo_omega3' ? "" : "0");
         _focusNodes[key] = FocusNode(onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowRight || event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                event.logicalKey == LogicalKeyboardKey.arrowDown) {
               _focusNext(key);
               return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft || event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                event.logicalKey == LogicalKeyboardKey.arrowUp) {
               _focusPrevious(key);
               return KeyEventResult.handled;
             }
@@ -135,7 +272,8 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
 
         _focusNodes[key]!.addListener(() {
           if (_focusNodes[key]!.hasFocus) {
-            if (_composicionCtrls[key]!.text == "0" || _composicionCtrls[key]!.text == "0.0") {
+            if (_composicionCtrls[key]!.text == "0" ||
+                _composicionCtrls[key]!.text == "0.0") {
               _composicionCtrls[key]!.clear();
             }
           } else {
@@ -201,23 +339,27 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
 
       if (widget.idIngrediente != null && widget.idIngrediente! > 0) {
         final repoInt = ref.read(inteligenciaRepositoryProvider);
-        final data = await repoInt.obtenerIngredienteDetalle(widget.idIngrediente!);
+        final data =
+            await repoInt.obtenerIngredienteDetalle(widget.idIngrediente!);
         if (mounted) {
           _nombreCtrl.text = data['nombre'] ?? '';
-          _factorCtrl.text = (data['factor_parte_comestible'] ?? 1.0).toString();
+          _factorCtrl.text =
+              (data['factor_parte_comestible'] ?? 1.0).toString();
           _idGrupo = data['id_grupo_alimentario'];
           _idSubgrupo = data['id_subgrupo_alimentario'];
           _filtrarSubgrupos(_idGrupo);
 
           // Cargar etiquetas seleccionadas
           final etq = data['etiquetas'] as List<dynamic>? ?? [];
-          _etiquetasSeleccionadas = etq.map((e) => (e['id'] as num).toInt()).toList();
+          _etiquetasSeleccionadas =
+              etq.map((e) => (e['id'] as num).toInt()).toList();
 
           for (var seccion in _camposPorSeccion.values) {
             for (var campo in seccion) {
               final key = campo['key'] as String;
               if (data.containsKey(key)) {
-                _composicionCtrls[key]?.text = (data[key] ?? (key == 'tipo_omega3' ? "" : 0)).toString();
+                _composicionCtrls[key]?.text =
+                    (data[key] ?? (key == 'tipo_omega3' ? "" : 0)).toString();
               }
             }
           }
@@ -234,13 +376,16 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
     if (idGrupo == null) {
       _subgroupsFiltrados = [];
     } else {
-      _subgroupsFiltrados = _subgroups.where((s) => s['id_grupo_alimentario'] == idGrupo).toList();
+      _subgroupsFiltrados = _subgroups
+          .where((s) => s['id_grupo_alimentario'] == idGrupo)
+          .toList();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool esNuevo = widget.idIngrediente == null || widget.idIngrediente == 0;
+    final bool esNuevo =
+        widget.idIngrediente == null || widget.idIngrediente == 0;
 
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
@@ -248,31 +393,41 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTema.azulPrincipal, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppTema.azulPrincipal, size: 20),
           onPressed: widget.onBack,
         ),
         title: Text(
           esNuevo ? "Nuevo Ingrediente" : "Editar Ingrediente",
-          style: GoogleFonts.montserrat(color: AppTema.azulOscuro, fontSize: 18, fontWeight: FontWeight.bold),
+          style: GoogleFonts.montserrat(
+              color: AppTema.azulOscuro,
+              fontSize: 18,
+              fontWeight: FontWeight.bold),
         ),
         actions: [
           if (!_initializing)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
               child: FilledButton.icon(
                 onPressed: _loading ? null : _save,
                 icon: _loading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save_rounded, size: 20),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.save_rounded, size: 20),
                 label: const Text("GUARDAR"),
-                style: FilledButton.styleFrom(backgroundColor: AppTema.azulPrincipal),
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppTema.azulPrincipal),
               ),
             ),
         ],
       ),
       body: _initializing
-        ? const Center(child: NutriLoading(mensaje: "Cargando datos..."))
-        : _buildFormBody(),
+          ? const Center(child: NutriLoading(mensaje: "Cargando datos..."))
+          : _buildFormBody(),
     );
   }
 
@@ -283,7 +438,12 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ],
         ),
         padding: const EdgeInsets.all(32),
         child: Form(
@@ -293,11 +453,14 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
             children: [
               _buildSectionTitle("DATOS BÁSICOS"),
               const SizedBox(height: 24),
-              _buildField("Nombre del Alimento", _nombreCtrl, Icons.restaurant_rounded),
+              _buildField(
+                  "Nombre del Alimento", _nombreCtrl, Icons.restaurant_rounded),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(child: _buildDropdown("Grupo Alimentario", _grupos, _idGrupo, (v) {
+                  Expanded(
+                      child: _buildDropdown(
+                          "Grupo Alimentario", _grupos, _idGrupo, (v) {
                     setState(() {
                       _idGrupo = v;
                       _idSubgrupo = null;
@@ -305,15 +468,22 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                     });
                   })),
                   const SizedBox(width: 24),
-                  Expanded(child: _buildDropdown("Subgrupo Alimentario", _subgroupsFiltrados, _idSubgrupo, (v) {
-                    setState(() { _idSubgrupo = v; });
+                  Expanded(
+                      child: _buildDropdown("Subgrupo Alimentario",
+                          _subgroupsFiltrados, _idSubgrupo, (v) {
+                    setState(() {
+                      _idSubgrupo = v;
+                    });
                   }, enabled: _idGrupo != null)),
                 ],
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(child: _buildField("Factor Parte Comestible (0-1)", _factorCtrl, Icons.pie_chart_rounded, isNum: true)),
+                  Expanded(
+                      child: _buildField("Factor Parte Comestible (0-1)",
+                          _factorCtrl, Icons.pie_chart_rounded,
+                          isNum: true)),
                   const SizedBox(width: 24),
                   const Spacer(),
                 ],
@@ -321,17 +491,16 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               const SizedBox(height: 32),
               _buildEtiquetasSostenible(),
               const SizedBox(height: 40),
-
               const Divider(),
               const SizedBox(height: 20),
               _buildSectionTitle("COMPOSICIÓN NUTRICIONAL"),
               const SizedBox(height: 16),
               Text("Seleccione la sección de nutrientes que desea completar:",
-                style: GoogleFonts.lato(fontSize: 13, color: Colors.grey.shade600)),
+                  style: GoogleFonts.lato(
+                      fontSize: 13, color: Colors.grey.shade600)),
               const SizedBox(height: 12),
               _buildSeccionDropdown(),
               const SizedBox(height: 32),
-
               _buildCamposSeccionActual(),
             ],
           ),
@@ -341,12 +510,18 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   }
 
   Widget _buildEtiquetasSostenible() {
-    final seleccionadas = _etiquetasCatalog.where((e) => _etiquetasSeleccionadas.contains(e['id'])).toList();
+    final seleccionadas = _etiquetasCatalog
+        .where((e) => _etiquetasSeleccionadas.contains(e['id']))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("ETIQUETAS NUTRICIONALES", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+        Text("ETIQUETAS NUTRICIONALES",
+            style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600)),
         const SizedBox(height: 12),
 
         // Área de Chips Seleccionados
@@ -356,13 +531,23 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: seleccionadas.map((etq) => Chip(
-                label: Text(etq['nombre_visible'] ?? '', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulPrincipal)),
-                backgroundColor: AppTema.azulPrincipal.withOpacity(0.1),
-                deleteIcon: const Icon(Icons.close_rounded, size: 14, color: AppTema.azulPrincipal),
-                onDeleted: () => setState(() => _etiquetasSeleccionadas.remove(etq['id'])),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide.none),
-              )).toList(),
+              children: seleccionadas
+                  .map((etq) => Chip(
+                        label: Text(etq['nombre_visible'] ?? '',
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTema.azulPrincipal)),
+                        backgroundColor: AppTema.azulPrincipal.withOpacity(0.1),
+                        deleteIcon: const Icon(Icons.close_rounded,
+                            size: 14, color: AppTema.azulPrincipal),
+                        onDeleted: () => setState(
+                            () => _etiquetasSeleccionadas.remove(etq['id'])),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide.none),
+                      ))
+                  .toList(),
             ),
           ),
 
@@ -384,27 +569,36 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                       hintText: "Buscar y agregar etiquetas...",
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                     ),
                     onChanged: (v) {
                       setState(() {
                         _etiquetasFiltradas = _etiquetasCatalog.where((e) {
-                          final nombre = (e['nombre_visible'] ?? '').toString().toLowerCase();
-                          return nombre.contains(v.toLowerCase()) && !_etiquetasSeleccionadas.contains(e['id']);
+                          final nombre = (e['nombre_visible'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          return nombre.contains(v.toLowerCase()) &&
+                              !_etiquetasSeleccionadas.contains(e['id']);
                         }).toList();
                       });
                     },
                   ),
                 ),
                 // Lista de sugerencias (se muestra debajo si hay búsqueda)
-                if (_tagSearchCtrl.text.isNotEmpty && _etiquetasFiltradas.isNotEmpty)
+                if (_tagSearchCtrl.text.isNotEmpty &&
+                    _etiquetasFiltradas.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
                     constraints: const BoxConstraints(maxHeight: 200),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10)
+                      ],
                       border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: ListView.builder(
@@ -413,8 +607,11 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                       itemBuilder: (context, index) {
                         final etq = _etiquetasFiltradas[index];
                         return ListTile(
-                          title: Text(etq['nombre_visible'] ?? '', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
-                          trailing: const Icon(Icons.add_circle_outline_rounded, size: 18, color: AppTema.azulPrincipal),
+                          title: Text(etq['nombre_visible'] ?? '',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, fontWeight: FontWeight.w500)),
+                          trailing: const Icon(Icons.add_circle_outline_rounded,
+                              size: 18, color: AppTema.azulPrincipal),
                           onTap: () {
                             setState(() {
                               _etiquetasSeleccionadas.add(etq['id']);
@@ -447,12 +644,18 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         child: DropdownButton<String>(
           value: _seccionActual,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTema.azulPrincipal),
-          style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal),
-          items: _secciones.map((s) => DropdownMenuItem(
-            value: s,
-            child: Text(s),
-          )).toList(),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppTema.azulPrincipal),
+          style: GoogleFonts.montserrat(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppTema.azulPrincipal),
+          items: _secciones
+              .map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(s),
+                  ))
+              .toList(),
           onChanged: (v) {
             if (v != null) setState(() => _seccionActual = v);
           },
@@ -464,27 +667,33 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   Widget _buildCamposSeccionActual() {
     final campos = _camposPorSeccion[_seccionActual]!;
     return Wrap(
-      spacing: 24, runSpacing: 24,
+      spacing: 24,
+      runSpacing: 24,
       children: campos.map((c) {
         return SizedBox(
-          width: 200,
-          child: _buildField(
-            c['label'],
-            _composicionCtrls[c['key']]!,
-            c['icon'],
-            isNum: c['isNum'] ?? true,
-            focusNode: _focusNodes[c['key']],
-          )
-        );
+            width: 200,
+            child: _buildField(
+              c['label'],
+              _composicionCtrls[c['key']]!,
+              c['icon'],
+              isNum: c['isNum'] ?? true,
+              focusNode: _focusNodes[c['key']],
+            ));
       }).toList(),
     );
   }
 
-  Widget _buildDropdown(String label, List<dynamic> items, int? value, Function(int?) onChanged, {bool enabled = true}) {
+  Widget _buildDropdown(
+      String label, List<dynamic> items, int? value, Function(int?) onChanged,
+      {bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+        Text(label,
+            style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -497,11 +706,16 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
             child: DropdownButton<int?>(
               value: value,
               isExpanded: true,
-              hint: Text("Seleccione...", style: GoogleFonts.lato(fontSize: 14)),
-              items: items.map((e) => DropdownMenuItem<int?>(
-                value: e['id'],
-                child: Text(e['nombre'].toString().toUpperCase(), style: GoogleFonts.lato(fontSize: 14, fontWeight: FontWeight.w600)),
-              )).toList(),
+              hint:
+                  Text("Seleccione...", style: GoogleFonts.lato(fontSize: 14)),
+              items: items
+                  .map((e) => DropdownMenuItem<int?>(
+                        value: e['id'],
+                        child: Text(e['nombre'].toString().toUpperCase(),
+                            style: GoogleFonts.lato(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                      ))
+                  .toList(),
               onChanged: enabled ? onChanged : null,
             ),
           ),
@@ -513,29 +727,48 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: 1.2),
+      style: GoogleFonts.montserrat(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: AppTema.azulPrincipal,
+          letterSpacing: 1.2),
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon, {bool isNum = false, FocusNode? focusNode}) {
+  Widget _buildField(String label, TextEditingController ctrl, IconData icon,
+      {bool isNum = false, FocusNode? focusNode}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+        Text(label,
+            style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600)),
         const SizedBox(height: 8),
         TextFormField(
           controller: ctrl,
           focusNode: focusNode,
-          keyboardType: isNum ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+          keyboardType: isNum
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text,
           style: GoogleFonts.lato(fontSize: 14, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 18, color: AppTema.azulPrincipal),
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 2)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade200)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade200)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    const BorderSide(color: AppTema.azulPrincipal, width: 2)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           validator: (v) {
             if (v == null || v.isEmpty) return "Requerido";
@@ -550,7 +783,9 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_idGrupo == null || _idSubgrupo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Debe seleccionar Grupo y Subgrupo"), backgroundColor: Colors.orange));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Debe seleccionar Grupo y Subgrupo"),
+          backgroundColor: Colors.orange));
       return;
     }
 

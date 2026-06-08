@@ -79,7 +79,8 @@ class EscalaSelector extends StatelessWidget {
                 ),
                 if (puntajeLabel != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: colorFondoActivo.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -151,7 +152,9 @@ class EscalaSelector extends StatelessWidget {
                           height: 48,
                           margin: const EdgeInsets.symmetric(horizontal: 1),
                           decoration: BoxDecoration(
-                            color: selected ? colorActivo : const Color(0xFFF8FAFC),
+                            color: selected
+                                ? colorActivo
+                                : const Color(0xFFF8FAFC),
                             borderRadius: _getBorderRadius(i, count),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
@@ -161,7 +164,9 @@ class EscalaSelector extends StatelessWidget {
                               style: GoogleFonts.montserrat(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                color: selected ? Colors.white : const Color(0xFF475569),
+                                color: selected
+                                    ? Colors.white
+                                    : const Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -203,7 +208,8 @@ class EscalaSelector extends StatelessWidget {
                         child: Icon(
                           icons.length > i ? icons[i] : Icons.help_outline,
                           size: 28,
-                          color: selected ? colorActivo : const Color(0xFFCBD5E1),
+                          color:
+                              selected ? colorActivo : const Color(0xFFCBD5E1),
                         ),
                       ),
                     ),
@@ -248,7 +254,8 @@ class EscalaSelector extends StatelessWidget {
 
   BorderRadius _getBorderRadius(int i, int count) {
     if (i == 0) return const BorderRadius.horizontal(left: Radius.circular(12));
-    if (i == count - 1) return const BorderRadius.horizontal(right: Radius.circular(12));
+    if (i == count - 1)
+      return const BorderRadius.horizontal(right: Radius.circular(12));
     return BorderRadius.zero;
   }
 }

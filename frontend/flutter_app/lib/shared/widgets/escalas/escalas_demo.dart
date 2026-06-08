@@ -26,7 +26,12 @@ class _EscalasDemoPageState extends State<EscalasDemoPage> {
             min: 0,
             max: 3,
             value: inflamacion,
-            icons: const [Icons.sentiment_very_satisfied, Icons.sentiment_neutral, Icons.sentiment_dissatisfied, Icons.sentiment_very_dissatisfied],
+            icons: const [
+              Icons.sentiment_very_satisfied,
+              Icons.sentiment_neutral,
+              Icons.sentiment_dissatisfied,
+              Icons.sentiment_very_dissatisfied
+            ],
             etiquetas: [
               EscalaEtiqueta('Leve', 1),
               EscalaEtiqueta('Moderada', 2),

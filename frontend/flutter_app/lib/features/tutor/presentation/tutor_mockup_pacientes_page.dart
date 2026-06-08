@@ -23,7 +23,7 @@ class TutorMockupPacientesPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              
+
               // Encabezado
               Text(
                 "Mis Pacientes",
@@ -44,9 +44,9 @@ class TutorMockupPacientesPage extends StatelessWidget {
                   color: colorSubtitulo,
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Barra de Búsqueda
               Container(
                 height: 56,
@@ -65,13 +65,15 @@ class TutorMockupPacientesPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, color: Color(0xFF94A3B8), size: 24),
+                    const Icon(Icons.search,
+                        color: Color(0xFF94A3B8), size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         decoration: InputDecoration(
                           hintText: "Buscar paciente...",
-                          hintStyle: GoogleFonts.lato(color: const Color(0xFF94A3B8)),
+                          hintStyle:
+                              GoogleFonts.lato(color: const Color(0xFF94A3B8)),
                           border: InputBorder.none,
                         ),
                       ),
@@ -79,9 +81,9 @@ class TutorMockupPacientesPage extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Lista de Pacientes
               _PatientCard(
                 nombre: "Carlos Ruiz",
@@ -115,7 +117,7 @@ class TutorMockupPacientesPage extends StatelessWidget {
                 colorTitulo: colorTitulo,
                 colorSubtitulo: colorSubtitulo,
               ),
-              
+
               const SizedBox(height: 40),
             ],
           ),
@@ -187,7 +189,7 @@ class _PatientCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    
+
                     // Info
                     Expanded(
                       child: Column(
@@ -230,7 +232,7 @@ class _PatientCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Badge de Estado
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -266,7 +268,7 @@ class _PatientCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                
+
                 // Texto de Edad (esquina superior derecha)
                 Positioned(
                   top: 0,

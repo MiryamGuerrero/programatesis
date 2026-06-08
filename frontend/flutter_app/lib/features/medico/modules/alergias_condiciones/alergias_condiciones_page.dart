@@ -7,10 +7,12 @@ class AlergiasCondicionesPage extends ConsumerStatefulWidget {
   const AlergiasCondicionesPage({super.key});
 
   @override
-  ConsumerState<AlergiasCondicionesPage> createState() => _AlergiasCondicionesPageState();
+  ConsumerState<AlergiasCondicionesPage> createState() =>
+      _AlergiasCondicionesPageState();
 }
 
-class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPage> {
+class _AlergiasCondicionesPageState
+    extends ConsumerState<AlergiasCondicionesPage> {
   final _pacienteSearchController = TextEditingController();
   final _ingredienteSearchController = TextEditingController();
   final _grupoSearchController = TextEditingController();
@@ -29,7 +31,18 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   bool? _tieneAlergias;
   bool _esIntoleranteLactosa = false;
-  static const Set<int> _subgruposLactosa = {98, 100, 101, 104, 105, 108, 111, 114, 117, 119};
+  static const Set<int> _subgruposLactosa = {
+    98,
+    100,
+    101,
+    104,
+    105,
+    108,
+    111,
+    114,
+    117,
+    119
+  };
 
   String? _selectedPacienteId;
   int? _selectedIngredienteId;
@@ -41,17 +54,79 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   String _emojiSubgrupo(int id) {
     return {
-      8: "🍄", 9: "🍄", 10: "🥔", 11: "🥦", 12: "🥫", 13: "🥬", 14: "🥤", 15: "🍓",
-      16: "🍇", 17: "🍎", 18: "🥜", 19: "🍊", 24: "🥚", 25: "🍗", 26: "🐖", 27: "🐑",
-      29: "🥩", 30: "🐄", 31: "🫀", 32: "🦐", 33: "🐟", 34: "🐠", 35: "🐟", 36: "🥫",
-      37: "🧂", 38: "🫒", 41: "🧄", 43: "🍬", 47: "🍭", 48: "🍿", 49: "🥤", 50: "💧",
-      51: "☕", 53: "🧃", 88: "🌾", 89: "🌾", 90: "🍞", 91: "🍞", 92: "🍝", 93: "🫘",
-      94: "🌱", 95: "🫘", 96: "🥫", 97: "🥜", 98: "🥛", 99: "🥛", 100: "🍶", 101: "🥛",
-      102: "🥛", 103: "🥥", 104: "🥛", 105: "🧀", 106: "🧀", 107: "🧀", 108: "🧀",
-      109: "🥓", 110: "🌭", 111: "🧈", 112: "🧈", 113: "🥓", 114: "🥣", 115: "🥣",
-      116: "🥢", 117: "🍫", 118: "🍫", 119: "🍮", 120: "🍬", 121: "🍪", 122: "🥛",
-      123: "🥛", 124: "🥛",
-    }[id] ?? "🍽️";
+          8: "🍄",
+          9: "🍄",
+          10: "🥔",
+          11: "🥦",
+          12: "🥫",
+          13: "🥬",
+          14: "🥤",
+          15: "🍓",
+          16: "🍇",
+          17: "🍎",
+          18: "🥜",
+          19: "🍊",
+          24: "🥚",
+          25: "🍗",
+          26: "🐖",
+          27: "🐑",
+          29: "🥩",
+          30: "🐄",
+          31: "🫀",
+          32: "🦐",
+          33: "🐟",
+          34: "🐠",
+          35: "🐟",
+          36: "🥫",
+          37: "🧂",
+          38: "🫒",
+          41: "🧄",
+          43: "🍬",
+          47: "🍭",
+          48: "🍿",
+          49: "🥤",
+          50: "💧",
+          51: "☕",
+          53: "🧃",
+          88: "🌾",
+          89: "🌾",
+          90: "🍞",
+          91: "🍞",
+          92: "🍝",
+          93: "🫘",
+          94: "🌱",
+          95: "🫘",
+          96: "🥫",
+          97: "🥜",
+          98: "🥛",
+          99: "🥛",
+          100: "🍶",
+          101: "🥛",
+          102: "🥛",
+          103: "🥥",
+          104: "🥛",
+          105: "🧀",
+          106: "🧀",
+          107: "🧀",
+          108: "🧀",
+          109: "🥓",
+          110: "🌭",
+          111: "🧈",
+          112: "🧈",
+          113: "🥓",
+          114: "🥣",
+          115: "🥣",
+          116: "🥢",
+          117: "🍫",
+          118: "🍫",
+          119: "🍮",
+          120: "🍬",
+          121: "🍪",
+          122: "🥛",
+          123: "🥛",
+          124: "🥛",
+        }[id] ??
+        "🍽️";
   }
 
   @override
@@ -76,20 +151,40 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     final n = nombre.toLowerCase().trim();
     if (n.length < 3) return;
 
-    final stopWords = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'};
-    final words = n.split(' ').where((w) => w.length > 2 && !stopWords.contains(w)).toList();
+    final stopWords = {
+      'de',
+      'con',
+      'en',
+      'el',
+      'la',
+      'los',
+      'las',
+      'un',
+      'una',
+      'para',
+      'sin',
+      'y',
+      'del'
+    };
+    final words = n
+        .split(' ')
+        .where((w) => w.length > 2 && !stopWords.contains(w))
+        .toList();
     if (words.isEmpty && n.isNotEmpty) words.add(n);
 
     final derivados = _ingredientes.where((i) {
       final iname = (i['nombre'] ?? "").toString().toLowerCase();
-      final sinonimos = (i['sinonimos'] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
-      
+      final sinonimos = (i['sinonimos'] as List? ?? [])
+          .map((s) => s.toString().toLowerCase())
+          .toList();
+
       if (iname == n) return false;
 
       bool match(String source, String target) {
         if (source.isEmpty || target.isEmpty) return false;
         final sourceWords = source.split(' ');
-        return words.any((w) => sourceWords.contains(w)) || sourceWords.any((sw) => words.contains(sw));
+        return words.any((w) => sourceWords.contains(w)) ||
+            sourceWords.any((sw) => words.contains(sw));
       }
 
       if (match(iname, n)) return true;
@@ -101,7 +196,7 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
       return false;
     }).toList();
-    
+
     for (var d in derivados) {
       final idD = (d['id'] as num).toInt();
       if (!_alergiasIngredientes.any((x) => x['id_ingrediente'] == idD)) {
@@ -118,31 +213,36 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   List<Map<String, dynamic>> get _ingredientesFiltrados {
     final query = _ingredienteSearchController.text.trim().toLowerCase();
-    final seleccionados = _alergiasIngredientes.map((a) => a["id_ingrediente"] as int).toSet();
-    
+    final seleccionados =
+        _alergiasIngredientes.map((a) => a["id_ingrediente"] as int).toSet();
+
     // Subgrupos bloqueados por intolerancia a lactosa o selección manual
     final subBloqueados = <int>{};
     if (_esIntoleranteLactosa) subBloqueados.addAll(_subgruposLactosa);
-    subBloqueados.addAll(_alergiasGrupos.map((g) => g["id_grupo_alimentario"] as int));
+    subBloqueados
+        .addAll(_alergiasGrupos.map((g) => g["id_grupo_alimentario"] as int));
 
     return _ingredientes.where((item) {
       final id = (item["id"] as num).toInt();
       if (seleccionados.contains(id)) return false;
-      
+
       // No mostrar ingredientes de subgrupos bloqueados
       final idSub = (item["id_subgrupo_alimentario"] as num?)?.toInt();
       if (idSub != null && subBloqueados.contains(idSub)) return false;
-      
+
       if (query.isEmpty) return true;
       final nombre = item["nombre"]?.toString().toLowerCase() ?? "";
-      final sinonimos = (item["sinonimos"] as List? ?? []).map((s) => s.toString().toLowerCase()).toList();
+      final sinonimos = (item["sinonimos"] as List? ?? [])
+          .map((s) => s.toString().toLowerCase())
+          .toList();
       return nombre.contains(query) || sinonimos.any((s) => s.contains(query));
     }).toList();
   }
 
   List<Map<String, dynamic>> get _gruposFiltrados {
     final query = _grupoSearchController.text.trim().toLowerCase();
-    final seleccionados = _alergiasGrupos.map((a) => a["id_grupo_alimentario"] as int).toSet();
+    final seleccionados =
+        _alergiasGrupos.map((a) => a["id_grupo_alimentario"] as int).toSet();
 
     return _grupos.where((item) {
       final id = (item["id"] as num).toInt();
@@ -172,7 +272,8 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 ChoiceChip(
                   label: const Text("SÍ"),
                   selected: _tieneAlergias == true,
-                  onSelected: (val) => setState(() => _tieneAlergias = val ? true : null),
+                  onSelected: (val) =>
+                      setState(() => _tieneAlergias = val ? true : null),
                 ),
                 const SizedBox(width: 12),
                 ChoiceChip(
@@ -197,8 +298,10 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   Widget _buildIntoleranciaLactosa() {
     return SwitchListTile(
-      title: const Text("Intolerancia a la Lactosa", style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: const Text("Oculta automáticamente lácteos y sus derivados (sin redundancia)"),
+      title: const Text("Intolerancia a la Lactosa",
+          style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: const Text(
+          "Oculta automáticamente lácteos y sus derivados (sin redundancia)"),
       value: _esIntoleranteLactosa,
       onChanged: (val) {
         setState(() => _esIntoleranteLactosa = val);
@@ -218,9 +321,9 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
         setState(() {
           _ingredientes.addAll(results[0].cast<Map<String, dynamic>>());
           _grupos.addAll(results[1].cast<Map<String, dynamic>>());
-          _condicionesTemporalesCatalogo.addAll(
-            results[2].where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 2).cast<Map<String, dynamic>>()
-          );
+          _condicionesTemporalesCatalogo.addAll(results[2]
+              .where((c) => (c["id_tipo"] ?? c["id_tipo_condicion"]) == 2)
+              .cast<Map<String, dynamic>>());
         });
       }
     } catch (_) {}
@@ -228,7 +331,8 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   Future<void> _agregarAlergiaIngrediente() async {
     if (_selectedIngredienteId == null || _selectedPacienteId == null) return;
-    final ing = _ingredientes.firstWhere((i) => (i["id"] as num).toInt() == _selectedIngredienteId);
+    final ing = _ingredientes
+        .firstWhere((i) => (i["id"] as num).toInt() == _selectedIngredienteId);
     setState(() {
       _alergiasIngredientes.add({
         "id_ingrediente": _selectedIngredienteId,
@@ -242,13 +346,15 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   void _eliminarAlergiaIngrediente(int id) {
     setState(() {
-      _alergiasIngredientes.removeWhere((a) => (a["id_ingrediente"] as num).toInt() == id);
+      _alergiasIngredientes
+          .removeWhere((a) => (a["id_ingrediente"] as num).toInt() == id);
     });
   }
 
   Future<void> _agregarAlergiaGrupo() async {
     if (_selectedGrupoId == null || _selectedPacienteId == null) return;
-    final grupo = _grupos.firstWhere((g) => (g["id"] as num).toInt() == _selectedGrupoId);
+    final grupo =
+        _grupos.firstWhere((g) => (g["id"] as num).toInt() == _selectedGrupoId);
     setState(() {
       _alergiasGrupos.add({
         "id_grupo_alimentario": _selectedGrupoId,
@@ -262,15 +368,19 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
 
   void _eliminarAlergiaGrupo(int id) {
     setState(() {
-      _alergiasGrupos.removeWhere((g) => (g["id_grupo_alimentario"] as num).toInt() == id);
+      _alergiasGrupos
+          .removeWhere((g) => (g["id_grupo_alimentario"] as num).toInt() == id);
     });
   }
 
-  Widget _statusBadge({required String label, required int count, required bool highlighted}) {
+  Widget _statusBadge(
+      {required String label, required int count, required bool highlighted}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: highlighted ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        color: highlighted
+            ? Colors.blue.withOpacity(0.1)
+            : Colors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -311,7 +421,6 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
     // Implementación mínima
   }
 
-
   Widget _buildAlergiasTab() {
     if (_selectedPacienteId == null) {
       return const Center(child: Text("Selecciona un paciente primero"));
@@ -351,14 +460,18 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Alergia a ingredientes específicos", 
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text("Alergia a ingredientes específicos",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 StatefulBuilder(
                   builder: (context, setInternalState) {
                     final matches = _ingredientesFiltrados;
-                    final q = _ingredienteSearchController.text.toLowerCase().trim();
-                    
+                    final q =
+                        _ingredienteSearchController.text.toLowerCase().trim();
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -370,9 +483,19 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                                 focusNode: _ingFocus,
                                 onChanged: (v) => setInternalState(() {}),
                                 decoration: InputDecoration(
-                                  labelText: q.isEmpty ? "Buscar ingrediente a bloquear..." : "Filtrando: $q",
+                                  labelText: q.isEmpty
+                                      ? "Buscar ingrediente a bloquear..."
+                                      : "Filtrando: $q",
                                   prefixIcon: const Icon(Icons.search),
-                                  suffixIcon: q.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _ingredienteSearchController.clear(); setInternalState(() {}); }) : null,
+                                  suffixIcon: q.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            _ingredienteSearchController
+                                                .clear();
+                                            setInternalState(() {});
+                                          })
+                                      : null,
                                 ),
                               ),
                             ),
@@ -383,11 +506,14 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                                   setState(() {
                                     for (var m in matches) {
                                       final idM = (m['id'] as num).toInt();
-                                      if (!_alergiasIngredientes.any((ing) => ing['id_ingrediente'] == idM)) {
+                                      if (!_alergiasIngredientes.any((ing) =>
+                                          ing['id_ingrediente'] == idM)) {
                                         _alergiasIngredientes.add({
                                           "id_ingrediente": idM,
                                           "nombre_ingrediente": m["nombre"],
-                                          "observacion": _observacionIngredienteController.text,
+                                          "observacion":
+                                              _observacionIngredienteController
+                                                  .text,
                                         });
                                       }
                                     }
@@ -395,36 +521,56 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                                   });
                                   setInternalState(() {});
                                 },
-                                icon: const Icon(Icons.done_all, color: Colors.blue, size: 18),
-                                label: Text("MARCAR ${matches.length}", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
+                                icon: const Icon(Icons.done_all,
+                                    color: Colors.blue, size: 18),
+                                label: Text("MARCAR ${matches.length}",
+                                    style: const TextStyle(
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10)),
                               ),
                             ],
                           ],
                         ),
-                        if (_ingredienteSearchController.text.isNotEmpty || _ingFocus.hasFocus) 
+                        if (_ingredienteSearchController.text.isNotEmpty ||
+                            _ingFocus.hasFocus)
                           Container(
                             constraints: const BoxConstraints(maxHeight: 200),
                             margin: const EdgeInsets.only(top: 8),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)]),
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 5)
+                                ]),
                             child: ListView.separated(
                               shrinkWrap: true,
-                              itemCount: matches.length > 50 ? 50 : matches.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemCount:
+                                  matches.length > 50 ? 50 : matches.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (ctx, i) {
                                 final item = matches[i];
                                 return ListTile(
                                   dense: true,
                                   title: Text(item['nombre'] ?? ""),
-                                  trailing: const Icon(Icons.add_circle_outline, size: 18),
+                                  trailing: const Icon(Icons.add_circle_outline,
+                                      size: 18),
                                   onTap: () {
                                     final idItem = (item['id'] as num).toInt();
                                     setState(() {
                                       _alergiasIngredientes.add({
                                         "id_ingrediente": idItem,
                                         "nombre_ingrediente": item["nombre"],
-                                        "observacion": _observacionIngredienteController.text,
+                                        "observacion":
+                                            _observacionIngredienteController
+                                                .text,
                                       });
-                                      _autoBloquearDerivados(item["nombre"]?.toString() ?? "");
+                                      _autoBloquearDerivados(
+                                          item["nombre"]?.toString() ?? "");
                                     });
                                     setInternalState(() {});
                                   },
@@ -439,7 +585,8 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 const SizedBox(height: 10),
                 TextField(
                   controller: _observacionIngredienteController,
-                  decoration: const InputDecoration(labelText: "Observación opcional para el bloqueo"),
+                  decoration: const InputDecoration(
+                      labelText: "Observación opcional para el bloqueo"),
                 ),
                 const SizedBox(height: 12),
                 if (_alergiasIngredientes.isNotEmpty) ...[
@@ -448,10 +595,12 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                     (item) => ListTile(
                       dense: true,
                       leading: const Icon(Icons.cancel, color: Colors.red),
-                      title: Text(item["nombre_ingrediente"]?.toString() ?? "Ingrediente"),
+                      title: Text(item["nombre_ingrediente"]?.toString() ??
+                          "Ingrediente"),
                       subtitle: Text(item["observacion"]?.toString() ?? ""),
                       trailing: IconButton(
-                        onPressed: () => _eliminarAlergiaIngrediente((item["id_ingrediente"] as num).toInt()),
+                        onPressed: () => _eliminarAlergiaIngrediente(
+                            (item["id_ingrediente"] as num).toInt()),
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ),
@@ -468,8 +617,11 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Alergia a subgrupos alimentarios", 
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text("Alergia a subgrupos alimentarios",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
                   isExpanded: true,
@@ -485,15 +637,21 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(_emojiSubgrupo((g["id"] as num?)?.toInt() ?? 0), style: const TextStyle(fontSize: 16)),
+                              Text(
+                                  _emojiSubgrupo(
+                                      (g["id"] as num?)?.toInt() ?? 0),
+                                  style: const TextStyle(fontSize: 16)),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(g["nombre"]?.toString() ?? "Grupo")),
+                              Expanded(
+                                  child:
+                                      Text(g["nombre"]?.toString() ?? "Grupo")),
                             ],
                           ),
                         ),
                       )
                       .toList(),
-                  onChanged: (value) => setState(() => _selectedGrupoId = value),
+                  onChanged: (value) =>
+                      setState(() => _selectedGrupoId = value),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -504,7 +662,9 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _loading || _selectedGrupoId == null ? null : _agregarAlergiaGrupo,
+                    onPressed: _loading || _selectedGrupoId == null
+                        ? null
+                        : _agregarAlergiaGrupo,
                     icon: const Icon(Icons.layers_clear),
                     label: const Text("Eliminar Subgrupo"),
                   ),
@@ -515,11 +675,16 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                   ..._alergiasGrupos.map(
                     (item) => ListTile(
                       dense: true,
-                      leading: Text(_emojiSubgrupo((item["id_grupo_alimentario"] as num?)?.toInt() ?? 0), style: const TextStyle(fontSize: 20)),
+                      leading: Text(
+                          _emojiSubgrupo(
+                              (item["id_grupo_alimentario"] as num?)?.toInt() ??
+                                  0),
+                          style: const TextStyle(fontSize: 20)),
                       title: Text(item["nombre_grupo"]?.toString() ?? "Grupo"),
                       subtitle: Text(item["observacion"]?.toString() ?? ""),
                       trailing: IconButton(
-                        onPressed: () => _eliminarAlergiaGrupo((item["id_grupo_alimentario"] as num).toInt()),
+                        onPressed: () => _eliminarAlergiaGrupo(
+                            (item["id_grupo_alimentario"] as num).toInt()),
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ),
@@ -547,7 +712,8 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Condiciones temporales activas", style: Theme.of(context).textTheme.titleSmall),
+                Text("Condiciones temporales activas",
+                    style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 Text(
                   "Selecciona las condiciones temporales vigentes del control actual del paciente.",
@@ -558,36 +724,44 @@ class _AlergiasCondicionesPageState extends ConsumerState<AlergiasCondicionesPag
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _statusBadge(label: "Activas", count: activas, highlighted: true),
-                    _statusBadge(label: "Inactivas", count: inactivas, highlighted: false),
+                    _statusBadge(
+                        label: "Activas", count: activas, highlighted: true),
+                    _statusBadge(
+                        label: "Inactivas",
+                        count: inactivas,
+                        highlighted: false),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _condicionesTemporalesCatalogo
-                      .map(
-                        (c) {
-                          final idCondicion = (c["id"] as num).toInt();
-                          final selected = _condicionesTemporalesActivas.contains(idCondicion);
-                          return FilterChip(
-                            selected: selected,
-                            label: Text(_label(c)),
-                            onSelected: (value) {
-                              setState(() {
-                                if (value) {
-                                  _condicionesTemporalesActivas = [..._condicionesTemporalesActivas, idCondicion];
-                                } else {
-                                  _condicionesTemporalesActivas =
-                                      _condicionesTemporalesActivas.where((id) => id != idCondicion).toList();
-                                }
-                              });
-                            },
-                          );
+                  children: _condicionesTemporalesCatalogo.map(
+                    (c) {
+                      final idCondicion = (c["id"] as num).toInt();
+                      final selected =
+                          _condicionesTemporalesActivas.contains(idCondicion);
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(_label(c)),
+                        onSelected: (value) {
+                          setState(() {
+                            if (value) {
+                              _condicionesTemporalesActivas = [
+                                ..._condicionesTemporalesActivas,
+                                idCondicion
+                              ];
+                            } else {
+                              _condicionesTemporalesActivas =
+                                  _condicionesTemporalesActivas
+                                      .where((id) => id != idCondicion)
+                                      .toList();
+                            }
+                          });
                         },
-                      )
-                      .toList(),
+                      );
+                    },
+                  ).toList(),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(

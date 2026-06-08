@@ -37,9 +37,21 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
   static const List<Map<String, dynamic>> _rolesCombinacion = [
     {'valor': 'COMBINACION_LIGERA', 'etiqueta': 'Ligera', 'color': 0xFF4CAF50},
-    {'valor': 'COMBINACION_EQUILIBRADA', 'etiqueta': 'Equilibrada', 'color': 0xFF2196F3},
-    {'valor': 'COMBINACION_ENERGETICA', 'etiqueta': 'Energetica', 'color': 0xFFFF9800},
-    {'valor': 'COMBINACION_RECUPERACION_NUTRICIONAL', 'etiqueta': 'Recuperacion', 'color': 0xFF9C27B0},
+    {
+      'valor': 'COMBINACION_EQUILIBRADA',
+      'etiqueta': 'Equilibrada',
+      'color': 0xFF2196F3
+    },
+    {
+      'valor': 'COMBINACION_ENERGETICA',
+      'etiqueta': 'Energetica',
+      'color': 0xFFFF9800
+    },
+    {
+      'valor': 'COMBINACION_RECUPERACION_NUTRICIONAL',
+      'etiqueta': 'Recuperacion',
+      'color': 0xFF9C27B0
+    },
     {'valor': 'COMBINACION_SUAVE', 'etiqueta': 'Suave', 'color': 0xFF00BCD4},
   ];
 
@@ -259,8 +271,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       if (_selectedMomento != null) await _loadRuleForMoment(_selectedMomento!);
     } catch (error) {
       if (mounted) {
-        NutriSnack.show(context, 'No se pudo quitar la opcion',
-            isError: true);
+        NutriSnack.show(context, 'No se pudo quitar la opcion', isError: true);
       }
     }
   }
@@ -578,8 +589,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       if (mounted) NutriSnack.show(context, 'Menu del momento limpiado');
     } catch (error) {
       if (mounted) {
-        NutriSnack.show(context, 'No se pudo limpiar este menu',
-            isError: true);
+        NutriSnack.show(context, 'No se pudo limpiar este menu', isError: true);
       }
     }
   }
@@ -589,7 +599,9 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
   // ============================================================
 
   Future<void> _openCreateCombinationDialog() async {
-    _formMomentoId = _selectedMomento != null ? _asInt(_selectedMomento!['id']) : (_momentos.isNotEmpty ? _asInt(_momentos.first['id']) : null);
+    _formMomentoId = _selectedMomento != null
+        ? _asInt(_selectedMomento!['id'])
+        : (_momentos.isNotEmpty ? _asInt(_momentos.first['id']) : null);
     _formRol = 'COMBINACION_LIGERA';
     _formCondiciones.clear();
     _formPlatillos.clear();
@@ -601,7 +613,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           width: 700,
           icon: Icons.restaurant_menu_rounded,
           title: 'Nueva combinacion',
-          subtitle: 'Crea una combinacion de tipos de plato vinculada a condiciones nutricionales.',
+          subtitle:
+              'Crea una combinacion de tipos de plato vinculada a condiciones nutricionales.',
           onClose: () => Navigator.pop(ctx, false),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -612,14 +625,17 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               DropdownButtonFormField<int>(
                 value: _formMomentoId,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.grey.shade50,
                 ),
-                items: _momentos.map((m) => DropdownMenuItem(
-                  value: _asInt(m['id']),
-                  child: Text(m['nombre']?.toString() ?? ''),
-                )).toList(),
+                items: _momentos
+                    .map((m) => DropdownMenuItem(
+                          value: _asInt(m['id']),
+                          child: Text(m['nombre']?.toString() ?? ''),
+                        ))
+                    .toList(),
                 onChanged: (v) => setModalState(() => _formMomentoId = v),
               ),
               const SizedBox(height: 16),
@@ -633,29 +649,44 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                   return ChoiceChip(
                     label: Text(r['etiqueta'] as String),
                     selected: selected,
-                    selectedColor: Color(r['color'] as int).withValues(alpha: 0.15),
+                    selectedColor:
+                        Color(r['color'] as int).withValues(alpha: 0.15),
                     labelStyle: GoogleFonts.montserrat(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Color(r['color'] as int) : Colors.grey.shade700,
+                      color: selected
+                          ? Color(r['color'] as int)
+                          : Colors.grey.shade700,
                     ),
-                    onSelected: (_) => setModalState(() => _formRol = r['valor'] as String),
+                    onSelected: (_) =>
+                        setModalState(() => _formRol = r['valor'] as String),
                   );
                 }).toList(),
               ),
               const SizedBox(height: 16),
               // Condiciones nutricionales
               _buildFormFieldLabel('Condiciones nutricionales'),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Buscar condicion...',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                onChanged: (v) => setModalState(() {}),
+                child: TextField(
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar condicion...',
+                    hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon:
+                        const Icon(Icons.search, size: 20, color: Colors.grey),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onChanged: (v) => setModalState(() {}),
+                ),
               ),
               const SizedBox(height: 8),
               if (_formCondiciones.isNotEmpty)
@@ -670,7 +701,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                     return InputChip(
                       label: Text(cond['nombre']?.toString() ?? ''),
                       selected: true,
-                      onDeleted: () => setModalState(() => _formCondiciones.remove(id)),
+                      onDeleted: () =>
+                          setModalState(() => _formCondiciones.remove(id)),
                       deleteIcon: const Icon(Icons.close_rounded, size: 16),
                     );
                   }).toList(),
@@ -696,8 +728,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                         selected: selected,
                         showCheckmark: false,
                         onSelected: (_) => setModalState(() {
-                          if (_) _formCondiciones.add(id);
-                          else _formCondiciones.remove(id);
+                          if (_)
+                            _formCondiciones.add(id);
+                          else
+                            _formCondiciones.remove(id);
                         }),
                       );
                     }).toList(),
@@ -719,7 +753,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                     return InputChip(
                       label: Text(tipo['nombre']?.toString() ?? ''),
                       selected: true,
-                      onDeleted: () => setModalState(() => _formPlatillos.remove(id)),
+                      onDeleted: () =>
+                          setModalState(() => _formPlatillos.remove(id)),
                       deleteIcon: const Icon(Icons.close_rounded, size: 16),
                     );
                   }).toList(),
@@ -745,8 +780,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                         selected: selected,
                         showCheckmark: false,
                         onSelected: (_) => setModalState(() {
-                          if (_) _formPlatillos.add(id);
-                          else _formPlatillos.remove(id);
+                          if (_)
+                            _formPlatillos.add(id);
+                          else
+                            _formPlatillos.remove(id);
                         }),
                       );
                     }).toList(),
@@ -762,15 +799,19 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             onCancel: () => Navigator.pop(ctx, false),
             onSave: () {
               if (_formMomentoId == null) {
-                NutriSnack.show(context, 'Selecciona un momento de comida', isError: true);
+                NutriSnack.show(context, 'Selecciona un momento de comida',
+                    isError: true);
                 return;
               }
               if (_formCondiciones.isEmpty) {
-                NutriSnack.show(context, 'Selecciona al menos una condicion nutricional', isError: true);
+                NutriSnack.show(
+                    context, 'Selecciona al menos una condicion nutricional',
+                    isError: true);
                 return;
               }
               if (_formPlatillos.length < 2) {
-                NutriSnack.show(context, 'Selecciona al menos 2 tipos de plato', isError: true);
+                NutriSnack.show(context, 'Selecciona al menos 2 tipos de plato',
+                    isError: true);
                 return;
               }
               Navigator.pop(ctx, true);
@@ -784,10 +825,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
     setState(() => _saving = true);
     try {
-      final platillosNombres = _formPlatillos.map((id) {
-        final t = _tiposPlato.firstWhere((x) => _asInt(x['id']) == id, orElse: () => {'nombre': ''});
-        return t['nombre']?.toString() ?? '';
-      }).where((n) => n.isNotEmpty).toList();
+      final platillosNombres = _formPlatillos
+          .map((id) {
+            final t = _tiposPlato.firstWhere((x) => _asInt(x['id']) == id,
+                orElse: () => {'nombre': ''});
+            return t['nombre']?.toString() ?? '';
+          })
+          .where((n) => n.isNotEmpty)
+          .toList();
 
       final dio = ref.read(dioProvider);
       final response = await dio.post(
@@ -806,9 +851,11 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       } else if (accion == 'actualizada') {
         final nuevas = data['condiciones_agregadas'] ?? 0;
         if (nuevas > 0) {
-          NutriSnack.show(context, 'La combinacion ya existia, se agregaron $nuevas condiciones nuevas');
+          NutriSnack.show(context,
+              'La combinacion ya existia, se agregaron $nuevas condiciones nuevas');
         } else {
-          NutriSnack.show(context, 'La combinacion ya estaba registrada sin cambios');
+          NutriSnack.show(
+              context, 'La combinacion ya estaba registrada sin cambios');
         }
       }
       await _loadAll();
@@ -923,7 +970,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           width: 740,
           icon: Icons.code_rounded,
           title: 'Codigo JSON',
-          subtitle: 'Escribe aqui todas las combinaciones para "$momentoNombre". El sistema validara y guardara cada una.',
+          subtitle:
+              'Escribe aqui todas las combinaciones para "$momentoNombre". El sistema validara y guardara cada una.',
           onClose: () => Navigator.pop(ctx, false),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -934,15 +982,19 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               DropdownButtonFormField<int>(
                 value: selectedMomentoId,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                items: _momentos.map((m) => DropdownMenuItem(
-                  value: _asInt(m['id']),
-                  child: Text(m['nombre']?.toString() ?? ''),
-                )).toList(),
+                items: _momentos
+                    .map((m) => DropdownMenuItem(
+                          value: _asInt(m['id']),
+                          child: Text(m['nombre']?.toString() ?? ''),
+                        ))
+                    .toList(),
                 onChanged: (v) => setModalState(() => selectedMomentoId = v),
               ),
               const SizedBox(height: 14),
@@ -952,14 +1004,16 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 decoration: BoxDecoration(
                   color: AppTema.azulPrincipal.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTema.azulPrincipal.withValues(alpha: 0.15)),
+                  border: Border.all(
+                      color: AppTema.azulPrincipal.withValues(alpha: 0.15)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.info_rounded, size: 16, color: AppTema.azulPrincipal),
+                        const Icon(Icons.info_rounded,
+                            size: 16, color: AppTema.azulPrincipal),
                         const SizedBox(width: 8),
                         Text(
                           'Formato JSON:',
@@ -979,7 +1033,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                       '• "platillos" = nombres de tipos de plato (minimo 2)\n'
                       '• Si una combinacion ya existe, se agregan las condiciones nuevas sin duplicar\n'
                       '• Puedes escribir todas las combinaciones que necesites en un solo JSON',
-                      style: GoogleFonts.montserrat(fontSize: 11, height: 1.4, color: Colors.blueGrey.shade700),
+                      style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: Colors.blueGrey.shade700),
                     ),
                   ],
                 ),
@@ -1010,7 +1067,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                           const SizedBox(height: 4),
                           Text(
                             condicionesDisponibles.join(', '),
-                            style: GoogleFonts.montserrat(fontSize: 10, color: Colors.green.shade700),
+                            style: GoogleFonts.montserrat(
+                                fontSize: 10, color: Colors.green.shade700),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1041,7 +1099,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                           const SizedBox(height: 4),
                           Text(
                             tiposDisponibles.join(', '),
-                            style: GoogleFonts.montserrat(fontSize: 10, color: Colors.blue.shade700),
+                            style: GoogleFonts.montserrat(
+                                fontSize: 10, color: Colors.blue.shade700),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1061,7 +1120,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 style: GoogleFonts.robotoMono(fontSize: 12, height: 1.35),
                 decoration: InputDecoration(
                   hintText: 'Escribe aqui el codigo JSON...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.grey.shade50,
                   errorText: jsonError,
@@ -1081,7 +1141,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             onCancel: () => Navigator.pop(ctx, false),
             onSave: () {
               if (selectedMomentoId == null) {
-                setModalState(() => jsonError = 'Selecciona un momento de comida');
+                setModalState(
+                    () => jsonError = 'Selecciona un momento de comida');
                 return;
               }
               if (jsonCtrl.text.trim().isEmpty) {
@@ -1092,19 +1153,23 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               try {
                 decoded = jsonDecode(jsonCtrl.text.trim());
               } catch (_) {
-                setModalState(() => jsonError = 'Error: el JSON no tiene un formato valido');
+                setModalState(() =>
+                    jsonError = 'Error: el JSON no tiene un formato valido');
                 return;
               }
               // Validacion previa contra catalogos locales
-              final combinaciones = decoded is Map && decoded['combinaciones'] is List
-                  ? decoded['combinaciones'] as List
-                  : <dynamic>[];
+              final combinaciones =
+                  decoded is Map && decoded['combinaciones'] is List
+                      ? decoded['combinaciones'] as List
+                      : <dynamic>[];
               if (combinaciones.isEmpty) {
-                setModalState(() => jsonError = 'El JSON debe contener al menos una combinacion en el arreglo "combinaciones"');
+                setModalState(() => jsonError =
+                    'El JSON debe contener al menos una combinacion en el arreglo "combinaciones"');
                 return;
               }
               final errores = <String>[];
-              final rolesValidos = _rolesCombinacion.map((r) => r['valor'] as String).toSet();
+              final rolesValidos =
+                  _rolesCombinacion.map((r) => r['valor'] as String).toSet();
               for (int i = 0; i < combinaciones.length; i++) {
                 final c = combinaciones[i];
                 if (c is! Map) {
@@ -1115,27 +1180,41 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 if (rol == null || rol.isEmpty) {
                   errores.add('Combinacion ${i + 1}: falta el campo "rol"');
                 } else if (!rolesValidos.contains(rol)) {
-                  errores.add('Combinacion ${i + 1}: rol "$rol" no es valido. Usa uno de: ${rolesValidos.join(', ')}');
+                  errores.add(
+                      'Combinacion ${i + 1}: rol "$rol" no es valido. Usa uno de: ${rolesValidos.join(', ')}');
                 }
-                final orientacion = c['orientacion_nutricional'] is List ? c['orientacion_nutricional'] as List : (c['condiciones_nutricionales'] is List ? c['condiciones_nutricionales'] as List : (c['condiciones'] is List ? c['condiciones'] as List : null));
+                final orientacion = c['orientacion_nutricional'] is List
+                    ? c['orientacion_nutricional'] as List
+                    : (c['condiciones_nutricionales'] is List
+                        ? c['condiciones_nutricionales'] as List
+                        : (c['condiciones'] is List
+                            ? c['condiciones'] as List
+                            : null));
                 if (orientacion == null || orientacion.isEmpty) {
-                  errores.add('Combinacion ${i + 1}: debe tener al menos una condicion en "orientacion_nutricional"');
+                  errores.add(
+                      'Combinacion ${i + 1}: debe tener al menos una condicion en "orientacion_nutricional"');
                 } else {
                   for (final cond in orientacion) {
                     if (!condicionesDisponibles.contains(cond)) {
-                      errores.add('Combinacion ${i + 1}: la condicion "$cond" no existe en la base de datos');
+                      errores.add(
+                          'Combinacion ${i + 1}: la condicion "$cond" no existe en la base de datos');
                     }
                   }
                 }
-                final platillos = c['platillos'] is List ? c['platillos'] as List : <dynamic>[];
+                final platillos = c['platillos'] is List
+                    ? c['platillos'] as List
+                    : <dynamic>[];
                 if (platillos.isEmpty) {
-                  errores.add('Combinacion ${i + 1}: debe tener al menos un platillo en "platillos"');
+                  errores.add(
+                      'Combinacion ${i + 1}: debe tener al menos un platillo en "platillos"');
                 } else if (platillos.length < 2) {
-                  errores.add('Combinacion ${i + 1}: debe tener al menos 2 platillos en "platillos"');
+                  errores.add(
+                      'Combinacion ${i + 1}: debe tener al menos 2 platillos en "platillos"');
                 } else {
                   for (final plat in platillos) {
                     if (!tiposDisponibles.contains(plat)) {
-                      errores.add('Combinacion ${i + 1}: el platillo "$plat" no existe en la base de datos');
+                      errores.add(
+                          'Combinacion ${i + 1}: el platillo "$plat" no existe en la base de datos');
                     }
                   }
                 }
@@ -1145,7 +1224,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 return;
               }
               setModalState(() => jsonError = null);
-              Navigator.pop(ctx, {'momentoId': selectedMomentoId, 'json': jsonCtrl.text.trim()});
+              Navigator.pop(ctx, {
+                'momentoId': selectedMomentoId,
+                'json': jsonCtrl.text.trim()
+              });
             },
           ),
         ),
@@ -1215,7 +1297,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       // Cerrar dialogo de carga
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       await _loadAll();
-      if (_selectedMomento != null && _asInt(_selectedMomento!['id']) != momentoId) {
+      if (_selectedMomento != null &&
+          _asInt(_selectedMomento!['id']) != momentoId) {
         final momento = _momentos.firstWhere(
           (m) => _asInt(m['id']) == momentoId,
           orElse: () => _selectedMomento!,
@@ -1228,11 +1311,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         final insertadas = data['insertadas'] ?? 0;
         final omitidas = data['omitidas'] ?? 0;
         if (insertadas > 0 && omitidas > 0) {
-          NutriSnack.show(context, 'El JSON se cargo correctamente. $insertadas creadas, $omitidas ya existian');
+          NutriSnack.show(context,
+              'El JSON se cargo correctamente. $insertadas creadas, $omitidas ya existian');
         } else if (insertadas > 0) {
-          NutriSnack.show(context, 'El JSON se cargo correctamente. $insertadas combinaciones guardadas');
+          NutriSnack.show(context,
+              'El JSON se cargo correctamente. $insertadas combinaciones guardadas');
         } else {
-          NutriSnack.show(context, 'Todas las combinaciones ya existian sin cambios');
+          NutriSnack.show(
+              context, 'Todas las combinaciones ya existian sin cambios');
         }
       }
     } catch (error) {
@@ -1245,17 +1331,26 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       if (mounted) {
         final msg = error.toString();
         String errorMsg;
-        if (msg.contains('Tipo de platillo no existe') || msg.contains('no existe') || msg.contains('no encontrado')) {
+        if (msg.contains('Tipo de platillo no existe') ||
+            msg.contains('no existe') ||
+            msg.contains('no encontrado')) {
           errorMsg = msg;
-        } else if (msg.contains('falta') || msg.contains('debe') || msg.contains('invalido')) {
+        } else if (msg.contains('falta') ||
+            msg.contains('debe') ||
+            msg.contains('invalido')) {
           errorMsg = msg;
         } else if (msg.contains('Bad Request') || msg.contains('400')) {
           final response = (error as dynamic).response;
           if (response != null && response.data != null) {
-            final detail = response.data['detail'] ?? response.data['error'] ?? response.data['message'];
-            errorMsg = detail is String ? detail : 'El servidor rechazo el JSON. Verifica que todos los platillos y condiciones existan exactamente como aparecen en el catalogo.';
+            final detail = response.data['detail'] ??
+                response.data['error'] ??
+                response.data['message'];
+            errorMsg = detail is String
+                ? detail
+                : 'El servidor rechazo el JSON. Verifica que todos los platillos y condiciones existan exactamente como aparecen en el catalogo.';
           } else {
-            errorMsg = 'Error 400: El servidor no acepto el JSON. Revisa nombres de platillos y condiciones.';
+            errorMsg =
+                'Error 400: El servidor no acepto el JSON. Revisa nombres de platillos y condiciones.';
           }
         } else {
           errorMsg = 'Error inesperado al guardar: $error';
@@ -1308,72 +1403,71 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               'Define el nombre, horario y color que identificara este momento del dia.',
           onClose: () => Navigator.pop(ctx, false),
           child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _dialogTextField(
-                    nombreCtrl, 'Nombre', Icons.restaurant_rounded),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                        child: _dialogTextField(inicioCtrl,
-                            'Hora inicio (HH:mm)', Icons.schedule_rounded)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: _dialogTextField(finCtrl, 'Hora fin (HH:mm)',
-                            Icons.schedule_rounded)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Color',
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w800,
-                      color: AppTema.azulOscuro,
-                    ),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _dialogTextField(nombreCtrl, 'Nombre', Icons.restaurant_rounded),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                      child: _dialogTextField(inicioCtrl, 'Hora inicio (HH:mm)',
+                          Icons.schedule_rounded)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _dialogTextField(
+                          finCtrl, 'Hora fin (HH:mm)', Icons.schedule_rounded)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Color',
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulOscuro,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _momentColorOptions.map((hex) {
-                    final selected = selectedColor.toUpperCase() == hex;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => setModalState(() => selectedColor = hex),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: _parseColor(hex),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selected
-                                ? AppTema.azulOscuro
-                                : Colors.grey.shade300,
-                            width: selected ? 3 : 1,
-                          ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _momentColorOptions.map((hex) {
+                  final selected = selectedColor.toUpperCase() == hex;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => setModalState(() => selectedColor = hex),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _parseColor(hex),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected
+                              ? AppTema.azulOscuro
+                              : Colors.grey.shade300,
+                          width: selected ? 3 : 1,
                         ),
-                        child: selected
-                            ? const Icon(Icons.check_rounded,
-                                color: Colors.white, size: 18)
-                            : null,
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  value: activo,
-                  title: const Text('Activo'),
-                  onChanged: (v) => setModalState(() => activo = v),
-                ),
-              ],
-            ),
+                      child: selected
+                          ? const Icon(Icons.check_rounded,
+                              color: Colors.white, size: 18)
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                value: activo,
+                title: const Text('Activo'),
+                onChanged: (v) => setModalState(() => activo = v),
+              ),
+            ],
+          ),
           actions: _modalActions(
             ctx,
             saveLabel: 'Guardar',
@@ -1427,10 +1521,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             'Crea un tipo reutilizable para armar combinaciones en cualquier horario.',
         onClose: () => Navigator.pop(ctx, false),
         child: _dialogTextField(
-            nombreCtrl,
-            'Ej: Batido, Wrap, Fruta',
-            Icons.restaurant_menu_rounded,
-          ),
+          nombreCtrl,
+          'Ej: Batido, Wrap, Fruta',
+          Icons.restaurant_menu_rounded,
+        ),
         actions: _modalActions(
           ctx,
           saveLabel: 'Guardar',
@@ -1448,8 +1542,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       if (tipo == null) {
         await dio.post('nutricionista/tipos-plato', data: payload);
       } else {
-        await dio.put('nutricionista/tipos-plato/${tipo['id']}',
-            data: payload);
+        await dio.put('nutricionista/tipos-plato/${tipo['id']}', data: payload);
       }
       await _loadAll();
       if (mounted) NutriSnack.show(context, 'Tipo de platillo guardado');
@@ -1492,155 +1585,155 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               'Elige que tipos de platillo pueden aparecer en ${_selectedMomento!['nombre']}. Puedes combinar varios, por ejemplo Batido + wrap.',
           onClose: () => Navigator.pop(ctx, false),
           child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Buscar tipo de platillo',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Buscar tipo de platillo',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  onChanged: (value) =>
-                      setModalState(() => filtroTipos = value.trim()),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                const SizedBox(height: 18),
-                if (selectedTipos.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: selectedTipos.map((id) {
-                      final tipo = _findDishTypeById(id);
-                      final nombre = tipo?['nombre']?.toString() ?? 'Tipo $id';
-                      return InputChip(
-                        label: Text(nombre),
-                        selected: true,
-                        onDeleted: () => setModalState(() {
-                          selectedTipos.remove(id);
-                          if (tipoId == id) {
-                            tipoId = selectedTipos.isEmpty
-                                ? null
-                                : selectedTipos.first;
-                          }
-                        }),
-                      );
-                    }).toList(),
-                  ),
-                if (_tiposPlato.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _filteredDishTypes(filtroTipos).map((tipo) {
-                          final id = _asInt(tipo['id']);
-                          final nombre = tipo['nombre']?.toString() ?? 'Opcion';
-                          final selected =
-                              id != null && selectedTipos.contains(id);
-                          return _menuTypeChip(
-                            label: Text(nombre),
-                            selected: selected,
-                            onSelected: id == null
-                                ? null
-                                : (value) => setModalState(() {
-                                      if (value) {
-                                        selectedTipos.add(id);
-                                        tipoId ??= id;
-                                      } else {
-                                        selectedTipos.remove(id);
-                                        if (tipoId == id) {
-                                          tipoId = selectedTipos.isEmpty
-                                              ? null
-                                              : selectedTipos.first;
-                                        }
-                                      }
-                                    }),
-                          );
-                        }).toList(),
+                onChanged: (value) =>
+                    setModalState(() => filtroTipos = value.trim()),
+              ),
+              const SizedBox(height: 18),
+              if (selectedTipos.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedTipos.map((id) {
+                    final tipo = _findDishTypeById(id);
+                    final nombre = tipo?['nombre']?.toString() ?? 'Tipo $id';
+                    return InputChip(
+                      label: Text(nombre),
+                      selected: true,
+                      onDeleted: () => setModalState(() {
+                        selectedTipos.remove(id);
+                        if (tipoId == id) {
+                          tipoId = selectedTipos.isEmpty
+                              ? null
+                              : selectedTipos.first;
+                        }
+                      }),
+                    );
+                  }).toList(),
+                ),
+              if (_tiposPlato.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _filteredDishTypes(filtroTipos).map((tipo) {
+                        final id = _asInt(tipo['id']);
+                        final nombre = tipo['nombre']?.toString() ?? 'Opcion';
+                        final selected =
+                            id != null && selectedTipos.contains(id);
+                        return _menuTypeChip(
+                          label: Text(nombre),
+                          selected: selected,
+                          onSelected: id == null
+                              ? null
+                              : (value) => setModalState(() {
+                                    if (value) {
+                                      selectedTipos.add(id);
+                                      tipoId ??= id;
+                                    } else {
+                                      selectedTipos.remove(id);
+                                      if (tipoId == id) {
+                                        tipoId = selectedTipos.isEmpty
+                                            ? null
+                                            : selectedTipos.first;
+                                      }
+                                    }
+                                  }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                'Como se usara en el menu',
+                style: GoogleFonts.montserrat(
+                  fontSize: 11.5,
+                  color: AppTema.azulOscuro,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _roleChoiceCard(
+                      title: 'Opcion principal',
+                      subtitle: 'El sistema elegira una de estas recetas.',
+                      icon: Icons.check_rounded,
+                      selected: rol == 'PRINCIPAL',
+                      onTap: () => setModalState(() => rol = 'PRINCIPAL'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _roleChoiceCard(
+                      title: 'Acompanamiento',
+                      subtitle: 'Se mostrara junto a la opcion principal.',
+                      icon: Icons.add_rounded,
+                      selected: rol == 'COMPLEMENTO',
+                      onTap: () => setModalState(() => rol = 'COMPLEMENTO'),
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                Text(
-                  'Como se usara en el menu',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 11.5,
-                    color: AppTema.azulOscuro,
-                    fontWeight: FontWeight.w800,
-                  ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTema.azulPrincipal.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 8),
-                Row(
+                child: Row(
                   children: [
+                    const Icon(Icons.info_rounded,
+                        color: AppTema.azulPrincipal, size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: _roleChoiceCard(
-                        title: 'Opcion principal',
-                        subtitle: 'El sistema elegira una de estas recetas.',
-                        icon: Icons.check_rounded,
-                        selected: rol == 'PRINCIPAL',
-                        onTap: () => setModalState(() => rol = 'PRINCIPAL'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _roleChoiceCard(
-                        title: 'Acompanamiento',
-                        subtitle: 'Se mostrara junto a la opcion principal.',
-                        icon: Icons.add_rounded,
-                        selected: rol == 'COMPLEMENTO',
-                        onTap: () => setModalState(() => rol = 'COMPLEMENTO'),
+                      child: Text(
+                        rol == 'PRINCIPAL'
+                            ? 'Principal: el sistema elegira una de estas recetas para llenar el horario.'
+                            : 'Acompanamiento: el sistema puede sumarlo a una opcion principal.',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 11.5,
+                            color: AppTema.azulPrincipal,
+                            fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTema.azulPrincipal.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_rounded,
-                          color: AppTema.azulPrincipal, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          rol == 'PRINCIPAL'
-                              ? 'Principal: el sistema elegira una de estas recetas para llenar el horario.'
-                              : 'Acompanamiento: el sistema puede sumarlo a una opcion principal.',
-                          style: GoogleFonts.montserrat(
-                              fontSize: 11.5,
-                              color: AppTema.azulPrincipal,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
           actions: _modalActions(
             ctx,
             saveLabel: 'Guardar',
@@ -1663,7 +1756,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         }
       }
       final ruleId = await _ensureRule();
-      final comboOrden = _asInt(detail?['orden']) ?? _groupedDetailOptions().length + 1;
+      final comboOrden =
+          _asInt(detail?['orden']) ?? _groupedDetailOptions().length + 1;
       final oldItems = _detailItems(detail);
       final oldTipoIds = oldItems
           .map((item) => _asInt(item['id_tipo_plato']))
@@ -1741,11 +1835,13 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         final key = r['momento_nombre']?.toString() ?? 'Sin momento';
         groups.putIfAbsent(key, () => []).add(r);
       }
-      return groups.entries.map((e) => {
-        'group_key': e.key,
-        'items': e.value,
-        'group_type': 'momento',
-      }).toList();
+      return groups.entries
+          .map((e) => {
+                'group_key': e.key,
+                'items': e.value,
+                'group_type': 'momento',
+              })
+          .toList();
     } else if (_vistaAgrupada == 'rol') {
       final groups = <String, List<Map<String, dynamic>>>{};
       for (final r in reglas) {
@@ -1753,11 +1849,13 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         final key = _rolEtiqueta(rol);
         groups.putIfAbsent(key, () => []).add(r);
       }
-      return groups.entries.map((e) => {
-        'group_key': e.key,
-        'items': e.value,
-        'group_type': 'rol',
-      }).toList();
+      return groups.entries
+          .map((e) => {
+                'group_key': e.key,
+                'items': e.value,
+                'group_type': 'rol',
+              })
+          .toList();
     } else if (_vistaAgrupada == 'condicion') {
       final groups = <String, List<Map<String, dynamic>>>{};
       for (final r in reglas) {
@@ -1766,18 +1864,23 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           groups.putIfAbsent('Sin condicion', () => []).add(r);
         } else {
           for (final c in condiciones) {
-            final key = (c is Map ? c['nombre'] : c.toString()) ?? 'Sin condicion';
+            final key =
+                (c is Map ? c['nombre'] : c.toString()) ?? 'Sin condicion';
             groups.putIfAbsent(key, () => []).add(r);
           }
         }
       }
-      return groups.entries.map((e) => {
-        'group_key': e.key,
-        'items': e.value,
-        'group_type': 'condicion',
-      }).toList();
+      return groups.entries
+          .map((e) => {
+                'group_key': e.key,
+                'items': e.value,
+                'group_type': 'condicion',
+              })
+          .toList();
     }
-    return [{'group_key': 'Todo', 'items': reglas, 'group_type': 'todo'}];
+    return [
+      {'group_key': 'Todo', 'items': reglas, 'group_type': 'todo'}
+    ];
   }
 
   // ============================================================
@@ -1827,17 +1930,18 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             children: [
               Text(
                 'Menu y horarios',
-                style: GoogleFonts.montserrat(
-                  fontSize: 22,
+                style: GoogleFonts.inter(
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: AppTema.azulPrincipal,
+                  letterSpacing: -0.5,
                 ),
               ),
               Text(
                 'Configura tipos de platillo, momentos del dia y combinaciones para cada horario.',
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     color: Colors.blueGrey,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500),
               ),
             ],
@@ -1899,8 +2003,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             runSpacing: 8,
             children: [
               FilledButton.icon(
-              onPressed: () => _openMomentDialog(),
-              icon: const Icon(Icons.add_rounded, size: 18),
+                onPressed: () => _openMomentDialog(),
+                icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('HORARIO'),
                 style:
                     FilledButton.styleFrom(backgroundColor: AppTema.verdeSalud),
@@ -2179,7 +2283,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 onPressed: _saving ? null : _openCreateCombinationDialog,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('CREAR COMBINACION'),
-                style: FilledButton.styleFrom(backgroundColor: AppTema.azulPrincipal),
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppTema.azulPrincipal),
               ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
@@ -2207,7 +2312,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         ),
         child: Column(
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 40, color: Colors.grey.shade300),
+            Icon(Icons.auto_awesome_rounded,
+                size: 40, color: Colors.grey.shade300),
             const SizedBox(height: 12),
             Text(
               'Aun no hay combinaciones para este momento.',
@@ -2275,7 +2381,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 _paginaActual = 0;
               }),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -2289,9 +2396,12 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: selected ? Colors.white.withValues(alpha: 0.25) : tab.color.withValues(alpha: 0.10),
+                        color: selected
+                            ? Colors.white.withValues(alpha: 0.25)
+                            : tab.color.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -2332,7 +2442,9 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     final totalPaginas = (reglas.length / _itemsPorPagina).ceil();
     if (_paginaActual >= totalPaginas) _paginaActual = 0;
     final inicio = _paginaActual * _itemsPorPagina;
-    final fin = (inicio + _itemsPorPagina < reglas.length) ? inicio + _itemsPorPagina : reglas.length;
+    final fin = (inicio + _itemsPorPagina < reglas.length)
+        ? inicio + _itemsPorPagina
+        : reglas.length;
     final paginaReglas = reglas.sublist(inicio, fin);
 
     return Column(
@@ -2394,12 +2506,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
   Widget _buildCompactRuleCard(Map<String, dynamic> rule) {
     final platillos = _jsonList(rule['platillos'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .where((value) => value.trim().isNotEmpty)
         .toList();
     final condiciones = _jsonList(rule['condiciones_nutricionales'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .where((value) => value.trim().isNotEmpty)
         .toList();
@@ -2433,7 +2547,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: rolColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(4),
@@ -2450,12 +2565,15 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                     const Spacer(),
                     InkWell(
                       onTap: () => _showRuleDetail(rule),
-                      child: Icon(Icons.visibility_outlined, size: 13, color: rolColor.withValues(alpha: 0.6)),
+                      child: Icon(Icons.visibility_outlined,
+                          size: 13, color: rolColor.withValues(alpha: 0.6)),
                     ),
                     const SizedBox(width: 4),
                     InkWell(
                       onTap: () => _deleteSmartRule(rule),
-                      child: Icon(Icons.delete_outline_rounded, size: 13, color: Colors.redAccent.withValues(alpha: 0.6)),
+                      child: Icon(Icons.delete_outline_rounded,
+                          size: 13,
+                          color: Colors.redAccent.withValues(alpha: 0.6)),
                     ),
                   ],
                 ),
@@ -2474,7 +2592,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 if (condiciones.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(3),
@@ -2503,12 +2622,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
   void _showRuleDetail(Map<String, dynamic> rule) {
     final platillos = _jsonList(rule['platillos'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .where((v) => v.trim().isNotEmpty)
         .toList();
     final condiciones = _jsonList(rule['condiciones_nutricionales'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .where((v) => v.trim().isNotEmpty)
         .toList();
@@ -2536,7 +2657,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                       color: _rolColor(rol).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.restaurant_menu_rounded, color: _rolColor(rol), size: 22),
+                    child: Icon(Icons.restaurant_menu_rounded,
+                        color: _rolColor(rol), size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2584,22 +2706,28 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: platillos.map((p) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTema.azulPrincipal.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTema.azulPrincipal.withValues(alpha: 0.15)),
-                  ),
-                  child: Text(
-                    p,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTema.azulPrincipal,
-                    ),
-                  ),
-                )).toList(),
+                children: platillos
+                    .map((p) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color:
+                                AppTema.azulPrincipal.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: AppTema.azulPrincipal
+                                    .withValues(alpha: 0.15)),
+                          ),
+                          child: Text(
+                            p,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTema.azulPrincipal,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
               const SizedBox(height: 14),
               // Separador
@@ -2618,22 +2746,25 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: condiciones.map((c) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Text(
-                    c,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                )).toList(),
+                children: condiciones
+                    .map((c) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Text(
+                            c,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
               const SizedBox(height: 18),
               // Botones
@@ -2653,7 +2784,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                     onPressed: () => Navigator.pop(ctx),
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: const Text('Entendido'),
-                    style: FilledButton.styleFrom(backgroundColor: AppTema.azulPrincipal),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: AppTema.azulPrincipal),
                   ),
                 ],
               ),
@@ -2666,11 +2798,13 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
   void _showRuleJson(Map<String, dynamic> rule) {
     final platillos = _jsonList(rule['platillos'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .toList();
     final condiciones = _jsonList(rule['condiciones_nutricionales'])
-        .map((item) => item is Map ? item['nombre']?.toString() : item.toString())
+        .map((item) =>
+            item is Map ? item['nombre']?.toString() : item.toString())
         .whereType<String>()
         .toList();
     final jsonStr = jsonEncode({
@@ -2951,14 +3085,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
 
     return grouped.values.map((group) {
       final items = _detailItems(group)
-        ..sort((a, b) =>
-            (a['tipo_plato_nombre']?.toString() ?? '').compareTo(
+        ..sort((a, b) => (a['tipo_plato_nombre']?.toString() ?? '').compareTo(
               b['tipo_plato_nombre']?.toString() ?? '',
             ));
       group['items'] = items;
       return group;
     }).toList()
-      ..sort((a, b) => (_asInt(a['orden']) ?? 0).compareTo(_asInt(b['orden']) ?? 0));
+      ..sort((a, b) =>
+          (_asInt(a['orden']) ?? 0).compareTo(_asInt(b['orden']) ?? 0));
   }
 
   List<Map<String, dynamic>> _detailItems(Map<String, dynamic>? detail) {

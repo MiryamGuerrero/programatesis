@@ -121,7 +121,9 @@ class _TutorConsumoPageState extends ConsumerState<TutorConsumoPage> {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       await repo.registerConsumption(
         idPlanItem: idPlanItem,
-        idEstadoConsumo: _estadoCodigo == "CONSUMIDO_COMPLETO" ? 1 : (_estadoCodigo == "CONSUMIDO_PARCIAL" ? 2 : 3),
+        idEstadoConsumo: _estadoCodigo == "CONSUMIDO_COMPLETO"
+            ? 1
+            : (_estadoCodigo == "CONSUMIDO_PARCIAL" ? 2 : 3),
         observacion: _observacionController.text.trim().isEmpty
             ? null
             : _observacionController.text.trim(),

@@ -10,14 +10,15 @@ class TutorCalendarioPage extends ConsumerStatefulWidget {
   const TutorCalendarioPage({super.key});
 
   @override
-  ConsumerState<TutorCalendarioPage> createState() => _TutorCalendarioPageState();
+  ConsumerState<TutorCalendarioPage> createState() =>
+      _TutorCalendarioPageState();
 }
 
 class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
   late DateTime _selectedDate;
   late DateTime _displayedMonth; // Para el título del header
   final DateTime _today = DateTime.now();
-  
+
   final ScrollController _scrollController = ScrollController();
   late PageController _monthPageController;
   late PageController _weekPageController;
@@ -30,7 +31,7 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
     super.initState();
     _selectedDate = DateTime(_today.year, _today.month, _today.day);
     _displayedMonth = _selectedDate;
-    
+
     _monthPageController = PageController(initialPage: _baseIndex);
     _weekPageController = PageController(initialPage: _baseIndex);
   }
@@ -54,16 +55,21 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     final idPaciente = ref.watch(selectedPatientIdProvider);
-    final planAsync = idPaciente != null 
-        ? ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: _selectedDate)))
+    final planAsync = idPaciente != null
+        ? ref.watch(
+            planDiarioProvider((idPaciente: idPaciente, fecha: _selectedDate)))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
 
     final diasConPlanAsync = idPaciente != null
-        ? ref.watch(diasConPlanProvider((idPaciente: idPaciente, mes: _displayedMonth.month, anio: _displayedMonth.year)))
+        ? ref.watch(diasConPlanProvider((
+            idPaciente: idPaciente,
+            mes: _displayedMonth.month,
+            anio: _displayedMonth.year
+          )))
         : const AsyncValue<List<Map<String, dynamic>>>.data([]);
-    
+
     final List<Map<String, dynamic>> diasConPlan = diasConPlanAsync.maybeWhen(
       data: (dias) => dias,
       orElse: () => [],
@@ -77,14 +83,17 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
             final double offset = _scrollController.offset;
             if (offset > 0 && offset < 220) {
               final double target = offset < 110 ? 0.0 : 220.0;
-              Future.microtask(() => _scrollController.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.fastOutSlowIn));
+              Future.microtask(() => _scrollController.animateTo(target,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.fastOutSlowIn));
             }
           }
           return false;
         },
         child: CustomScrollView(
           controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
           slivers: [
             SliverPersistentHeader(
               pinned: true,
@@ -99,18 +108,22 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                 baseIndex: _baseIndex,
                 diasConPlan: diasConPlan,
                 onDaySelected: _onDateTapped,
-                onMonthPageChanged: (date) => setState(() => _displayedMonth = date),
+                onMonthPageChanged: (date) =>
+                    setState(() => _displayedMonth = date),
                 onToggleExpand: () {
                   final target = _scrollController.offset > 110 ? 0.0 : 220.0;
-                  _scrollController.animateTo(target, duration: const Duration(milliseconds: 350), curve: Curves.fastOutSlowIn);
+                  _scrollController.animateTo(target,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.fastOutSlowIn);
                 },
                 onDragUpdate: (details) {
-                  final newOffset = (_scrollController.offset - details.delta.dy).clamp(0.0, 1000.0);
+                  final newOffset =
+                      (_scrollController.offset - details.delta.dy)
+                          .clamp(0.0, 1000.0);
                   _scrollController.jumpTo(newOffset);
                 },
               ),
             ),
-
             planAsync.when(
               data: (meals) {
                 if (meals.isEmpty) {
@@ -138,13 +151,15 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                       (context, index) {
                         final momId = momentOrder[index];
                         final momentMeals = grouped[momId]!;
-                        final momentName = momentMeals.first["momento_nombre"] ?? "Comida";
+                        final momentName =
+                            momentMeals.first["momento_nombre"] ?? "Comida";
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(top: 16, bottom: 12),
+                              padding:
+                                  const EdgeInsets.only(top: 16, bottom: 12),
                               child: Text(
                                 momentName.toString().toUpperCase(),
                                 style: theme.textTheme.labelLarge?.copyWith(
@@ -158,7 +173,8 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                               final bool isConsumida = m["consumida"] == true;
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
-                                child: _CompactRecipeCard(meal: m, isConsumida: isConsumida),
+                                child: _CompactRecipeCard(
+                                    meal: m, isConsumida: isConsumida),
                               );
                             }),
                           ],
@@ -169,8 +185,10 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                   ),
                 );
               },
-              loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
-              error: (err, stack) => SliverFillRemaining(child: Center(child: Text("Error: $err"))),
+              loading: () => const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator())),
+              error: (err, stack) => SliverFillRemaining(
+                  child: Center(child: Text("Error: $err"))),
             ),
           ],
         ),
@@ -183,14 +201,17 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.no_food_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+          Icon(Icons.no_food_outlined,
+              size: 64, color: Colors.grey.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text(
             "Sin plan para este día",
-            style: GoogleFonts.montserrat(color: Colors.grey, fontWeight: FontWeight.w600),
+            style: GoogleFonts.montserrat(
+                color: Colors.grey, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          const Text("Selecciona otra fecha", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          const Text("Selecciona otra fecha",
+              style: TextStyle(color: Colors.grey, fontSize: 13)),
         ],
       ),
     );
@@ -243,15 +264,23 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     final theme = Theme.of(context);
-    final double collapsePercent = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
-    final String currentMonthName = DateFormat('MMMM yyyy', 'es').format(displayedMonth);
-    
+    final double collapsePercent =
+        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final String currentMonthName =
+        DateFormat('MMMM yyyy', 'es').format(displayedMonth);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         children: [
@@ -263,8 +292,11 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(currentMonthName.toUpperCase(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                  Icon(Icons.calendar_month_outlined, color: colorAcento, size: 20),
+                  Text(currentMonthName.toUpperCase(),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  Icon(Icons.calendar_month_outlined,
+                      color: colorAcento, size: 20),
                 ],
               ),
             ),
@@ -281,11 +313,13 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
                     child: PageView.builder(
                       controller: monthPageController,
                       onPageChanged: (index) {
-                        final newMonth = DateTime(today.year, today.month + (index - baseIndex), 1);
+                        final newMonth = DateTime(
+                            today.year, today.month + (index - baseIndex), 1);
                         onMonthPageChanged(newMonth);
                       },
                       itemBuilder: (context, index) {
-                        final monthDate = DateTime(today.year, today.month + (index - baseIndex), 1);
+                        final monthDate = DateTime(
+                            today.year, today.month + (index - baseIndex), 1);
                         return _buildMonthGrid(context, monthDate);
                       },
                     ),
@@ -296,19 +330,27 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
                   child: IgnorePointer(
                     ignoring: collapsePercent < 0.5,
                     child: Opacity(
-                      opacity: collapsePercent > 0.4 ? ((collapsePercent - 0.4) * 2).clamp(0.0, 1.0) : 0.0,
+                      opacity: collapsePercent > 0.4
+                          ? ((collapsePercent - 0.4) * 2).clamp(0.0, 1.0)
+                          : 0.0,
                       child: SizedBox(
                         height: 48,
                         child: PageView.builder(
                           controller: weekPageController,
                           onPageChanged: (index) {
-                            final firstDayOfWeek = today.subtract(Duration(days: today.weekday - 1)).add(Duration(days: (index - baseIndex) * 7));
+                            final firstDayOfWeek = today
+                                .subtract(Duration(days: today.weekday - 1))
+                                .add(Duration(days: (index - baseIndex) * 7));
                             onMonthPageChanged(firstDayOfWeek);
                           },
                           itemBuilder: (context, index) {
-                            final firstDayOfWeek = today.subtract(Duration(days: today.weekday - 1)).add(Duration(days: (index - baseIndex) * 7));
-                            final weekDates = List.generate(7, (i) => firstDayOfWeek.add(Duration(days: i)));
-                            return _buildCalendarRow(context, weekDates, isMonthView: false);
+                            final firstDayOfWeek = today
+                                .subtract(Duration(days: today.weekday - 1))
+                                .add(Duration(days: (index - baseIndex) * 7));
+                            final weekDates = List.generate(7,
+                                (i) => firstDayOfWeek.add(Duration(days: i)));
+                            return _buildCalendarRow(context, weekDates,
+                                isMonthView: false);
                           },
                         ),
                       ),
@@ -323,10 +365,16 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
             onTap: onToggleExpand,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              width: double.infinity, height: 28,
+              width: double.infinity,
+              height: 28,
               color: Colors.transparent,
               alignment: Alignment.center,
-              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2))),
+              child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2))),
             ),
           ),
         ],
@@ -336,15 +384,20 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   Widget _buildMonthGrid(BuildContext context, DateTime baseDate) {
     final firstDayOfMonth = DateTime(baseDate.year, baseDate.month, 1);
-    final firstMonday = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
-    
+    final firstMonday =
+        firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
+
     return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(5, (weekIdx) {
-          final weekDates = List.generate(7, (dayIdx) => firstMonday.add(Duration(days: (weekIdx * 7) + dayIdx)));
-          return _buildCalendarRow(context, weekDates, currentMonth: baseDate.month);
+          final weekDates = List.generate(
+              7,
+              (dayIdx) =>
+                  firstMonday.add(Duration(days: (weekIdx * 7) + dayIdx)));
+          return _buildCalendarRow(context, weekDates,
+              currentMonth: baseDate.month);
         }),
       ),
     );
@@ -355,11 +408,19 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
     final diasSemana = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: diasSemana.map((dia) => Expanded(child: Center(child: Text(dia, style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)))))).toList(),
+      children: diasSemana
+          .map((dia) => Expanded(
+              child: Center(
+                  child: Text(dia,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF94A3B8))))))
+          .toList(),
     );
   }
 
-  Widget _buildCalendarRow(BuildContext context, List<DateTime> dates, {int? currentMonth, bool isMonthView = true}) {
+  Widget _buildCalendarRow(BuildContext context, List<DateTime> dates,
+      {int? currentMonth, bool isMonthView = true}) {
     final theme = Theme.of(context);
 
     return Padding(
@@ -367,16 +428,23 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: dates.map((dateForDay) {
-          final bool isSelected = dateForDay.year == selectedDay.year && dateForDay.month == selectedDay.month && dateForDay.day == selectedDay.day;
-          final bool isTodayDate = dateForDay.year == today.year && dateForDay.month == today.month && dateForDay.day == today.day;
-          
-          final bool isLeadingTrailing = currentMonth != null && dateForDay.month != currentMonth;
-          
+          final bool isSelected = dateForDay.year == selectedDay.year &&
+              dateForDay.month == selectedDay.month &&
+              dateForDay.day == selectedDay.day;
+          final bool isTodayDate = dateForDay.year == today.year &&
+              dateForDay.month == today.month &&
+              dateForDay.day == today.day;
+
+          final bool isLeadingTrailing =
+              currentMonth != null && dateForDay.month != currentMonth;
+
           final hasPlanMap = diasConPlan.where((d) {
             final DateTime dt = d['fecha'];
-            return dt.year == dateForDay.year && dt.month == dateForDay.month && dt.day == dateForDay.day;
+            return dt.year == dateForDay.year &&
+                dt.month == dateForDay.month &&
+                dt.day == dateForDay.day;
           }).toList();
-          
+
           final bool hasPlan = hasPlanMap.isNotEmpty;
           Color? planColor;
           if (hasPlan) {
@@ -387,13 +455,16 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
           Color textColor = colorTitulo;
 
           if (isSelected) {
-            decoration = BoxDecoration(color: planColor ?? colorAcento, shape: BoxShape.circle);
+            decoration = BoxDecoration(
+                color: planColor ?? colorAcento, shape: BoxShape.circle);
             textColor = Colors.white;
           } else if (hasPlan) {
-            decoration = BoxDecoration(color: planColor!.withOpacity(0.2), shape: BoxShape.circle);
+            decoration = BoxDecoration(
+                color: planColor!.withOpacity(0.2), shape: BoxShape.circle);
             textColor = planColor;
           } else if (isTodayDate) {
-            decoration = BoxDecoration(color: colorAcento.withOpacity(0.15), shape: BoxShape.circle);
+            decoration = BoxDecoration(
+                color: colorAcento.withOpacity(0.15), shape: BoxShape.circle);
             textColor = colorAcento;
           } else if (isLeadingTrailing) {
             textColor = const Color(0xFFCBD5E1);
@@ -410,14 +481,17 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 36, height: 36,
+                      width: 36,
+                      height: 36,
                       decoration: decoration,
                       alignment: Alignment.center,
                       child: Text(
                         dateForDay.day.toString(),
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: textColor,
-                          fontWeight: (isSelected || isTodayDate || hasPlan) ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: (isSelected || isTodayDate || hasPlan)
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           fontSize: 14,
                         ),
                       ),
@@ -438,7 +512,10 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get minExtent => 160.0;
   @override
   bool shouldRebuild(covariant _ExpandableCalendarHeaderDelegate oldDelegate) {
-    return oldDelegate.selectedDay != selectedDay || oldDelegate.today != today || oldDelegate.displayedMonth != displayedMonth || oldDelegate.diasConPlan != diasConPlan;
+    return oldDelegate.selectedDay != selectedDay ||
+        oldDelegate.today != today ||
+        oldDelegate.displayedMonth != displayedMonth ||
+        oldDelegate.diasConPlan != diasConPlan;
   }
 }
 
@@ -459,7 +536,9 @@ class _CompactRecipeCard extends StatelessWidget {
       color: isConsumida ? Colors.grey.shade50 : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: isConsumida ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5) : BorderSide(color: Colors.grey.shade200),
+        side: isConsumida
+            ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5)
+            : BorderSide(color: Colors.grey.shade200),
       ),
       child: ListTile(
         onTap: () {
@@ -468,7 +547,8 @@ class _CompactRecipeCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => TutorRecetaDetallePage(idReceta: idReceta as int),
+                builder: (context) =>
+                    TutorRecetaDetallePage(idReceta: idReceta as int),
               ),
             );
           }
@@ -477,22 +557,28 @@ class _CompactRecipeCard extends StatelessWidget {
         leading: Stack(
           children: [
             Container(
-              width: 54, height: 54,
+              width: 54,
+              height: 54,
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
               ),
               clipBehavior: Clip.antiAlias,
               child: url.isNotEmpty
-                  ? Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.fastfood, color: Colors.grey))
+                  ? Image.network(url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) =>
+                          const Icon(Icons.fastfood, color: Colors.grey))
                   : const Icon(Icons.fastfood, color: Colors.grey),
             ),
             if (isConsumida)
               Positioned(
-                right: 0, bottom: 0,
+                right: 0,
+                bottom: 0,
                 child: Container(
                   padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(color: AppTema.verdeSalud, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                      color: AppTema.verdeSalud, shape: BoxShape.circle),
                   child: const Icon(Icons.check, size: 12, color: Colors.white),
                 ),
               ),
@@ -506,10 +592,20 @@ class _CompactRecipeCard extends StatelessWidget {
             decoration: isConsumida ? TextDecoration.lineThrough : null,
           ),
         ),
-        subtitle: isConsumida 
-            ? const Text("Consumida", style: TextStyle(color: AppTema.verdeSalud, fontWeight: FontWeight.bold, fontSize: 12))
-            : (desc != null ? Text(desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)) : null),
-        trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFFCBD5E1)),
+        subtitle: isConsumida
+            ? const Text("Consumida",
+                style: TextStyle(
+                    color: AppTema.verdeSalud,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12))
+            : (desc != null
+                ? Text(desc,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12))
+                : null),
+        trailing:
+            const Icon(Icons.chevron_right, size: 20, color: Color(0xFFCBD5E1)),
       ),
     );
   }

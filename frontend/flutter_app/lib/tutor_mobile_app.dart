@@ -29,7 +29,8 @@ class TutorMobileApp extends ConsumerWidget {
             return const LoginPage();
           }
 
-          final roleRaw = (session.user.appMetadata["role"] ?? "").toString().toLowerCase();
+          final roleRaw =
+              (session.user.appMetadata["role"] ?? "").toString().toLowerCase();
           if (roleRaw != "tutor") {
             return const _TutorOnlyScreen();
           }

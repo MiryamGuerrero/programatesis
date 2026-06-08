@@ -174,23 +174,26 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       );
       final payload = Map<String, dynamic>.from(prefetch.data ?? {});
       _patientProfile = Map<String, dynamic>.from(payload["expediente"] ?? {});
-      _planVigente = payload["plan_vigente"] != null 
-          ? Map<String, dynamic>.from(payload["plan_vigente"]) 
+      _planVigente = payload["plan_vigente"] != null
+          ? Map<String, dynamic>.from(payload["plan_vigente"])
           : null;
       _ingredientesSegurosCache = (payload["ingredientes_seguros"] as List?)
               ?.map((e) => Map<String, dynamic>.from(e))
-              .toList() ?? [];
+              .toList() ??
+          [];
       _recomendacionesCache = (payload["ingredientes_recomendados"] as List?)
               ?.map((e) => Map<String, dynamic>.from(e))
-              .toList() ?? [];
-      
+              .toList() ??
+          [];
+
       if (_recomendacionesCache.isEmpty) {
         try {
           final recoRes =
               await dio.get("ingredientes/recomendados/${patient['id']}");
           _recomendacionesCache = (recoRes.data as List?)
                   ?.map((e) => Map<String, dynamic>.from(e))
-                  .toList() ?? [];
+                  .toList() ??
+              [];
         } catch (_) {}
       }
       _boostersSeleccionados = _recomendacionesCache
@@ -198,7 +201,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           .whereType<int>()
           .toList();
 
-      final estadoValidacion = Map<String, dynamic>.from(payload["estado_validacion"] ?? {});
+      final estadoValidacion =
+          Map<String, dynamic>.from(payload["estado_validacion"] ?? {});
       final mostrarModal = estadoValidacion["mostrar_modal"] == true;
       if (mostrarModal) {
         await _mostrarModalValidacionClinica(patient['id'].toString());
@@ -229,9 +233,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
       final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
       final List planesRaw = resPlanes.data ?? [];
-      final List<Map<String, dynamic>> planes = planesRaw
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      final List<Map<String, dynamic>> planes =
+          planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
 
       setState(() {
         _patientPlans = planes;
@@ -470,7 +473,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
-                        value: (condicionesPeso.any((c) => (c["id"] as num).toInt() == condicionPesoId)) ? condicionPesoId : null,
+                        value: (condicionesPeso.any((c) =>
+                                (c["id"] as num).toInt() == condicionPesoId))
+                            ? condicionPesoId
+                            : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
                             labelText: "Condición nutricional - Peso"),
@@ -486,7 +492,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<int>(
-                        value: (condicionesTalla.any((c) => (c["id"] as num).toInt() == condicionTallaId)) ? condicionTallaId : null,
+                        value: (condicionesTalla.any((c) =>
+                                (c["id"] as num).toInt() == condicionTallaId))
+                            ? condicionTallaId
+                            : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
                             labelText: "Condición nutricional - Talla"),
@@ -508,7 +517,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 TextButton(
                   onPressed: () async {
                     try {
-                      await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
+                      await dio.post(
+                          "pacientes/$idPaciente/control-mensual-actual/confirmar");
                       if (ctx.mounted) Navigator.pop(ctx);
                     } catch (e) {
                       debugPrint("Error al confirmar: $e");
@@ -717,46 +727,44 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         children: [
           Text(
             "Planificación nutricional manual",
-            style: GoogleFonts.montserrat(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF0F172A),
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppTema.azulPrincipal,
+              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             "Selecciona un paciente para crear, revisar o actualizar su plan nutricional personalizado.",
-            style: GoogleFonts.montserrat(
-              fontSize: 14,
-              color: const Color(0xFF64748B),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: Colors.blueGrey,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 32),
           // Buscador
           Container(
-            height: 60,
+            height: 48,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
               controller: _searchController,
               onChanged: _fetchPatients,
+              style:
+                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 hintText: "Buscar paciente por nombre, cédula o teléfono...",
-                hintStyle:
-                    GoogleFonts.montserrat(color: const Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon:
+                    const Icon(Icons.search, size: 20, color: Colors.grey),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
@@ -1083,15 +1091,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 Text("Historial de Planes Nutricionales",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: const Color(0xFF0F172A))),
-                Text("Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
+                Text(
+                    "Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(color: Colors.blueGrey, fontSize: 13)),
+                    style: GoogleFonts.inter(
+                        color: Colors.blueGrey,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -1345,8 +1356,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.blueGrey)),
-                              Text(
-                                  "${(p["porcentaje_adherencia"] ?? 0.0)}%",
+                              Text("${(p["porcentaje_adherencia"] ?? 0.0)}%",
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w900,
@@ -1355,7 +1365,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           ),
                           const SizedBox(height: 4),
                           LinearProgressIndicator(
-                            value: ((p["porcentaje_adherencia"] as num?) ?? 0.0).toDouble() / 100.0,
+                            value: ((p["porcentaje_adherencia"] as num?) ?? 0.0)
+                                    .toDouble() /
+                                100.0,
                             backgroundColor: Colors.grey.shade200,
                             color: greenBrand,
                             borderRadius: BorderRadius.circular(4),
@@ -1434,7 +1446,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   "Diseño de Plan Nutricional",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
                       color: const Color(0xFF0F172A)),
@@ -1443,7 +1455,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   "Paciente: ${_selectedPatient!["nombre_completo"]}",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+                  style: GoogleFonts.inter(
+                      color: Colors.blueGrey,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -2602,17 +2617,16 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
       ]);
       final tiposRes = responses[0];
       final recetasRes = responses[1];
-      final catalogoTipos = List<Map<String, dynamic>>.from(tiposRes.data ?? []);
+      final catalogoTipos =
+          List<Map<String, dynamic>>.from(tiposRes.data ?? []);
       final todasLasRecetas =
           List<dynamic>.from(recetasRes.data["recetas"] ?? []);
       final conteosPorTipo = <int, int>{};
       for (final receta in todasLasRecetas) {
         final ids = receta["tipos_plato_ids"];
         if (ids is! Iterable) continue;
-        final idsUnicos = ids
-            .map((id) => (id as num?)?.toInt())
-            .whereType<int>()
-            .toSet();
+        final idsUnicos =
+            ids.map((id) => (id as num?)?.toInt()).whereType<int>().toSet();
         for (final idTipo in idsUnicos) {
           conteosPorTipo[idTipo] = (conteosPorTipo[idTipo] ?? 0) + 1;
         }

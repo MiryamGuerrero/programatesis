@@ -25,9 +25,9 @@ class SupabaseCrudRepository {
   }
 
   Future<void> createUser({
-    required String email, 
-    required String nombreCompleto, 
-    required int idRol, 
+    required String email,
+    required String nombreCompleto,
+    required int idRol,
     required String password,
     String? username,
     String? cedula,
@@ -37,10 +37,11 @@ class SupabaseCrudRepository {
     await _dio.post(
       "usuarios",
       data: {
-        "email": email, 
-        if (username != null && username.trim().isNotEmpty) "username": username.trim(),
-        "nombre_completo": nombreCompleto, 
-        "id_rol": idRol, 
+        "email": email,
+        if (username != null && username.trim().isNotEmpty)
+          "username": username.trim(),
+        "nombre_completo": nombreCompleto,
+        "id_rol": idRol,
         "password": password,
         "cedula": cedula,
         "telefono": telefono,
@@ -51,12 +52,12 @@ class SupabaseCrudRepository {
   }
 
   Future<void> updateUser({
-    required String userId, 
-    String? email, 
+    required String userId,
+    String? email,
     String? username,
-    String? nombreCompleto, 
-    String? cedula, 
-    int? idRol, 
+    String? nombreCompleto,
+    String? cedula,
+    int? idRol,
     bool? activo,
     String? telefono,
     String? direccion,
@@ -70,11 +71,13 @@ class SupabaseCrudRepository {
     if (activo != null) payload["activo"] = activo;
     if (telefono != null) payload["telefono"] = telefono;
     if (direccion != null) payload["direccion"] = direccion;
-    await _dio.put("usuarios/$userId", data: payload, options: _authorizedOptions());
+    await _dio.put("usuarios/$userId",
+        data: payload, options: _authorizedOptions());
   }
 
   Future<Map<String, dynamic>> fetchMyProfile() async {
-    final response = await _dio.get("perfil/mi-perfil", options: _authorizedOptions());
+    final response =
+        await _dio.get("perfil/mi-perfil", options: _authorizedOptions());
     return Map<String, dynamic>.from(response.data);
   }
 
@@ -93,48 +96,56 @@ class SupabaseCrudRepository {
     if (telefono != null) data["telefono"] = telefono;
     if (direccion != null) data["direccion"] = direccion;
     if (email != null) data["email"] = email;
-    await _dio.put("perfil/mi-perfil", data: data, options: _authorizedOptions());
+    await _dio.put("perfil/mi-perfil",
+        data: data, options: _authorizedOptions());
   }
 
   // --- CLÍNICO: CONDICIONES Y CATÁLOGOS ---
-  Future<void> createConditionType({required String codigo, required String nombre}) async {
-    await _dio.post("crud/condition-types", data: {"codigo": codigo, "nombre": nombre}, options: _authorizedOptions());
+  Future<void> createConditionType(
+      {required String codigo, required String nombre}) async {
+    await _dio.post("crud/condition-types",
+        data: {"codigo": codigo, "nombre": nombre},
+        options: _authorizedOptions());
   }
 
-  Future<void> updateConditionType({required int idTipoCondicion, String? codigo, String? nombre}) async {
+  Future<void> updateConditionType(
+      {required int idTipoCondicion, String? codigo, String? nombre}) async {
     final data = <String, dynamic>{};
     if (codigo != null) data["codigo"] = codigo;
     if (nombre != null) data["nombre"] = nombre;
-    await _dio.put("crud/condition-types/$idTipoCondicion", data: data, options: _authorizedOptions());
+    await _dio.put("crud/condition-types/$idTipoCondicion",
+        data: data, options: _authorizedOptions());
   }
 
   Future<void> createCondition({
-    String? codigo, 
-    required String nombre, 
-    required int idTipoCondicion, 
-    String? descripcion, 
+    String? codigo,
+    required String nombre,
+    required int idTipoCondicion,
+    String? descripcion,
     bool activa = true,
     int? duracionDiasSugerida,
   }) async {
     final Map<String, dynamic> data = {
-      "nombre": nombre, 
-      "id_tipo": idTipoCondicion, 
-      "id_tipo_condicion": idTipoCondicion, 
-      "descripcion": descripcion, 
+      "nombre": nombre,
+      "id_tipo": idTipoCondicion,
+      "id_tipo_condicion": idTipoCondicion,
+      "descripcion": descripcion,
       "activa": activa,
-      "duracion_dias_sugerida": idTipoCondicion == 2 ? duracionDiasSugerida : null,
+      "duracion_dias_sugerida":
+          idTipoCondicion == 2 ? duracionDiasSugerida : null,
     };
     if (codigo != null) data["codigo"] = codigo;
-    
-    await _dio.post("catalogos/condiciones", data: data, options: _authorizedOptions());
+
+    await _dio.post("catalogos/condiciones",
+        data: data, options: _authorizedOptions());
   }
 
   Future<void> updateCondition({
-    required int idCondicion, 
-    String? codigo, 
-    required String nombre, 
-    required int idTipoCondicion, 
-    required bool activa, 
+    required int idCondicion,
+    String? codigo,
+    required String nombre,
+    required int idTipoCondicion,
+    required bool activa,
     String? descripcion,
     int? duracionDiasSugerida,
   }) async {
@@ -145,15 +156,16 @@ class SupabaseCrudRepository {
       "activa": activa,
       "descripcion": descripcion,
     };
-    
+
     if (codigo != null) data["codigo"] = codigo;
     if (idTipoCondicion == 2) {
       data["duracion_dias_sugerida"] = duracionDiasSugerida;
     } else {
       data["duracion_dias_sugerida"] = null;
     }
-    
-    await _dio.put("catalogos/condiciones/$idCondicion", data: data, options: _authorizedOptions());
+
+    await _dio.put("catalogos/condiciones/$idCondicion",
+        data: data, options: _authorizedOptions());
   }
 
   // --- CLÍNICO: PACIENTES Y TUTORES ---
@@ -177,18 +189,34 @@ class SupabaseCrudRepository {
     );
   }
 
-  Future<void> rateRecipe({required int idReceta, required int calificacion, String? comentario}) async {
-    await _dio.post("recetas/$idReceta/calificar", data: {"calificacion": calificacion, "comentario": comentario}, options: _authorizedOptions());
+  Future<void> rateRecipe(
+      {required int idReceta,
+      required int calificacion,
+      String? comentario}) async {
+    await _dio.post("recetas/$idReceta/calificar",
+        data: {"calificacion": calificacion, "comentario": comentario},
+        options: _authorizedOptions());
   }
 
-  Future<List<Map<String, dynamic>>> fetchPlanItemsByPaciente(String idPaciente, {DateTime? fecha}) async {
+  Future<List<Map<String, dynamic>>> fetchPlanItemsByPaciente(String idPaciente,
+      {DateTime? fecha}) async {
     final f = (fecha ?? DateTime.now()).toIso8601String().split("T").first;
-    final response = await _dio.get("tutor/plan-diario/$idPaciente", queryParameters: {"fecha": f}, options: _authorizedOptions());
+    final response = await _dio.get("tutor/plan-diario/$idPaciente",
+        queryParameters: {"fecha": f}, options: _authorizedOptions());
     return _toRows(response.data);
   }
 
-  Future<void> registerConsumption({required int idPlanItem, required int idEstadoConsumo, String? observacion}) async {
-    await _dio.post("tutor/registrar-consumo", data: {"id_plan_item": idPlanItem, "id_estado_consumo": idEstadoConsumo, "observacion": observacion}, options: _authorizedOptions());
+  Future<void> registerConsumption(
+      {required int idPlanItem,
+      required int idEstadoConsumo,
+      String? observacion}) async {
+    await _dio.post("tutor/registrar-consumo",
+        data: {
+          "id_plan_item": idPlanItem,
+          "id_estado_consumo": idEstadoConsumo,
+          "observacion": observacion
+        },
+        options: _authorizedOptions());
   }
 
   Future<List<Map<String, dynamic>>> fetchPatients() async {
@@ -197,24 +225,32 @@ class SupabaseCrudRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchMyPatients() async {
-    final response = await _dio.get("tutor/mis-pacientes", options: _authorizedOptions());
+    final response =
+        await _dio.get("tutor/mis-pacientes", options: _authorizedOptions());
     return _toRows(response.data);
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> fetchShoppingList(String idPaciente, {DateTime? start, DateTime? end}) async {
+  Future<Map<String, List<Map<String, dynamic>>>> fetchShoppingList(
+      String idPaciente,
+      {DateTime? start,
+      DateTime? end}) async {
     final s = (start ?? DateTime.now()).toIso8601String().split("T").first;
-    final e = (end ?? DateTime.now().add(const Duration(days: 7))).toIso8601String().split("T").first;
-    final response = await _dio.get(
-      "tutor/lista-compras/$idPaciente",
-      queryParameters: {"fecha_inicio": s, "fecha_fin": e},
-      options: _authorizedOptions()
-    );
+    final e = (end ?? DateTime.now().add(const Duration(days: 7)))
+        .toIso8601String()
+        .split("T")
+        .first;
+    final response = await _dio.get("tutor/lista-compras/$idPaciente",
+        queryParameters: {"fecha_inicio": s, "fecha_fin": e},
+        options: _authorizedOptions());
 
     final data = response.data as Map<String, dynamic>;
-    return data.map((key, value) => MapEntry(key, List<Map<String, dynamic>>.from(value)));
+    return data.map(
+        (key, value) => MapEntry(key, List<Map<String, dynamic>>.from(value)));
   }
+
   Future<void> archivePatient(String idPaciente) async {
-    await _dio.patch("pacientes/$idPaciente/archivar", options: _authorizedOptions());
+    await _dio.patch("pacientes/$idPaciente/archivar",
+        options: _authorizedOptions());
   }
 
   Future<void> deletePatient(String idPaciente) async {
@@ -281,44 +317,71 @@ class SupabaseCrudRepository {
   }
 
   Future<Map<String, dynamic>?> findTutorByCedula(String cedula) async {
-    final resp = await _dio.get("usuarios/tutor-by-cedula/$cedula", options: _authorizedOptions());
+    final resp = await _dio.get("usuarios/tutor-by-cedula/$cedula",
+        options: _authorizedOptions());
     return resp.data != null ? Map<String, dynamic>.from(resp.data) : null;
   }
 
-  Future<Map<String, dynamic>?> fetchCurrentClinicalControl({required String idPaciente}) async {
-    final resp = await _dio.get("pacientes/$idPaciente/control-actual", options: _authorizedOptions());
+  Future<Map<String, dynamic>?> fetchCurrentClinicalControl(
+      {required String idPaciente}) async {
+    final resp = await _dio.get("pacientes/$idPaciente/control-actual",
+        options: _authorizedOptions());
     return resp.data != null ? Map<String, dynamic>.from(resp.data) : null;
   }
 
-  Future<void> updateCurrentClinicalControl({required String idPaciente, required Map<String, dynamic> controlClinico}) async {
-    await _dio.put("pacientes/$idPaciente/control-actual", data: controlClinico, options: _authorizedOptions());
+  Future<void> updateCurrentClinicalControl(
+      {required String idPaciente,
+      required Map<String, dynamic> controlClinico}) async {
+    await _dio.put("pacientes/$idPaciente/control-actual",
+        data: controlClinico, options: _authorizedOptions());
   }
 
   // --- VÍNCULOS Y BÚSQUEDA ---
   Future<List<Map<String, dynamic>>> fetchTutorPatientLinks() async {
-    final response = await _dio.get("registro/vinculos", options: _authorizedOptions());
+    final response =
+        await _dio.get("registro/vinculos", options: _authorizedOptions());
     return _toRows(response.data);
   }
 
-  Future<List<Map<String, dynamic>>> searchTutors({required String query, int limit = 10}) async {
-    final resp = await _dio.get("usuarios/buscar-tutores", queryParameters: {"q": query, "limit": limit}, options: _authorizedOptions());
+  Future<List<Map<String, dynamic>>> searchTutors(
+      {required String query, int limit = 10}) async {
+    final resp = await _dio.get("usuarios/buscar-tutores",
+        queryParameters: {"q": query, "limit": limit},
+        options: _authorizedOptions());
     return _toRows(resp.data);
   }
 
-  Future<void> linkTutorToPatient({required String idUsuarioTutor, required String idPaciente, required dynamic idParentesco, bool esPrincipal = false}) async {
-    await _dio.post("registro/vincular", data: {"id_tutor": idUsuarioTutor, "id_paciente": idPaciente, "parentesco": idParentesco, "es_principal": esPrincipal}, options: _authorizedOptions());
+  Future<void> linkTutorToPatient(
+      {required String idUsuarioTutor,
+      required String idPaciente,
+      required dynamic idParentesco,
+      bool esPrincipal = false}) async {
+    await _dio.post("registro/vincular",
+        data: {
+          "id_tutor": idUsuarioTutor,
+          "id_paciente": idPaciente,
+          "parentesco": idParentesco,
+          "es_principal": esPrincipal
+        },
+        options: _authorizedOptions());
   }
 
-  Future<void> updateTutorPatientLink({required int idVinculo, dynamic idParentesco, bool? activo, bool? esPrincipal}) async {
+  Future<void> updateTutorPatientLink(
+      {required int idVinculo,
+      dynamic idParentesco,
+      bool? activo,
+      bool? esPrincipal}) async {
     final data = <String, dynamic>{};
     if (idParentesco != null) data["parentesco"] = idParentesco;
     if (activo != null) data["activo"] = activo;
     if (esPrincipal != null) data["es_principal"] = esPrincipal;
-    await _dio.put("registro/vinculos/$idVinculo", data: data, options: _authorizedOptions());
+    await _dio.put("registro/vinculos/$idVinculo",
+        data: data, options: _authorizedOptions());
   }
 
   Future<void> unlinkTutorPatient({required int idVinculo}) async {
-    await _dio.delete("registro/vinculos/$idVinculo", options: _authorizedOptions());
+    await _dio.delete("registro/vinculos/$idVinculo",
+        options: _authorizedOptions());
   }
 
   // --- RECETAS, INGREDIENTES Y CATÁLOGOS ---
@@ -332,27 +395,38 @@ class SupabaseCrudRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
-    final response = await _dio.get("ingredientes", options: _authorizedOptions());
+    final response =
+        await _dio.get("ingredientes", options: _authorizedOptions());
     return _toRows(response.data);
   }
 
-  Future<List<Map<String, dynamic>>> fetchCatalog(String schema, String table) async {
-    final response = await _dio.get("crud/catalog", queryParameters: {"schema": schema, "table": table}, options: _authorizedOptions());
+  Future<List<Map<String, dynamic>>> fetchCatalog(
+      String schema, String table) async {
+    final response = await _dio.get("crud/catalog",
+        queryParameters: {"schema": schema, "table": table},
+        options: _authorizedOptions());
     return _toRows(response.data);
   }
 
-  Future<List<Map<String, dynamic>>> searchPatients({required String query, int limit = 10}) async {
-    final resp = await _dio.get("pacientes-buscar", queryParameters: {"q": query, "limit": limit}, options: _authorizedOptions());
+  Future<List<Map<String, dynamic>>> searchPatients(
+      {required String query, int limit = 10}) async {
+    final resp = await _dio.get("pacientes-buscar",
+        queryParameters: {"q": query, "limit": limit},
+        options: _authorizedOptions());
     return _toRows(resp.data);
   }
 
-  Future<List<Map<String, dynamic>>> fetchPatientEvolutionSummary(String idPaciente) async {
-    final resp = await _dio.get("pacientes/$idPaciente/evolucion-resumen", options: _authorizedOptions());
+  Future<List<Map<String, dynamic>>> fetchPatientEvolutionSummary(
+      String idPaciente) async {
+    final resp = await _dio.get("pacientes/$idPaciente/evolucion-resumen",
+        options: _authorizedOptions());
     return _toRows(resp.data);
   }
 
-  Future<Map<String, dynamic>> fetchExpedienteCompleto(String idPaciente) async {
-    final resp = await _dio.get("pacientes/$idPaciente/expediente-completo", options: _authorizedOptions());
+  Future<Map<String, dynamic>> fetchExpedienteCompleto(
+      String idPaciente) async {
+    final resp = await _dio.get("pacientes/$idPaciente/expediente-completo",
+        options: _authorizedOptions());
     return Map<String, dynamic>.from(resp.data);
   }
 }

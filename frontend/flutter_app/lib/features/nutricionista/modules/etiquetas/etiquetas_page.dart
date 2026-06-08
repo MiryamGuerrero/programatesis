@@ -20,7 +20,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   bool _loading = false;
   String? _error;
   List<Map<String, dynamic>> _etiquetas = const [];
-  
+
   // Paginación
   int _currentPage = 0;
   final int _pageSize = 12;
@@ -39,7 +39,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
 
     try {
       final dio = ref.read(dioProvider);
-      final resp = await dio.get('nutricionista/etiquetas', queryParameters: {'q': _query});
+      final resp = await dio
+          .get('nutricionista/etiquetas', queryParameters: {'q': _query});
       if (!mounted) return;
       setState(() {
         _etiquetas = List<Map<String, dynamic>>.from(resp.data);
@@ -69,7 +70,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Eliminar Etiqueta?'),
-        content: Text('¿Estás seguro de que deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de todos los ingredientes y recetas.'),
+        content: Text(
+            '¿Estás seguro de que deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de todos los ingredientes y recetas.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -94,7 +96,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         }
       } catch (e) {
         if (mounted) {
-          NutriSnack.show(context, 'Error al eliminar la etiqueta', isError: true);
+          NutriSnack.show(context, 'Error al eliminar la etiqueta',
+              isError: true);
         }
       }
     }
@@ -105,8 +108,12 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     final filtered = _etiquetas;
     final totalPages = (filtered.length / _pageSize).ceil();
     final start = _currentPage * _pageSize;
-    final end = (start + _pageSize) > filtered.length ? filtered.length : (start + _pageSize);
-    final pageItems = filtered.isEmpty ? <Map<String, dynamic>>[] : filtered.sublist(start, end);
+    final end = (start + _pageSize) > filtered.length
+        ? filtered.length
+        : (start + _pageSize);
+    final pageItems = filtered.isEmpty
+        ? <Map<String, dynamic>>[]
+        : filtered.sublist(start, end);
 
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
@@ -144,29 +151,22 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
           children: [
             Text(
               'Gestión de Etiquetas',
-              style: GoogleFonts.quicksand(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTema.azulOscuro,
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5,
               ),
             ),
             Text(
               'Configura las etiquetas nutricionales y descriptivas para las recetas.',
-              style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade600),
+              style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
-        ),
-        const Spacer(),
-        ElevatedButton.icon(
-          onPressed: () => _abrirFormulario(),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('NUEVA ETIQUETA'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTema.azulPrincipal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
         ),
       ],
     );
@@ -177,7 +177,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'Total Etiquetas',
+            titulo: 'TOTAL ETIQUETAS',
             valor: _etiquetas.length.toString(),
             icon: Icons.label_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -188,41 +188,55 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   }
 
   Widget _buildToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
             child: TextField(
+              style:
+                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               onChanged: (v) {
                 _query = v;
                 _loadEtiquetas();
               },
               decoration: InputDecoration(
                 hintText: 'Buscar por nombre o código...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon:
+                    const Icon(Icons.search, size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          IconButton(
-            onPressed: _loadEtiquetas,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualizar',
+        ),
+        const SizedBox(width: 20),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _abrirFormulario(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
+            label: Text("NUEVA ETIQUETA",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.white)),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -243,7 +257,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
           etiqueta: item,
           onTap: () => _abrirFormulario(item),
           onEdit: () => _abrirFormulario(item),
-          onDelete: () => _deleteEtiqueta(item['id'], item['nombre_visible'] ?? 'Sin nombre'),
+          onDelete: () => _deleteEtiqueta(
+              item['id'], item['nombre_visible'] ?? 'Sin nombre'),
         );
       },
     );
@@ -256,12 +271,15 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
+            onPressed:
+                _currentPage > 0 ? () => setState(() => _currentPage--) : null,
             icon: const Icon(Icons.chevron_left_rounded),
           ),
           Text('Página ${_currentPage + 1} de $totalPages'),
           IconButton(
-            onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+            onPressed: _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
             icon: const Icon(Icons.chevron_right_rounded),
           ),
         ],
@@ -276,7 +294,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
           const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red),
           const SizedBox(height: 16),
           Text('Error: $_error'),
-          TextButton(onPressed: _loadEtiquetas, child: const Text('Reintentar')),
+          TextButton(
+              onPressed: _loadEtiquetas, child: const Text('Reintentar')),
         ],
       ),
     );
@@ -288,7 +307,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         children: [
           Icon(Icons.label_off_rounded, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text('No se encontraron etiquetas.', style: TextStyle(color: Colors.grey.shade600)),
+          Text('No se encontraron etiquetas.',
+              style: TextStyle(color: Colors.grey.shade600)),
         ],
       ),
     );

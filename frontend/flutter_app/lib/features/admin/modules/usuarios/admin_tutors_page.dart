@@ -20,7 +20,10 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
     final roleCode = user["rol_codigo"]?.toString().toLowerCase().trim() ?? "";
     final roleName = user["rol_nombre"]?.toString().toLowerCase().trim() ?? "";
     final roleId = user["id_rol"]?.toString().trim() ?? "";
-    return roleCode == "tutor" || roleCode.contains("tutor") || roleName.contains("tutor") || roleId == "4";
+    return roleCode == "tutor" ||
+        roleCode.contains("tutor") ||
+        roleName.contains("tutor") ||
+        roleId == "4";
   }
 
   @override
@@ -34,7 +37,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
           final tutors = users.where(_isTutor).toList();
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -44,20 +48,24 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                   children: [
                     Expanded(
                       child: Container(
-                        height: 55,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.grey.shade200),
                         ),
                         child: TextField(
-                          style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                          style: GoogleFonts.inter(
+                              fontSize: 14, fontWeight: FontWeight.w500),
                           decoration: InputDecoration(
                             hintText: "Buscar por nombre o correo...",
-                            hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                            prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                            hintStyle: GoogleFonts.inter(
+                                color: Colors.grey.shade400, fontSize: 13),
+                            prefixIcon: const Icon(Icons.search,
+                                size: 20, color: Colors.grey),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
                           ),
                           onChanged: (v) => setState(() => _searchQuery = v),
                         ),
@@ -65,17 +73,22 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                     ),
                     const SizedBox(width: 20),
                     SizedBox(
-                      height: 55,
+                      height: 48,
                       child: FilledButton.icon(
                         onPressed: () => _dialogoInvitacion(),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTema.verdeSalud,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                         ),
-                        icon: const Icon(Icons.person_add_alt_1_rounded, size: 20, color: Colors.white),
-                        label: Text("INVITAR TUTOR", 
-                          style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                        icon: const Icon(Icons.add_circle,
+                            size: 20, color: Colors.white),
+                        label: Text("INVITAR TUTOR",
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: Colors.white)),
                       ),
                     ),
                   ],
@@ -86,7 +99,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             ),
           );
         },
-        loading: () => const NutriLoading(mensaje: "Cargando representantes..."),
+        loading: () =>
+            const NutriLoading(mensaje: "Cargando representantes..."),
         error: (e, _) => Center(child: Text("Error al cargar tutores: $e")),
       ),
     );
@@ -102,14 +116,22 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Gestión de Cuentas: Tutores", 
-                  style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-                Text("Supervisión de accesos para representantes y padres.", 
-                  style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text("Gestión de Cuentas: Tutores",
+                    style: GoogleFonts.montserrat(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulPrincipal,
+                        letterSpacing: -0.5)),
+                Text("Supervisión de accesos para representantes y padres.",
+                    style: GoogleFonts.montserrat(
+                        color: Colors.blueGrey,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
               ],
             ),
             IconButton(
-              icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), 
+              icon:
+                  const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal),
               onPressed: () => ref.invalidate(usersListProvider),
               tooltip: "Sincronizar",
             ),
@@ -132,15 +154,25 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           titlePadding: EdgeInsets.zero,
           title: Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+            decoration: const BoxDecoration(
+                color: AppTema.azulPrincipal,
+                borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24))),
             child: Row(children: [
-              const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 22),
+              const Icon(Icons.person_add_alt_1_rounded,
+                  color: Colors.white, size: 22),
               const SizedBox(width: 12),
-              Text("Invitar Nuevo Tutor", style: GoogleFonts.montserrat(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              Text("Invitar Nuevo Tutor",
+                  style: GoogleFonts.montserrat(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold)),
             ]),
           ),
           content: SizedBox(
@@ -150,25 +182,46 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               children: [
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombres", prefixIcon: Icon(Icons.person_outline, size: 18)))),
+                  Expanded(
+                      child: TextField(
+                          controller: nombreCtrl,
+                          decoration: const InputDecoration(
+                              labelText: "Nombres",
+                              prefixIcon:
+                                  Icon(Icons.person_outline, size: 18)))),
                   const SizedBox(width: 12),
-                  Expanded(child: TextField(controller: apellidosCtrl, decoration: const InputDecoration(labelText: "Apellidos", prefixIcon: Icon(Icons.person_outline, size: 18)))),
+                  Expanded(
+                      child: TextField(
+                          controller: apellidosCtrl,
+                          decoration: const InputDecoration(
+                              labelText: "Apellidos",
+                              prefixIcon:
+                                  Icon(Icons.person_outline, size: 18)))),
                 ]),
                 const SizedBox(height: 12),
-                TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Correo Electrónico", prefixIcon: Icon(Icons.alternate_email, size: 18))),
+                TextField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(
+                        labelText: "Correo Electrónico",
+                        prefixIcon: Icon(Icons.alternate_email, size: 18))),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: passCtrl, 
-                  obscureText: obscurePass,
-                  decoration: InputDecoration(
-                    labelText: "Contraseña Temporal", 
-                    prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                    suffixIcon: IconButton(
-                      icon: Icon(obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppTema.azulPrincipal),
-                      onPressed: () => setDialogState(() => obscurePass = !obscurePass),
-                    ),
-                  )
-                ),
+                    controller: passCtrl,
+                    obscureText: obscurePass,
+                    decoration: InputDecoration(
+                      labelText: "Contraseña Temporal",
+                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                            obscurePass
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 18,
+                            color: AppTema.azulPrincipal),
+                        onPressed: () =>
+                            setDialogState(() => obscurePass = !obscurePass),
+                      ),
+                    )),
                 const SizedBox(height: 16),
               ],
             ),
@@ -179,33 +232,49 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(context), 
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16), side: const BorderSide(color: Colors.grey)),
-                  child: Text("CANCELAR", style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold))
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        side: const BorderSide(color: Colors.grey)),
+                    child: Text("CANCELAR",
+                        style: GoogleFonts.montserrat(
+                            color: Colors.grey,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold))),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTema.azulPrincipal, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTema.azulPrincipal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20)),
                   onPressed: () async {
-                    if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty || nombreCtrl.text.isEmpty) return;
+                    if (emailCtrl.text.isEmpty ||
+                        passCtrl.text.isEmpty ||
+                        nombreCtrl.text.isEmpty) return;
                     try {
                       final repo = ref.read(supabaseCrudRepositoryProvider);
                       await repo.createUser(
                         email: emailCtrl.text,
-                        nombreCompleto: "${nombreCtrl.text.trim()} ${apellidosCtrl.text.trim()}",
-                        idRol: 4, 
+                        nombreCompleto:
+                            "${nombreCtrl.text.trim()} ${apellidosCtrl.text.trim()}",
+                        idRol: 4,
                         password: passCtrl.text,
                       );
                       ref.invalidate(usersListProvider);
                       if (mounted) {
                         Navigator.pop(context);
-                        NutriSnack.show(context, "Tutor invitado con éxito", ref: ref);
+                        NutriSnack.show(context, "Tutor invitado con éxito",
+                            ref: ref);
                       }
                     } catch (e) {
-                      if (mounted) NutriSnack.show(context, "Error al invitar tutor", isError: true, ref: ref);
+                      if (mounted)
+                        NutriSnack.show(context, "Error al invitar tutor",
+                            isError: true, ref: ref);
                     }
                   },
-                  child: Text("ENVIAR ACCESO", style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold)),
+                  child: Text("ENVIAR ACCESO",
+                      style: GoogleFonts.montserrat(
+                          fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -225,7 +294,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
 
     return Theme(
       data: Theme.of(context).copyWith(
-        cardTheme: const CardThemeData(elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+        cardTheme: const CardThemeData(
+            elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
       ),
       child: PaginatedDataTable(
         header: null,
@@ -233,11 +303,36 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         showFirstLastButtons: true,
         headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
         columns: [
-          DataColumn(label: Text("USUARIO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-          DataColumn(label: Text("NOMBRE", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-          DataColumn(label: Text("CORREO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-          DataColumn(label: Text("ESTADO", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
-          DataColumn(label: Text("GESTIÓN", style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12, color: AppTema.azulOscuro))),
+          DataColumn(
+              label: Text("USUARIO",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTema.azulOscuro))),
+          DataColumn(
+              label: Text("NOMBRE",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTema.azulOscuro))),
+          DataColumn(
+              label: Text("CORREO",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTema.azulOscuro))),
+          DataColumn(
+              label: Text("ESTADO",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTema.azulOscuro))),
+          DataColumn(
+              label: Text("GESTIÓN",
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTema.azulOscuro))),
         ],
         source: _TutorsDataSource(
           tutors: filtered,
@@ -273,23 +368,57 @@ class _TutorsDataSource extends DataTableSource {
         children: [
           NutriAvatar(nombreCompleto: nombre, radio: 16),
           const SizedBox(width: 12),
-          Text(username, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700)),
+          Text(username,
+              style: GoogleFonts.lato(
+                  fontSize: 13,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w700)),
         ],
       )),
-      DataCell(Text(nombre, style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
-      DataCell(Text(u["email"] ?? "-", style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
-      DataCell(NutriBadge(label: (u["activo"] ?? true) ? "ACTIVO" : "INACTIVO", type: (u["activo"] ?? true) ? "success" : "danger")),
+      DataCell(Text(nombre,
+          style: GoogleFonts.lato(
+              fontSize: 13,
+              color: const Color(0xFF1E293B),
+              fontWeight: FontWeight.w600))),
+      DataCell(Text(u["email"] ?? "-",
+          style: GoogleFonts.lato(
+              fontSize: 13,
+              color: const Color(0xFF1E293B),
+              fontWeight: FontWeight.w600))),
+      DataCell(NutriBadge(
+          label: (u["activo"] ?? true) ? "ACTIVO" : "INACTIVO",
+          type: (u["activo"] ?? true) ? "success" : "danger")),
       DataCell(Row(children: [
-        Tooltip(message: "Enviar Reseteo de Contraseña", child: IconButton(icon: const Icon(Icons.lock_reset_rounded, size: 18, color: Colors.orange), onPressed: () => NutriSnack.show(context, "Correo de reseteo enviado", ref: ref))),
-        Tooltip(message: "Suspender Cuenta", child: IconButton(
-          icon: Icon((u["activo"] ?? true) ? Icons.person_off_outlined : Icons.person_add_alt_1_outlined, size: 18, color: (u["activo"] ?? true) ? Colors.redAccent : Colors.green), 
-          onPressed: () async {
-            final nuevo = !(u["activo"] ?? true);
-            await ref.read(supabaseCrudRepositoryProvider).updateUser(userId: u["id"], activo: nuevo);
-            ref.invalidate(usersListProvider);
-            if (context.mounted) NutriSnack.show(context, nuevo ? "Acceso habilitado" : "Acceso suspendido", ref: ref);
-          }
-        )),
+        Tooltip(
+            message: "Enviar Reseteo de Contraseña",
+            child: IconButton(
+                icon: const Icon(Icons.lock_reset_rounded,
+                    size: 18, color: Colors.orange),
+                onPressed: () => NutriSnack.show(
+                    context, "Correo de reseteo enviado",
+                    ref: ref))),
+        Tooltip(
+            message: "Suspender Cuenta",
+            child: IconButton(
+                icon: Icon(
+                    (u["activo"] ?? true)
+                        ? Icons.person_off_outlined
+                        : Icons.person_add_alt_1_outlined,
+                    size: 18,
+                    color: (u["activo"] ?? true)
+                        ? Colors.redAccent
+                        : Colors.green),
+                onPressed: () async {
+                  final nuevo = !(u["activo"] ?? true);
+                  await ref
+                      .read(supabaseCrudRepositoryProvider)
+                      .updateUser(userId: u["id"], activo: nuevo);
+                  ref.invalidate(usersListProvider);
+                  if (context.mounted)
+                    NutriSnack.show(context,
+                        nuevo ? "Acceso habilitado" : "Acceso suspendido",
+                        ref: ref);
+                })),
       ])),
     ]);
   }

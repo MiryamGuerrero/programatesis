@@ -20,10 +20,11 @@ class EtiquetaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String nombre = etiqueta['nombre_visible'] ?? 'Sin nombre';
-    final String descripcion = etiqueta['descripcion'] ?? 'Sin descripción disponible.';
+    final String descripcion =
+        etiqueta['descripcion'] ?? 'Sin descripción disponible.';
     final String ingredientes = etiqueta['ingredientes'] ?? '';
     final String fechaRaw = etiqueta['created_at'] ?? '';
-    
+
     String fechaFormateada = 'Fecha desconocida';
     if (fechaRaw.isNotEmpty) {
       try {
@@ -61,7 +62,8 @@ class EtiquetaCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.label_outline_rounded, color: AppTema.azulPrincipal, size: 20),
+                  const Icon(Icons.label_outline_rounded,
+                      color: AppTema.azulPrincipal, size: 20),
                 ],
               ),
               const SizedBox(height: 12),
@@ -106,7 +108,8 @@ class EtiquetaCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey.shade400),
+                      Icon(Icons.calendar_today_outlined,
+                          size: 14, color: Colors.grey.shade400),
                       const SizedBox(width: 6),
                       Text(
                         fechaFormateada,
@@ -122,7 +125,8 @@ class EtiquetaCard extends StatelessWidget {
                     children: [
                       if (onDelete != null)
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.redAccent),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              size: 20, color: Colors.redAccent),
                           onPressed: onDelete,
                           tooltip: 'Eliminar etiqueta',
                           padding: EdgeInsets.zero,
@@ -137,7 +141,8 @@ class EtiquetaCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                           child: const Padding(
                             padding: EdgeInsets.all(6.0),
-                            child: Icon(Icons.edit_note_rounded, size: 18, color: AppTema.azulPrincipal),
+                            child: Icon(Icons.edit_note_rounded,
+                                size: 18, color: AppTema.azulPrincipal),
                           ),
                         ),
                       ),

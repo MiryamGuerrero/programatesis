@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
 
-
 class RegistroClinicoPage extends StatelessWidget {
   const RegistroClinicoPage({super.key});
 
@@ -22,7 +21,7 @@ class FormEditarControlClinicoPaciente extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text("Formulario de Control Clínico (En desarrollo)"));
+    return const Center(
+        child: Text("Formulario de Control Clínico (En desarrollo)"));
   }
 }
-

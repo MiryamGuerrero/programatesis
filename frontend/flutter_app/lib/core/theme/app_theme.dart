@@ -7,7 +7,7 @@ class AppTema {
   static const Color verdeSalud = Color(0xFF70A81C);
   static const Color azulOscuro = Color(0xFF005686);
   static const Color grisFondo = Color(0xFFF8FAFC);
-  
+
   // PALETA DE APOYO Y COMPATIBILIDAD
   static const Color grisLienzo = Color(0xFFF8FAFC);
   static const Color pastelCeleste = Color(0xFFE0F2FE);
@@ -39,18 +39,24 @@ class AppTema {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: grisLienzo,
-      
+
       // TIPOGRAFÍA ESTÁNDAR M3
       textTheme: baseTextTheme.copyWith(
         displayLarge: headlineTheme.displayLarge,
         displayMedium: headlineTheme.displayMedium,
         displaySmall: headlineTheme.displaySmall,
-        headlineLarge: headlineTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
-        headlineMedium: headlineTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-        headlineSmall: headlineTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        titleLarge: headlineTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-        titleMedium: headlineTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-        titleSmall: headlineTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        headlineLarge:
+            headlineTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+        headlineMedium:
+            headlineTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+        headlineSmall:
+            headlineTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        titleLarge:
+            headlineTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        titleMedium:
+            headlineTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        titleSmall:
+            headlineTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
       ),
 
       // BOTONES ESTILO M3 (Pill-shaped)
@@ -58,7 +64,8 @@ class AppTema {
         style: FilledButton.styleFrom(
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-          textStyle: headlineTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
+          textStyle: headlineTheme.labelLarge
+              ?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -66,7 +73,8 @@ class AppTema {
           elevation: 2,
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-          textStyle: headlineTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
+          textStyle: headlineTheme.labelLarge
+              ?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -74,7 +82,8 @@ class AppTema {
           shape: const StadiumBorder(),
           side: BorderSide(color: colorScheme.outline),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-          textStyle: headlineTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 16, color: azulPrincipal),
+          textStyle: headlineTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold, fontSize: 16, color: azulPrincipal),
         ),
       ),
 
@@ -119,7 +128,8 @@ class AppTema {
           borderRadius: BorderRadius.circular(28),
           borderSide: const BorderSide(color: azulPrincipal, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
       ),
 
@@ -129,9 +139,11 @@ class AppTema {
         indicatorColor: azulPrincipal.withOpacity(0.1),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return headlineTheme.labelMedium?.copyWith(color: azulPrincipal, fontWeight: FontWeight.bold);
+            return headlineTheme.labelMedium
+                ?.copyWith(color: azulPrincipal, fontWeight: FontWeight.bold);
           }
-          return headlineTheme.labelMedium?.copyWith(color: const Color(0xFF64748B));
+          return headlineTheme.labelMedium
+              ?.copyWith(color: const Color(0xFF64748B));
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {

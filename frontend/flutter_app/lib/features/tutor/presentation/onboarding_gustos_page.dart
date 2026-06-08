@@ -9,13 +9,14 @@ class OnboardingGustosPage extends ConsumerStatefulWidget {
   final VoidCallback onCompletado;
 
   const OnboardingGustosPage({
-    super.key, 
+    super.key,
     required this.idPaciente,
     required this.onCompletado,
   });
 
   @override
-  ConsumerState<OnboardingGustosPage> createState() => _OnboardingGustosPageState();
+  ConsumerState<OnboardingGustosPage> createState() =>
+      _OnboardingGustosPageState();
 }
 
 class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
@@ -33,9 +34,10 @@ class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
   Future<void> _cargarSubgrupos() async {
     try {
       final dio = ref.read(dioProvider);
-      final resp = await dio.get('tutor/subgrupos-preferencia/${widget.idPaciente}');
+      final resp =
+          await dio.get('tutor/subgrupos-preferencia/${widget.idPaciente}');
       final List<dynamic> data = resp.data;
-      
+
       setState(() {
         _subgrupos = List<Map<String, dynamic>>.from(data);
         // Inicializar seleccionados si ya hay (por si se re-abre)
@@ -55,7 +57,8 @@ class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
   Future<void> _guardar() async {
     if (_seleccionados.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor selecciona al menos una preferencia")),
+        const SnackBar(
+            content: Text("Por favor selecciona al menos una preferencia")),
       );
       return;
     }
@@ -87,115 +90,138 @@ class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Gustos y Preferencias",
-                        style: GoogleFonts.montserrat(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: AppTema.azulOscuro,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        "Selecciona los grupos de alimentos que más le gustan al paciente. Esto nos ayudará a sugerir mejores recetas.",
-                        style: theme.textTheme.bodyLarge?.copyWith(color: Colors.blueGrey, height: 1.5),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 2.5,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: _subgrupos.length,
-                    itemBuilder: (context, index) {
-                      final s = _subgrupos[index];
-                      final id = s['id'] as int;
-                      final bool isSelected = _seleccionados.contains(id);
-
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) _seleccionados.remove(id);
-                            else _seleccionados.add(id);
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: isSelected ? colorScheme.primary : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected ? colorScheme.primary : const Color(0xFFF1F5F9),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              if (isSelected)
-                                BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))
-                              else
-                                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                            ],
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Gustos y Preferencias",
+                          style: GoogleFonts.montserrat(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppTema.azulOscuro,
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                s['emoji'] ?? "🍲",
-                                style: const TextStyle(fontSize: 28),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "Selecciona los grupos de alimentos que más le gustan al paciente. Esto nos ayudará a sugerir mejores recetas.",
+                          style: theme.textTheme.bodyLarge
+                              ?.copyWith(color: Colors.blueGrey, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 2.5,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: _subgrupos.length,
+                      itemBuilder: (context, index) {
+                        final s = _subgrupos[index];
+                        final id = s['id'] as int;
+                        final bool isSelected = _seleccionados.contains(id);
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected)
+                                _seleccionados.remove(id);
+                              else
+                                _seleccionados.add(id);
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? colorScheme.primary
+                                    : const Color(0xFFF1F5F9),
+                                width: 2,
                               ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                child: Text(
-                                  s['nombre'],
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.montserrat(
-                                    fontSize: 12,
-                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                    color: isSelected ? Colors.white : AppTema.azulOscuro,
+                              boxShadow: [
+                                if (isSelected)
+                                  BoxShadow(
+                                      color:
+                                          colorScheme.primary.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4))
+                                else
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(0.02),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2)),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  s['emoji'] ?? "🍲",
+                                  style: const TextStyle(fontSize: 28),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0),
+                                  child: Text(
+                                    s['nombre'],
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppTema.azulOscuro,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: _isSaving ? null : _guardar,
-                      child: _isSaving 
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text("Finalizar Configuración", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        );
+                      },
                     ),
                   ),
-                ),
-              ],
-            ),
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: FilledButton(
+                        onPressed: _isSaving ? null : _guardar,
+                        child: _isSaving
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text("Finalizar Configuración",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

@@ -31,48 +31,53 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
         backgroundColor: theme.colorScheme.surface,
         appBar: _buildAppBar(context),
         body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeInOutCubic,
-        switchOutCurve: Curves.easeInOutCubic,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final int childIndex = (child.key as ValueKey<int>).value;
-          final bool isForward = _index >= _oldIndex;
-          
-          Offset beginOffset;
-          if (childIndex == _index) {
-            // El que entra
-            beginOffset = isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
-          } else {
-            // El que sale
-            beginOffset = isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
-          }
-          
-          return SlideTransition(
-            position: animation.drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
-            child: child,
-          );
-        },
-        child: Container(
-          key: ValueKey<int>(_index),
-          child: modules[_index].builder(),
+          duration: const Duration(milliseconds: 400),
+          switchInCurve: Curves.easeInOutCubic,
+          switchOutCurve: Curves.easeInOutCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final int childIndex = (child.key as ValueKey<int>).value;
+            final bool isForward = _index >= _oldIndex;
+
+            Offset beginOffset;
+            if (childIndex == _index) {
+              // El que entra
+              beginOffset =
+                  isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
+            } else {
+              // El que sale
+              beginOffset =
+                  isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
+            }
+
+            return SlideTransition(
+              position: animation
+                  .drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
+              child: child,
+            );
+          },
+          child: Container(
+            key: ValueKey<int>(_index),
+            child: modules[_index].builder(),
+          ),
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) {
+            if (i != _index) {
+              setState(() {
+                _oldIndex = _index;
+                _index = i;
+              });
+            }
+          },
+          destinations: modules
+              .map((m) => NavigationDestination(
+                    icon: Icon(m.icon),
+                    label: m.title,
+                  ))
+              .toList(),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
-          if (i != _index) {
-            setState(() {
-              _oldIndex = _index;
-              _index = i;
-            });
-          }
-        },
-        destinations: modules.map((m) => NavigationDestination(
-          icon: Icon(m.icon),
-          label: m.title,
-        )).toList(),
-      ),
-    ),
     );
   }
 
@@ -96,15 +101,20 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
               color: brandBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.health_and_safety_outlined, color: brandBlue, size: 20),
+            child: Icon(Icons.health_and_safety_outlined,
+                color: brandBlue, size: 20),
           ),
           const SizedBox(width: 12),
           RichText(
             text: TextSpan(
-              style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+              style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5),
               children: [
                 TextSpan(text: "Nutri", style: TextStyle(color: brandBlue)),
-                const TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
+                const TextSpan(
+                    text: "Reuma", style: TextStyle(color: brandGreen)),
               ],
             ),
           ),

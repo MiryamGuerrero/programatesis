@@ -51,7 +51,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
 
       ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.none;
       setState(() {
-        _success = "Contrasena configurada correctamente. Ya puedes usar tu cuenta.";
+        _success =
+            "Contrasena configurada correctamente. Ya puedes usar tu cuenta.";
       });
     } on AuthException catch (error) {
       if (!mounted) {
@@ -164,7 +165,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text("Guardar contrasena"),
                       ),

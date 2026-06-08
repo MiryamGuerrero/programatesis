@@ -28,12 +28,12 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   List<Map<String, dynamic>> _tiposPlato = const [];
   int? _momentoSeleccionado;
   int? _tipoPlatoSeleccionado;
-  
+
   // Estados de navegación interna
   Map<String, dynamic>? _selectedReceta;
   bool _isEditing = false;
   Map<String, dynamic>? _recetaParaEditar;
-  
+
   // Paginación
   int _currentPage = 0;
   final int _pageSize = 12; // 3 columnas * 4 filas
@@ -93,7 +93,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         _isEditing = true;
       });
     } catch (e) {
-      NutriSnack.show(context, 'Error al cargar detalle para editar', isError: true);
+      NutriSnack.show(context, 'Error al cargar detalle para editar',
+          isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -137,15 +138,20 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       final coincideMomento = _momentoSeleccionado == null ||
           _contieneId(row, ["momentos_ids", "momentos"], _momentoSeleccionado!);
       final coincideTipoPlato = _tipoPlatoSeleccionado == null ||
-          _contieneId(row, ["tipos_plato_ids", "tipos_plato"], _tipoPlatoSeleccionado!);
+          _contieneId(
+              row, ["tipos_plato_ids", "tipos_plato"], _tipoPlatoSeleccionado!);
       return coincideBusqueda && coincideMomento && coincideTipoPlato;
     }).toList();
 
     final totalItems = filteredRecetas.length;
     final totalPages = (totalItems / _pageSize).ceil();
     final startIndex = _currentPage * _pageSize;
-    final endIndex = (startIndex + _pageSize < totalItems) ? startIndex + _pageSize : totalItems;
-    final visibleRecetas = (startIndex < totalItems) ? filteredRecetas.sublist(startIndex, endIndex) : <Map<String, dynamic>>[];
+    final endIndex = (startIndex + _pageSize < totalItems)
+        ? startIndex + _pageSize
+        : totalItems;
+    final visibleRecetas = (startIndex < totalItems)
+        ? filteredRecetas.sublist(startIndex, endIndex)
+        : <Map<String, dynamic>>[];
 
     return Stack(
       children: [
@@ -155,7 +161,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40.0, vertical: 32.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -166,7 +173,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                       _buildToolbar(),
                       if (_error != null) ...[
                         const SizedBox(height: 16),
-                        Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        Text(_error!,
+                            style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold)),
                       ],
                       const SizedBox(height: 32),
                       _buildGrid(visibleRecetas),
@@ -211,14 +221,22 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Recetario Terapéutico", 
-              style: GoogleFonts.montserrat(fontSize: 26, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-            Text("Administración de preparaciones y composición nutricional por plato.", 
-              style: GoogleFonts.montserrat(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+            Text("Recetario Terapéutico",
+                style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            Text(
+                "Administración de preparaciones y composición nutricional por plato.",
+                style: GoogleFonts.inter(
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
         IconButton(
-          icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal), 
+          icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal),
           onPressed: _loadRecetas,
           tooltip: "Refrescar datos",
         ),
@@ -231,11 +249,25 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     final inactivas = _recetas.length - activas;
     return Row(
       children: [
-        Expanded(child: NutriResumenCard(titulo: "TOTAL RECETAS", valor: "${_recetas.length}", icon: Icons.menu_book_rounded)),
+        Expanded(
+            child: NutriResumenCard(
+                titulo: "TOTAL RECETAS",
+                valor: "${_recetas.length}",
+                icon: Icons.menu_book_rounded)),
         const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "VISIBLES", valor: "$visibles", colorValor: AppTema.verdeSalud, icon: Icons.filter_list_rounded)),
+        Expanded(
+            child: NutriResumenCard(
+                titulo: "VISIBLES",
+                valor: "$visibles",
+                colorValor: AppTema.verdeSalud,
+                icon: Icons.filter_list_rounded)),
         const SizedBox(width: 20),
-        Expanded(child: NutriResumenCard(titulo: "ACTIVAS", valor: "$activas / $inactivas", colorValor: AppTema.azulOscuro, icon: Icons.check_circle_outline)),
+        Expanded(
+            child: NutriResumenCard(
+                titulo: "ACTIVAS",
+                valor: "$activas / $inactivas",
+                colorValor: AppTema.azulOscuro,
+                icon: Icons.check_circle_outline)),
       ],
     );
   }
@@ -251,21 +283,24 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
           children: [
             Expanded(
               child: Container(
-                height: 55,
+                height: 48,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: "Buscar por nombre, momento o tipo de plato...",
-                    hintStyle: GoogleFonts.montserrat(color: Colors.grey.shade400, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTema.azulPrincipal),
+                    hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon:
+                        const Icon(Icons.search, size: 20, color: Colors.grey),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onChanged: (v) => setState(() {
                     _query = v;
@@ -276,7 +311,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             ),
             const SizedBox(width: 20),
             SizedBox(
-              height: 55,
+              height: 48,
               child: FilledButton.icon(
                 onPressed: () => setState(() {
                   _isEditing = true;
@@ -284,12 +319,17 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 }),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTema.verdeSalud,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                 ),
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-                label: Text("NUEVA RECETA", 
-                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+                icon:
+                    const Icon(Icons.add_circle, size: 20, color: Colors.white),
+                label: Text("NUEVA RECETA",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Colors.white)),
               ),
             ),
           ],
@@ -336,14 +376,16 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                         })
                     : null,
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   side: BorderSide(color: Colors.grey.shade200),
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                 ),
                 icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
                 label: Text(
                   "LIMPIAR",
-                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 12),
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
             ),
@@ -372,7 +414,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         child: DropdownButton<int?>(
           value: value,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTema.azulPrincipal),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppTema.azulPrincipal),
           hint: Row(
             children: [
               Icon(icon, size: 20, color: AppTema.azulPrincipal),
@@ -392,7 +435,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               value: null,
               child: Text(
                 "Todos",
-                style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                style: GoogleFonts.montserrat(
+                    fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
             ...items.where((item) => _asInt(item["id"]) != null).map((item) {
@@ -401,7 +445,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 value: id,
                 child: Text(
                   item["nombre"]?.toString() ?? "Sin nombre",
-                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.montserrat(
+                      fontSize: 13, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               );
@@ -512,7 +557,9 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               const SizedBox(width: 12),
               _buildNavButton(
                 Icons.chevron_right_rounded,
-                _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null,
+                _currentPage < totalPages - 1
+                    ? () => setState(() => _currentPage++)
+                    : null,
               ),
             ],
           ),
@@ -527,11 +574,13 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       decoration: BoxDecoration(
         color: disabled ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: disabled ? Colors.grey.shade100 : const Color(0xFFF1F5F9)),
+        border: Border.all(
+            color: disabled ? Colors.grey.shade100 : const Color(0xFFF1F5F9)),
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: Icon(icon, color: disabled ? Colors.grey.shade300 : AppTema.azulPrincipal),
+        icon: Icon(icon,
+            color: disabled ? Colors.grey.shade300 : AppTema.azulPrincipal),
       ),
     );
   }
@@ -581,4 +630,3 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     return null;
   }
 }
-

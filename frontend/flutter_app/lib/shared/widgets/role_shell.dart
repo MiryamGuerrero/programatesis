@@ -34,9 +34,12 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   String _obtenerIniciales(String nombre) {
     try {
       List<String> partes = nombre.trim().split(" ");
-      if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+      if (partes.length >= 2)
+        return (partes[0][0] + partes[1][0]).toUpperCase();
       return (partes[0].isNotEmpty ? partes[0][0] : "U").toUpperCase();
-    } catch (_) { return "U"; }
+    } catch (_) {
+      return "U";
+    }
   }
 
   @override
@@ -55,21 +58,22 @@ class _RoleShellState extends ConsumerState<RoleShell> {
         if (email.isNotEmpty) return email.split("@").first;
         return d["nombre_completo"]?.toString() ?? "Usuario";
       },
-      orElse: () => session?.user.email?.split("@")[0] ??
-                     session?.user.userMetadata?["username"] ??
-                     "Usuario",
+      orElse: () =>
+          session?.user.email?.split("@")[0] ??
+          session?.user.userMetadata?["username"] ??
+          "Usuario",
     );
 
     final String nombreRol = perfilAsync.maybeWhen(
       data: (d) => d["rol_nombre"]?.toString() ?? widget.role.label,
       orElse: () => widget.role.label,
     );
-    
+
     final String iniciales = _obtenerIniciales(nombreUsuario);
     final isWide = MediaQuery.of(context).size.width >= 1024;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), 
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Column(
         children: [
           _buildGlobalHeader(nombreUsuario, nombreRol, iniciales, isWide),
@@ -101,16 +105,20 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 height: 80,
                 iconTheme: WidgetStateProperty.resolveWith((states) {
                   if (states.contains(WidgetState.selected)) {
-                    return const IconThemeData(color: Color(0xFF0171BB), size: 24);
+                    return const IconThemeData(
+                        color: Color(0xFF0171BB), size: 24);
                   }
-                  return const IconThemeData(color: Color(0xFF64748B), size: 24);
+                  return const IconThemeData(
+                      color: Color(0xFF64748B), size: 24);
                 }),
                 labelTextStyle: WidgetStateProperty.resolveWith((states) {
                   final isSelected = states.contains(WidgetState.selected);
                   return TextStyle(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? const Color(0xFF0171BB) : const Color(0xFF64748B),
+                    color: isSelected
+                        ? const Color(0xFF0171BB)
+                        : const Color(0xFF64748B),
                   );
                 }),
               ),
@@ -133,7 +141,8 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     );
   }
 
-  Widget _buildGlobalHeader(String nombre, String nombreRol, String iniciales, bool isWide) {
+  Widget _buildGlobalHeader(
+      String nombre, String nombreRol, String iniciales, bool isWide) {
     const Color brandBlue = Color(0xFF0068B7);
     const Color brandGreen = Color(0xFF58A932);
 
@@ -150,20 +159,28 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: brandBlue, size: 28),
-                  onPressed: () => setState(() => _isMenuExpanded = !_isMenuExpanded),
+                  icon: const Icon(Icons.menu_rounded,
+                      color: brandBlue, size: 28),
+                  onPressed: () =>
+                      setState(() => _isMenuExpanded = !_isMenuExpanded),
                 ),
                 const SizedBox(width: 8),
-                Image.asset("assets/images/logo sin.png", width: 32, height: 32),
+                Image.asset("assets/images/logo sin.png",
+                    width: 32, height: 32),
                 const SizedBox(width: 8),
                 Expanded(
                   child: RichText(
                     overflow: TextOverflow.clip,
                     text: TextSpan(
-                      style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                      style: GoogleFonts.montserrat(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5),
                       children: const [
-                        TextSpan(text: "Nutri", style: TextStyle(color: brandBlue)),
-                        TextSpan(text: "Reuma", style: TextStyle(color: brandGreen)),
+                        TextSpan(
+                            text: "Nutri", style: TextStyle(color: brandBlue)),
+                        TextSpan(
+                            text: "Reuma", style: TextStyle(color: brandGreen)),
                       ],
                     ),
                   ),
@@ -178,15 +195,27 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(nombre, style: GoogleFonts.montserrat(color: const Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w700)),
-              Text(nombreRol.toUpperCase(), style: GoogleFonts.montserrat(color: brandGreen, fontSize: 10, fontWeight: FontWeight.w800)),
+              Text(nombre,
+                  style: GoogleFonts.montserrat(
+                      color: const Color(0xFF1E293B),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+              Text(nombreRol.toUpperCase(),
+                  style: GoogleFonts.montserrat(
+                      color: brandGreen,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800)),
             ],
           ),
           const SizedBox(width: 12),
           CircleAvatar(
             radius: 19,
             backgroundColor: brandBlue.withOpacity(0.08),
-            child: Text(iniciales, style: const TextStyle(color: brandBlue, fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(iniciales,
+                style: const TextStyle(
+                    color: brandBlue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12)),
           ),
           const SizedBox(width: 24),
           _HoverSignOutButton(
@@ -200,7 +229,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   }
 
   Widget _buildSidebar(List<RoleModule> modules) {
-    const Color companyBlue = Color(0xFF0068B7); 
+    const Color companyBlue = Color(0xFF0068B7);
     const Color selectionGreen = Color(0xFF58A932);
 
     return AnimatedContainer(
@@ -219,10 +248,14 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 return InkWell(
                   onTap: () => setState(() => _index = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
                     decoration: BoxDecoration(
                       color: active ? selectionGreen : Colors.transparent,
-                      border: active ? const Border(left: BorderSide(color: Colors.white, width: 4)) : null,
+                      border: active
+                          ? const Border(
+                              left: BorderSide(color: Colors.white, width: 4))
+                          : null,
                     ),
                     child: Row(
                       children: [
@@ -231,8 +264,13 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              modules[i].title, 
-                              style: GoogleFonts.montserrat(color: Colors.white, fontWeight: active ? FontWeight.w700 : FontWeight.w500, fontSize: 13),
+                              modules[i].title,
+                              style: GoogleFonts.montserrat(
+                                  color: Colors.white,
+                                  fontWeight: active
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  fontSize: 13),
                               softWrap: false,
                             ),
                           ),
@@ -250,15 +288,19 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16.0),
-              child: _isMenuExpanded 
-                ? Text(
-                    "REUMANUTRI V1.0", 
-                    style: GoogleFonts.montserrat(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    softWrap: false,
-                  )
-                : const SizedBox.shrink(),
+              child: _isMenuExpanded
+                  ? Text(
+                      "REUMANUTRI V1.0",
+                      style: GoogleFonts.montserrat(
+                          color: Colors.white24,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1),
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      softWrap: false,
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
         ],
@@ -270,7 +312,8 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     setState(() => _signingOut = true);
     await Supabase.instance.client.auth.signOut();
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginPage()), (_) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginPage()), (_) => false);
     }
   }
 }
@@ -283,22 +326,29 @@ class _NotificationBell extends ConsumerWidget {
     final notifications = ref.watch(notificationProvider);
     final unreadCount = ref.read(notificationProvider.notifier).unreadCount;
 
-    return unreadCount > 0 ? Badge(
-      label: Text(unreadCount.toString()),
-      child: _buildBellIcon(),
-    ) : _buildBellIcon();
+    return unreadCount > 0
+        ? Badge(
+            label: Text(unreadCount.toString()),
+            child: _buildBellIcon(),
+          )
+        : _buildBellIcon();
   }
 
   Widget _buildBellIcon() {
     return PopupMenuButton<void>(
       offset: const Offset(0, 50),
-      icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 26),
+      icon: const Icon(Icons.notifications_none_rounded,
+          color: Color(0xFF64748B), size: 26),
       tooltip: "Notificaciones",
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       itemBuilder: (context) => [
         PopupMenuItem<void>(
           enabled: false,
-          child: Text("NOTIFICACIONES", style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 11, color: const Color(0xFF0068B7))),
+          child: Text("NOTIFICACIONES",
+              style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  color: const Color(0xFF0068B7))),
         ),
       ],
     );
@@ -320,7 +370,7 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
   @override
   Widget build(BuildContext context) {
     const Color brandBlue = Color(0xFF0068B7);
-    
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -337,24 +387,28 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: brandBlue, width: 2),
             ),
-            child: widget.isSigningOut 
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.power_settings_new_rounded, color: _isHovered ? brandBlue : Colors.white, size: 16),
-                    const SizedBox(width: 10),
-                    Text(
-                      "CERRAR SESIÓN", 
-                      style: GoogleFonts.montserrat(
-                        color: _isHovered ? brandBlue : Colors.white, 
-                        fontWeight: FontWeight.w800, 
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      )
-                    ),
-                  ],
-                ),
+            child: widget.isSigningOut
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.power_settings_new_rounded,
+                          color: _isHovered ? brandBlue : Colors.white,
+                          size: 16),
+                      const SizedBox(width: 10),
+                      Text("CERRAR SESIÓN",
+                          style: GoogleFonts.montserrat(
+                            color: _isHovered ? brandBlue : Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
+                          )),
+                    ],
+                  ),
           ),
         ),
       ),
