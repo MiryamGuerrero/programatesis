@@ -6120,7 +6120,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     );
   }
 
-  Widget _heatColumn(Map<String, dynamic> c) {
+  Widget _heatColumn(Map<String, dynamic> c, {required double width}) {
     final label = _monthShort(c['fecha_control']?.toString() ?? '');
 
     // Lógica para estado nutricional (peso/talla)
@@ -6143,7 +6143,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         child: Column(
           children: [
             Container(
-              width: 85,
+              width: width,
               height: 32,
               alignment: Alignment.center,
               child: Text(
@@ -6155,20 +6155,27 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 ),
               ),
             ),
-            _heatCell((c['puntos_dolor'] ?? 0).toString(),
-                _heatColor('dolor', (c['puntos_dolor'] ?? 0).toDouble())),
-            _heatCell((c['nivel_fatiga'] ?? 10).toString(),
-                _heatColor('energia', (c['nivel_fatiga'] ?? 10).toDouble())),
+            _heatCell(
+                (c['puntos_dolor'] ?? 0).toString(),
+                _heatColor('dolor', (c['puntos_dolor'] ?? 0).toDouble()),
+                width: width),
+            _heatCell(
+                (c['nivel_fatiga'] ?? 10).toString(),
+                _heatColor('energia', (c['nivel_fatiga'] ?? 10).toDouble()),
+                width: width),
             _heatCell(
                 (c['escala_inflamacion'] ?? 0).toString(),
                 _heatColor(
-                    'inflamacion', (c['escala_inflamacion'] ?? 0).toDouble())),
+                    'inflamacion', (c['escala_inflamacion'] ?? 0).toDouble()),
+                width: width),
             _heatCell(c['en_brote'] == true ? "Sí" : "No",
-                c['en_brote'] == true ? Colors.red : Colors.green),
+                c['en_brote'] == true ? Colors.red : Colors.green,
+                width: width),
             _heatCell(
               nutriDisplay,
               _nutriColor(c['estado_nutricional']?.toString() ?? ""),
               isTextCell: true,
+              width: width,
             ),
           ],
         ),
@@ -6213,9 +6220,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     );
   }
 
-  Widget _heatCell(String text, Color color, {bool isTextCell = false}) {
+  Widget _heatCell(String text, Color color,
+      {bool isTextCell = false, required double width}) {
     return Container(
-      width: 80,
+      width: width,
       height: 34,
       margin: const EdgeInsets.only(bottom: 6),
       alignment: Alignment.center,

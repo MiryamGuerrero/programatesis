@@ -88,13 +88,30 @@ class CasoUsoGenerarPlanAutomatico:
         
         condiciones_ids = perfil.condiciones_activas
         
-        # 2. Preparar catálogo de recetas seguras
+        # 2. Obtener momentos y filtrar si es el día de hoy
+        todos_momentos = self.repo_receta.listar_momentos_comida()
+        momentos_cat = {m["id"]: m["nombre"] for m in todos_momentos}
+        
+        # Lógica de omisión inteligente por horario
+        hoy = date.today()
+        ahora = None
+        if fecha_inicio == hoy:
+            from datetime import datetime
+            ahora = datetime.now().time()
+
+        def debe_omitir(m_id):
+            if fecha_inicio != hoy:
+                return False
+            m_data = next((m for m in todos_momentos if m["id"] == m_id), None)
+            if not m_data or not m_data.get("hora_fin"):
+                return False
+            # Si la hora actual es mayor a la hora de fin del momento, se omite
+            return ahora > m_data["hora_fin"]
+
+        # 3. Preparar catálogo de recetas seguras
         recetas_seguras_cache = {}
         for m_id in momentos_ids:
             recetas_seguras_cache[m_id] = self.repo_receta.obtener_recetas_seguras_para_paciente(id_paciente, m_id)
-
-        # 3. Obtener nombres de los momentos para el objeto de respuesta
-        momentos_cat = {m["id"]: m["nombre"] for m in self.repo_receta.listar_momentos_comida()}
 
         dias_plan = []
         
@@ -103,7 +120,10 @@ class CasoUsoGenerarPlanAutomatico:
             fecha_dia = fecha_inicio + timedelta(days=i)
             comidas_dia = []
             
-            for m_id in momentos_ids:
+            # Solo filtramos momentos por horario el primer día si es hoy
+            momentos_dia = [m_id for m_id in momentos_ids if not (fecha_dia == hoy and debe_omitir(m_id))]
+            
+            for m_id in momentos_dia:
                 # Buscar combinaciones aplicables
                 combinaciones = self.repo_composicion.obtener_combinaciones_por_condiciones(m_id, condiciones_ids)
                 

@@ -123,8 +123,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                       const SizedBox(height: 20),
 
                       _buildDescriptionSection(context, r, theme),
-                      const SizedBox(height: 20),
-                      _buildMacronutrientesPieChart(context, r),
                       const SizedBox(height: 24),
                       if (r['en_plan_hoy'] == true) ...[
                         _buildConsumidaSection(context, r),
@@ -783,9 +781,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
 
     return ListView.builder(
       padding: EdgeInsets.all(context.responsiveSpacing(AppSpacing.lg)),
-      itemCount: pasos.length + 1,
+      itemCount: pasos.length,
       itemBuilder: (context, index) {
-        if (index == pasos.length) return _buildMacronutrientesPieChart(context, r);
         final p = pasos[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),

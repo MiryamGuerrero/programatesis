@@ -132,7 +132,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         if (vigFin.isAfter(latestEnd)) latestEnd = vigFin;
       } catch (_) {}
     }
-    _startDate = latestEnd.add(const Duration(days: 1));
+    
+    if (latestEnd.isAfter(todayOnly)) {
+      _startDate = latestEnd.add(const Duration(days: 1));
+    } else {
+      _startDate = todayOnly;
+    }
 
     _endDate = _startDate.add(const Duration(days: 6));
     _calendarViewDate = _startDate;
@@ -1822,225 +1827,337 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
-  void _showConfigModal() {
+  Map<int, bool> _momentosPasados = {};
+  int _singleMealId = 3;
+
+  void _showConfigModal() async {
     bool morningSnack = _morningSnackEnabled;
     bool afternoonSnack = _afternoonSnackEnabled;
+    
     final isAdjusting = _planInitialized;
     bool isGenerating = false;
+    bool isPreConfiguring = false;
+
+    // Solo pre-configuramos si es una creación nueva y es hoy
+    final now = DateTime.now();
+    if (!isAdjusting && _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day) {
+      isPreConfiguring = true;
+      try {
+        final dio = ref.read(dioProvider);
+        final res = await dio.get("tutor/momentos-comida");
+        final momentos = List<dynamic>.from(res.data);
+        final Map<int, bool> pasados = {};
+
+        for (var m in momentos) {
+          final mId = m['id'];
+          final horaFinStr = m['hora_fin'];
+          if (horaFinStr == null) continue;
+          final parts = horaFinStr.toString().split(':');
+          final mHoraFin = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          final currentTodo = TimeOfDay.fromDateTime(now);
+          bool yaPaso = currentTodo.hour > mHoraFin.hour || 
+                       (currentTodo.hour == mHoraFin.hour && currentTodo.minute > mHoraFin.minute);
+          
+          if (yaPaso) {
+            pasados[mId] = true;
+            if (mId == 2) morningSnack = false;
+            if (mId == 4) afternoonSnack = false;
+          }
+        }
+
+        _momentosPasados = pasados;
+        if (_momentosPasados[_singleMealId] == true) {
+          final available = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+          if (available.isNotEmpty) {
+            _singleMealId = available.first;
+          }
+        }
+      } catch (e) {
+        debugPrint("Error pre-configurando momentos inteligentes: $e");
+      }
+      isPreConfiguring = false;
+    }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
       barrierDismissible: false, // Forzar uso de botones
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Column(
-            children: [
-              const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
-              const SizedBox(height: 12),
-              Text(
-                  isAdjusting
-                      ? "Ajustar plan nutricional"
-                      : "Configurar plan alimentario",
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildModalSectionTitle("Periodo de Vigencia"),
-                  DropdownButtonFormField<String>(
-                    value: _durationType,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: "un día", child: Text("Un día")),
-                      DropdownMenuItem(
-                          value: "una semana", child: Text("Una semana")),
-                      DropdownMenuItem(value: "un mes", child: Text("Un mes")),
-                    ],
-                    onChanged: (v) {
-                      setModalState(() {
-                        _durationType = v!;
-                        if (_durationType == "un día") {
-                          _endDate = _startDate;
-                        } else if (_durationType == "una semana") {
-                          _endDate = _startDate.add(const Duration(days: 6));
-                        } else if (_durationType == "un mes") {
-                          _endDate = _startDate.add(const Duration(days: 30));
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModalSectionTitle("Resumen de Fechas"),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.calendar_month, color: Colors.blue),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                              fontSize: 14),
-                        ),
-                        Text(
-                          "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
-                          style: TextStyle(
-                              color: Colors.blue.shade700, fontSize: 12),
-                        ),
+        builder: (context, setModalState) {
+          final availableMoments = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Column(
+              children: [
+                const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
+                const SizedBox(height: 12),
+                Text(
+                    isAdjusting
+                        ? "Ajustar plan nutricional"
+                        : "Configurar plan alimentario",
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildModalSectionTitle("Periodo de Vigencia"),
+                    DropdownButtonFormField<String>(
+                      value: _durationType,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: "una comida", child: Text("Una sola comida")),
+                        DropdownMenuItem(value: "un día", child: Text("Un día completo")),
+                        DropdownMenuItem(
+                            value: "una semana", child: Text("Una semana")),
+                        DropdownMenuItem(value: "un mes", child: Text("Un mes")),
                       ],
+                      onChanged: (v) {
+                        setModalState(() {
+                          _durationType = v!;
+                          if (_durationType == "una comida" || _durationType == "un día") {
+                            _endDate = _startDate;
+                          } else if (_durationType == "una semana") {
+                            _endDate = _startDate.add(const Duration(days: 6));
+                          } else if (_durationType == "un mes") {
+                            _endDate = _startDate.add(const Duration(days: 30));
+                          }
+                        });
+                      },
                     ),
-                  ),
-                  const Divider(height: 32),
-                  _buildModalSectionTitle("Tiempos obligatorios"),
-                  const Text("Se establecerán 3 comidas base por día.",
-                      style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
-                  const SizedBox(height: 12),
-                  _buildConfigTile(
-                      "Desayuno", "Principal", Icons.wb_twilight, true, null),
-                  _buildConfigTile(
-                      "Almuerzo", "Principal", Icons.wb_sunny, true, null),
-                  _buildConfigTile("Merienda", "Principal",
-                      Icons.nightlight_round, true, null),
-                  const Divider(height: 32),
-                  _buildModalSectionTitle("Snacks opcionales"),
-                  _buildConfigTile(
-                      "Snack media mañana",
-                      "Entre desayuno y almuerzo",
-                      Icons.coffee,
-                      morningSnack,
-                      (v) => setModalState(() => morningSnack = v!)),
-                  _buildConfigTile(
-                      "Snack media tarde",
-                      "Entre almuerzo y cena",
-                      Icons.apple,
-                      afternoonSnack,
-                      (v) => setModalState(() => afternoonSnack = v!)),
-                ],
+                    const SizedBox(height: 16),
+                    _buildModalSectionTitle("Resumen de Fechas"),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.calendar_month, color: Colors.blue),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                                fontSize: 14),
+                          ),
+                          Text(
+                            _durationType == "una comida"
+                                ? "Generación rápida de 1 comida"
+                                : "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                            style: TextStyle(
+                                color: Colors.blue.shade700, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 32),
+                    
+                    if (_durationType == "una comida") ...[
+                      _buildModalSectionTitle("Selecciona la comida"),
+                      if (availableMoments.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade200)
+                          ),
+                          child: const Text(
+                            "Todos los momentos de comida para el día de hoy ya han pasado.",
+                            style: TextStyle(color: Colors.deepOrange, fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<int>(
+                          value: availableMoments.contains(_singleMealId) ? _singleMealId : availableMoments.first,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.blue.shade50,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: availableMoments.map((id) => DropdownMenuItem(
+                            value: id,
+                            child: Text(_getMomentName(id), style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                          )).toList(),
+                          onChanged: (v) => setModalState(() => _singleMealId = v!),
+                        ),
+                    ] else ...[
+                      _buildModalSectionTitle("Tiempos obligatorios"),
+                      const Text("Se establecerán 3 comidas base por día.",
+                          style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                      const SizedBox(height: 12),
+                      _buildConfigTile(
+                          "Desayuno", "Principal", Icons.wb_twilight, true, null),
+                      _buildConfigTile(
+                          "Almuerzo", "Principal", Icons.wb_sunny, true, null),
+                      _buildConfigTile("Merienda", "Principal",
+                          Icons.nightlight_round, true, null),
+                      const Divider(height: 32),
+                      _buildModalSectionTitle("Snacks opcionales"),
+                      _buildConfigTile(
+                          "Snack media mañana",
+                          "Entre desayuno y almuerzo",
+                          Icons.coffee,
+                          morningSnack,
+                          (v) => setModalState(() => morningSnack = v!)),
+                      _buildConfigTile(
+                          "Snack media tarde",
+                          "Entre almuerzo y cena",
+                          Icons.apple,
+                          afternoonSnack,
+                          (v) => setModalState(() => afternoonSnack = v!)),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: isGenerating
-                        ? null
-                        : () {
-                            if (isAdjusting) {
-                              Navigator.pop(context);
-                            } else {
-                              // Si es creación, cancelar vuelve al historial
-                              setState(() => _viewingHistory = true);
-                              Navigator.pop(context);
-                            }
-                          },
-                    child: const Text("Cancelar"),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: isGenerating
-                        ? null
-                        : () async {
-                            // VALIDACIÓN CRÍTICA: Fecha de Control
-                            final proximaCitaStr = _patientProfile?['ultimo_control']
-                                ?['fecha_proxima_cita'];
-                            if (proximaCitaStr != null) {
-                              final proximaCita = DateTime.parse(proximaCitaStr);
-                              if (_endDate.isAfter(proximaCita)) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  backgroundColor: Colors.redAccent,
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                          "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
-                                          style:
-                                              TextStyle(fontWeight: FontWeight.bold)),
-                                      Text(
-                                          "El plan excede la fecha del próximo control ($proximaCitaStr)."),
-                                      const Text("Acciones sugeridas:"),
-                                      const Text(
-                                          "• Edite un plan existente para ampliarlo."),
-                                      const Text(
-                                          "• Cree un plan de menor duración (Día/Semana)."),
-                                      const Text(
-                                          "• Elimine planes futuros para liberar el calendario."),
-                                    ],
-                                  ),
-                                  duration: const Duration(seconds: 8),
-                                ));
-                                return; // No cerrar el modal
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isGenerating
+                          ? null
+                          : () {
+                              if (isAdjusting) {
+                                Navigator.pop(context);
+                              } else {
+                                // Si es creación, cancelar vuelve al historial
+                                setState(() => _viewingHistory = true);
+                                Navigator.pop(context);
                               }
-                            }
-
-                            setModalState(() => isGenerating = true);
-                            _morningSnackEnabled = morningSnack;
-                            _afternoonSnackEnabled = afternoonSnack;
-                            
-                            if (isAdjusting) {
-                              _initPlan(morningSnack, afternoonSnack);
-                            } else {
-                              await _initPlanAutomatic(morningSnack, afternoonSnack);
-                            }
-                            
-                            if (context.mounted) Navigator.pop(context);
-                          },
-                    child: isGenerating
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(isAdjusting
-                            ? "Actualizar Plan"
-                            : "Continuar y generar tabla"),
+                            },
+                      child: const Text("Cancelar"),
+                    ),
                   ),
-                ),
-              ],
-            )
-          ],
-        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isGenerating
+                          ? null
+                          : () async {
+                              // VALIDACIÓN CRÍTICA: Fecha de Control
+                              final proximaCitaStr = _patientProfile?['ultimo_control']
+                                  ?['fecha_proxima_cita'];
+                              if (proximaCitaStr != null) {
+                                final proximaCita = DateTime.parse(proximaCitaStr);
+                                if (_endDate.isAfter(proximaCita)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    backgroundColor: Colors.redAccent,
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                            "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
+                                            style:
+                                                TextStyle(fontWeight: FontWeight.bold)),
+                                        Text(
+                                            "El plan excede la fecha del próximo control ($proximaCitaStr)."),
+                                        const Text("Acciones sugeridas:"),
+                                        const Text(
+                                            "• Edite un plan existente para ampliarlo."),
+                                        const Text(
+                                            "• Cree un plan de menor duración (Día/Semana)."),
+                                        const Text(
+                                            "• Elimine planes futuros para liberar el calendario."),
+                                      ],
+                                    ),
+                                    duration: const Duration(seconds: 8),
+                                  ));
+                                  return; // No cerrar el modal
+                                }
+                              }
+
+                              setModalState(() => isGenerating = true);
+                              _morningSnackEnabled = morningSnack;
+                              _afternoonSnackEnabled = afternoonSnack;
+                              
+                              if (isAdjusting) {
+                                _initPlan(morningSnack, afternoonSnack);
+                              } else {
+                                final List<int> selectedMomentos = [];
+                                if (_durationType == "una comida") {
+                                  selectedMomentos.add(_singleMealId);
+                                } else {
+                                  selectedMomentos.addAll([1, 3, 5]);
+                                  if (morningSnack) selectedMomentos.add(2);
+                                  if (afternoonSnack) selectedMomentos.add(4);
+                                }
+                                
+                                await _initPlanAutomaticWithCustomMoments(selectedMomentos);
+                              }
+                              
+                              if (context.mounted) Navigator.pop(context);
+                            },
+                      child: isGenerating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(isAdjusting
+                              ? "Actualizar Plan"
+                              : "Continuar y generar tabla"),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          );
+        }
       ),
     );
+  }
+
+
+  String _getMomentName(int id) {
+    switch (id) {
+      case 1: return "Desayuno";
+      case 2: return "Media mañana";
+      case 3: return "Almuerzo";
+      case 4: return "Media tarde";
+      case 5: return "Merienda";
+      default: return "Comida";
+    }
   }
 
   void _initPlan(bool morning, bool afternoon) {
@@ -2063,17 +2180,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     });
   }
 
-  Future<void> _initPlanAutomatic(bool morning, bool afternoon) async {
+  Future<void> _initPlanAutomaticWithCustomMoments(List<int> momentosIds) async {
     final List<PlanDay> plan = [];
     final idPaciente = _selectedPatient?['id']?.toString();
     if (idPaciente == null) return;
 
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
-
-      final List<int> momentosIds = [1, 3, 5];
-      if (morning) momentosIds.add(2);
-      if (afternoon) momentosIds.add(4);
 
       final totalDias = _endDate.difference(_startDate).inDays + 1;
 
@@ -2130,6 +2243,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     } catch (e) {
       debugPrint("Error generando plan automático: $e");
       // Fallback a plan vacío si falla la generación automática
+      bool morning = momentosIds.contains(2);
+      bool afternoon = momentosIds.contains(4);
       _initPlan(morning, afternoon);
     }
   }

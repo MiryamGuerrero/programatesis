@@ -87,6 +87,9 @@ class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final size = MediaQuery.of(context).size;
+    final itemWidth = (size.width - 48 - 12) / 2;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -117,91 +120,99 @@ class _OnboardingGustosPageState extends ConsumerState<OnboardingGustosPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Expanded(
-                    child: GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 2.5,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: _subgrupos.length,
-                      itemBuilder: (context, index) {
-                        final s = _subgrupos[index];
-                        final id = s['id'] as int;
-                        final bool isSelected = _seleccionados.contains(id);
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: _subgrupos.map((s) {
+                          final id = s['id'] as int;
+                          final bool isSelected = _seleccionados.contains(id);
 
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected)
-                                _seleccionados.remove(id);
-                              else
-                                _seleccionados.add(id);
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (isSelected)
+                                  _seleccionados.remove(id);
+                                else
+                                  _seleccionados.add(id);
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: itemWidth,
+                              constraints: const BoxConstraints(minHeight: 100),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              decoration: BoxDecoration(
                                 color: isSelected
                                     ? colorScheme.primary
-                                    : const Color(0xFFF1F5F9),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                if (isSelected)
-                                  BoxShadow(
-                                      color:
-                                          colorScheme.primary.withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4))
-                                else
-                                  BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2)),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  s['emoji'] ?? "🍲",
-                                  style: const TextStyle(fontSize: 28),
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? colorScheme.primary
+                                      : const Color(0xFFF1F5F9),
+                                  width: 2,
                                 ),
-                                const SizedBox(height: 8),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0),
-                                  child: Text(
+                                boxShadow: [
+                                  if (isSelected)
+                                    BoxShadow(
+                                        color: colorScheme.primary
+                                            .withOpacity(0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6))
+                                  else
+                                    BoxShadow(
+                                        color: Colors.black.withOpacity(0.02),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2)),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    s['emoji'] ?? "🍲",
+                                    style: const TextStyle(fontSize: 26),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
                                     s['nombre'],
                                     textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                     style: GoogleFonts.montserrat(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: isSelected
                                           ? FontWeight.w800
                                           : FontWeight.w600,
                                       color: isSelected
                                           ? Colors.white
                                           : AppTema.azulOscuro,
+                                      height: 1.25,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    s['grupo'].toString().toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white60
+                                          : Colors.grey.shade400,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                   Padding(
