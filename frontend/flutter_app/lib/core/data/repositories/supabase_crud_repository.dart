@@ -1,26 +1,20 @@
 import "package:dio/dio.dart";
-import "package:supabase_flutter/supabase_flutter.dart";
 
 class SupabaseCrudRepository {
-  SupabaseCrudRepository(this._client, this._dio);
+  SupabaseCrudRepository(this._dio);
 
-  final SupabaseClient _client;
   final Dio _dio;
+  final Map<String, List<Map<String, dynamic>>> _catalogCache = {};
+  final Map<String, Future<List<Map<String, dynamic>>>> _catalogRequests = {};
 
   List<Map<String, dynamic>> _toRows(dynamic payload) {
     if (payload is! List) return const [];
     return payload.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
-  Options _authorizedOptions() {
-    final token = _client.auth.currentSession?.accessToken;
-    if (token == null || token.isEmpty) throw Exception("Sesión expirada");
-    return Options(headers: {"Authorization": "Bearer $token"});
-  }
-
   // --- GESTIÓN DE USUARIOS Y PERFIL ---
   Future<List<Map<String, dynamic>>> fetchUsers() async {
-    final response = await _dio.get("usuarios", options: _authorizedOptions());
+    final response = await _dio.get("usuarios");
     return _toRows(response.data);
   }
 
@@ -47,7 +41,6 @@ class SupabaseCrudRepository {
         "telefono": telefono,
         "direccion": direccion,
       },
-      options: _authorizedOptions(),
     );
   }
 
@@ -71,13 +64,11 @@ class SupabaseCrudRepository {
     if (activo != null) payload["activo"] = activo;
     if (telefono != null) payload["telefono"] = telefono;
     if (direccion != null) payload["direccion"] = direccion;
-    await _dio.put("usuarios/$userId",
-        data: payload, options: _authorizedOptions());
+    await _dio.put("usuarios/$userId", data: payload);
   }
 
   Future<Map<String, dynamic>> fetchMyProfile() async {
-    final response =
-        await _dio.get("perfil/mi-perfil", options: _authorizedOptions());
+    final response = await _dio.get("perfil/mi-perfil");
     return Map<String, dynamic>.from(response.data);
   }
 
@@ -96,16 +87,14 @@ class SupabaseCrudRepository {
     if (telefono != null) data["telefono"] = telefono;
     if (direccion != null) data["direccion"] = direccion;
     if (email != null) data["email"] = email;
-    await _dio.put("perfil/mi-perfil",
-        data: data, options: _authorizedOptions());
+    await _dio.put("perfil/mi-perfil", data: data);
   }
 
   // --- CLÍNICO: CONDICIONES Y CATÁLOGOS ---
   Future<void> createConditionType(
       {required String codigo, required String nombre}) async {
     await _dio.post("crud/condition-types",
-        data: {"codigo": codigo, "nombre": nombre},
-        options: _authorizedOptions());
+        data: {"codigo": codigo, "nombre": nombre});
   }
 
   Future<void> updateConditionType(
@@ -113,8 +102,7 @@ class SupabaseCrudRepository {
     final data = <String, dynamic>{};
     if (codigo != null) data["codigo"] = codigo;
     if (nombre != null) data["nombre"] = nombre;
-    await _dio.put("crud/condition-types/$idTipoCondicion",
-        data: data, options: _authorizedOptions());
+    await _dio.put("crud/condition-types/$idTipoCondicion", data: data);
   }
 
   Future<void> createCondition({
@@ -136,8 +124,7 @@ class SupabaseCrudRepository {
     };
     if (codigo != null) data["codigo"] = codigo;
 
-    await _dio.post("catalogos/condiciones",
-        data: data, options: _authorizedOptions());
+    await _dio.post("catalogos/condiciones", data: data);
   }
 
   Future<void> updateCondition({
@@ -164,8 +151,7 @@ class SupabaseCrudRepository {
       data["duracion_dias_sugerida"] = null;
     }
 
-    await _dio.put("catalogos/condiciones/$idCondicion",
-        data: data, options: _authorizedOptions());
+    await _dio.put("catalogos/condiciones/$idCondicion", data: data);
   }
 
   // --- CLÍNICO: PACIENTES Y TUTORES ---
@@ -185,7 +171,6 @@ class SupabaseCrudRepository {
         "telefono": fono,
         "direccion": direccion,
       },
-      options: _authorizedOptions(),
     );
   }
 
@@ -194,15 +179,14 @@ class SupabaseCrudRepository {
       required int calificacion,
       String? comentario}) async {
     await _dio.post("recetas/$idReceta/calificar",
-        data: {"calificacion": calificacion, "comentario": comentario},
-        options: _authorizedOptions());
+        data: {"calificacion": calificacion, "comentario": comentario});
   }
 
   Future<List<Map<String, dynamic>>> fetchPlanItemsByPaciente(String idPaciente,
       {DateTime? fecha}) async {
     final f = (fecha ?? DateTime.now()).toIso8601String().split("T").first;
-    final response = await _dio.get("tutor/plan-diario/$idPaciente",
-        queryParameters: {"fecha": f}, options: _authorizedOptions());
+    final response = await _dio
+        .get("tutor/plan-diario/$idPaciente", queryParameters: {"fecha": f});
     return _toRows(response.data);
   }
 
@@ -210,23 +194,20 @@ class SupabaseCrudRepository {
       {required int idPlanItem,
       required int idEstadoConsumo,
       String? observacion}) async {
-    await _dio.post("tutor/registrar-consumo",
-        data: {
-          "id_plan_item": idPlanItem,
-          "id_estado_consumo": idEstadoConsumo,
-          "observacion": observacion
-        },
-        options: _authorizedOptions());
+    await _dio.post("tutor/registrar-consumo", data: {
+      "id_plan_item": idPlanItem,
+      "id_estado_consumo": idEstadoConsumo,
+      "observacion": observacion
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchPatients() async {
-    final response = await _dio.get("pacientes", options: _authorizedOptions());
+    final response = await _dio.get("pacientes");
     return _toRows(response.data);
   }
 
   Future<List<Map<String, dynamic>>> fetchMyPatients() async {
-    final response =
-        await _dio.get("tutor/mis-pacientes", options: _authorizedOptions());
+    final response = await _dio.get("tutor/mis-pacientes");
     return _toRows(response.data);
   }
 
@@ -240,8 +221,7 @@ class SupabaseCrudRepository {
         .split("T")
         .first;
     final response = await _dio.get("tutor/lista-compras/$idPaciente",
-        queryParameters: {"fecha_inicio": s, "fecha_fin": e},
-        options: _authorizedOptions());
+        queryParameters: {"fecha_inicio": s, "fecha_fin": e});
 
     final data = response.data as Map<String, dynamic>;
     return data.map(
@@ -249,8 +229,7 @@ class SupabaseCrudRepository {
   }
 
   Future<void> archivePatient(String idPaciente) async {
-    await _dio.patch("pacientes/$idPaciente/archivar",
-        options: _authorizedOptions());
+    await _dio.patch("pacientes/$idPaciente/archivar");
   }
 
   Future<void> deletePatient(String idPaciente) async {
@@ -281,7 +260,6 @@ class SupabaseCrudRepository {
         "direccion": direccion,
         "control_clinico_inicial": controlClinicoInicial,
       },
-      options: _authorizedOptions(),
     );
   }
 
@@ -289,7 +267,6 @@ class SupabaseCrudRepository {
     await _dio.post(
       "registro/paciente-integral",
       data: payload,
-      options: _authorizedOptions(),
     );
   }
 
@@ -301,7 +278,6 @@ class SupabaseCrudRepository {
     required int idCondicionPrincipal,
     List<int>? condicionesTemporales,
   }) async {
-    // 1. Llamada al endpoint maestro del backend
     await _dio.post(
       "registro/paciente-integral",
       data: {
@@ -312,20 +288,17 @@ class SupabaseCrudRepository {
         "id_condicion_principal": idCondicionPrincipal,
         "condiciones_temporales": condicionesTemporales ?? [],
       },
-      options: _authorizedOptions(),
     );
   }
 
   Future<Map<String, dynamic>?> findTutorByCedula(String cedula) async {
-    final resp = await _dio.get("usuarios/tutor-by-cedula/$cedula",
-        options: _authorizedOptions());
+    final resp = await _dio.get("usuarios/tutor-by-cedula/$cedula");
     return resp.data != null ? Map<String, dynamic>.from(resp.data) : null;
   }
 
   Future<Map<String, dynamic>?> fetchCurrentClinicalControl(
       {required String idPaciente}) async {
-    final resp = await _dio.get("pacientes/$idPaciente/control-actual",
-        options: _authorizedOptions());
+    final resp = await _dio.get("pacientes/$idPaciente/control-actual");
     return resp.data != null ? Map<String, dynamic>.from(resp.data) : null;
   }
 
@@ -333,21 +306,19 @@ class SupabaseCrudRepository {
       {required String idPaciente,
       required Map<String, dynamic> controlClinico}) async {
     await _dio.put("pacientes/$idPaciente/control-actual",
-        data: controlClinico, options: _authorizedOptions());
+        data: controlClinico);
   }
 
   // --- VÍNCULOS Y BÚSQUEDA ---
   Future<List<Map<String, dynamic>>> fetchTutorPatientLinks() async {
-    final response =
-        await _dio.get("registro/vinculos", options: _authorizedOptions());
+    final response = await _dio.get("registro/vinculos");
     return _toRows(response.data);
   }
 
   Future<List<Map<String, dynamic>>> searchTutors(
       {required String query, int limit = 10}) async {
     final resp = await _dio.get("usuarios/buscar-tutores",
-        queryParameters: {"q": query, "limit": limit},
-        options: _authorizedOptions());
+        queryParameters: {"q": query, "limit": limit});
     return _toRows(resp.data);
   }
 
@@ -356,14 +327,12 @@ class SupabaseCrudRepository {
       required String idPaciente,
       required dynamic idParentesco,
       bool esPrincipal = false}) async {
-    await _dio.post("registro/vincular",
-        data: {
-          "id_tutor": idUsuarioTutor,
-          "id_paciente": idPaciente,
-          "parentesco": idParentesco,
-          "es_principal": esPrincipal
-        },
-        options: _authorizedOptions());
+    await _dio.post("registro/vincular", data: {
+      "id_tutor": idUsuarioTutor,
+      "id_paciente": idPaciente,
+      "parentesco": idParentesco,
+      "es_principal": esPrincipal
+    });
   }
 
   Future<void> updateTutorPatientLink(
@@ -375,13 +344,11 @@ class SupabaseCrudRepository {
     if (idParentesco != null) data["parentesco"] = idParentesco;
     if (activo != null) data["activo"] = activo;
     if (esPrincipal != null) data["es_principal"] = esPrincipal;
-    await _dio.put("registro/vinculos/$idVinculo",
-        data: data, options: _authorizedOptions());
+    await _dio.put("registro/vinculos/$idVinculo", data: data);
   }
 
   Future<void> unlinkTutorPatient({required int idVinculo}) async {
-    await _dio.delete("registro/vinculos/$idVinculo",
-        options: _authorizedOptions());
+    await _dio.delete("registro/vinculos/$idVinculo");
   }
 
   // --- RECETAS, INGREDIENTES Y CATÁLOGOS ---
@@ -389,44 +356,71 @@ class SupabaseCrudRepository {
     final response = await _dio.get(
       "crud/recetas",
       queryParameters: {"limit": 1000},
-      options: _authorizedOptions(),
     );
     return _toRows(response.data);
   }
 
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
-    final response =
-        await _dio.get("ingredientes", options: _authorizedOptions());
+    final response = await _dio.get("ingredientes");
     return _toRows(response.data);
   }
 
   Future<List<Map<String, dynamic>>> fetchCatalog(
-      String schema, String table) async {
-    final response = await _dio.get("crud/catalog",
-        queryParameters: {"schema": schema, "table": table},
-        options: _authorizedOptions());
-    return _toRows(response.data);
+    String schema,
+    String table, {
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey = "$schema.$table";
+    if (!forceRefresh && _catalogCache.containsKey(cacheKey)) {
+      return _catalogCache[cacheKey]!;
+    }
+
+    if (!forceRefresh && _catalogRequests.containsKey(cacheKey)) {
+      return _catalogRequests[cacheKey]!;
+    }
+
+    final request = _dio.get("crud/catalog", queryParameters: {
+      "schema": schema,
+      "table": table,
+    }).then((response) {
+      final rows = _toRows(response.data);
+      _catalogCache[cacheKey] = rows;
+      return rows;
+    }).whenComplete(() {
+      _catalogRequests.remove(cacheKey);
+    });
+
+    _catalogRequests[cacheKey] = request;
+    return request;
+  }
+
+  void invalidateCatalog(String schema, String table) {
+    final cacheKey = "$schema.$table";
+    _catalogCache.remove(cacheKey);
+    _catalogRequests.remove(cacheKey);
+  }
+
+  void invalidateCatalogs() {
+    _catalogCache.clear();
+    _catalogRequests.clear();
   }
 
   Future<List<Map<String, dynamic>>> searchPatients(
       {required String query, int limit = 10}) async {
-    final resp = await _dio.get("pacientes-buscar",
-        queryParameters: {"q": query, "limit": limit},
-        options: _authorizedOptions());
+    final resp = await _dio
+        .get("pacientes-buscar", queryParameters: {"q": query, "limit": limit});
     return _toRows(resp.data);
   }
 
   Future<List<Map<String, dynamic>>> fetchPatientEvolutionSummary(
       String idPaciente) async {
-    final resp = await _dio.get("pacientes/$idPaciente/evolucion-resumen",
-        options: _authorizedOptions());
+    final resp = await _dio.get("pacientes/$idPaciente/evolucion-resumen");
     return _toRows(resp.data);
   }
 
   Future<Map<String, dynamic>> fetchExpedienteCompleto(
       String idPaciente) async {
-    final resp = await _dio.get("pacientes/$idPaciente/expediente-completo",
-        options: _authorizedOptions());
+    final resp = await _dio.get("pacientes/$idPaciente/expediente-completo");
     return Map<String, dynamic>.from(resp.data);
   }
 }

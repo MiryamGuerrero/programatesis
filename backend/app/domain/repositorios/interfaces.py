@@ -109,6 +109,10 @@ class IRepositorioIngrediente(ABC):
         pass
 
     @abstractmethod
+    def contar_ingredientes_admin(self, consulta: str = None, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> int:
+        pass
+
+    @abstractmethod
     def crear_ingrediente(self, datos: dict) -> int:
         pass
     

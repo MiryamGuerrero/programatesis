@@ -8,7 +8,6 @@ import "../../features/auth/login_page.dart";
 import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
-import "../../core/state/notification_provider.dart";
 
 class RoleShell extends ConsumerStatefulWidget {
   const RoleShell({super.key, required this.role});
@@ -22,6 +21,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   int _index = 0;
   bool _signingOut = false;
   bool _isMenuExpanded = true;
+  final Map<String, Widget> _moduleCache = <String, Widget>{};
 
   @override
   void initState() {
@@ -31,11 +31,59 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     });
   }
 
+  @override
+  void didUpdateWidget(covariant RoleShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.role != widget.role) {
+      _index = 0;
+      _moduleCache.clear();
+    }
+  }
+
+  String _cacheKeyFor(RoleModule module, int index) {
+    return "${widget.role.name}:$index:${module.key}";
+  }
+
+  Widget _moduleFor(RoleModule module, int index) {
+    return _moduleCache.putIfAbsent(
+      _cacheKeyFor(module, index),
+      module.builder,
+    );
+  }
+
+  Widget _buildLazyModuleStack(List<RoleModule> modules) {
+    if (modules.isEmpty) return const SizedBox.shrink();
+
+    final safeIndex = _index.clamp(0, modules.length - 1).toInt();
+    final children = <Widget>[];
+
+    for (var i = 0; i < modules.length; i++) {
+      final module = modules[i];
+      final cacheKey = _cacheKeyFor(module, i);
+      final shouldBuild = i == safeIndex || _moduleCache.containsKey(cacheKey);
+
+      children.add(
+        shouldBuild ? _moduleFor(module, i) : const SizedBox.expand(),
+      );
+    }
+
+    return IndexedStack(
+      index: safeIndex,
+      children: children,
+    );
+  }
+
+  void _selectModule(int index) {
+    if (_index == index) return;
+    setState(() => _index = index);
+  }
+
   String _obtenerIniciales(String nombre) {
     try {
       List<String> partes = nombre.trim().split(" ");
-      if (partes.length >= 2)
+      if (partes.length >= 2) {
         return (partes[0][0] + partes[1][0]).toUpperCase();
+      }
       return (partes[0].isNotEmpty ? partes[0][0] : "U").toUpperCase();
     } catch (_) {
       return "U";
@@ -84,10 +132,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(left: 8.0),
-                    child: IndexedStack(
-                      index: _index,
-                      children: [for (final m in modules) m.builder()],
-                    ),
+                    child: _buildLazyModuleStack(modules),
                   ),
                 ),
               ],
@@ -100,7 +145,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           : NavigationBarTheme(
               data: NavigationBarThemeData(
                 backgroundColor: Colors.white,
-                indicatorColor: const Color(0xFF0171BB).withOpacity(0.08),
+                indicatorColor: const Color(0xFF0171BB).withValues(alpha: 0.08),
                 surfaceTintColor: Colors.transparent,
                 height: 80,
                 iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -128,7 +173,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 elevation: 8,
                 surfaceTintColor: Colors.transparent,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                onDestinationSelected: (i) => setState(() => _index = i),
+                onDestinationSelected: _selectModule,
                 destinations: [
                   for (final m in modules)
                     NavigationDestination(
@@ -210,7 +255,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           const SizedBox(width: 12),
           CircleAvatar(
             radius: 19,
-            backgroundColor: brandBlue.withOpacity(0.08),
+            backgroundColor: brandBlue.withValues(alpha: 0.08),
             child: Text(iniciales,
                 style: const TextStyle(
                     color: brandBlue,
@@ -246,7 +291,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
               itemBuilder: (context, i) {
                 final active = i == _index;
                 return InkWell(
-                  onTap: () => setState(() => _index = i),
+                  onTap: () => _selectModule(i),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
@@ -323,7 +368,7 @@ class _NotificationBell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(notificationProvider);
+    ref.watch(notificationProvider);
     final unreadCount = ref.read(notificationProvider.notifier).unreadCount;
 
     return unreadCount > 0

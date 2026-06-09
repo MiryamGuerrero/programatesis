@@ -464,6 +464,12 @@ def ingredientes_lista_compat(
         # Por ahora, para que la paginación funcione, retornamos el offset + items + 1 si está lleno
         total = offset + len(items_filtrados) + (1 if len(items_filtrados) == limit else 0)
 
+    total = caso_uso.contar_ingredientes(
+        consulta=q,
+        id_grupo=cat,
+        id_subgrupo=subcat,
+    )
+
     return {
         "items": items_filtrados,
         "total": total

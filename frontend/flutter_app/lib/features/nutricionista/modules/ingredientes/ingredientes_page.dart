@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,7 +30,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   String _query = '';
   int? _groupId;
   int? _subgroupId;
-  final int _limit = 1000;
+  static const int _rowsPerPage = 5;
+  int _offset = 0;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -39,16 +43,24 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadFilters() async {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
-      final g = await repo.fetchCatalog('nutricion', 'grupo_alimentario');
-      final sg = await repo.fetchCatalog('nutricion', 'subgrupo_alimentario');
+      final results = await Future.wait([
+        repo.fetchCatalog('nutricion', 'grupo_alimentario'),
+        repo.fetchCatalog('nutricion', 'subgrupo_alimentario'),
+      ]);
       if (mounted) {
         setState(() {
-          _groups = g;
-          _subgroups = sg;
-          _subgroupsFiltrados = sg;
+          _groups = results[0];
+          _subgroups = results[1];
+          _subgroupsFiltrados = results[1];
         });
       }
     } catch (_) {}
@@ -64,20 +76,24 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         _subgroupsFiltrados =
             _subgroups.where((s) => s['id_grupo_alimentario'] == id).toList();
       }
-      _fetch();
     });
+    _fetch(offset: 0);
   }
 
-  Future<void> _fetch() async {
-    setState(() => _loading = true);
+  Future<void> _fetch({int? offset}) async {
+    final nextOffset = offset ?? _offset;
+    setState(() {
+      _offset = nextOffset;
+      _loading = true;
+    });
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
       final data = await repo.ingredientesLista(
           q: _query,
           cat: _groupId,
           subcat: _subgroupId,
-          limit: _limit,
-          offset: 0);
+          limit: _rowsPerPage,
+          offset: nextOffset);
       if (mounted) {
         setState(() {
           _items = data['items'] ?? [];
@@ -88,6 +104,15 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _scheduleSearch(String value) {
+    _query = value;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _fetch(offset: 0),
+    );
   }
 
   void _showDetail(int id) {
@@ -122,7 +147,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           idIngrediente: _activeId,
           onBack: () {
             setState(() => _currentView = IngredienteView.list);
-            _fetch();
+            _fetch(offset: _offset);
           },
         );
       default:
@@ -229,8 +254,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onChanged: (v) {
-                      _query = v;
-                      _fetch();
+                      _scheduleSearch(v);
                     },
                   ),
                 ),
@@ -269,22 +293,23 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               const SizedBox(width: 16),
               _buildFilterDropdown("GRUPO", _groups, _groupId, _onGroupChanged),
               const SizedBox(width: 12),
-              _buildFilterDropdown(
-                  "SUBGRUPO",
-                  _subgroupsFiltrados,
-                  _subgroupId,
-                  (v) => setState(() {
-                        _subgroupId = v;
-                        _fetch();
-                      })),
+              _buildFilterDropdown("SUBGRUPO", _subgroupsFiltrados, _subgroupId,
+                  (v) {
+                setState(() {
+                  _subgroupId = v;
+                  _offset = 0;
+                });
+                _fetch(offset: 0);
+              }),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded,
                     size: 22, color: AppTema.azulPrincipal),
-                onPressed: _fetch,
+                onPressed: () => _fetch(offset: _offset),
                 tooltip: "Actualizar catálogo",
                 style: IconButton.styleFrom(
-                  backgroundColor: AppTema.azulPrincipal.withOpacity(0.05),
+                  backgroundColor:
+                      AppTema.azulPrincipal.withValues(alpha: 0.05),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
@@ -302,7 +327,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       width: 200,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-          color: AppTema.grisLienzo.withOpacity(0.5),
+          color: AppTema.grisLienzo.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int?>(
@@ -343,7 +368,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               ),
               child: PaginatedDataTable(
                 header: null,
-                rowsPerPage: 5,
+                rowsPerPage: _rowsPerPage,
+                availableRowsPerPage: const [_rowsPerPage],
+                onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
                 showFirstLastButtons: true,
                 headingRowColor:
                     WidgetStateProperty.all(const Color(0xFFF1F5F9)),
@@ -356,6 +383,8 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                 ],
                 source: _IngredientesDataSource(
                   items: _items,
+                  totalRows: _total,
+                  offset: _offset,
                   onView: (id) => _showDetail(id),
                   onEdit: (id) => _showForm(id),
                   context: context,
@@ -375,12 +404,16 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
 
 class _IngredientesDataSource extends DataTableSource {
   final List<dynamic> items;
+  final int totalRows;
+  final int offset;
   final Function(int) onView;
   final Function(int) onEdit;
   final BuildContext context;
 
   _IngredientesDataSource({
     required this.items,
+    required this.totalRows,
+    required this.offset,
     required this.onView,
     required this.onEdit,
     required this.context,
@@ -403,8 +436,9 @@ class _IngredientesDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
-    if (index >= items.length) return null;
-    final ing = items[index];
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= items.length) return null;
+    final ing = items[localIndex];
     return DataRow(cells: [
       DataCell(Text(ing['nombre']?.toString() ?? "Ingrediente",
           style: GoogleFonts.lato(
@@ -443,6 +477,8 @@ class _IngredientesDataSource extends DataTableSource {
   }
 
   Future<void> _confirmDelete(int id, String nombre) async {
+    final repo =
+        ProviderScope.containerOf(context).read(inteligenciaRepositoryProvider);
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -462,8 +498,6 @@ class _IngredientesDataSource extends DataTableSource {
 
     if (confirm == true) {
       try {
-        final repo = ProviderScope.containerOf(context)
-            .read(inteligenciaRepositoryProvider);
         await repo.eliminarIngrediente(id);
         if (context.mounted) {
           NutriSnack.show(context, "Ingrediente eliminado correctamente");
@@ -478,12 +512,13 @@ class _IngredientesDataSource extends DataTableSource {
   }
 
   Widget _subgroupBadge(String text) {
-    if (text == '-')
+    if (text == '-') {
       return const Text('-', style: TextStyle(color: Colors.grey));
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-          color: AppTema.azulOscuro.withOpacity(0.1),
+          color: AppTema.azulOscuro.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(_capitalize(text),
           style: const TextStyle(
@@ -496,7 +531,7 @@ class _IngredientesDataSource extends DataTableSource {
   @override
   bool get isRowCountApproximate => false;
   @override
-  int get rowCount => items.length;
+  int get rowCount => totalRows;
   @override
   int get selectedRowCount => 0;
 }

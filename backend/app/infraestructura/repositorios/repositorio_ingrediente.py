@@ -21,6 +21,40 @@ SUBGRUPOS_CON_LACTOSA: Set[int] = {
 }
 
 class RepositorioIngredientePostgres(IRepositorioIngrediente):
+    def _build_admin_filters(
+        self,
+        consulta: str = None,
+        incluir_inactivos: bool = False,
+        id_grupo: int = None,
+        id_subgrupo: int = None,
+    ) -> tuple[str, list]:
+        where_clauses = ["(%s or i.activo = true)"]
+        params = [incluir_inactivos]
+
+        if consulta:
+            stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
+            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
+            if not words and consulta.strip(): words = [consulta.lower().strip()]
+
+            if words:
+                word_conditions = []
+                for w in words:
+                    word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
+                    pattern = f"\\y{w}\\y"
+                    params.extend([pattern, pattern])
+
+                where_clauses.append("(" + " and ".join(word_conditions) + ")")
+
+        if id_grupo:
+            where_clauses.append("i.id_grupo_alimentario = %s")
+            params.append(id_grupo)
+
+        if id_subgrupo:
+            where_clauses.append("i.id_subgrupo_alimentario = %s")
+            params.append(id_subgrupo)
+
+        return " AND ".join(where_clauses), params
+
     def _expandir_restricciones_paciente(self, cur, id_paciente: str) -> tuple[set[int], set[int]]:
         cur.execute("select to_regclass('clinico.restriccion_paciente')")
         if not cur.fetchone()[0]:
@@ -80,36 +114,12 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
 
     def listar_ingredientes_admin(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> List[dict]:
-        where_clauses = ["(%s or i.activo = true)"]
-        params = [incluir_inactivos]
-
-        if consulta:
-            # Dividir la consulta en palabras significativas
-            stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
-            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
-            if not words and consulta.strip(): words = [consulta.lower().strip()]
-            
-            if words:
-                # Construir una condicion que busque cada palabra como palabra completa o al inicio/fin
-                word_conditions = []
-                for w in words:
-                    # Busqueda por palabra completa usando el ancla de limite de palabra de Postgres (\y)
-                    # Esto maneja correctamente signos de puntuacion como comas o parentesis
-                    word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
-                    pattern = f"\\y{w}\\y"
-                    params.extend([pattern, pattern])
-                
-                where_clauses.append("(" + " and ".join(word_conditions) + ")")
-
-        if id_grupo:
-            where_clauses.append("i.id_grupo_alimentario = %s")
-            params.append(id_grupo)
-        
-        if id_subgrupo:
-            where_clauses.append("i.id_subgrupo_alimentario = %s")
-            params.append(id_subgrupo)
-            
-        where_sql = " AND ".join(where_clauses)
+        where_sql, params = self._build_admin_filters(
+            consulta,
+            incluir_inactivos,
+            id_grupo,
+            id_subgrupo,
+        )
         
         sql = f"""
             with etiquetas_agg as (
@@ -140,6 +150,24 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def contar_ingredientes_admin(self, consulta: str = None, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> int:
+        where_sql, params = self._build_admin_filters(
+            consulta,
+            incluir_inactivos,
+            id_grupo,
+            id_subgrupo,
+        )
+        with db_cursor() as cur:
+            cur.execute(
+                f"""
+                select count(*)
+                from nutricion.ingrediente i
+                where {where_sql}
+                """,
+                params,
+            )
+            return int(cur.fetchone()[0] or 0)
 
     def resolver_id_grupo(self, id_grupo: int | None, nombre: str | None) -> int | None:
         if id_grupo: return id_grupo
