@@ -338,6 +338,12 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               child: NutriLoading(mensaje: "Sincronizando catálogo..."))
           : Theme(
               data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+                dividerTheme: const DividerThemeData(
+                  thickness: 0,
+                  space: 0,
+                  color: Colors.transparent,
+                ),
                 cardTheme: const CardThemeData(
                     elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
               ),
@@ -345,14 +351,14 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                 header: null,
                 rowsPerPage: 5,
                 showFirstLastButtons: true,
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+                dividerThickness: 0,
                 columns: [
-                  _col("ALIMENTO"),
-                  _col("CATEGORÍA"),
-                  _col("SUBGRUPO"),
-                  _col("KCAL/100G"),
-                  _col("ACCIONES"),
+                  _col("Alimento"),
+                  _col("Categoría"),
+                  _col("Subgrupo"),
+                  _col("Kcal/100g"),
+                  _col("Acciones"),
                 ],
                 source: _IngredientesDataSource(
                   items: _items,
@@ -367,10 +373,8 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
 
   DataColumn _col(String l) => DataColumn(
       label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulOscuro)));
+          style: GoogleFonts.inter(
+              fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white)));
 }
 
 class _IngredientesDataSource extends DataTableSource {
@@ -405,41 +409,45 @@ class _IngredientesDataSource extends DataTableSource {
   DataRow? getRow(int index) {
     if (index >= items.length) return null;
     final ing = items[index];
-    return DataRow(cells: [
-      DataCell(Text(ing['nombre']?.toString() ?? "Ingrediente",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(Text(_capitalize(ing['categoria']),
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
-      DataCell(Text("${_fmt(ing['energia_kcal'])} kcal",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(Row(
-        children: [
-          IconButton(
-              icon: const Icon(Icons.visibility_outlined,
-                  size: 18, color: AppTema.azulPrincipal),
-              onPressed: () => onView(ing['id'])),
-          IconButton(
-              icon: const Icon(Icons.edit_outlined,
-                  size: 18, color: Colors.blueGrey),
-              onPressed: () => onEdit(ing['id'])),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded,
-                size: 18, color: Colors.redAccent),
-            onPressed: () => _confirmDelete(ing['id'], ing['nombre']),
-          ),
-        ],
-      )),
-    ]);
+    final bool isEven = index % 2 == 0;
+    return DataRow(
+        color: WidgetStateProperty.all(
+            isEven ? Colors.white : const Color(0xFFF1F5F9)),
+        cells: [
+          DataCell(Text(ing['nombre']?.toString() ?? "Ingrediente",
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w700))),
+          DataCell(Text(_capitalize(ing['categoria']),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w500))),
+          DataCell(_subgroupBadge(ing['subgrupo'] ?? '-')),
+          DataCell(Text("${_fmt(ing['energia_kcal'])} kcal",
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w500))),
+          DataCell(Row(
+            children: [
+              IconButton(
+                  icon: const Icon(Icons.visibility_outlined,
+                      size: 18, color: AppTema.azulPrincipal),
+                  onPressed: () => onView(ing['id'])),
+              IconButton(
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 18, color: Colors.blueGrey),
+                  onPressed: () => onEdit(ing['id'])),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    size: 18, color: Colors.redAccent),
+                onPressed: () => _confirmDelete(ing['id'], ing['nombre']),
+              ),
+            ],
+          )),
+        ]);
   }
 
   Future<void> _confirmDelete(int id, String nombre) async {

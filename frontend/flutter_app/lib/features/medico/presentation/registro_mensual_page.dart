@@ -82,6 +82,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   Map<String, dynamic>? _consumoAlimentario;
   String? _idControlEditando;
   Timer? _debounceOMS;
+  final ScrollController _heatmapScrollCtrl = ScrollController();
 
   static const Color greenBrand = Color(0xFF2E7D32);
 
@@ -198,6 +199,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   void dispose() {
     _tabController.dispose();
     _debounceOMS?.cancel();
+    _heatmapScrollCtrl.dispose();
     _ingRecomSearchCtrl.dispose();
     _ingRecomFocus.dispose();
     _subgrupoSearchCtrl.dispose();
@@ -5896,19 +5898,35 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                       ],
                     ),
                   ),
-                  _buildHeatmapLegend(),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: _buildHeatmapLegend(),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               LayoutBuilder(builder: (context, constraints) {
-                const double labelWidth = 140.0;
-                final double availableWidth = constraints.maxWidth - labelWidth;
+                final double labelWidth =
+                    constraints.maxWidth < 520 ? 108.0 : 140.0;
+                const double minColumnWidth = 92.0;
+                final double availableWidth =
+                    (constraints.maxWidth - labelWidth)
+                        .clamp(0.0, double.infinity);
                 final double columnWidth = controls.isNotEmpty
-                    ? (availableWidth / controls.length).clamp(80.0, 120.0)
-                    : 80.0;
+                    ? (availableWidth / controls.length)
+                        .clamp(minColumnWidth, double.infinity)
+                    : minColumnWidth;
+                final double heatmapWidth = controls.isNotEmpty
+                    ? columnWidth * controls.length
+                    : availableWidth;
+                final double scrollContentWidth =
+                    max(availableWidth, heatmapWidth);
 
                 return SizedBox(
-                  height: 280,
+                  height: 298,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -5934,13 +5952,24 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                         ),
                       ),
                       Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (final c in controls)
-                                _heatColumn(c, width: columnWidth),
-                            ],
+                        child: Scrollbar(
+                          controller: _heatmapScrollCtrl,
+                          thumbVisibility: controls.length > 1,
+                          trackVisibility: controls.length > 1,
+                          notificationPredicate: (notification) =>
+                              notification.metrics.axis == Axis.horizontal,
+                          child: SingleChildScrollView(
+                            controller: _heatmapScrollCtrl,
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: scrollContentWidth,
+                              child: Row(
+                                children: [
+                                  for (final c in controls)
+                                    _heatColumn(c, width: columnWidth),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -5954,22 +5983,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   Icon(Icons.info_outline_rounded,
                       size: 12, color: Colors.blueGrey.shade400),
                   const SizedBox(width: 4),
-                  Text(
-                    "Colores reflejan el estado clínico: Verde (Favorable), Naranja (Medio), Rojo (Riesgo/Alto).",
-                    style: GoogleFonts.inter(
-                      fontSize: 9,
-                      color: Colors.blueGrey.shade400,
-                      fontStyle: FontStyle.italic,
+                  Expanded(
+                    child: Text(
+                      "Colores reflejan el estado clínico: Verde (Favorable), Naranja (Medio), Rojo (Riesgo/Alto).",
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        color: Colors.blueGrey.shade400,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child:
-                    Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-              ),
-              _buildCompactInterpretation(controls),
             ],
           ),
         ),
@@ -5985,22 +6010,58 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     String nutriResumen = "Estado nutricional adecuado.";
 
     final maxDolor = controls
-        .map((e) => (e['puntos_dolor'] ?? 0) as int)
+        .map((e) => _numValue(e['puntos_dolor'], 0))
         .reduce((a, b) => a > b ? a : b);
     if (maxDolor >= 7) {
       final mesesPicos = controls
-          .where((e) => (e['puntos_dolor'] ?? 0) == maxDolor)
+          .where((e) => _numValue(e['puntos_dolor'], 0) == maxDolor)
           .map((e) => _monthShort(e['fecha_control']?.toString() ?? ''))
           .toList();
       picosResumen = "Picos de dolor y brotes en ${mesesPicos.join(", ")}.";
     }
 
+    final mesesBrotes = controls
+        .where((e) => e['en_brote'] == true)
+        .map((e) => _monthShort(e['fecha_control']?.toString() ?? ''))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (mesesBrotes.isNotEmpty) {
+      picosResumen =
+          "$picosResumen Brote registrado en ${mesesBrotes.join(", ")}.";
+    }
+
+    final maxInflamacion = controls
+        .map((e) => _numValue(e['escala_inflamacion'], 0))
+        .reduce((a, b) => a > b ? a : b);
+    if (maxInflamacion >= 3) {
+      picosResumen = "$picosResumen Inflamacion alta maxima: $maxInflamacion.";
+    }
+
     if (controls.length >= 2) {
       final last = controls.last;
       final prev = controls[controls.length - 2];
-      if ((last['nivel_fatiga'] ?? 0) > (prev['nivel_fatiga'] ?? 0)) {
+      final dolorDelta = _numValue(last['puntos_dolor'], 0) -
+          _numValue(prev['puntos_dolor'], 0);
+      final energiaDelta = _numValue(last['nivel_fatiga'], 10) -
+          _numValue(prev['nivel_fatiga'], 10);
+      if (dolorDelta < 0 && energiaDelta >= 0) {
         mejoriaResumen =
             "Energía mostró tendencia positiva vs el mes anterior.";
+      }
+    }
+
+    if (controls.length >= 2) {
+      final last = controls.last;
+      final prev = controls[controls.length - 2];
+      final dolorDelta = _numValue(last['puntos_dolor'], 0) -
+          _numValue(prev['puntos_dolor'], 0);
+      final energiaDelta = _numValue(last['nivel_fatiga'], 10) -
+          _numValue(prev['nivel_fatiga'], 10);
+      if (dolorDelta > 0 || energiaDelta < 0) {
+        mejoriaResumen =
+            "Atencion: dolor sube o energia baja vs el control previo.";
+      } else if (dolorDelta == 0 && energiaDelta == 0) {
+        mejoriaResumen = "Evolucion estable vs el control previo.";
       }
     }
 
@@ -6120,57 +6181,67 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     );
   }
 
-  Widget _heatColumn(Map<String, dynamic> c) {
+  Widget _heatColumn(Map<String, dynamic> c, {double? width}) {
     final label = _monthShort(c['fecha_control']?.toString() ?? '');
+    final cellWidth = ((width ?? 85) - 4).clamp(80.0, double.infinity);
 
-    // Lógica para estado nutricional (peso/talla)
-    String nutriDisplay = (c['prediagnostico']?['diagnostico_combinado'] ??
+    // Estado nutricional resumido para que la celda sea legible.
+    String rawNutri = (c['prediagnostico']?['diagnostico_combinado'] ??
             c['estado_nutricional'] ??
             "-")
         .toString();
-    String lower = nutriDisplay.toLowerCase();
-    if (lower.contains("normal / talla normal") ||
-        lower == "normal" ||
-        lower == "eutrófico" ||
-        lower == "eutrofico") {
+    String nutriDisplay = rawNutri;
+    String lower = rawNutri.toLowerCase();
+
+    if (lower.contains("normal") ||
+        lower.contains("eutrófico") ||
+        lower.contains("eutrofico")) {
       nutriDisplay = "Normal";
     }
 
     return GestureDetector(
       onTap: () => setState(() => _controlSeleccionadoEvo = c),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Column(
-          children: [
-            Container(
-              width: 85,
-              height: 32,
-              alignment: Alignment.center,
-              child: Text(
-                label,
-                style: GoogleFonts.montserrat(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1E293B),
+      child: SizedBox(
+        width: width ?? 85,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Column(
+            children: [
+              Container(
+                width: cellWidth,
+                height: 32,
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1E293B),
+                  ),
                 ),
               ),
-            ),
-            _heatCell((c['puntos_dolor'] ?? 0).toString(),
-                _heatColor('dolor', (c['puntos_dolor'] ?? 0).toDouble())),
-            _heatCell((c['nivel_fatiga'] ?? 10).toString(),
-                _heatColor('energia', (c['nivel_fatiga'] ?? 10).toDouble())),
-            _heatCell(
-                (c['escala_inflamacion'] ?? 0).toString(),
-                _heatColor(
-                    'inflamacion', (c['escala_inflamacion'] ?? 0).toDouble())),
-            _heatCell(c['en_brote'] == true ? "Sí" : "No",
-                c['en_brote'] == true ? Colors.red : Colors.green),
-            _heatCell(
-              nutriDisplay,
-              _nutriColor(c['estado_nutricional']?.toString() ?? ""),
-              isTextCell: true,
-            ),
-          ],
+              _heatCell((c['puntos_dolor'] ?? 0).toString(),
+                  _heatColor('dolor', _numValue(c['puntos_dolor'], 0)),
+                  width: cellWidth),
+              _heatCell((c['nivel_fatiga'] ?? 10).toString(),
+                  _heatColor('energia', _numValue(c['nivel_fatiga'], 10)),
+                  width: cellWidth),
+              _heatCell(
+                  (c['escala_inflamacion'] ?? 0).toString(),
+                  _heatColor(
+                      'inflamacion', _numValue(c['escala_inflamacion'], 0)),
+                  width: cellWidth),
+              _heatCell(c['en_brote'] == true ? "Sí" : "No",
+                  c['en_brote'] == true ? Colors.red : Colors.green,
+                  width: cellWidth),
+              _heatCell(
+                nutriDisplay,
+                _nutriColor(rawNutri),
+                isTextCell: true,
+                width: cellWidth,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -6213,9 +6284,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     );
   }
 
-  Widget _heatCell(String text, Color color, {bool isTextCell = false}) {
+  Widget _heatCell(String text, Color color,
+      {bool isTextCell = false, double width = 80}) {
     return Container(
-      width: 80,
+      width: width,
       height: 34,
       margin: const EdgeInsets.only(bottom: 6),
       alignment: Alignment.center,
@@ -6260,11 +6332,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         return Colors.red;
       case 'inflamacion':
         if (v == 0) return Colors.green;
-        if (v == 1) return Colors.yellow.shade800;
-        if (v == 2) return Colors.orange;
+        if (v <= 2) return Colors.orange;
         return Colors.red;
       default:
-        return Colors.blueGrey;
+        return Colors.orange;
     }
   }
 
@@ -6274,51 +6345,81 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         e.contains("eutrófico") ||
         e.contains("eutrofico")) return Colors.green;
     if (e.contains("bajo")) return Colors.orange;
-    if (e.contains("delg")) return Colors.amber;
-    if (e.contains("sobre")) return Colors.red.shade400;
-    return Colors.blueGrey;
+    if (e.contains("delg")) return Colors.orange;
+    if (e.contains("sobre") || e.contains("obes")) return Colors.red;
+    return Colors.orange;
   }
 
   Widget _buildEvoGrowthSection(
       List<Map<String, dynamic>> controls, Map<String, dynamic> paciente) {
     if (controls.isEmpty) return const SizedBox();
     final latest = controls.last;
+    final latestImc = _controlImc(latest);
+    final latestZScore = _controlZScoreBmi(latest);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionHeader("5. Crecimiento y nutrición", Icons.show_chart_rounded),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            _growthSummaryCard("Peso actual", "${latest['peso_kg'] ?? '-'} kg",
-                _getHistoryValues(controls, 'peso_kg'), Colors.green),
-            const SizedBox(width: 12),
-            _growthSummaryCard(
-                "Talla actual",
-                "${latest['talla_cm'] ?? '-'} cm",
-                _getHistoryValues(controls, 'talla_cm'),
-                Colors.blue),
-            const SizedBox(width: 12),
-            _growthSummaryCard(
-                "IMC actual",
-                "${latest['bmi']?.toStringAsFixed(1) ?? '-'}",
-                _getHistoryValues(controls, 'bmi'),
-                Colors.purple),
-            const SizedBox(width: 12),
-            _growthSummaryCard(
-                "Z-score IMC",
-                "${latest['z_score_bmi']?.toStringAsFixed(1) ?? '-'}",
-                _getHistoryValues(controls, 'z_score_bmi'),
-                Colors.orange),
-          ],
-        ),
+        LayoutBuilder(builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth >= 760
+              ? (constraints.maxWidth - 36) / 4
+              : constraints.maxWidth >= 520
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth;
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: cardWidth,
+                child: _growthSummaryCard(
+                    "Peso actual",
+                    "${latest['peso_kg'] ?? '-'} kg",
+                    _getHistoryValues(controls, 'peso_kg'),
+                    Colors.green),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _growthSummaryCard(
+                    "Talla actual",
+                    "${latest['talla_cm'] ?? '-'} cm",
+                    _getHistoryValues(controls, 'talla_cm'),
+                    Colors.blue),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _growthSummaryCard(
+                    "IMC actual",
+                    latestImc == null ? "-" : latestImc.toStringAsFixed(1),
+                    _getHistoryValues(controls, 'bmi'),
+                    Colors.purple),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: _growthSummaryCard(
+                    "Z-score IMC",
+                    latestZScore == null
+                        ? "-"
+                        : latestZScore.toStringAsFixed(1),
+                    _getHistoryValues(controls, 'z_score_bmi'),
+                    Colors.orange),
+              ),
+            ],
+          );
+        }),
         const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
-                child: _growthChartCard("Peso mensual (kg)", controls,
-                    'peso_kg', Colors.green, "Rango saludable: 6.1 - 16.5 kg")),
+                child: _growthChartCard(
+                    "Peso mensual (kg)",
+                    controls,
+                    'peso_kg',
+                    Colors.green,
+                    "Datos reales de peso registrados")),
             const SizedBox(width: 16),
             Expanded(
                 child: _growthChartCard(
@@ -6326,7 +6427,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     controls,
                     'talla_cm',
                     Colors.blue,
-                    "Rango saludable: 70.0 - 87.0 cm")),
+                    "Datos reales de talla registrados")),
           ],
         ),
         const SizedBox(height: 16),
@@ -6351,32 +6452,47 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     if (controls.isEmpty) return const SizedBox();
 
     // Cargar datos dinámicos
-    double deltaPeso = 0;
-    if (controls.length > 1) {
-      deltaPeso =
-          (double.tryParse(controls.last['peso_kg']?.toString() ?? '0') ?? 0) -
-              (double.tryParse(controls.first['peso_kg']?.toString() ?? '0') ??
-                  0);
-    }
-
-    Map<String, dynamic>? mesCritico;
-    double maxCarga = 0;
-    for (var c in controls) {
-      double carga =
-          (double.tryParse(c['puntos_dolor']?.toString() ?? '0') ?? 0) / 3 +
-              (c['en_brote'] == true ? 1 : 0);
-      if (carga > maxCarga) {
-        maxCarga = carga;
-        mesCritico = c;
-      }
-    }
+    final impactData = _buildImpactData(controls);
+    final deltaPeso = impactData.fold<double>(
+        0, (sum, item) => sum + (item['delta_peso'] as double));
+    final maxCarga = impactData.fold<int>(
+        0, (maxValue, item) => max(maxValue, item['inflamacion'] as int));
+    final mesesEstables = impactData
+        .where((item) =>
+            item['en_brote'] != true && (item['inflamacion'] as int) <= 1)
+        .length;
+    final mesesBrote =
+        impactData.where((item) => item['en_brote'] == true).length;
+    final mesCritico = _criticalImpactMonth(impactData);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionHeader(
             "6. Impacto clínico-nutricional", Icons.analytics_outlined),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+
+        // KPI'S EN LA PARTE SUPERIOR
+        Row(
+          children: [
+            _impactStatCard(
+                "Δ peso acumulado",
+                "${deltaPeso >= 0 ? '+' : ''}${deltaPeso.toStringAsFixed(1)} kg",
+                Icons.arrow_upward_rounded,
+                Colors.blue),
+            const SizedBox(width: 12),
+            _impactStatCard("Mayor carga", maxCarga.toString(),
+                Icons.local_fire_department_rounded, Colors.orange),
+            const SizedBox(width: 12),
+            _impactStatCard("Meses estables", mesesEstables.toString(),
+                Icons.check_circle_rounded, Colors.green),
+            const SizedBox(width: 12),
+            _impactStatCard("Meses con brote", mesesBrote.toString(),
+                Icons.coronavirus_rounded, Colors.red),
+          ],
+        ),
+        const SizedBox(height: 20),
+
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -6394,112 +6510,320 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Evolución de peso y carga inflamatoria",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 18, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       _impactLegend(),
                     ],
                   ),
-                  _statusPanel(controls, mesCritico),
                 ],
               ),
               const SizedBox(height: 32),
-              _buildImpactDualChart(controls),
-              const SizedBox(height: 24),
-              _impactSummaryFooter(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 7,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 360,
+                          width: double.infinity,
+                          child: _buildImpactDualChart(impactData),
+                        ),
+                        const SizedBox(height: 16),
+                        _impactSummaryFooter(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  SizedBox(
+                    width: 300,
+                    child: Column(
+                      children: [
+                        _statusPanel(impactData, mesCritico),
+                        const SizedBox(height: 16),
+                        _buildImpactSummaryTable(impactData, mesCritico),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
         const SizedBox(height: 20),
         Row(
           children: [
-            _impactStatCard(
-                "Î” peso acumulado",
-                "${deltaPeso >= 0 ? '+' : ''}${deltaPeso.toStringAsFixed(1)} kg",
-                Icons.arrow_upward_rounded,
-                Colors.blue),
-            const SizedBox(width: 12),
-            _impactStatCard("Mayor carga", maxCarga.toStringAsFixed(1),
-                Icons.local_fire_department_rounded, Colors.orange),
-            const SizedBox(width: 12),
-            _impactStatCard(
-                "Meses estables",
-                controls.where((c) => c['en_brote'] != true).length.toString(),
-                Icons.check_circle_rounded,
-                Colors.green),
-            const SizedBox(width: 12),
-            _impactStatCard(
-                "Meses con brote",
-                controls.where((c) => c['en_brote'] == true).length.toString(),
-                Icons.coronavirus_rounded,
-                Colors.red),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            _actionCard(
-                "Hallazgo principal",
-                maxCarga > 1.5
-                    ? "La carga inflamatoria elevada se asocia a menor ganancia de peso."
-                    : "El paciente mantiene estabilidad nutricional con baja actividad clínica.",
-                Icons.track_changes_rounded,
-                Colors.blue),
+            _actionCard("Hallazgo principal", _impactMainFinding(impactData),
+                Icons.track_changes_rounded, Colors.blue),
             const SizedBox(width: 12),
             _actionCard(
                 "Alerta",
                 mesCritico != null
-                    ? "${_monthLong(mesCritico['fecha_control'])} fue el mes con mayor actividad inflamatoria registrada."
-                    : "No se detectan alertas críticas en el periodo.",
+                    ? "${_monthLong((mesCritico['control'] as Map<String, dynamic>)['fecha_control'])} fue el mes critico por brote, inflamacion o desaceleracion del peso."
+                    : "No se detectan alertas criticas en el periodo.",
                 Icons.warning_amber_rounded,
                 Colors.orange),
             const SizedBox(width: 12),
-            _actionCard(
-                "Acción sugerida",
-                "Mantener control estricto de inflamación para proteger el crecimiento.",
-                Icons.security_rounded,
-                Colors.green),
+            _actionCard("Acción sugerida", _impactActionSuggestion(impactData),
+                Icons.security_rounded, Colors.green),
           ],
         ),
       ],
     );
   }
 
+  Widget _buildImpactSummaryTable(
+      List<Map<String, dynamic>> impactData, Map<String, dynamic>? mesCritico) {
+    final risk = _impactRiskLabel(impactData);
+    final riskColor = _impactRiskColor(risk);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("RESUMEN DE RIESGO",
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Colors.blueGrey,
+                letterSpacing: 1)),
+        const SizedBox(height: 12),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          child: Column(
+            children: [
+              _impactTableRow("Tendencia peso", _impactWeightStatus(impactData),
+                  Colors.blue),
+              _impactTableRow("Progreso clínico",
+                  _impactProgressStatus(impactData), Colors.orange),
+              _impactTableRow("Recuperación",
+                  _impactRecoveryStatus(impactData, mesCritico), Colors.green),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: riskColor.withOpacity(0.1),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("NIVEL DE RIESGO",
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: riskColor)),
+                    Text(risk.toUpperCase(),
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: riskColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _impactTableRow(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade50)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blueGrey)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4)),
+            child: Text(value,
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _buildImpactData(
+      List<Map<String, dynamic>> controls) {
+    final ordered = [...controls]..sort((a, b) {
+        final dateA = DateTime.tryParse(a['fecha_control']?.toString() ?? '');
+        final dateB = DateTime.tryParse(b['fecha_control']?.toString() ?? '');
+        if (dateA == null || dateB == null) return 0;
+        return dateA.compareTo(dateB);
+      });
+
+    final data = <Map<String, dynamic>>[];
+    for (var i = 0; i < ordered.length; i++) {
+      final control = ordered[i];
+      final pesoActual = _growthValue(control, 'peso_kg');
+      final pesoPrevio = i > 0 ? _growthValue(ordered[i - 1], 'peso_kg') : null;
+      final deltaPeso = pesoActual != null && pesoPrevio != null
+          ? pesoActual - pesoPrevio
+          : 0.0;
+      final inflamacion = _numValue(control['escala_inflamacion'], 0)
+          .round()
+          .clamp(0, 3)
+          .toInt();
+
+      data.add({
+        'control': control,
+        'delta_peso': deltaPeso,
+        'inflamacion': inflamacion,
+        'en_brote': control['en_brote'] == true,
+      });
+    }
+    return data;
+  }
+
+  Map<String, dynamic>? _criticalImpactMonth(
+      List<Map<String, dynamic>> impactData) {
+    if (impactData.isEmpty) return null;
+    Map<String, dynamic>? critical;
+    double criticalScore = -1;
+    for (final item in impactData) {
+      final inflamacion = item['inflamacion'] as int;
+      final deltaPeso = item['delta_peso'] as double;
+      final enBrote = item['en_brote'] == true;
+      final score = (inflamacion * 2) +
+          (enBrote ? 2 : 0) +
+          (deltaPeso < 0 ? 2 : 0) +
+          (deltaPeso == 0 ? 0.5 : 0);
+      if (score > criticalScore) {
+        criticalScore = score.toDouble();
+        critical = item;
+      }
+    }
+    return critical;
+  }
+
+  String _impactMainFinding(List<Map<String, dynamic>> impactData) {
+    final affectedMonths = impactData.where((item) =>
+        (item['inflamacion'] as int) >= 2 &&
+        ((item['delta_peso'] as double) <= 0 || item['en_brote'] == true));
+    if (affectedMonths.isNotEmpty) {
+      return "La carga inflamatoria elevada se asocia a menor ganancia de peso.";
+    }
+    return "El paciente mantiene estabilidad nutricional con baja actividad clinica.";
+  }
+
+  String _impactActionSuggestion(List<Map<String, dynamic>> impactData) {
+    final needsSupport = impactData.any((item) =>
+        item['en_brote'] == true &&
+        ((item['inflamacion'] as int) >= 2 ||
+            (item['delta_peso'] as double) <= 0));
+    if (needsSupport) {
+      return "Reforzar control de inflamacion y soporte nutricional para mantener el crecimiento.";
+    }
+    return "Mantener seguimiento mensual de peso, inflamacion y brotes.";
+  }
+
+  String _impactRiskLabel(List<Map<String, dynamic>> impactData) {
+    final hasBrote = impactData.any((item) => item['en_brote'] == true);
+    final hasHighInflammation =
+        impactData.any((item) => (item['inflamacion'] as int) >= 3);
+    final negativeMonths =
+        impactData.where((item) => (item['delta_peso'] as double) < 0).length;
+    if (hasHighInflammation && hasBrote && negativeMonths > 1) return "Alto";
+    if (hasBrote || hasHighInflammation || negativeMonths == 1) {
+      return "Moderado";
+    }
+    return "Bajo";
+  }
+
+  Color _impactRiskColor(String risk) {
+    if (risk == "Alto") return Colors.red;
+    if (risk == "Moderado") return Colors.orange;
+    return Colors.green;
+  }
+
+  String _impactWeightStatus(List<Map<String, dynamic>> impactData) {
+    final total = impactData.fold<double>(
+        0, (sum, item) => sum + (item['delta_peso'] as double));
+    final negativeMonths =
+        impactData.where((item) => (item['delta_peso'] as double) < 0).length;
+    if (total > 0 && negativeMonths <= 1) return "Adecuada";
+    if (total > 0) return "Vigilancia";
+    return "Revisar";
+  }
+
+  String _impactProgressStatus(List<Map<String, dynamic>> impactData) {
+    final criticalPattern = impactData.any((item) =>
+        item['en_brote'] == true &&
+        (item['inflamacion'] as int) >= 2 &&
+        (item['delta_peso'] as double) <= 0);
+    return criticalPattern ? "Vigilancia" : "Adecuada";
+  }
+
+  String _impactRecoveryStatus(
+      List<Map<String, dynamic>> impactData, Map<String, dynamic>? mesCritico) {
+    if (mesCritico == null) return "-";
+    final criticalIndex = impactData.indexOf(mesCritico);
+    if (criticalIndex < 0 || criticalIndex >= impactData.length - 1) {
+      return "Pendiente";
+    }
+    final posteriores = impactData.skip(criticalIndex + 1);
+    final improves = posteriores.any((item) =>
+        (item['inflamacion'] as int) <= 1 &&
+        (item['delta_peso'] as double) > 0 &&
+        item['en_brote'] != true);
+    return improves ? "Adecuada" : "Vigilancia";
+  }
+
   Widget _growthSummaryCard(
       String title, String value, List<double> history, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade100),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(_getIconForGrowthTitle(title), color: color, size: 16),
-                const SizedBox(width: 8),
-                Text(title,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_getIconForGrowthTitle(title), color: color, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(value,
-                style: GoogleFonts.montserrat(
-                    fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            SizedBox(
-                height: 24,
-                width: double.infinity,
-                child: _buildSparkline(history, color)),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.montserrat(
+                  fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          SizedBox(
+              height: 24,
+              width: double.infinity,
+              child: _buildSparkline(history, color)),
+        ],
       ),
     );
   }
@@ -6507,8 +6831,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   Widget _growthChartCard(String title, List<Map<String, dynamic>> controls,
       String key, Color color, String refText) {
     return Container(
-      height: 230,
-      padding: const EdgeInsets.all(16),
+      height: 250,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -6520,7 +6845,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               style: GoogleFonts.montserrat(
                   fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          Expanded(child: _buildMainGrowthChart(controls, key, color)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4, bottom: 2),
+              child: ClipRect(
+                child: _buildMainGrowthChart(controls, key, color),
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(refText,
               style: GoogleFonts.inter(fontSize: 9, color: Colors.grey)),
@@ -6530,67 +6862,173 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   }
 
   Widget _buildGrowthInterpretationCards(List<Map<String, dynamic>> controls) {
-    return Row(
-      children: [
-        _interpretationGrowthCard(
-            "Peso", "Aumento significativo", "Estable", Colors.green),
-        const SizedBox(width: 10),
-        _interpretationGrowthCard(
-            "Talla", "Crecimiento lineal", "Adecuada", Colors.blue),
-        const SizedBox(width: 10),
-        _interpretationGrowthCard(
-            "IMC", "Pico transitorio", "Estable", Colors.purple),
-        const SizedBox(width: 10),
-        _interpretationGrowthCard(
-            "Z-score", "Valores adecuados", "Adecuada", Colors.orange),
-      ],
-    );
+    final first = controls.first;
+    final last = controls.last;
+    final pesoInicial = _growthValue(first, 'peso_kg');
+    final pesoActual = _growthValue(last, 'peso_kg');
+    final tallaInicial = _growthValue(first, 'talla_cm');
+    final tallaActual = _growthValue(last, 'talla_cm');
+    final imcInicial = _controlImc(first);
+    final imcActual = _controlImc(last);
+    final zActual = _controlZScoreBmi(last);
+
+    final pesoDelta = (pesoInicial != null && pesoActual != null)
+        ? pesoActual - pesoInicial
+        : null;
+    final tallaDelta = (tallaInicial != null && tallaActual != null)
+        ? tallaActual - tallaInicial
+        : null;
+    final imcDelta = (imcInicial != null && imcActual != null)
+        ? imcActual - imcInicial
+        : null;
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final cardWidth = constraints.maxWidth >= 760
+          ? (constraints.maxWidth - 30) / 4
+          : constraints.maxWidth >= 520
+              ? (constraints.maxWidth - 10) / 2
+              : constraints.maxWidth;
+
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          SizedBox(
+            width: cardWidth,
+            child: _interpretationGrowthCard(
+                "Peso",
+                pesoDelta == null
+                    ? "Sin datos suficientes para comparar peso."
+                    : "${pesoDelta >= 0 ? '+' : ''}${pesoDelta.toStringAsFixed(1)} kg en el periodo.",
+                _trendLabel(pesoDelta,
+                    positiveLabel: "Ganancia", negativeLabel: "Descenso"),
+                Colors.green),
+          ),
+          SizedBox(
+            width: cardWidth,
+            child: _interpretationGrowthCard(
+                "Talla",
+                tallaDelta == null
+                    ? "Sin datos suficientes para comparar talla."
+                    : "${tallaDelta >= 0 ? '+' : ''}${tallaDelta.toStringAsFixed(1)} cm en el periodo.",
+                _trendLabel(tallaDelta,
+                    positiveLabel: "Crecimiento",
+                    negativeLabel: "Revisar dato"),
+                Colors.blue),
+          ),
+          SizedBox(
+            width: cardWidth,
+            child: _interpretationGrowthCard(
+                "IMC",
+                imcActual == null
+                    ? "No hay peso/talla suficiente para calcular IMC."
+                    : "IMC actual ${imcActual.toStringAsFixed(1)}${imcDelta == null ? '' : ' (${imcDelta >= 0 ? '+' : ''}${imcDelta.toStringAsFixed(1)})'}.",
+                _imcTrendLabel(imcDelta),
+                Colors.purple),
+          ),
+          SizedBox(
+            width: cardWidth,
+            child: _interpretationGrowthCard(
+                "Z-score",
+                zActual == null
+                    ? "Z-score IMC no disponible en los datos OMS."
+                    : _zScoreInterpretation(zActual),
+                _zScoreTrendLabel(zActual),
+                _zScoreColor(zActual ?? 0)),
+          ),
+        ],
+      );
+    });
+  }
+
+  String _trendLabel(double? delta,
+      {required String positiveLabel, required String negativeLabel}) {
+    if (delta == null) return "Sin comparativo";
+    if (delta > 0.05) return positiveLabel;
+    if (delta < -0.05) return negativeLabel;
+    return "Estable";
+  }
+
+  String _imcTrendLabel(double? delta) {
+    if (delta == null) return "Sin comparativo";
+    if (delta > 0.2) return "Aumento";
+    if (delta < -0.2) return "Descenso";
+    return "Estable";
+  }
+
+  String _zScoreInterpretation(double z) {
+    if (z < -3) return "Delgadez severa: requiere seguimiento prioritario.";
+    if (z < -2) return "Delgadez: vigilar ganancia ponderal.";
+    if (z <= 1) return "Rango esperado para IMC/edad.";
+    if (z <= 2) return "Riesgo de sobrepeso: vigilar tendencia.";
+    if (z <= 3) return "Sobrepeso segun IMC/edad.";
+    return "Obesidad segun IMC/edad.";
+  }
+
+  String _zScoreTrendLabel(double? z) {
+    if (z == null) return "No disponible";
+    if (z < -2 || z > 2) return "Alerta";
+    if (z > 1) return "Vigilancia";
+    return "Adecuada";
   }
 
   Widget _interpretationGrowthCard(
       String title, String desc, String trend, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.1)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(_getIconForGrowthTitle(title), color: color, size: 16),
-                const SizedBox(width: 8),
-                Text(title,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_getIconForGrowthTitle(title), color: color, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                         fontSize: 12, fontWeight: FontWeight.w700)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(desc,
-                style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
-                maxLines: 2),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6)),
-              child: Text("Tendencia: $trend",
-                  style: GoogleFonts.inter(
-                      fontSize: 9, fontWeight: FontWeight.w700, color: color)),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(desc,
+              style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6)),
+            child: Text("Tendencia: $trend",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                    fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+          ),
+        ],
       ),
     );
   }
 
   Widget _statusPanel(
-      List<Map<String, dynamic>> controls, Map<String, dynamic>? mesCritico) {
+      List<Map<String, dynamic>> impactData, Map<String, dynamic>? mesCritico) {
+    final risk = _impactRiskLabel(impactData);
+    final pesoStatus = _impactWeightStatus(impactData);
+    final progressStatus = _impactProgressStatus(impactData);
+    final recoveryStatus = _impactRecoveryStatus(impactData, mesCritico);
+    final brotesRecientes =
+        impactData.reversed.take(3).any((item) => item['en_brote'] == true);
+    final mesCriticoControl = mesCritico?['control'] as Map<String, dynamic>?;
+
     return Container(
       width: 250,
       padding: const EdgeInsets.all(16),
@@ -6599,20 +7037,21 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
-          _statusRow("Riesgo clínico-nutri", "Moderado", Colors.orange),
-          _statusRow("Peso", "Adecuada", Colors.green),
-          _statusRow("IMC / progresión", "Vigilancia", Colors.orange),
-          _statusRow(
-              "Brotes recientes",
-              controls.any((c) => c['en_brote'] == true) ? "Sí" : "No",
-              Colors.red),
+          _statusRow("Riesgo clínico-nutri", risk, _impactRiskColor(risk)),
+          _statusRow("Peso", pesoStatus,
+              pesoStatus == "Adecuada" ? Colors.green : Colors.orange),
+          _statusRow("IMC / progresión", progressStatus,
+              progressStatus == "Adecuada" ? Colors.green : Colors.orange),
+          _statusRow("Brotes recientes", brotesRecientes ? "Sí" : "No",
+              brotesRecientes ? Colors.red : Colors.green),
           _statusRow(
               "Mes crítico",
-              mesCritico != null
-                  ? _monthShort(mesCritico['fecha_control'])
+              mesCriticoControl != null
+                  ? _monthShort(mesCriticoControl['fecha_control'])
                   : "-",
               Colors.purple),
-          _statusRow("Recuperación", "Adecuada", Colors.green),
+          _statusRow("Recuperación", recoveryStatus,
+              recoveryStatus == "Adecuada" ? Colors.green : Colors.orange),
         ],
       ),
     );
@@ -6719,8 +7158,49 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   List<double> _getHistoryValues(
       List<Map<String, dynamic>> controls, String key) {
     return controls
-        .map((e) => double.tryParse(e[key]?.toString() ?? '0') ?? 0.0)
+        .map((e) => _growthValue(e, key))
+        .whereType<double>()
         .toList();
+  }
+
+  double? _growthValue(Map<String, dynamic> control, String key) {
+    if (key == 'bmi') return _controlImc(control);
+    if (key == 'z_score_bmi') return _controlZScoreBmi(control);
+    final value = control[key];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  double? _controlImc(Map<String, dynamic> control) {
+    final pre = control['prediagnostico'];
+    final fromPre = pre is Map ? pre['imc'] : null;
+    final existing =
+        fromPre ?? control['imc_calculado'] ?? control['bmi'] ?? control['imc'];
+    final parsed = existing is num
+        ? existing.toDouble()
+        : double.tryParse(existing?.toString() ?? '');
+    if (parsed != null && parsed > 0) return parsed;
+
+    final peso = _growthValueRaw(control['peso_kg']);
+    final tallaCm = _growthValueRaw(control['talla_cm']);
+    if (peso == null || tallaCm == null || peso <= 0 || tallaCm <= 0) {
+      return null;
+    }
+    final tallaM = tallaCm / 100;
+    return peso / (tallaM * tallaM);
+  }
+
+  double? _controlZScoreBmi(Map<String, dynamic> control) {
+    final pre = control['prediagnostico'];
+    final fromPre = pre is Map ? pre['z_score_bmi'] : null;
+    final existing = fromPre ?? control['z_score_bmi'];
+    if (existing is num) return existing.toDouble();
+    return double.tryParse(existing?.toString() ?? '');
+  }
+
+  double? _growthValueRaw(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   Widget _buildSparkline(List<double> data, Color color) {
@@ -6731,20 +7211,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   Widget _buildMainGrowthChart(
       List<Map<String, dynamic>> controls, String key, Color color) {
     List<HorizontalRangeAnnotation> bands = [];
-    if (key == 'bmi') {
-      bands = [
-        HorizontalRangeAnnotation(
-            y1: 0, y2: 15, color: Colors.orange.withOpacity(0.05)), // Bajo peso
-        HorizontalRangeAnnotation(
-            y1: 15, y2: 25, color: Colors.green.withOpacity(0.05)), // Normal
-        HorizontalRangeAnnotation(
-            y1: 25,
-            y2: 30,
-            color: Colors.orange.withOpacity(0.05)), // Sobrepeso
-        HorizontalRangeAnnotation(
-            y1: 30, y2: 50, color: Colors.red.withOpacity(0.05)), // Obesidad
-      ];
-    } else if (key == 'z_score_bmi') {
+    if (key == 'z_score_bmi') {
       bands = [
         HorizontalRangeAnnotation(
             y1: -3, y2: -2, color: Colors.red.withOpacity(0.05)),
@@ -6757,16 +7224,39 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       ];
     }
 
+    final spots = controls.asMap().entries.fold<List<FlSpot>>([], (acc, e) {
+      final value = _growthValue(e.value, key);
+      if (value != null) acc.add(FlSpot(e.key.toDouble(), value));
+      return acc;
+    });
+
+    if (spots.isEmpty) {
+      return Center(
+        child: Text(
+          "Sin datos suficientes",
+          style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey),
+        ),
+      );
+    }
+
+    final values = spots.map((e) => e.y).toList();
+    final rawMin = values.reduce(min);
+    final rawMax = values.reduce(max);
+    final range = rawMax - rawMin;
+    final padding = range == 0 ? rawMax.abs() * 0.08 + 1 : range * 0.16;
+    final minY = rawMin - padding;
+    final maxY = rawMax + padding;
+
     return LineChart(
       LineChartData(
+        minX: 0,
+        maxX: (controls.length - 1).toDouble().clamp(0, double.infinity),
+        minY: minY,
+        maxY: maxY,
+        clipData: const FlClipData.all(),
         lineBarsData: [
           LineChartBarData(
-            spots: controls
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(),
-                    double.tryParse(e.value[key]?.toString() ?? '0') ?? 0))
-                .toList(),
+            spots: spots,
             isCurved: true,
             color: color,
             barWidth: 3,
@@ -6775,23 +7265,60 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             dotData: const FlDotData(show: true),
           ),
         ],
+        lineTouchData: LineTouchData(
+          enabled: true,
+          handleBuiltInTouches: true,
+          getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes
+              .map((i) => TouchedSpotIndicatorData(
+                    FlLine(color: color.withOpacity(0.16), strokeWidth: 1.4),
+                    FlDotData(show: true, getDotPainter: _getSmallDot),
+                  ))
+              .toList(),
+          touchTooltipData: _growthTooltipData(controls, key, color),
+        ),
         rangeAnnotations: RangeAnnotations(horizontalRangeAnnotations: bands),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 26,
-                  getTitlesWidget: (v, m) => Text(v.toStringAsFixed(0),
-                      style: const TextStyle(fontSize: 8)))),
+                  reservedSize: 38,
+                  getTitlesWidget: (v, m) => SizedBox(
+                        width: 34,
+                        child: Text(
+                          v.toStringAsFixed(key == 'z_score_bmi' ? 1 : 0),
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: const TextStyle(
+                              fontSize: 8, color: Color(0xFF64748B)),
+                        ),
+                      ))),
           bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
+                  reservedSize: 30,
+                  interval: 1,
                   getTitlesWidget: (v, m) {
-                    int idx = v.toInt();
-                    if (idx < 0 || idx >= controls.length)
+                    final idx = v.round();
+                    if ((v - idx).abs() > 0.01 ||
+                        idx < 0 ||
+                        idx >= controls.length) {
                       return const SizedBox();
-                    return Text(_monthShort(controls[idx]['fecha_control']),
-                        style: const TextStyle(fontSize: 8));
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: SizedBox(
+                        width: 40,
+                        child: Text(
+                          _monthShort(controls[idx]['fecha_control']),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 8, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    );
                   })),
           rightTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -6802,6 +7329,65 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         borderData: FlBorderData(show: false),
       ),
     );
+  }
+
+  LineTouchTooltipData _growthTooltipData(
+      List<Map<String, dynamic>> controls, String key, Color color) {
+    return LineTouchTooltipData(
+      fitInsideHorizontally: true,
+      fitInsideVertically: true,
+      getTooltipColor: (_) => Colors.white,
+      tooltipPadding: const EdgeInsets.all(8),
+      tooltipBorder: const BorderSide(color: Color(0xFFE2E8F0)),
+      getTooltipItems: (items) {
+        return items.map((item) {
+          final idx = item.x.round();
+          if (idx < 0 || idx >= controls.length) {
+            return null;
+          }
+          final c = controls[idx];
+          final label = _growthTooltipLabel(key);
+          final unit = _growthTooltipUnit(key);
+
+          return LineTooltipItem(
+            "",
+            const TextStyle(),
+            children: [
+              TextSpan(
+                  text:
+                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                  style: GoogleFonts.montserrat(
+                      fontSize: 8,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600)),
+              TextSpan(
+                  text: "$label: ",
+                  style: GoogleFonts.montserrat(
+                      fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+              TextSpan(
+                  text:
+                      "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
+                  style: GoogleFonts.montserrat(
+                      fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+            ],
+          );
+        }).toList();
+      },
+    );
+  }
+
+  String _growthTooltipLabel(String key) {
+    if (key == 'peso_kg') return "Peso";
+    if (key == 'talla_cm') return "Talla";
+    if (key == 'bmi') return "IMC";
+    if (key == 'z_score_bmi') return "Z-score IMC";
+    return "Valor";
+  }
+
+  String _growthTooltipUnit(String key) {
+    if (key == 'peso_kg') return " kg";
+    if (key == 'talla_cm') return " cm";
+    return "";
   }
 
   Widget _impactLegend() {
@@ -6844,143 +7430,153 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     );
   }
 
-  Widget _buildImpactDualChart(List<Map<String, dynamic>> controls) {
-    if (controls.isEmpty) return const SizedBox();
+  Widget _buildImpactDualChart(List<Map<String, dynamic>> impactData) {
+    if (impactData.isEmpty) return const SizedBox();
 
-    // Calcular límites dinámicos para el cambio de peso
-    double minDVal = 0;
-    double maxDVal = 0.5;
-    final List<double> dValList = [];
+    final deltas = impactData.map((e) => e['delta_peso'] as double).toList();
+    final minDVal = deltas.reduce(min);
+    final maxDVal = deltas.reduce(max);
+    final deltaRange = maxDVal - minDVal;
+    final deltaPadding =
+        deltaRange == 0 ? max(maxDVal.abs(), 0.5) * 0.35 : deltaRange * 0.35;
+    final dyMinY = min(-0.2, minDVal - deltaPadding);
+    final dyMaxY = max(0.5, maxDVal + deltaPadding);
 
-    for (int i = 0; i < controls.length; i++) {
-      double cWeight =
-          double.tryParse(controls[i]['peso_kg']?.toString() ?? '0') ?? 0;
-      double d = 0;
-      if (i > 0) {
-        double pWeight =
-            double.tryParse(controls[i - 1]['peso_kg']?.toString() ?? '0') ?? 0;
-        d = cWeight - pWeight;
-      } else {
-        d = 0.4; // Base inicial
-      }
-      dValList.add(d);
-      if (d < minDVal) minDVal = d;
-      if (d > maxDVal) maxDVal = d;
-    }
+    final inflamaciones =
+        impactData.map((e) => (e['inflamacion'] as int).toDouble()).toList();
+    final minInfl = inflamaciones.reduce(min);
+    final maxInfl = inflamaciones.reduce(max);
+    final inflRange = maxInfl - minInfl;
+    final inflPadding = inflRange == 0 ? 0.6 : max(0.35, inflRange * 0.18);
+    final inflMinY = max(-0.35, minInfl - inflPadding);
+    final inflMaxY = min(3.35, maxInfl + inflPadding);
 
-    double dyMinY = (minDVal - 0.2).floorToDouble();
-    double dyMaxY = (maxDVal + 0.5).ceilToDouble();
-
-    return Stack(
-      children: [
-        SizedBox(
-          height: 220,
-          child: BarChart(
-            BarChartData(
-              barGroups: controls.asMap().entries.map((e) {
-                return BarChartGroupData(
-                  x: e.key,
-                  barRods: [
-                    BarChartRodData(
-                      toY: dValList[e.key],
-                      color: Colors.blue.withOpacity(0.6),
-                      width: 14,
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(4)),
-                    )
-                  ],
-                );
-              }).toList(),
-              minY: dyMinY,
-              maxY: dyMaxY,
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 25,
-                      getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1),
-                          style: const TextStyle(
-                              fontSize: 8, color: Colors.blue))),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (v, m) {
-                      int idx = v.toInt();
-                      if (idx < 0 || idx >= controls.length)
-                        return const SizedBox();
-                      return Text(_monthShort(controls[idx]['fecha_control']),
-                          style: const TextStyle(fontSize: 8));
-                    },
-                  ),
-                ),
-                rightTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: LineChart(
-            LineChartData(
-              lineBarsData: [
-                LineChartBarData(
-                  spots: controls.asMap().entries.map((e) {
-                    double val = (double.tryParse(
-                                    e.value['puntos_dolor']?.toString() ??
-                                        '0') ??
-                                0) /
-                            3.3 +
-                        (e.value['en_brote'] == true ? 1 : 0);
-                    return FlSpot(e.key.toDouble(), val.clamp(0, 3));
+    return ClipRect(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: BarChart(
+                BarChartData(
+                  barGroups: impactData.asMap().entries.map((e) {
+                    final delta = e.value['delta_peso'] as double;
+                    return BarChartGroupData(
+                      x: e.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: delta,
+                          color: Colors.blue.withOpacity(0.6),
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4)),
+                        )
+                      ],
+                    );
                   }).toList(),
-                  isCurved: true,
-                  color: Colors.orange,
-                  barWidth: 3,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      bool isBrote = controls[index]['en_brote'] == true;
-                      return FlDotCirclePainter(
-                        radius: isBrote ? 4 : 2,
-                        color: isBrote ? Colors.red : Colors.orange,
-                        strokeWidth: 1.5,
-                        strokeColor: Colors.white,
-                      );
-                    },
+                  minY: dyMinY,
+                  maxY: dyMaxY,
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 36,
+                          getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1),
+                              style: const TextStyle(
+                                  fontSize: 8, color: Colors.blue))),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (v, m) {
+                          final idx = v.toInt();
+                          if (idx < 0 || idx >= impactData.length) {
+                            return const SizedBox();
+                          }
+                          final control = impactData[idx]['control']
+                              as Map<String, dynamic>;
+                          return Text(_monthShort(control['fecha_control']),
+                              style: const TextStyle(fontSize: 8));
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
                 ),
-              ],
-              minY: 0,
-              maxY: 3,
-              titlesData: FlTitlesData(
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 20,
-                      getTitlesWidget: (v, m) => Text(v.toInt().toString(),
-                          style: const TextStyle(
-                              fontSize: 8, color: Colors.orange))),
-                ),
-                leftTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
-              gridData: FlGridData(
-                  show: true, drawVerticalLine: false, horizontalInterval: 1),
-              borderData: FlBorderData(show: false),
             ),
-          ),
+            Positioned.fill(
+              child: LineChart(
+                LineChartData(
+                  clipData: const FlClipData.all(),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: impactData.asMap().entries.map((e) {
+                        final val = e.value['inflamacion'] as int;
+                        return FlSpot(e.key.toDouble(), val.toDouble());
+                      }).toList(),
+                      isCurved: true,
+                      color: Colors.orange,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          final isBrote = impactData[index]['en_brote'] == true;
+                          return FlDotCirclePainter(
+                            radius: isBrote ? 4 : 2,
+                            color: isBrote ? Colors.red : Colors.orange,
+                            strokeWidth: 1.5,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  minY: inflMinY,
+                  maxY: inflMaxY,
+                  titlesData: FlTitlesData(
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: 1,
+                          getTitlesWidget: (v, m) {
+                            final rounded = v.round();
+                            if ((v - rounded).abs() > 0.01 ||
+                                rounded < 0 ||
+                                rounded > 3) {
+                              return const SizedBox.shrink();
+                            }
+                            return Text(rounded.toString(),
+                                style: const TextStyle(
+                                    fontSize: 8, color: Colors.orange));
+                          }),
+                    ),
+                    leftTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: 1),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

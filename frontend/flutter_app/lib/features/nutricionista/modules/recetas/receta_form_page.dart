@@ -1389,7 +1389,6 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             Column(
               children: [
                 _buildTableHeaderIngredienteRow(),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -1405,43 +1404,48 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   }
 
   Widget _buildTableHeaderIngredienteRow() {
-    return Padding(
+    return Container(
+      color: AppTema.azulPrincipal,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text('Ingrediente', style: _headerStyle())),
-          Expanded(flex: 2, child: Text('Cantidad', style: _headerStyle())),
-          Expanded(flex: 2, child: Text('Unidad', style: _headerStyle())),
-          Expanded(flex: 2, child: Text('Gramos', style: _headerStyle())),
-          Expanded(
-              flex: 3, child: Text('Observaciones', style: _headerStyle())),
-          Expanded(
-              flex: 2,
-              child: Center(child: Text('Principal', style: _headerStyle()))),
-          SizedBox(
-              width: 80,
-              child: Center(child: Text('Acciones', style: _headerStyle()))),
+          Expanded(flex: 3, child: _headerText('Ingrediente')),
+          Expanded(flex: 2, child: _headerText('Cantidad')),
+          Expanded(flex: 2, child: _headerText('Unidad')),
+          Expanded(flex: 2, child: _headerText('Gramos')),
+          Expanded(flex: 3, child: _headerText('Observaciones')),
+          Expanded(flex: 2, child: Center(child: _headerText('Principal'))),
+          SizedBox(width: 80, child: Center(child: _headerText('Acciones'))),
         ],
       ),
     );
   }
 
-  TextStyle _headerStyle() => GoogleFonts.montserrat(
-      fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey);
+  Widget _headerText(String t) => Text(t,
+      style: GoogleFonts.inter(
+          fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white));
 
   Widget _buildRowIngredienteItem(int index) {
     final ing = _ingredientes[index];
+    final bool isEven = index % 2 == 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+      decoration: BoxDecoration(
+        color: isEven ? Colors.white : const Color(0xFFF1F5F9),
+      ),
       child: Row(
         children: [
           Expanded(
               flex: 3,
-              child: Text(ing['nombre'] ?? '-',
-                  style: const TextStyle(fontWeight: FontWeight.bold))),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(ing['nombre'] ?? '-',
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B))),
+              )),
           Expanded(flex: 2, child: _buildRowInput(index, 'cantidad')),
           Expanded(flex: 2, child: _buildRowInput(index, 'unidad')),
           Expanded(
@@ -1964,7 +1968,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           Expanded(
               child: Text(
                   'La composición nutricional de la receta se calculará automáticamente basándose en los ingredientes y pesos seleccionados.',
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 13,
                       color: AppTema.azulOscuro,
                       fontWeight: FontWeight.w500)))

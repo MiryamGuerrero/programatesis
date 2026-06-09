@@ -299,7 +299,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               child: Column(
                 children: [
                   _buildTableHead(),
-                  ...currentItems.map((p) => _buildTableRow(p)),
+                  ...currentItems.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final p = entry.value;
+                    return _buildTableRow(p, index);
+                  }),
                 ],
               ),
             ),
@@ -318,7 +322,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
 
   Widget _buildTableHead() {
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: AppTema.azulPrincipal,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
@@ -338,14 +342,13 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   Widget _tableHeaderLabel(String label) {
     return Text(label,
         style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-            color: AppTema.azulOscuro));
+            fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white));
   }
 
-  Widget _buildTableRow(Map<String, dynamic> p) {
+  Widget _buildTableRow(Map<String, dynamic> p, int index) {
     final bool isSelected =
         ref.watch(selectedPatientProvider)?['id'] == p['id'];
+    final bool isEven = index % 2 == 0;
 
     return InkWell(
       onTap: () => ref.read(selectedPatientProvider.notifier).state = p,
@@ -356,9 +359,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTema.azulPrincipal.withValues(alpha: 0.08)
-              : Colors.transparent,
+              : (isEven ? Colors.white : const Color(0xFFF1F5F9)),
           border: Border(
-            bottom: BorderSide(color: Colors.grey.shade100),
             left: BorderSide(
                 color: isSelected ? AppTema.azulPrincipal : Colors.transparent,
                 width: 4),

@@ -226,84 +226,119 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
               ? const Padding(
                   padding: EdgeInsets.all(60),
                   child: Center(child: Text("No se encontraron etiquetas.")))
-              : DataTable(
-                  headingRowColor:
-                      WidgetStateProperty.all(AppTema.pastelCeleste),
-                  columns: [
-                    _col("ETIQUETA VISIBLE"),
-                    _col("CÓDIGO INTERNO"),
-                    _col("TIPO"),
-                    _col("ACCIONES"),
+              : Column(
+                  children: [
+                    _buildTableHeader([
+                      "Etiqueta visible",
+                      "Código interno",
+                      "Tipo",
+                      "Acciones"
+                    ]),
+                    ...filtered.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final e = entry.value;
+                      return _buildTableRow(e, index);
+                    }),
                   ],
-                  rows: filtered
-                      .map((e) => DataRow(
-                            cells: [
-                              DataCell(Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                        color: (e['tipo'] == 'RESTRICCION'
-                                                ? Colors.red
-                                                : Colors.blue)
-                                            .withOpacity(0.1),
-                                        shape: BoxShape.circle),
-                                    child: Text(
-                                        (e['nombre_visible']?.toString() ??
-                                                "E")[0]
-                                            .toUpperCase(),
-                                        style: TextStyle(
-                                            color: e['tipo'] == 'RESTRICCION'
-                                                ? Colors.red
-                                                : Colors.blue,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12)),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                      e['nombre_visible']?.toString() ??
-                                          "Etiqueta",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: AppTema.azulPrincipal)),
-                                ],
-                              )),
-                              DataCell(Text(e['nombre']?.toString() ?? "N/A",
-                                  style: GoogleFonts.lato(fontSize: 11))),
-                              DataCell(NutriBadge(
-                                  label: e['tipo'].toString(),
-                                  type: e['tipo'] == 'RESTRICCION'
-                                      ? 'danger'
-                                      : 'info')),
-                              DataCell(Row(
-                                children: [
-                                  IconButton(
-                                      icon: const Icon(Icons.edit_note_rounded,
-                                          size: 20,
-                                          color: AppTema.azulPrincipal),
-                                      onPressed: () => _rename(
-                                          e['id'], e['nombre_visible'])),
-                                  IconButton(
-                                      icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 20,
-                                          color: Colors.redAccent),
-                                      onPressed: () => _delete(
-                                          e['id'], e['nombre_visible'])),
-                                ],
-                              )),
-                            ],
-                          ))
-                      .toList(),
                 ),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(
-      label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulPrincipal)));
+  Widget _buildTableHeader(List<String> labels) {
+    return Container(
+      color: AppTema.azulPrincipal,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(flex: 4, child: _headerCell(labels[0])),
+          Expanded(flex: 3, child: _headerCell(labels[1])),
+          Expanded(flex: 2, child: _headerCell(labels[2])),
+          Expanded(flex: 2, child: Center(child: _headerCell(labels[3]))),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(String t) => Text(t,
+      style: GoogleFonts.inter(
+          fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white));
+
+  Widget _buildTableRow(Map<String, dynamic> e, int index) {
+    final bool isEven = index % 2 == 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: isEven ? Colors.white : const Color(0xFFF1F5F9),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: (e['tipo'] == 'RESTRICCION'
+                              ? Colors.red
+                              : Colors.blue)
+                          .withOpacity(0.1),
+                      shape: BoxShape.circle),
+                  child: Text(
+                      (e['nombre_visible']?.toString() ?? "E")[0].toUpperCase(),
+                      style: GoogleFonts.inter(
+                          color: e['tipo'] == 'RESTRICCION'
+                              ? Colors.red
+                              : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(e['nombre_visible']?.toString() ?? "Etiqueta",
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: const Color(0xFF1E293B))),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(e['nombre']?.toString() ?? "N/A",
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blueGrey)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: NutriBadge(
+                  label: e['tipo'].toString(),
+                  type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info'),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                    icon: const Icon(Icons.edit_note_rounded,
+                        size: 20, color: AppTema.azulPrincipal),
+                    onPressed: () => _rename(e['id'], e['nombre_visible'])),
+                IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        size: 20, color: Colors.redAccent),
+                    onPressed: () => _delete(e['id'], e['nombre_visible'])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

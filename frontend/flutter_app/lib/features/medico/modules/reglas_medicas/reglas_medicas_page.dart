@@ -597,7 +597,11 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
                     child: Center(
                         child: Text("No se encontraron reglas configuradas.")))
               else
-                ...currentItems.map((r) => _buildTableRow(r)),
+                ...currentItems.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final r = entry.value;
+                  return _buildTableRow(r, index);
+                }),
             ],
           ),
         ),
@@ -611,7 +615,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
 
   Widget _buildTableHead() {
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: AppTema.azulPrincipal,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
@@ -630,12 +634,10 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
   Widget _tableHeaderLabel(String label) {
     return Text(label,
         style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-            color: AppTema.azulOscuro));
+            fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white));
   }
 
-  Widget _buildTableRow(Map<String, dynamic> r) {
+  Widget _buildTableRow(Map<String, dynamic> r, int index) {
     final condicionesIds = r["id_condiciones"] as List;
     final nombresCondiciones = condicionesIds.map((id) {
       final c = _formData["condiciones"]
@@ -644,11 +646,12 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
     }).join(", ");
 
     final bool isTemporalTab = _tabController.index == 1;
+    final bool isEven = index % 2 == 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        color: isEven ? Colors.white : const Color(0xFFF1F5F9),
       ),
       child: Row(
         children: [
@@ -693,7 +696,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
                           color: Colors.blueGrey)),
                   Text(_getTargetName(r),
                       style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF1E293B))),
                 ],

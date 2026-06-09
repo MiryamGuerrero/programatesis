@@ -18,10 +18,11 @@ class EtiquetasPage extends ConsumerStatefulWidget {
 class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   String _query = "";
   bool _loading = false;
+  String _estadoFiltro = 'todas';
+  String _tipoFiltro = 'todas';
   String? _error;
   List<Map<String, dynamic>> _etiquetas = const [];
 
-  // Paginación
   int _currentPage = 0;
   final int _pageSize = 12;
 
@@ -69,9 +70,10 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Eliminar Etiqueta?'),
+        title: const Text('Eliminar etiqueta'),
         content: Text(
-            '¿Estás seguro de que deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de todos los ingredientes y recetas.'),
+          '¿Deseas eliminar la etiqueta "$nombre"? Esta acción la desvinculará de ingredientes y recetas.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -103,9 +105,38 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     }
   }
 
+  bool _matchesTipo(Map<String, dynamic> etiqueta, String tipo) {
+    if (tipo == 'todas') return true;
+    final text = [
+      etiqueta['nombre_visible'],
+      etiqueta['descripcion'],
+      etiqueta['codigo'],
+    ].whereType<Object>().join(' ').toLowerCase();
+
+    switch (tipo) {
+      case 'gluten':
+        return text.contains('gluten');
+      case 'lactosa':
+        return text.contains('lactosa');
+      case 'sodio':
+        return text.contains('sodio') || text.contains('sal');
+      case 'azucar':
+        return text.contains('azucar') || text.contains('azúcar');
+      case 'vegetariana':
+        return text.contains('veget') || text.contains('vegan');
+      default:
+        return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filtered = _etiquetas;
+    final filtered = _etiquetas.where((e) {
+      final activa = e['activa'] != false;
+      if (_estadoFiltro == 'activas' && !activa) return false;
+      if (_estadoFiltro == 'inactivas' && activa) return false;
+      return _matchesTipo(e, _tipoFiltro);
+    }).toList();
     final totalPages = (filtered.length / _pageSize).ceil();
     final start = _currentPage * _pageSize;
     final end = (start + _pageSize) > filtered.length
@@ -124,7 +155,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
           children: [
             _buildHeader(),
             const SizedBox(height: 32),
-            _buildStatsRow(),
+            _buildStatsRow(filtered.length),
             const SizedBox(height: 32),
             _buildToolbar(),
             const SizedBox(height: 24),
@@ -136,7 +167,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
               _buildEmptyState()
             else
               _buildGrid(pageItems),
-            if (totalPages > 1) _buildPagination(totalPages),
+            if (filtered.isNotEmpty)
+              _buildFooter(start + 1, end, filtered.length, totalPages),
           ],
         ),
       ),
@@ -144,35 +176,33 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gestión de Etiquetas',
-              style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulPrincipal,
-                letterSpacing: -0.5,
-              ),
-            ),
-            Text(
-              'Configura las etiquetas nutricionales y descriptivas para las recetas.',
-              style: GoogleFonts.inter(
-                color: Colors.blueGrey,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        Text(
+          'Gestión de Etiquetas',
+          style: GoogleFonts.inter(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: AppTema.azulPrincipal,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          'Configura las etiquetas nutricionales y descriptivas para las recetas.',
+          style: GoogleFonts.inter(
+            color: Colors.blueGrey,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(int visibles) {
+    final activas = _etiquetas.where((e) => e['activa'] != false).length;
+
     return Row(
       children: [
         Expanded(
@@ -183,61 +213,197 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
             colorValor: AppTema.azulPrincipal,
           ),
         ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'ACTIVAS',
+            valor: activas.toString(),
+            icon: Icons.check_circle_rounded,
+            colorValor: AppTema.verdeSalud,
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'VISIBLES',
+            valor: visibles.toString(),
+            icon: Icons.filter_alt_rounded,
+            colorValor: AppTema.azulOscuro,
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildToolbar() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              style:
-                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-              onChanged: (v) {
-                _query = v;
-                _loadEtiquetas();
-              },
-              decoration: InputDecoration(
-                hintText: 'Buscar por nombre o código...',
-                hintStyle: GoogleFonts.inter(
-                    color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon:
-                    const Icon(Icons.search, size: 20, color: Colors.grey),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 560;
+              final search = _buildSearchField();
+              final action = _buildCreateButton();
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    search,
+                    const SizedBox(height: 12),
+                    action,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: search),
+                  const SizedBox(width: 20),
+                  action,
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildFilters(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: TextField(
+        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+        onChanged: (v) {
+          _query = v;
+          _loadEtiquetas();
+        },
+        decoration: InputDecoration(
+          hintText: 'Buscar por nombre o código...',
+          hintStyle:
+              GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 12),
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateButton() {
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: () => _abrirFormulario(),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTema.verdeSalud,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+        ),
+        icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
+        label: Text(
+          'NUEVA ETIQUETA',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: Colors.white,
           ),
         ),
-        const SizedBox(width: 20),
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: () => _abrirFormulario(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-            ),
-            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
-            label: Text("NUEVA ETIQUETA",
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filtros',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey.shade600,
+            letterSpacing: 0.4,
           ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _filterChip('Todas', _estadoFiltro == 'todas',
+                () => _setEstadoFiltro('todas')),
+            _filterChip('Activas', _estadoFiltro == 'activas',
+                () => _setEstadoFiltro('activas')),
+            _filterChip('Inactivas', _estadoFiltro == 'inactivas',
+                () => _setEstadoFiltro('inactivas')),
+            _filterChip('Gluten', _tipoFiltro == 'gluten',
+                () => _setTipoFiltro('gluten')),
+            _filterChip('Lactosa', _tipoFiltro == 'lactosa',
+                () => _setTipoFiltro('lactosa')),
+            _filterChip(
+                'Sodio', _tipoFiltro == 'sodio', () => _setTipoFiltro('sodio')),
+            _filterChip('Azúcar', _tipoFiltro == 'azucar',
+                () => _setTipoFiltro('azucar')),
+            _filterChip('Vegetarianas', _tipoFiltro == 'vegetariana',
+                () => _setTipoFiltro('vegetariana')),
+            if (_tipoFiltro != 'todas')
+              _filterChip('Quitar tipo', false, () => _setTipoFiltro('todas')),
+          ],
         ),
       ],
     );
+  }
+
+  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
+    return FilterChip(
+      selected: selected,
+      label: Text(
+        label,
+        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+      selectedColor: AppTema.verdeSalud,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : AppTema.azulOscuro,
+      ),
+      side: BorderSide(
+        color: selected
+            ? AppTema.verdeSalud
+            : AppTema.azulPrincipal.withValues(alpha: 0.18),
+      ),
+      onSelected: (_) => onTap(),
+    );
+  }
+
+  void _setEstadoFiltro(String value) {
+    setState(() {
+      _estadoFiltro = value;
+      _currentPage = 0;
+    });
+  }
+
+  void _setTipoFiltro(String value) {
+    setState(() {
+      _tipoFiltro = value;
+      _currentPage = 0;
+    });
   }
 
   Widget _buildGrid(List<Map<String, dynamic>> items) {
@@ -245,10 +411,10 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 400,
-        mainAxisExtent: 280, // Aumentado para mostrar ingredientes
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 24,
+        maxCrossAxisExtent: 360,
+        mainAxisExtent: 210,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -264,7 +430,21 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     );
   }
 
-  Widget _buildPagination(int totalPages) {
+  Widget _buildFooter(int start, int end, int total, int totalPages) {
+    if (totalPages <= 1) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: Text(
+          'Mostrando $start a $end de $total etiquetas',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: 32),
       child: Row(
@@ -275,7 +455,10 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
                 _currentPage > 0 ? () => setState(() => _currentPage--) : null,
             icon: const Icon(Icons.chevron_left_rounded),
           ),
-          Text('Página ${_currentPage + 1} de $totalPages'),
+          Text(
+            'Página ${_currentPage + 1} de $totalPages',
+            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
           IconButton(
             onPressed: _currentPage < totalPages - 1
                 ? () => setState(() => _currentPage++)
@@ -307,68 +490,9 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         children: [
           Icon(Icons.label_off_rounded, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text('No se encontraron etiquetas.',
-              style: TextStyle(color: Colors.grey.shade600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 20),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: GoogleFonts.quicksand(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTema.azulOscuro,
-                ),
-              ),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          Text(
+            'No se encontraron etiquetas.',
+            style: TextStyle(color: Colors.grey.shade600),
           ),
         ],
       ),

@@ -108,8 +108,9 @@ def list_labels_catalog(
         sql = "select id, nombre_visible, codigo, descripcion, created_at from nutricion.etiqueta_nutricional"
         params: list[Any] = []
         if q and q.strip():
-            sql += " where nombre_visible ilike %s"
-            params.append(f"%{q.strip()}%")
+            sql += " where nombre_visible ilike %s or codigo ilike %s"
+            term = f"%{q.strip()}%"
+            params.extend([term, term])
         sql += " order by created_at desc limit %s"
         params.append(limit)
         cur.execute(sql, tuple(params))

@@ -242,7 +242,11 @@ class _CondicionesNutricionalesPageState
                     child:
                         Center(child: Text("No se encontraron condiciones.")))
               else
-                ...items.map((c) => _buildTableRow(c)),
+                ...items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final c = entry.value;
+                  return _buildTableRow(c, index);
+                }),
             ],
           ),
         ),
@@ -256,7 +260,7 @@ class _CondicionesNutricionalesPageState
 
   Widget _buildTableHead() {
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: AppTema.azulPrincipal,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
@@ -272,17 +276,17 @@ class _CondicionesNutricionalesPageState
   Widget _tableHeaderLabel(String label) {
     return Text(label,
         style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            color: AppTema.azulOscuro));
+            fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white));
   }
 
-  Widget _buildTableRow(Map<String, dynamic> c) {
-    final bool isTalla = (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
+  Widget _buildTableRow(Map<String, dynamic> c, int index) {
+    final bool isTalla =
+        (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
+    final bool isEven = index % 2 == 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        color: isEven ? Colors.white : const Color(0xFFF1F5F9),
       ),
       child: Row(
         children: [
@@ -303,14 +307,14 @@ class _CondicionesNutricionalesPageState
                     children: [
                       Text(c["nombre"]?.toString() ?? "Condición",
                           style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF1E293B))),
                       Text(_truncateDescription(c["descripcion"]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.w500,
                               color: Colors.blueGrey)),
                     ],
