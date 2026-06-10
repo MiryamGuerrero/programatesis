@@ -249,18 +249,66 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             GROUP BY r.id, r.calorias_por_porcion
         """
 
-    def listar_recetas(self, consulta: str = "", limite: int = 1000) -> List[dict]:
+    def _build_recetas_filters(
+        self,
+        consulta: str = "",
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> tuple[str, list]:
         where_clause = "TRUE"
-        params = [None]
+        params = []
         if consulta:
             where_clause += " and r.nombre ilike %s"
             params.append(f"%{consulta}%")
-        sql = self._sql_receta_detalle_base(where_clause) + " ORDER BY r.nombre LIMIT %s"
-        params.append(limite)
+        if id_momento:
+            where_clause += " and exists (select 1 from nutricion.receta_momento rm where rm.id_receta = r.id and rm.id_momento = %s)"
+            params.append(id_momento)
+        if id_tipo_plato:
+            where_clause += " and exists (select 1 from nutricion.receta_tipo_plato rtp where rtp.id_receta = r.id and rtp.id_tipo_plato = %s)"
+            params.append(id_tipo_plato)
+        return where_clause, params
+
+    def listar_recetas(
+        self,
+        consulta: str = "",
+        limite: int = 1000,
+        offset: int = 0,
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> List[dict]:
+        where_clause, filter_params = self._build_recetas_filters(
+            consulta,
+            id_momento,
+            id_tipo_plato,
+        )
+        params = [None, *filter_params, limite, offset]
+        sql = self._sql_receta_detalle_base(where_clause) + " ORDER BY r.nombre LIMIT %s OFFSET %s"
         with db_cursor() as cur:
             cur.execute(sql, params)
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def contar_recetas(
+        self,
+        consulta: str = "",
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> int:
+        where_clause, params = self._build_recetas_filters(
+            consulta,
+            id_momento,
+            id_tipo_plato,
+        )
+        with db_cursor() as cur:
+            cur.execute(
+                f"""
+                select count(*)
+                from nutricion.receta r
+                where {where_clause}
+                """,
+                params,
+            )
+            return int(cur.fetchone()[0] or 0)
 
     def obtener_detalle_completo(self, id_receta: int, id_paciente: str | None = None) -> Optional[dict]:
         with db_cursor() as cur:

@@ -210,7 +210,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                       setState(() => _isMenuExpanded = !_isMenuExpanded),
                 ),
                 const SizedBox(width: 8),
-                Image.asset("assets/images/logo sin.png",
+                Image.asset("assets/images/logo sin.webp",
                     width: 32, height: 32),
                 const SizedBox(width: 8),
                 Expanded(

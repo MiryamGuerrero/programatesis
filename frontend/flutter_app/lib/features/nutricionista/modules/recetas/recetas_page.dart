@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:dio/dio.dart";
@@ -26,8 +28,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   List<Map<String, dynamic>> _recetas = const [];
   List<Map<String, dynamic>> _momentosComida = const [];
   List<Map<String, dynamic>> _tiposPlato = const [];
+  int _totalRecetas = 0;
   int? _momentoSeleccionado;
   int? _tipoPlatoSeleccionado;
+  Timer? _searchDebounce;
 
   // Estados de navegación interna
   Map<String, dynamic>? _selectedReceta;
@@ -46,11 +50,12 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadRecetas() async {
+  Future<void> _loadRecetas({int page = 0}) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -59,20 +64,32 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
       final dio = ref.read(dioProvider);
-      final results = await Future.wait([
-        repo.fetchRecetas(),
-        dio.get('crud/momentos'),
-        dio.get('crud/tipos-plato'),
-      ]);
-      final data = results[0] as List<Map<String, dynamic>>;
-      final momentos = _toRows((results[1] as Response).data);
-      final tiposPlato = _toRows((results[2] as Response).data);
+      final pageResult = await repo.fetchRecetasPage(
+        query: _query.trim(),
+        idMomento: _momentoSeleccionado,
+        idTipoPlato: _tipoPlatoSeleccionado,
+        limit: _pageSize,
+        offset: page * _pageSize,
+      );
+
+      var momentos = _momentosComida;
+      var tiposPlato = _tiposPlato;
+      if (momentos.isEmpty || tiposPlato.isEmpty) {
+        final catalogs = await Future.wait([
+          dio.get('crud/momentos'),
+          dio.get('crud/tipos-plato'),
+        ]);
+        momentos = _toRows((catalogs[0] as Response).data);
+        tiposPlato = _toRows((catalogs[1] as Response).data);
+      }
+
       if (!mounted) return;
       setState(() {
-        _recetas = data;
+        _recetas = pageResult.items;
+        _totalRecetas = pageResult.total;
         _momentosComida = momentos;
         _tiposPlato = tiposPlato;
-        _currentPage = 0;
+        _currentPage = page;
       });
     } catch (error) {
       if (!mounted) return;
@@ -111,7 +128,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             _isEditing = false;
             _recetaParaEditar = null;
           });
-          _loadRecetas();
+          _loadRecetas(page: _currentPage);
         },
       );
     }
@@ -125,33 +142,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     }
 
     // 3. Vista de Lista (Matriz)
-    final filteredRecetas = _recetas.where((row) {
-      final query = _query.trim().toLowerCase();
-      final textoBusqueda = [
-        row["nombre"],
-        row["descripcion"],
-        row["categoria"],
-        row["momentos_nombres"],
-        row["tipos_plato_nombres"],
-      ].whereType<Object>().join(" ").toLowerCase();
-      final coincideBusqueda = query.isEmpty || textoBusqueda.contains(query);
-      final coincideMomento = _momentoSeleccionado == null ||
-          _contieneId(row, ["momentos_ids", "momentos"], _momentoSeleccionado!);
-      final coincideTipoPlato = _tipoPlatoSeleccionado == null ||
-          _contieneId(
-              row, ["tipos_plato_ids", "tipos_plato"], _tipoPlatoSeleccionado!);
-      return coincideBusqueda && coincideMomento && coincideTipoPlato;
-    }).toList();
-
-    final totalItems = filteredRecetas.length;
+    final totalItems = _totalRecetas;
     final totalPages = (totalItems / _pageSize).ceil();
-    final startIndex = _currentPage * _pageSize;
-    final endIndex = (startIndex + _pageSize < totalItems)
-        ? startIndex + _pageSize
-        : totalItems;
-    final visibleRecetas = (startIndex < totalItems)
-        ? filteredRecetas.sublist(startIndex, endIndex)
-        : <Map<String, dynamic>>[];
 
     return Stack(
       children: [
@@ -179,7 +171,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                                 fontWeight: FontWeight.bold)),
                       ],
                       const SizedBox(height: 32),
-                      _buildGrid(visibleRecetas),
+                      _buildGrid(_recetas),
                     ],
                   ),
                 ),
@@ -252,7 +244,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         Expanded(
             child: NutriResumenCard(
                 titulo: "TOTAL RECETAS",
-                valor: "${_recetas.length}",
+                valor: "$_totalRecetas",
                 icon: Icons.menu_book_rounded)),
         const SizedBox(width: 20),
         Expanded(
@@ -264,7 +256,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         const SizedBox(width: 20),
         Expanded(
             child: NutriResumenCard(
-                titulo: "ACTIVAS",
+                titulo: "ACTIVAS EN PÃGINA",
                 valor: "$activas / $inactivas",
                 colorValor: AppTema.azulOscuro,
                 icon: Icons.check_circle_outline)),
@@ -302,10 +294,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  onChanged: (v) => setState(() {
-                    _query = v;
-                    _currentPage = 0;
-                  }),
+                  onChanged: _scheduleSearch,
                 ),
               ),
             ),
@@ -343,10 +332,13 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 value: _momentoSeleccionado,
                 items: _momentosComida,
                 icon: Icons.schedule_rounded,
-                onChanged: (value) => setState(() {
-                  _momentoSeleccionado = value;
-                  _currentPage = 0;
-                }),
+                onChanged: (value) {
+                  setState(() {
+                    _momentoSeleccionado = value;
+                    _currentPage = 0;
+                  });
+                  _loadRecetas();
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -356,10 +348,13 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 value: _tipoPlatoSeleccionado,
                 items: _tiposPlato,
                 icon: Icons.restaurant_menu_rounded,
-                onChanged: (value) => setState(() {
-                  _tipoPlatoSeleccionado = value;
-                  _currentPage = 0;
-                }),
+                onChanged: (value) {
+                  setState(() {
+                    _tipoPlatoSeleccionado = value;
+                    _currentPage = 0;
+                  });
+                  _loadRecetas();
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -367,13 +362,16 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               height: 55,
               child: OutlinedButton.icon(
                 onPressed: filtrosActivos
-                    ? () => setState(() {
+                    ? () {
+                        setState(() {
                           _searchController.clear();
                           _query = "";
                           _momentoSeleccionado = null;
                           _tipoPlatoSeleccionado = null;
                           _currentPage = 0;
-                        })
+                        });
+                        _loadRecetas();
+                      }
                     : null,
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
@@ -510,7 +508,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('crud/recetas/$id/estado', data: {'activa': valor});
-      _loadRecetas();
+      _loadRecetas(page: _currentPage);
     } catch (e) {
       NutriSnack.show(context, 'Error al cambiar estado: $e', isError: true);
     }
@@ -552,13 +550,15 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             children: [
               _buildNavButton(
                 Icons.chevron_left_rounded,
-                _currentPage > 0 ? () => setState(() => _currentPage--) : null,
+                _currentPage > 0
+                    ? () => _loadRecetas(page: _currentPage - 1)
+                    : null,
               ),
               const SizedBox(width: 12),
               _buildNavButton(
                 Icons.chevron_right_rounded,
                 _currentPage < totalPages - 1
-                    ? () => setState(() => _currentPage++)
+                    ? () => _loadRecetas(page: _currentPage + 1)
                     : null,
               ),
             ],
@@ -593,7 +593,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       await dio.delete('crud/recetas/${r['id']}');
       if (!mounted) return;
       NutriSnack.show(context, "Receta eliminada correctamente");
-      _loadRecetas();
+      _loadRecetas(page: _currentPage);
     } catch (e) {
       if (!mounted) return;
       NutriSnack.show(context, "Error al eliminar: $e", isError: true);
@@ -610,23 +610,19 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         .toList();
   }
 
-  bool _contieneId(Map<String, dynamic> row, List<String> keys, int idBuscado) {
-    for (final key in keys) {
-      final value = row[key];
-      if (value is List && value.any((item) => _asInt(item) == idBuscado)) {
-        return true;
-      }
-      if (_asInt(value) == idBuscado) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   int? _asInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  void _scheduleSearch(String value) {
+    _query = value;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _loadRecetas(),
+    );
   }
 }

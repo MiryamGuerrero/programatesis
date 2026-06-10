@@ -659,8 +659,8 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage>
                 children: [
                   Image.asset(
                       isTemporalTab
-                          ? "assets/images/rule_temporal_icon.png"
-                          : "assets/images/rule_joint_icon.png",
+                          ? "assets/images/rule_temporal_icon.webp"
+                          : "assets/images/rule_joint_icon.webp",
                       width: 20,
                       height: 20,
                       fit: BoxFit.contain),

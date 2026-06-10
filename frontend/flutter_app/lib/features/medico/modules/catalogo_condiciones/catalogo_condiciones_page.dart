@@ -305,8 +305,8 @@ class _CatalogoCondicionesPageState
               children: [
                 Image.asset(
                     isTemporal
-                        ? "assets/images/rule_temporal_icon.png"
-                        : "assets/images/rule_joint_icon.png",
+                        ? "assets/images/rule_temporal_icon.webp"
+                        : "assets/images/rule_joint_icon.webp",
                     width: 24,
                     height: 24,
                     fit: BoxFit.contain),
@@ -620,7 +620,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                   ),
                   child: Center(
                     child: isClinica
-                        ? Image.asset("assets/images/modal_icon_mi.png",
+                        ? Image.asset("assets/images/modal_icon_mi.webp",
                             width: 45, height: 45, fit: BoxFit.contain)
                         : const Icon(Icons.flash_on_rounded,
                             size: 38, color: AppTema.verdeSalud),

@@ -9,6 +9,7 @@ from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngr
 from app.aplicacion.nutricion.gestionar_variables import CasoUsoGestionarVariables
 from app.core.security import UserContext
 from app.infraestructura.database.db import db_cursor
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(prefix="/nutricionista", tags=["Nutricionista Admin"])
 
@@ -318,6 +319,7 @@ def list_combination_roles(
     return ROLES_COMBINACION_UI
 
 @router.get("/reglas-menu-combinaciones")
+@cached(ttl=30)
 def list_all_menu_combination_rules(
     _=Depends(require_roles("admin", "nutricionista")),
 ):

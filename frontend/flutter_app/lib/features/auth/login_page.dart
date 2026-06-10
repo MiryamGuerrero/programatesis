@@ -8,8 +8,8 @@ import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 
 // Ruta de los logos
-const String kLogoConNombre = "assets/images/logo 1.png";
-const String kLogoSinNombre = "assets/images/logo sin.png";
+const String kLogoConNombre = "assets/images/logo 1.webp";
+const String kLogoSinNombre = "assets/images/logo sin.webp";
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});

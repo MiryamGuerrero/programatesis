@@ -12,6 +12,7 @@ from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngr
 from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
 from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(tags=["Compatibilidad"])
 
@@ -383,16 +384,31 @@ def reglas_nutricionales_compat(
     return repo.listar_reglas_detalladas(tipos_condicion=[3])
 
 @router.get("/reglas-nutricionales/form-data")
+@cached(ttl=30)
 def reglas_form_data_compat(
+    compact: bool = Query(default=False, description="Si true, devuelve solo metadatos ligeros para carga inicial"),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     # Solo Nutricionales (3)
+    condiciones = repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+    acciones = repo.obtener_catalogo("heuristico", "catalogo_accion")
+    objetivos = repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla")
+
+    if compact:
+        # Respuesta reducida para carga inicial: evitar payloads grandes (ingredientes, grupos)
+        return {
+            "condiciones": condiciones,
+            "acciones": acciones,
+            "objetivos": objetivos,
+        }
+
+    # Respuesta completa (por defecto)
     return {
-        "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3]),
-        "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
-        "objetivos": repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla"),
+        "condiciones": condiciones,
+        "acciones": acciones,
+        "objetivos": objetivos,
         "ingredientes": repo.obtener_catalogo("nutricion", "ingrediente"),
         "grupos": repo.obtener_catalogo("nutricion", "grupo_alimentario"),
         "subgrupos": repo.obtener_catalogo("nutricion", "subgrupo_alimentario"),
@@ -956,11 +972,31 @@ def listar_tipos_plato_compat():
 @router.get("/crud/recetas")
 def crud_recetas_compat(
     q: str = Query(default=""),
-    limit: int = Query(default=1000)
+    limit: int = Query(default=1000),
+    offset: int = Query(default=0),
+    id_momento: int = Query(default=None),
+    id_tipo_plato: int = Query(default=None),
+    include_total: bool = Query(default=False),
 ):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
-    return repo.listar_recetas(consulta=q, limite=limit)
+    items = repo.listar_recetas(
+        consulta=q,
+        limite=limit,
+        offset=offset,
+        id_momento=id_momento,
+        id_tipo_plato=id_tipo_plato,
+    )
+    if include_total:
+        return {
+            "items": items,
+            "total": repo.contar_recetas(
+                consulta=q,
+                id_momento=id_momento,
+                id_tipo_plato=id_tipo_plato,
+            ),
+        }
+    return items
 
 @router.get("/crud/recetas/{id_receta}")
 def obtener_receta_detalle_completo(id_receta: int):

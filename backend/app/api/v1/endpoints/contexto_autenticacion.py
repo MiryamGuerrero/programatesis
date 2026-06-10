@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.api.deps import UserContext, get_current_user
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(tags=["Auth"])
 
@@ -45,6 +46,7 @@ def actualizar_perfil_actual(
 
 # Alias para compatibilidad con frontend antiguo que busca /auth-context
 @router.get("/auth-context")
+@cached(ttl=5)
 def auth_context_compat(user: UserContext = Depends(get_current_user)):
     repo = RepositorioPerfilPostgres()
     perfil = repo.obtener_perfil_usuario(user.user_id)

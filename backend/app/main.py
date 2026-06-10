@@ -50,6 +50,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Compresión GZip para respuestas HTTP grandes (mejora latencia de cliente)
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Middleware simple para añadir cabeceras de cache en GETs de endpoints de catalogos y form-data
+CACHE_PATH_PREFIXES = (
+    "/api/v1/crud/catalog",
+    "/api/v1/reglas-nutricionales/form-data",
+    "/api/v1/reglas-menu-combinaciones",
+    "/api/v1/ingredientes-lista",
+    "/api/v1/usuarios",
+)
+
+@app.middleware("http")
+async def add_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        if request.method == "GET":
+            path = request.url.path
+            for p in CACHE_PATH_PREFIXES:
+                if path.startswith(p):
+                    # short-lived cache to reduce repeated work from UI during navigation
+                    response.headers.setdefault("Cache-Control", "public, max-age=30")
+                    break
+    except Exception:
+        pass
+    return response
+
+
 # --- Manejadores de Excepciones de Dominio ---
 
 @app.exception_handler(ErrorValidacion)

@@ -47,7 +47,7 @@ class _ReglasNutricionalesPageState
     try {
       final results = await Future.wait([
         _dio.get("reglas-nutricionales"),
-        _dio.get("reglas-nutricionales/form-data"),
+        _dio.get("reglas-nutricionales/form-data", queryParameters: {"compact": true}),
       ]);
       if (mounted) {
         setState(() {

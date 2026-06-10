@@ -352,12 +352,39 @@ class SupabaseCrudRepository {
   }
 
   // --- RECETAS, INGREDIENTES Y CATÁLOGOS ---
-  Future<List<Map<String, dynamic>>> fetchRecetas() async {
+  Future<List<Map<String, dynamic>>> fetchRecetas(
+      {int limit = 20, int offset = 0}) async {
+    // Paginación por página para evitar cargar todas las recetas en un solo request
     final response = await _dio.get(
       "crud/recetas",
-      queryParameters: {"limit": 1000},
+      queryParameters: {"limit": limit, "offset": offset},
     );
     return _toRows(response.data);
+  }
+
+  Future<({List<Map<String, dynamic>> items, int total})> fetchRecetasPage({
+    String query = "",
+    int? idMomento,
+    int? idTipoPlato,
+    int limit = 12,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "crud/recetas",
+      queryParameters: {
+        "q": query,
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+        if (idMomento != null) "id_momento": idMomento,
+        if (idTipoPlato != null) "id_tipo_plato": idTipoPlato,
+      },
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {

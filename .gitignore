@@ -53,3 +53,11 @@ frontend/flutter_app/build/app/outputs/flutter-apk/
 web.ps1
 PLAN_OPTIMIZACION.md
 WEB_PERFORMANCE_REPORT.md
+build_web_html.ps1
+debug/get_tokens_and_measure.py
+lighthouse_report_after_html.json
+lighthouse_report_after_update.json
+lighthouse_report_final.json
+lighthouse_report.json
+optimize_images.ps1
+convert_images_pillow.py
