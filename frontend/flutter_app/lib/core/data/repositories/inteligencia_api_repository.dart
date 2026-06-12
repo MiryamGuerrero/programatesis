@@ -1,15 +1,11 @@
 import "package:dio/dio.dart";
-import "package:supabase_flutter/supabase_flutter.dart";
 
 class InteligenciaApiRepository {
   InteligenciaApiRepository({
     required Dio dio,
-    required SupabaseClient supabaseClient,
-  })  : _dio = dio,
-        _supabaseClient = supabaseClient;
+  }) : _dio = dio;
 
   final Dio _dio;
-  final SupabaseClient _supabaseClient;
 
   Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> payload) async {
@@ -21,8 +17,9 @@ class InteligenciaApiRepository {
       final code = exc.response?.statusCode;
       final data = exc.response?.data;
       String msg = "Error API $code";
-      if (data is Map && data["detail"] != null)
+      if (data is Map && data["detail"] != null) {
         msg = data["detail"].toString();
+      }
       throw Exception(msg);
     }
   }

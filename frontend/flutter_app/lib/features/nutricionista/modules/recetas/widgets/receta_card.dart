@@ -4,6 +4,7 @@ import '../../../../../core/theme/app_theme.dart';
 
 class RecetaCard extends StatelessWidget {
   final Map<String, dynamic> receta;
+  final bool isLoading;
   final VoidCallback? onVer;
   final VoidCallback? onEditar;
   final VoidCallback? onEliminar;
@@ -12,6 +13,7 @@ class RecetaCard extends StatelessWidget {
   const RecetaCard({
     super.key,
     required this.receta,
+    this.isLoading = false,
     this.onVer,
     this.onEditar,
     this.onEliminar,
@@ -347,8 +349,8 @@ class RecetaCard extends StatelessWidget {
           Expanded(
             child: SizedBox(
               height: 44,
-              child: FilledButton.icon(
-                onPressed: onVer,
+              child: FilledButton(
+                onPressed: isLoading ? null : onVer,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTema.azulPrincipal,
                   shape: RoundedRectangleBorder(
@@ -356,14 +358,29 @@ class RecetaCard extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.visibility_rounded, size: 18),
-                label: Text(
-                  'VER',
-                  style: GoogleFonts.montserrat(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.visibility_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'VER',
+                            style: GoogleFonts.montserrat(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),

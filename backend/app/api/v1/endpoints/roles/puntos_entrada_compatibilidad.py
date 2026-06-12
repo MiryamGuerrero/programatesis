@@ -238,21 +238,28 @@ def prefetch_planificacion_paciente(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """
-    Precarga en una sola llamada lo necesario para plan manual:
-    - estado de validación nutricional
-    - diagnóstico y expediente mínimo
-    - ingredientes seguros
-    - ingredientes recomendados (potenciadores)
-    - condiciones separadas por peso/talla para la validación clínica
+    Precarga optimizada para plan manual:
+    - expediente reducido (sidebar)
+    - estado de validación mensual
+    - plan vigente
+    - ingredientes recomendados (siempre incluidos por ser pocos y vitales)
+    - ingredientes seguros (opcionales por ser pesados)
     """
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     from app.infraestructura.database.db import db_cursor
 
-    expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
+    repo_pac = RepositorioPacientePostgres()
+    repo_ing = RepositorioIngredientePostgres()
+
+    # 1. Perfil reducido ( Sidebar + Datos base) - MUCHO MÁS RÁPIDO
+    expediente = repo_pac.obtener_perfil_reducido_planificacion(id_paciente)
+    
+    # 2. Estado de validación
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
 
+    # 3. Plan Vigente
     plan_vigente = None
     with db_cursor() as cur:
         cur.execute(
@@ -280,13 +287,14 @@ def prefetch_planificacion_paciente(
         if row_plan:
             plan_vigente = dict(zip([d[0] for d in cur.description], row_plan))
 
+    # 4. Ingredientes (Recomendados siempre, Seguros opcionales)
     ingredientes_seguros = []
-    ingredientes_recomendados = []
     if include_ingredientes:
-        repo_ing = RepositorioIngredientePostgres()
         ingredientes_seguros = repo_ing.buscar_ingredientes_filtrados(id_paciente, consulta="", limite=300)
-        ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
+    
+    ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
 
+    # 5. Catálogo de condiciones para validación modal
     condiciones = RepositorioPerfilPostgres().obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
     condiciones_peso = []
     condiciones_talla = []
@@ -305,7 +313,7 @@ def prefetch_planificacion_paciente(
     return {
         "estado_validacion": estado_validacion,
         "expediente": expediente,
-        "diagnostico": expediente.get("diagnostico") if isinstance(expediente, dict) else {},
+        "diagnostico": expediente.get("diagnostico", {}),
         "plan_vigente": plan_vigente,
         "ingredientes_seguros": ingredientes_seguros,
         "ingredientes_recomendados": ingredientes_recomendados,
@@ -849,50 +857,49 @@ def guardar_plan_manual(
                 """
             )
             cols_item = {r[0] for r in cur.fetchall()}
+            
+            # OPTIMIZACIÓN: Preparar inserción masiva (bulk insert)
+            item_cols = ["id_plan", "id_momento", "id_receta", "fecha_programada"]
+            if "created_at" in cols_item:
+                item_cols.append("created_at")
+            if "comidas_por_dia" in cols_item:
+                item_cols.append("comidas_por_dia")
+
+            bulk_params = []
             for item in plan_items:
-                item_cols = ["id_plan", "id_momento", "id_receta", "fecha_programada"]
-                item_vals = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
+                row = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
                 if "created_at" in cols_item:
-                    item_cols.append("created_at")
-                    item_vals.append("now()")
+                    row.append(datetime.now()) # Usamos datetime de python para executemany
                 if "comidas_por_dia" in cols_item:
-                    item_cols.append("comidas_por_dia")
-                    item_vals.append(item.get("comidas_por_dia"))
+                    row.append(item.get("comidas_por_dia"))
+                bulk_params.append(tuple(row))
 
-                icols = []
-                iph = []
-                iparams = []
-                for c, v in zip(item_cols, item_vals):
-                    icols.append(c)
-                    if v == "now()":
-                        iph.append("now()")
-                    else:
-                        iph.append("%s")
-                        iparams.append(v)
-                cur.execute(
-                    f"insert into interaccion.plan_item ({', '.join(icols)}) values ({', '.join(iph)})",
-                    tuple(iparams),
-                )
+            placeholders = ["%s"] * len(item_cols)
+            insert_sql = f"insert into interaccion.plan_item ({', '.join(item_cols)}) values ({', '.join(placeholders)})"
+            
+            cur.executemany(insert_sql, bulk_params)
 
-        # 1. Limpiar recomendaciones previas de la nutri para este paciente (opcional, según lógica de negocio)
-        # Aquí asumimos que las recomendaciones del plan mensual reemplazan las anteriores de la nutri
+        # 1. Limpiar recomendaciones previas
         cur.execute("""
             delete from clinico.recomendacion_ingrediente 
             where id_paciente = %s and id_rol_recomienda = 3
         """, (id_paciente,))
         
-        # 2. Insertar nuevos potenciadores
-        if boosters and id_profesional_interno is None:
-            raise HTTPException(
-                status_code=400,
-                detail="No se pudo resolver el profesional autenticado para guardar potenciadores.",
-            )
-        for ing_id in boosters:
-            cur.execute("""
+        # 2. Insertar nuevos potenciadores (Bulk)
+        if boosters:
+            if id_profesional_interno is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se pudo resolver el profesional autenticado para guardar potenciadores.",
+                )
+            
+            reco_sql = """
                 insert into clinico.recomendacion_ingrediente 
                 (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad)
                 values (%s, %s, %s, 3, 'Potenciador de Plan Mensual', 3)
-            """, (id_paciente, ing_id, id_profesional_interno))
+            """
+            reco_params = [(id_paciente, ing_id, id_profesional_interno) for ing_id in boosters]
+            cur.executemany(reco_sql, reco_params)
             
     return {"success": True, "message": "Plan y potenciadores activados", "id_plan": id_plan}
 

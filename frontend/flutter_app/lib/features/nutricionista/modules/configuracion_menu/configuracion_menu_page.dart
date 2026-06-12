@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
+import '../../../../shared/widgets/shimmer_components.dart';
 
 class _TabInfo {
   final String label;
@@ -56,6 +57,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
   ];
 
   bool _loading = true;
+  bool _loadingStats = true;
+  bool _loadingDetails = false;
   bool _saving = false;
   String? _error;
 
@@ -109,6 +112,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
   Future<void> _loadAll() async {
     setState(() {
       _loading = true;
+      _loadingStats = true;
       _error = null;
     });
 
@@ -157,11 +161,17 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       if (!mounted) return;
       setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingStats = false;
+        });
+      }
     }
   }
 
   Future<void> _loadRuleForMoment(Map<String, dynamic> momento) async {
+    setState(() => _loadingDetails = true);
     try {
       final dio = ref.read(dioProvider);
       final response = await dio
@@ -192,6 +202,8 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         _maxComplementosCtrl.text = '2';
         _reglaActiva = true;
       });
+    } finally {
+      if (mounted) setState(() => _loadingDetails = false);
     }
   }
 
@@ -1891,33 +1903,29 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
-      body: _loading
-          ? const Center(
-              child:
-                  NutriLoading(mensaje: 'Cargando configuracion del menu...'))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 28),
-                  if (_error != null) _buildError(),
-                  _buildStats(),
-                  const SizedBox(height: 24),
-                  _buildDishTypesPanel(),
-                  const SizedBox(height: 24),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(width: 260, child: _buildMomentsPanel()),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildRulePanel()),
-                    ],
-                  ),
-                ],
-              ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 28),
+            if (_error != null) _buildError(),
+            _buildStats(),
+            const SizedBox(height: 24),
+            _buildDishTypesPanel(),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 260, child: _buildMomentsPanel()),
+                const SizedBox(width: 24),
+                Expanded(child: _buildRulePanel()),
+              ],
             ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1947,11 +1955,29 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             ],
           ),
         ),
+        IconButton(
+          icon: const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal),
+          onPressed: () => _loadAll(),
+          tooltip: "Sincronizar todo",
+        ),
       ],
     );
   }
 
   Widget _buildStats() {
+    if (_loadingStats) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 16),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 16),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 16),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
     final activos = _momentos.where((m) => m['activo'] != false).length;
     return Row(
       children: [
@@ -2012,7 +2038,17 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             ],
           ),
           const SizedBox(height: 14),
-          if (_momentos.isEmpty)
+          if (_loading && _momentos.isEmpty)
+            Column(
+              children: List.generate(
+                3,
+                (index) => const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: NutriCardShimmer(height: 120),
+                ),
+              ),
+            )
+          else if (_momentos.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Text('No hay horarios configurados.'),
@@ -2064,7 +2100,16 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             ),
           ),
           const SizedBox(height: 14),
-          if (_tiposPlato.isEmpty)
+          if (_loading && _tiposPlato.isEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(
+                6,
+                (index) => const NutriShimmer(width: 170, height: 40),
+              ),
+            )
+          else if (_tiposPlato.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Text('No hay tipos de platillo creados.'),
@@ -2270,38 +2315,63 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           const SizedBox(height: 18),
           _buildRuleHelp(),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Combinaciones de este horario',
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w800, color: AppTema.azulOscuro),
+          if (_loading && _detalleTipos.isEmpty)
+            const Column(
+              children: [
+                NutriCardShimmer(height: 100),
+                SizedBox(height: 16),
+                NutriCardShimmer(height: 100),
+              ],
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Combinaciones de este horario',
+                    style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w800, color: AppTema.azulOscuro),
+                  ),
                 ),
-              ),
-              FilledButton.icon(
-                onPressed: _saving ? null : _openCreateCombinationDialog,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('CREAR COMBINACION'),
-                style: FilledButton.styleFrom(
-                    backgroundColor: AppTema.azulPrincipal),
-              ),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                onPressed: _openJsonImportDialog,
-                icon: const Icon(Icons.code_rounded, size: 18),
-                label: const Text('CODIGO JSON'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSmartRulesPanel(),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _openCreateCombinationDialog,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('CREAR COMBINACION'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.azulPrincipal),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: _openJsonImportDialog,
+                  icon: const Icon(Icons.code_rounded, size: 18),
+                  label: const Text('CODIGO JSON'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildSmartRulesPanel(),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildSmartRulesPanel() {
+    if (_loading && _reglasInteligentes.isEmpty) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 2.5,
+        ),
+        itemCount: 6,
+        itemBuilder: (ctx, i) => const NutriShimmer(width: double.infinity, height: 80),
+      );
+    }
+
     if (_reglasInteligentes.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),

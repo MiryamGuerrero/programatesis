@@ -249,6 +249,10 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             GROUP BY r.id, r.calorias_por_porcion
         """
 
+    def _recargar_indices_recetas_seguras(self, cur):
+        """Asegura que los indices de busqueda esten listos (No hace nada si ya existen)"""
+        pass
+
     def _build_recetas_filters(
         self,
         consulta: str = "",
@@ -420,6 +424,19 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             if not row: return None
             cols = [d[0] for d in cur.description]
             return dict(zip(cols, row))
+
+    def obtener_recetas_seguras_bulk(self, id_paciente: str, limite: int = 1000) -> List[dict]:
+        """
+        VersiÃ³n de alto rendimiento para generaciÃ³n de planes masivos.
+        Utiliza la funciÃ³n SQL optimizada en Supabase.
+        """
+        with db_cursor() as cur:
+            cur.execute(
+                "SELECT * FROM nutricion.obtener_recetas_seguras_eficiente(%s, %s)",
+                (id_paciente, limite)
+            )
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
 
     def obtener_recetas_seguras_para_paciente(
         self,

@@ -6,6 +6,7 @@ import "package:google_fonts/google_fonts.dart";
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
 import "../../../../shared/widgets/layout_components.dart";
+import "../../../../shared/widgets/shimmer_components.dart";
 
 class CondicionesNutricionalesPage extends ConsumerStatefulWidget {
   const CondicionesNutricionalesPage({super.key});
@@ -18,10 +19,14 @@ class CondicionesNutricionalesPage extends ConsumerStatefulWidget {
 class _CondicionesNutricionalesPageState
     extends ConsumerState<CondicionesNutricionalesPage>
     with SingleTickerProviderStateMixin {
+  final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   bool _loading = true;
+  bool _loadingStats = true;
   List<dynamic> _condiciones = [];
   String _searchQuery = "";
+
+  bool get _filtrosActivos => _searchQuery.isNotEmpty;
 
   @override
   void initState() {
@@ -30,18 +35,27 @@ class _CondicionesNutricionalesPageState
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
-    _fetchData();
+    _fetchData(updateStats: true);
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchData() async {
+  void _limpiarFiltros() {
+    _searchController.clear();
+    setState(() => _searchQuery = "");
+  }
+
+  Future<void> _fetchData({bool updateStats = false}) async {
     if (!mounted) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      if (updateStats) _loadingStats = true;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get("condiciones-nutricionales");
@@ -49,10 +63,16 @@ class _CondicionesNutricionalesPageState
         setState(() {
           _condiciones = res.data as List;
           _loading = false;
+          _loadingStats = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingStats = false;
+        });
+      }
     }
   }
 
@@ -86,19 +106,21 @@ class _CondicionesNutricionalesPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTema.grisFondo,
+      backgroundColor: AppTema.grisLienzo,
       body: Scrollbar(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
-              const SizedBox(height: 24),
-              _buildSearchBarAndAddButton(),
+              const SizedBox(height: 32),
+              _buildStatsRow(),
+              const SizedBox(height: 32),
+              _buildToolbar(),
               const SizedBox(height: 24),
               _buildTabs(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               _buildMainContent(),
             ],
           ),
@@ -108,76 +130,133 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text("Catálogo de Condiciones",
-            style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulPrincipal,
-                letterSpacing: -0.5)),
-        Text(
-            "Diccionario maestro de diagnósticos y eventos de salud para el sistema.",
-            style: GoogleFonts.inter(
-                color: Colors.blueGrey,
-                fontSize: 13,
-                fontWeight: FontWeight.w500)),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Catálogo de Condiciones",
+                style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            Text(
+                "Diccionario maestro de diagnósticos y eventos de salud para el sistema.",
+                style: GoogleFonts.inter(
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _abrirFormulario(),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTema.verdeSalud,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          ),
+          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+          label: Text("NUEVA CONDICIÓN",
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800, fontSize: 13)),
+        ),
       ],
     );
   }
 
-  Widget _buildSearchBarAndAddButton() {
+  Widget _buildStatsRow() {
+    if (_loadingStats) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
+
+    final pesoCount = _condiciones
+        .where((c) =>
+            (c["indicador_codigo"]?.toString() ?? "").toUpperCase() != "HFA")
+        .length;
+    final tallaCount = _condiciones
+        .where((c) =>
+            (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA")
+        .length;
+
     return Row(
       children: [
         Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              style:
-                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                hintText: "Buscar por nombre o palabra clave...",
-                hintStyle: GoogleFonts.inter(
-                    color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon:
-                    const Icon(Icons.search, size: 20, color: Colors.grey),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onChanged: (v) {
-                setState(() => _searchQuery = v);
-              },
-            ),
+          child: NutriResumenCard(
+            titulo: 'CONDICIONES DE PESO',
+            valor: '$pesoCount',
+            icon: Icons.monitor_weight_rounded,
+            colorValor: AppTema.azulPrincipal,
           ),
         ),
-        const SizedBox(width: 16),
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: () => _abrirFormulario(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-            ),
-            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
-            label: Text("Nueva condición",
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: Colors.white)),
+        const SizedBox(width: 20),
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'CONDICIONES DE TALLA',
+            valor: '$tallaCount',
+            icon: Icons.height_rounded,
+            colorValor: AppTema.verdeSalud,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTema.grisLienzo,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                style:
+                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: "Buscar por nombre de condición...",
+                  prefixIcon: const Icon(Icons.search,
+                      size: 20, color: AppTema.azulPrincipal),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded,
+                size: 22, color: AppTema.azulPrincipal),
+            onPressed: () => _fetchData(updateStats: true),
+            tooltip: "Actualizar catálogo",
+            style: IconButton.styleFrom(
+              backgroundColor:
+                  AppTema.azulPrincipal.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -202,7 +281,7 @@ class _CondicionesNutricionalesPageState
               children: [
                 Icon(Icons.monitor_weight_outlined, size: 18),
                 SizedBox(width: 8),
-                Text("Condiciones nutricionales para peso"),
+                Text("CONDICIONES PARA PESO"),
               ],
             ),
           ),
@@ -212,7 +291,7 @@ class _CondicionesNutricionalesPageState
               children: [
                 Icon(Icons.height_outlined, size: 18),
                 SizedBox(width: 8),
-                Text("Condiciones nutricionales para talla"),
+                Text("CONDICIONES PARA TALLA"),
               ],
             ),
           ),
@@ -222,192 +301,57 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildMainContent() {
-    if (_loading) {
-      return const Padding(
-          padding: EdgeInsets.all(100),
-          child: NutriLoading(mensaje: "Sincronizando catálogo..."));
-    }
-
     final items = _tabController.index == 0 ? _pesoItems : _tallaItems;
 
     return Column(
       children: [
         NutriTableContainer(
-          child: Column(
-            children: [
-              _buildTableHead(),
-              if (items.isEmpty)
-                const Padding(
-                    padding: EdgeInsets.all(40),
-                    child:
-                        Center(child: Text("No se encontraron condiciones.")))
-              else
-                ...items.map((c) => _buildTableRow(c)),
-            ],
-          ),
-        ),
-        if (items.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _buildPagination(items.length),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTableHead() {
-    return Container(
-      color: const Color(0xFFF8FAFC),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(flex: 5, child: _tableHeaderLabel("Identidad")),
-          Expanded(flex: 2, child: Center(child: _tableHeaderLabel("Estado"))),
-          Expanded(
-              flex: 3, child: Center(child: _tableHeaderLabel("Acciones"))),
-        ],
-      ),
-    );
-  }
-
-  Widget _tableHeaderLabel(String label) {
-    return Text(label,
-        style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            color: AppTema.azulOscuro));
-  }
-
-  Widget _buildTableRow(Map<String, dynamic> c) {
-    final bool isTalla = (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Row(
-              children: [
-                Icon(
-                    isTalla
-                        ? Icons.height_rounded
-                        : Icons.monitor_weight_rounded,
-                    size: 24,
-                    color: AppTema.azulPrincipal.withOpacity(0.7)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(c["nombre"]?.toString() ?? "Condición",
-                          style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B))),
-                      Text(_truncateDescription(c["descripcion"]),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.blueGrey)),
-                    ],
-                  ),
-                ),
-              ],
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              cardTheme: const CardThemeData(
+                  elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
             ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Center(child: _StatusBadge(isActive: c['activa'] == true)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _actionButton(
-                    icon: Icons.visibility_outlined,
-                    label: "Ver detalle",
-                    color: AppTema.azulPrincipal,
-                    onTap: () => _verDetalle(c)),
-                const SizedBox(width: 16),
-                _actionButton(
-                    icon: Icons.edit_outlined,
-                    label: "Editar",
-                    color: Colors.orange,
-                    onTap: () => _abrirFormulario(condicion: c)),
-                const SizedBox(width: 16),
-                _actionButton(
-                    icon: Icons.delete_outline_rounded,
-                    label: "Eliminar",
-                    color: Colors.red,
-                    onTap: () => _eliminar(c)),
+            child: PaginatedDataTable(
+              header: null,
+              rowsPerPage: 10,
+              showFirstLastButtons: true,
+              availableRowsPerPage: const [10],
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+              columns: [
+                _col("IDENTIDAD", flex: 5),
+                _col("ESTADO", flex: 2, center: true),
+                _col("ACCIONES", flex: 3, center: true),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionButton(
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
-    return _HoverActionButton(
-        icon: icon, label: label, color: color, onTap: onTap);
-  }
-
-  Widget _buildPagination(int total) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text("Mostrando 1 a $total de $total condiciones",
-            style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.blueGrey)),
-        Row(
-          children: [
-            _pageButton(Icons.chevron_left, null),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTema.azulPrincipal,
-                borderRadius: BorderRadius.circular(6),
+              source: _CondicionesDataSource(
+                items: items,
+                isLoading: _loading,
+                onVer: (c) => _verDetalle(c),
+                onEdit: (c) => _abrirFormulario(condicion: c),
+                onDelete: (c) => _eliminar(c),
+                truncateDesc: _truncateDescription,
+                context: context,
               ),
-              child: const Text("1",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(width: 8),
-            _pageButton(Icons.chevron_right, null),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _pageButton(IconData icon, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+  DataColumn _col(String label, {int flex = 1, bool center = false}) {
+    return DataColumn(
+      label: Expanded(
+        flex: flex,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: AppTema.azulOscuro),
+          ),
         ),
-        child: Icon(icon,
-            size: 20,
-            color: onTap == null ? Colors.grey.shade300 : Colors.black),
       ),
     );
   }
@@ -423,7 +367,7 @@ class _CondicionesNutricionalesPageState
       context: context,
       barrierColor: AppTema.azulOscuro.withOpacity(0.4),
       builder: (context) =>
-          _FormularioCondicion(condicion: condicion, onSuccess: _fetchData),
+          _FormularioCondicion(condicion: condicion, onSuccess: () => _fetchData(updateStats: true)),
     );
   }
 
@@ -455,12 +399,15 @@ class _CondicionesNutricionalesPageState
         await ref
             .read(dioProvider)
             .delete("condiciones-nutricionales/${c["id"]}");
-        _fetchData();
-        if (mounted) NutriSnack.show(context, "Condición eliminada", ref: ref);
+        _fetchData(updateStats: true);
+        if (mounted) {
+          NutriSnack.show(context, "Condición eliminada", ref: ref);
+        }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           NutriSnack.show(context, "Error al eliminar: $e",
               isError: true, ref: ref);
+        }
       }
     }
   }
@@ -518,18 +465,18 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
         onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
         hoverColor: Colors.transparent,
-        splashColor: widget.color.withOpacity(0.2),
+        splashColor: widget.color.withValues(alpha: 0.2),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: _isHovered
-                ? widget.color.withOpacity(0.12)
+                ? widget.color.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
                 color: _isHovered
-                    ? widget.color.withOpacity(0.2)
+                    ? widget.color.withValues(alpha: 0.2)
                     : Colors.transparent),
           ),
           child: Column(
@@ -657,14 +604,14 @@ class _DetalleCondicionModal extends StatelessWidget {
                         children: [
                           Icon(Icons.menu_book_outlined,
                               size: 18,
-                              color: AppTema.azulOscuro.withOpacity(0.7)),
+                              color: AppTema.azulOscuro.withValues(alpha: 0.7)),
                           const SizedBox(width: 8),
                           Text(
                             "DESCRIPCIÓN TÉCNICA",
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: AppTema.azulOscuro.withOpacity(0.8),
+                              color: AppTema.azulOscuro.withValues(alpha: 0.8),
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -682,7 +629,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                           color: lightBg,
                           borderRadius: BorderRadius.circular(14),
                           border:
-                              Border.all(color: mainColor.withOpacity(0.05)),
+                              Border.all(color: mainColor.withValues(alpha: 0.05)),
                         ),
                         child: Text(
                           condicion["descripcion"] ??
@@ -720,7 +667,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: AppTema.azulOscuro.withOpacity(0.8),
+                          color: AppTema.azulOscuro.withValues(alpha: 0.8),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -787,7 +734,7 @@ class _DetalleCondicionModal extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -822,7 +769,7 @@ class _DetalleCondicionModal extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child:
-              Icon(icon, color: AppTema.azulOscuro.withOpacity(0.7), size: 20),
+              Icon(icon, color: AppTema.azulOscuro.withValues(alpha: 0.7), size: 20),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1121,4 +1068,126 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
       if (mounted) setState(() => _saving = false);
     }
   }
+}
+
+class _CondicionesDataSource extends DataTableSource {
+  final List<dynamic> items;
+  final bool isLoading;
+  final Function(Map<String, dynamic>) onVer;
+  final Function(Map<String, dynamic>) onEdit;
+  final Function(Map<String, dynamic>) onDelete;
+  final String Function(String?) truncateDesc;
+  final BuildContext context;
+
+  _CondicionesDataSource({
+    required this.items,
+    required this.isLoading,
+    required this.onVer,
+    required this.onEdit,
+    required this.onDelete,
+    required this.truncateDesc,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(Row(
+          children: [
+            const NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.all(Radius.circular(4))),
+            const SizedBox(width: 12),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const NutriShimmer(width: 150, height: 12),
+                const SizedBox(height: 4),
+                const NutriShimmer(width: 200, height: 10),
+              ],
+            ),
+          ],
+        )),
+        const DataCell(Center(child: NutriShimmer(width: 60, height: 20, borderRadius: BorderRadius.all(Radius.circular(10))))),
+        DataCell(Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
+            const SizedBox(width: 12),
+            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
+            const SizedBox(width: 12),
+            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
+          ],
+        )),
+      ]);
+    }
+
+    if (index >= items.length) return null;
+    final c = items[index] as Map<String, dynamic>;
+    final bool isTalla = (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
+
+    return DataRow(cells: [
+      DataCell(Row(
+        children: [
+          Icon(
+              isTalla
+                  ? Icons.height_rounded
+                  : Icons.monitor_weight_rounded,
+              size: 24,
+              color: AppTema.azulPrincipal.withOpacity(0.7)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c["nombre"]?.toString() ?? "Condición",
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B))),
+                Text(truncateDesc(c["descripcion"]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blueGrey)),
+              ],
+            ),
+          ),
+        ],
+      )),
+      DataCell(Center(child: _StatusBadge(isActive: c['activa'] == true))),
+      DataCell(Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _HoverActionButton(
+              icon: Icons.visibility_outlined,
+              label: "Ver",
+              color: AppTema.azulPrincipal,
+              onTap: () => onVer(c)),
+          const SizedBox(width: 12),
+          _HoverActionButton(
+              icon: Icons.edit_outlined,
+              label: "Edit",
+              color: Colors.orange,
+              onTap: () => onEdit(c)),
+          const SizedBox(width: 12),
+          _HoverActionButton(
+              icon: Icons.delete_outline_rounded,
+              label: "Borrar",
+              color: Colors.red,
+              onTap: () => onDelete(c)),
+        ],
+      )),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => (isLoading && items.isEmpty) ? 5 : items.length;
+  @override
+  int get selectedRowCount => 0;
 }

@@ -225,13 +225,13 @@ def obtener_estadisticas_adherencia(
     return caso_uso.obtener_estadisticas_adherencia(id_paciente, dias)
 
 @router.get("/momentos-comida")
-def listar_momentos(_=Depends(require_roles("tutor", "admin"))):
+def listar_momentos(_=Depends(require_roles("tutor", "admin", "nutricionista"))):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
     return repo.listar_momentos_comida()
 
 @router.get("/tipos-plato")
-def listar_tipos_plato(_=Depends(require_roles("tutor", "admin"))):
+def listar_tipos_plato(_=Depends(require_roles("tutor", "admin", "nutricionista"))):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
     return repo.listar_tipos_plato()
@@ -274,12 +274,16 @@ def generar_plan_automatico(
     caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
+        def simple_logger(msg: str):
+            print(f"[GEN_PLAN] {msg}")
+
         return caso_uso.ejecutar_tutor(
             id_paciente=request.id_paciente,
             dias=request.dias,
             fecha_inicio=request.fecha_inicio,
             momentos_obligatorios=request.momentos_obligatorios,
-            momentos_opcionales=request.momentos_opcionales
+            momentos_opcionales=request.momentos_opcionales,
+            log_callback=simple_logger
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

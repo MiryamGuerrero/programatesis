@@ -353,7 +353,7 @@ class SupabaseCrudRepository {
 
   // --- RECETAS, INGREDIENTES Y CATÁLOGOS ---
   Future<List<Map<String, dynamic>>> fetchRecetas(
-      {int limit = 20, int offset = 0}) async {
+      {int limit = 1000, int offset = 0}) async {
     // Paginación por página para evitar cargar todas las recetas en un solo request
     final response = await _dio.get(
       "crud/recetas",

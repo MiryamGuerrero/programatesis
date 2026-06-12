@@ -102,6 +102,5 @@ final inteligenciaRepositoryProvider =
     Provider<InteligenciaApiRepository>((ref) {
   return InteligenciaApiRepository(
     dio: ref.watch(dioProvider),
-    supabaseClient: ref.watch(supabaseClientProvider),
   );
 });

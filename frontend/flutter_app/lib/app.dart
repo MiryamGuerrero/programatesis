@@ -6,9 +6,10 @@ import "package:flutter_localizations/flutter_localizations.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
-import "features/auth/set_password_page.dart";
+import "features/auth/set_password_page.dart" deferred as set_password;
 import "shared/models/app_role.dart";
-import "shared/widgets/role_shell.dart";
+import "shared/widgets/role_shell.dart" deferred as role_shell;
+import "features/roles/role_module_registry.dart"; // Para DeferredModuleWidget
 
 class ReumaNutriApp extends ConsumerStatefulWidget {
   const ReumaNutriApp({super.key});
@@ -46,25 +47,44 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
 
     final rootPage = authSession.when(
       data: (session) {
-        if (authFlowIntent == AuthFlowIntent.setPassword)
-          return const SetPasswordPage();
-        if (session == null) return const LoginPage();
+        if (authFlowIntent == AuthFlowIntent.setPassword) {
+          return DeferredModuleWidget(
+            loader: set_password.loadLibrary,
+            builder: () => set_password.SetPasswordPage(),
+          );
+        }
+        if (session == null) {
+          return const LoginPage();
+        }
 
         final roleAsync = ref.watch(appRoleProvider);
         return roleAsync.when(
-          data: (role) => RoleShell(role: role),
-          loading: () => RoleShell(
-              role: _resolveRoleFromSession(session) ?? AppRole.tutor),
-          error: (_, __) => RoleShell(
-              role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          data: (role) => DeferredModuleWidget(
+            loader: role_shell.loadLibrary,
+            builder: () => role_shell.RoleShell(role: role),
+          ),
+          loading: () => DeferredModuleWidget(
+            loader: role_shell.loadLibrary,
+            builder: () => role_shell.RoleShell(
+                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          ),
+          error: (_, __) => DeferredModuleWidget(
+            loader: role_shell.loadLibrary,
+            builder: () => role_shell.RoleShell(
+                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          ),
         );
       },
       error: (_, __) => const LoginPage(),
       loading: () {
         final session = Supabase.instance.client.auth.currentSession;
-        if (session != null)
-          return RoleShell(
-              role: _resolveRoleFromSession(session) ?? AppRole.tutor);
+        if (session != null) {
+          return DeferredModuleWidget(
+            loader: role_shell.loadLibrary,
+            builder: () => role_shell.RoleShell(
+                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          );
+        }
         return const LoginPage();
       },
     );
@@ -77,11 +97,17 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         useMaterial3: true,
         colorScheme: colorScheme,
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        textTheme: GoogleFonts.latoTextTheme(),
+        // Optimizamos el renderizado de texto para evitar bloqueos
+        textTheme: GoogleFonts.latoTextTheme().copyWith(
+          bodyMedium: GoogleFonts.lato(fontWeight: FontWeight.w500),
+        ),
+        fontFamily: GoogleFonts.lato().fontFamily,
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           titleTextStyle: GoogleFonts.lato(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF334155)),
         ),

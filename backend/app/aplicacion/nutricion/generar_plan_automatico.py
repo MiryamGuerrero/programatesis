@@ -30,16 +30,20 @@ class CasoUsoGenerarPlanAutomatico:
         dias: int, 
         fecha_inicio: date,
         momentos_obligatorios: List[int],
-        momentos_opcionales: List[int]
+        momentos_opcionales: List[int],
+        log_callback: Optional[callable] = None
     ) -> dict:
+        if log_callback: log_callback("Analizando perfil clínico y reglas de seguridad...")
         # 1. Generar la estructura del plan en memoria usando la misma lógica
         plan_semanal = self.generar_plan_objeto(
             id_paciente=id_paciente,
             fecha_inicio=fecha_inicio,
             dias=dias,
-            momentos_ids=sorted(list(set(momentos_obligatorios + momentos_opcionales)))
+            momentos_ids=sorted(list(set(momentos_obligatorios + momentos_opcionales))),
+            log_callback=log_callback
         )
         
+        if log_callback: log_callback(f"Guardando plan de {dias} días en el sistema...")
         # 2. Crear el plan nutricional (cabecera) en la BD
         id_plan = self.repo_seguimiento.crear_plan_nutricional({
             "id_paciente": id_paciente,
@@ -79,7 +83,8 @@ class CasoUsoGenerarPlanAutomatico:
         id_paciente: str,
         fecha_inicio: date,
         dias: int,
-        momentos_ids: List[int]
+        momentos_ids: List[int],
+        log_callback: Optional[callable] = None
     ) -> PlanSemanal:
         # 1. Obtener perfil del paciente (para condiciones)
         perfil = self.repo_paciente.obtener_por_id(id_paciente)
@@ -92,74 +97,116 @@ class CasoUsoGenerarPlanAutomatico:
         todos_momentos = self.repo_receta.listar_momentos_comida()
         momentos_cat = {m["id"]: m["nombre"] for m in todos_momentos}
         
-        # Lógica de omisión inteligente por horario
         hoy = date.today()
-        ahora = None
-        if fecha_inicio == hoy:
-            from datetime import datetime
-            ahora = datetime.now().time()
+        from datetime import datetime
+        ahora = datetime.now().time() if fecha_inicio == hoy else None
 
-        def debe_omitir(m_id):
-            if fecha_inicio != hoy:
-                return False
-            m_data = next((m for m in todos_momentos if m["id"] == m_id), None)
-            if not m_data or not m_data.get("hora_fin"):
-                return False
-            # Si la hora actual es mayor a la hora de fin del momento, se omite
-            return ahora > m_data["hora_fin"]
+        # 3. OPTIMIZACIÓN CRÍTICA Nivel 1: Traer todas las combinaciones aplicables de golpe
+        if log_callback: log_callback("Cargando reglas de combinación clínica...")
+        todas_combinaciones = self.repo_composicion.obtener_todas_combinaciones_por_condiciones(
+            momentos_ids, condiciones_ids
+        )
+        
+        # Mapa de [id_momento] -> List[Combinaciones]
+        combinaciones_por_momento = {}
+        for c in todas_combinaciones:
+            m_id = c["id_momento"]
+            if m_id not in combinaciones_por_momento:
+                combinaciones_por_momento[m_id] = []
+            combinaciones_por_momento[m_id].append(c)
 
-        # 3. Preparar catálogo de recetas seguras
-        recetas_seguras_cache = {}
+        # 3. OPTIMIZACIÓN CRÍTICA Nivel 2: Traer todo el catálogo de recetas seguras una sola vez
+        if log_callback: log_callback("Sincronizando catálogo masivo de recetas seguras...")
+        pool_recetas_seguras = self.repo_receta.obtener_recetas_seguras_bulk(
+            id_paciente, limite=1500
+        )
+        
+        # Mapa de [id_momento][id_tipo_plato] -> List[Recetas]
+        recetas_por_momento_y_tipo = {}
         for m_id in momentos_ids:
-            recetas_seguras_cache[m_id] = self.repo_receta.obtener_recetas_seguras_para_paciente(id_paciente, m_id)
+            recetas_por_momento_y_tipo[m_id] = {}
+            # Filtrar recetas que sirven para este momento
+            recetas_momento = [r for r in pool_recetas_seguras if m_id in (r.get("momentos_ids") or [])]
+            
+            # Sub-categorizar por tipos de plato para las combinaciones
+            for r in recetas_momento:
+                for t_id in (r.get("tipos_plato_ids") or []):
+                    if t_id not in recetas_por_momento_y_tipo[m_id]:
+                        recetas_por_momento_y_tipo[m_id][t_id] = []
+                    recetas_por_momento_y_tipo[m_id][t_id].append(r)
+            
+            # Guardar también el pool general del momento para fallbacks
+            recetas_por_momento_y_tipo[m_id]["general"] = recetas_momento
 
         dias_plan = []
         
-        # 4. Generar items día por día
+        # 4. Generar items día por día (Procesamiento en memoria ultra-rápido)
+        if log_callback: log_callback(f"Generando menús inteligentes para {dias} días...")
         for i in range(dias):
             fecha_dia = fecha_inicio + timedelta(days=i)
             comidas_dia = []
             
-            # Solo filtramos momentos por horario el primer día si es hoy
-            momentos_dia = [m_id for m_id in momentos_ids if not (fecha_dia == hoy and debe_omitir(m_id))]
+            # Cada 7 días reportamos progreso
+            if log_callback and i > 0 and i % 7 == 0:
+                log_callback(f"Procesando semana {i // 7 + 1}...")
+
+            # Filtrar momentos que ya pasaron si es hoy
+            momentos_dia = []
+            for m_id in momentos_ids:
+                if fecha_dia == hoy and ahora:
+                    m_data = next((m for m in todos_momentos if m["id"] == m_id), None)
+                    if m_data and m_data.get("hora_fin") and ahora > m_data["hora_fin"]:
+                        continue
+                momentos_dia.append(m_id)
             
             for m_id in momentos_dia:
-                # Buscar combinaciones aplicables
-                combinaciones = self.repo_composicion.obtener_combinaciones_por_condiciones(m_id, condiciones_ids)
+                # Usar combinaciones pre-cargadas
+                combinaciones = combinaciones_por_momento.get(m_id, [])
                 
-                if not combinaciones:
-                    # Si no hay combinaciones, buscar una receta segura al azar
-                    recetas_posibles = recetas_seguras_cache.get(m_id, [])
-                    if recetas_posibles:
-                        receta_elegida = self._seleccionar_receta_con_prioridad(recetas_posibles)
-                        comidas_dia.append(ItemPlan(
-                            id_receta=receta_elegida["id"],
-                            nombre_receta=receta_elegida["nombre"],
-                            id_momento=m_id,
-                            nombre_momento=momentos_cat.get(m_id, "Momento"),
-                            semaforo=receta_elegida.get("semaforo", "neutral"),
-                            imagen_url=receta_elegida.get("imagen_url")
-                        ))
-                    continue
+                receta_seleccionada = None
+                
+                if combinaciones:
+                    # Intentar aplicar una combinación nutricional balanceada
+                    random.shuffle(combinaciones) 
+                    for combinacion in combinaciones:
+                        platillos = combinacion["platillos"]
+                        todas_disponibles = True
+                        temp_comidas = []
+                        
+                        for platillo in platillos:
+                            tipo_plato_id = platillo["id"]
+                            opciones = recetas_por_momento_y_tipo[m_id].get(tipo_plato_id, [])
+                            if opciones:
+                                r_elegida = self._seleccionar_receta_con_prioridad(opciones)
+                                temp_comidas.append(ItemPlan(
+                                    id_receta=r_elegida["id"],
+                                    nombre_receta=r_elegida["nombre"],
+                                    id_momento=m_id,
+                                    nombre_momento=momentos_cat.get(m_id, "Momento"),
+                                    semaforo=r_elegida.get("semaforo", "neutral"),
+                                    imagen_url=r_elegida.get("imagen_url")
+                                ))
+                            else:
+                                todas_disponibles = False
+                                break
+                        
+                        if todas_disponibles:
+                            comidas_dia.extend(temp_comidas)
+                            receta_seleccionada = True
+                            break
 
-                # Elegir una combinación al azar
-                combinacion = random.choice(combinaciones)
-                platillos = combinacion["platillos"]
-                
-                for platillo in platillos:
-                    tipo_plato_id = platillo["id"]
-                    # Filtrar recetas seguras por tipo de plato
-                    recetas_tipo = [r for r in recetas_seguras_cache.get(m_id, []) if tipo_plato_id in (r.get("tipos_plato_ids") or [])]
-                    
-                    if recetas_tipo:
-                        receta_elegida = self._seleccionar_receta_con_prioridad(recetas_tipo)
+                # Fallback: Si no hay combinaciones o no hay recetas para los tipos
+                if not receta_seleccionada:
+                    opciones_fallback = recetas_por_momento_y_tipo[m_id].get("general", [])
+                    if opciones_fallback:
+                        r_elegida = self._seleccionar_receta_con_prioridad(opciones_fallback)
                         comidas_dia.append(ItemPlan(
-                            id_receta=receta_elegida["id"],
-                            nombre_receta=receta_elegida["nombre"],
+                            id_receta=r_elegida["id"],
+                            nombre_receta=r_elegida["nombre"],
                             id_momento=m_id,
                             nombre_momento=momentos_cat.get(m_id, "Momento"),
-                            semaforo=receta_elegida.get("semaforo", "neutral"),
-                            imagen_url=receta_elegida.get("imagen_url")
+                            semaforo=r_elegida.get("semaforo", "neutral"),
+                            imagen_url=r_elegida.get("imagen_url")
                         ))
 
             dias_plan.append(DiaPlan(fecha=fecha_dia, comidas=comidas_dia))
@@ -225,13 +272,17 @@ class CasoUsoGenerarPlanAutomatico:
         }
 
     def _seleccionar_receta_con_prioridad(self, recetas: List[dict]) -> dict:
-        # Pesos base
+        # Pesos base optimizados usando los flags pre-calculados en SQL
         pesos = []
         for r in recetas:
             peso = 1.0
+            # Prioridad 1: Preferencia del usuario (corazón)
             if r.get("es_preferida"): peso *= 2.0
-            if r.get("es_potenciada") or r.get("es_recomendada"): peso *= 1.5
+            # Prioridad 2: Recomendación clínica (Apto/Potenciado)
+            if r.get("es_potenciada"): peso *= 1.5
+            # Prioridad 3: Restricción clínica leve (Disminuir)
             if r.get("es_disminuida"): peso *= 0.5
+            
             pesos.append(peso)
             
         return random.choices(recetas, weights=pesos, k=1)[0]

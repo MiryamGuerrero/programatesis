@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
+import '../../../../shared/widgets/shimmer_components.dart';
 
 class EtiquetasGestionPage extends ConsumerStatefulWidget {
   const EtiquetasGestionPage({super.key});
@@ -15,16 +16,20 @@ class EtiquetasGestionPage extends ConsumerStatefulWidget {
 class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
   List<dynamic> _etiquetas = [];
   bool _loading = true;
+  bool _loadingStats = true;
   String _search = '';
 
   @override
   void initState() {
     super.initState();
-    _fetch();
+    _fetch(updateStats: true);
   }
 
-  Future<void> _fetch() async {
-    setState(() => _loading = true);
+  Future<void> _fetch({bool updateStats = false}) async {
+    setState(() {
+      _loading = true;
+      if (updateStats) _loadingStats = true;
+    });
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('etiquetas-lista');
@@ -32,11 +37,15 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         setState(() {
           _etiquetas = response.data;
           _loading = false;
+          _loadingStats = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _loadingStats = false;
+        });
         NutriSnack.show(context, "Error al cargar etiquetas",
             isError: true, ref: ref);
       }
@@ -183,7 +192,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
             IconButton(
                 icon: const Icon(Icons.sync_rounded,
                     color: AppTema.azulPrincipal),
-                onPressed: _fetch),
+                onPressed: () => _fetch(updateStats: true)),
           ],
         ),
       ],
@@ -191,6 +200,17 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
   }
 
   Widget _buildStatsRow(int visibles) {
+    if (_loadingStats) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(
@@ -218,85 +238,32 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
 
   Widget _buildTableContainer(List<dynamic> filtered) {
     return NutriTableContainer(
-      child: _loading
-          ? const Padding(
-              padding: EdgeInsets.all(100),
-              child: NutriLoading(mensaje: "Cargando glosario de etiquetas..."))
-          : filtered.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(60),
-                  child: Center(child: Text("No se encontraron etiquetas.")))
-              : DataTable(
-                  headingRowColor:
-                      WidgetStateProperty.all(AppTema.pastelCeleste),
-                  columns: [
-                    _col("ETIQUETA VISIBLE"),
-                    _col("CÓDIGO INTERNO"),
-                    _col("TIPO"),
-                    _col("ACCIONES"),
-                  ],
-                  rows: filtered
-                      .map((e) => DataRow(
-                            cells: [
-                              DataCell(Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                        color: (e['tipo'] == 'RESTRICCION'
-                                                ? Colors.red
-                                                : Colors.blue)
-                                            .withOpacity(0.1),
-                                        shape: BoxShape.circle),
-                                    child: Text(
-                                        (e['nombre_visible']?.toString() ??
-                                                "E")[0]
-                                            .toUpperCase(),
-                                        style: TextStyle(
-                                            color: e['tipo'] == 'RESTRICCION'
-                                                ? Colors.red
-                                                : Colors.blue,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12)),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                      e['nombre_visible']?.toString() ??
-                                          "Etiqueta",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: AppTema.azulPrincipal)),
-                                ],
-                              )),
-                              DataCell(Text(e['nombre']?.toString() ?? "N/A",
-                                  style: GoogleFonts.lato(fontSize: 11))),
-                              DataCell(NutriBadge(
-                                  label: e['tipo'].toString(),
-                                  type: e['tipo'] == 'RESTRICCION'
-                                      ? 'danger'
-                                      : 'info')),
-                              DataCell(Row(
-                                children: [
-                                  IconButton(
-                                      icon: const Icon(Icons.edit_note_rounded,
-                                          size: 20,
-                                          color: AppTema.azulPrincipal),
-                                      onPressed: () => _rename(
-                                          e['id'], e['nombre_visible'])),
-                                  IconButton(
-                                      icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 20,
-                                          color: Colors.redAccent),
-                                      onPressed: () => _delete(
-                                          e['id'], e['nombre_visible'])),
-                                ],
-                              )),
-                            ],
-                          ))
-                      .toList(),
-                ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          cardTheme: const CardThemeData(
+              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+        ),
+        child: PaginatedDataTable(
+          header: null,
+          rowsPerPage: 10,
+          showFirstLastButtons: true,
+          availableRowsPerPage: const [10],
+          headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
+          columns: [
+            _col("ETIQUETA VISIBLE"),
+            _col("CÓDIGO INTERNO"),
+            _col("TIPO"),
+            _col("ACCIONES"),
+          ],
+          source: _EtiquetasDataSource(
+            items: filtered,
+            isLoading: _loading,
+            onRename: (id, name) => _rename(id, name),
+            onDelete: (id, name) => _delete(id, name),
+            context: context,
+          ),
+        ),
+      ),
     );
   }
 
@@ -306,4 +273,96 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
               fontWeight: FontWeight.w700,
               fontSize: 12,
               color: AppTema.azulPrincipal)));
+}
+
+class _EtiquetasDataSource extends DataTableSource {
+  final List<dynamic> items;
+  final bool isLoading;
+  final Function(int, String) onRename;
+  final Function(int, String) onDelete;
+  final BuildContext context;
+
+  _EtiquetasDataSource({
+    required this.items,
+    required this.isLoading,
+    required this.onRename,
+    required this.onDelete,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(Row(
+          children: [
+            NutriShimmer(width: 32, height: 32, borderRadius: BorderRadius.circular(16)),
+            const SizedBox(width: 12),
+            NutriShimmer(width: 120, height: 12),
+          ],
+        )),
+        DataCell(NutriShimmer(width: 80, height: 10)),
+        DataCell(NutriShimmer(width: 70, height: 20)),
+        DataCell(Row(
+          children: [
+            NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+            const SizedBox(width: 8),
+            NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+          ],
+        )),
+      ]);
+    }
+
+    if (index >= items.length) return null;
+    final e = items[index];
+
+    return DataRow(cells: [
+      DataCell(Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue)
+                    .withOpacity(0.1),
+                shape: BoxShape.circle),
+            child: Text((e['nombre_visible']?.toString() ?? "E")[0].toUpperCase(),
+                style: TextStyle(
+                    color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12)),
+          ),
+          const SizedBox(width: 12),
+          Text(e['nombre_visible']?.toString() ?? "Etiqueta",
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppTema.azulPrincipal)),
+        ],
+      )),
+      DataCell(Text(e['nombre']?.toString() ?? "N/A",
+          style: GoogleFonts.lato(fontSize: 11))),
+      DataCell(NutriBadge(
+          label: e['tipo'].toString(),
+          type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info')),
+      DataCell(Row(
+        children: [
+          IconButton(
+              icon: const Icon(Icons.edit_note_rounded,
+                  size: 20, color: AppTema.azulPrincipal),
+              onPressed: () => onRename(e['id'], e['nombre_visible'])),
+          IconButton(
+              icon: const Icon(Icons.delete_outline_rounded,
+                  size: 20, color: Colors.redAccent),
+              onPressed: () => onDelete(e['id'], e['nombre_visible'])),
+        ],
+      )),
+    ]);
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => isLoading && items.isEmpty ? 5 : items.length;
+  @override
+  int get selectedRowCount => 0;
 }

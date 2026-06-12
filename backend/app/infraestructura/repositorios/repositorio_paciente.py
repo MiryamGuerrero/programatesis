@@ -1097,6 +1097,103 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
         return True
 
+    def obtener_perfil_reducido_planificacion(self, id_paciente: str) -> dict:
+        """
+        VersiÃ³n optimizada de consulta de perfil para el sidebar de planificaciÃ³n.
+        Evita historial de controles masivo y otros datos no crÃ­ticos.
+        """
+        with db_cursor() as cur:
+            # 1. Datos del Paciente y Tutor
+            cur.execute("""
+                select p.id::text, p.nombre_completo::text, p.fecha_nacimiento::text, p.cedula::text, p.id_sexo,
+                       s.descripcion::text as sexo_nombre,
+                       u.nombre_completo::text as tutor_nombre, u.email::text as tutor_email
+                from usuarios.paciente p
+                left join usuarios.catalogo_sexo s on s.id = p.id_sexo
+                left join usuarios.tutor_paciente tp on tp.id_paciente = p.id and tp.es_principal = true
+                left join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                where p.id = %s
+            """, (id_paciente,))
+            pac_row = cur.fetchone()
+            if not pac_row: return {"error": "No existe"}
+            
+            cols = [d[0] for d in cur.description]
+            data = dict(zip(cols, pac_row))
+            paciente = {
+                "id": data["id"],
+                "nombre_completo": data["nombre_completo"],
+                "fecha_nacimiento": data["fecha_nacimiento"],
+                "cedula": data["cedula"],
+                "id_sexo": data["id_sexo"],
+                "sexo_nombre": data["sexo_nombre"]
+            }
+            tutor = {
+                "nombre_completo": data["tutor_nombre"],
+                "email": data["tutor_email"]
+            }
+
+            # 2. DiagnÃ³stico Principal
+            cur.execute("""
+                select c.nombre::text as condicion_nombre 
+                from clinico.diagnostico_paciente dp 
+                join heuristico.condicion c on c.id = dp.id_condicion 
+                where dp.id_paciente = %s and dp.esta_activo = true 
+                order by dp.fecha_diagnostico desc
+                limit 1
+            """, (id_paciente,))
+            diag_row = cur.fetchone()
+            diagnostico = {"condicion_nombre": diag_row[0]} if diag_row else {}
+
+            # 3. Ãšltimo Control (Resumen)
+            cur.execute("""
+                select id::text, fecha_control::text, peso_kg, talla_cm, estado_nutricional::text, 
+                       id_condicion_nutricional_resultado, escala_inflamacion, en_brote, fecha_proxima_cita::text
+                from clinico.control_paciente 
+                where id_paciente = %s 
+                order by fecha_control desc, id desc
+                limit 1
+            """, (id_paciente,))
+            ctrl_row = cur.fetchone()
+            ultimo_control = dict(zip([d[0] for d in cur.description], ctrl_row)) if ctrl_row else {}
+
+            # 4. Resumen de Alergias y Restricciones
+            cur.execute("""
+                select s.nombre::text
+                from clinico.alergia_paciente_subgrupo ap
+                join nutricion.subgrupo_alimentario s on s.id = ap.id_subgrupo_alimentario
+                where ap.id_paciente = %s and ap.activa = true
+            """, (id_paciente,))
+            al_subs = [{"nombre": r[0]} for r in cur.fetchall()]
+
+            cur.execute("""
+                select i.nombre::text
+                from clinico.alergia_paciente_ingrediente ai
+                join nutricion.ingrediente i on i.id = ai.id_ingrediente
+                where ai.id_paciente = %s and ai.activa = true
+            """, (id_paciente,))
+            al_ings = [{"nombre": r[0]} for r in cur.fetchall()]
+
+            cur.execute("""
+                select rp.codigo_restriccion::text as codigo, cra.nombre::text as nombre
+                from clinico.restriccion_paciente rp
+                left join clinico.catalogo_restriccion_alimentaria cra on cra.codigo = rp.codigo_restriccion
+                where rp.id_paciente = %s and rp.activa = true
+            """, (id_paciente,))
+            restricciones_detalle = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            return {
+                "paciente": paciente,
+                "tutor": tutor,
+                "diagnostico": diagnostico,
+                "ultimo_control": ultimo_control,
+                "alergias": {
+                    "subgrupos": al_subs,
+                    "ingredientes": al_ings
+                },
+                "restricciones_alimentarias_detalle": restricciones_detalle,
+                "es_intolerante_lactosa": any(r["codigo"] == "INTOLERANCIA_LACTOSA" for r in restricciones_detalle)
+            }
+
     def obtener_expediente_completo(self, id_paciente: str) -> dict:
         with db_cursor() as cur:
             # Cast all fields to text to avoid binary decode issues during JSON serialization

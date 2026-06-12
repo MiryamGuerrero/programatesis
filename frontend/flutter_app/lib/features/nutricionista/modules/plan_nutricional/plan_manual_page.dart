@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +8,7 @@ import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
+import '../../../../shared/widgets/shimmer_components.dart';
 import '../../../../shared/widgets/layout_components.dart';
 
 // --- MODELOS ---
@@ -40,8 +43,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<Map<String, dynamic>> _patients = [];
   List<dynamic> _patientPlans = []; // Historial de planes
   bool _isLoading = false;
-  bool _viewingHistory = true; // Nueva bandera de estado
+  bool _isLoadingHistory = false;
+  bool _viewingHistory = true; 
   bool _recomendadorAbierto = false;
+  bool _isSaving = false;
 
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
@@ -169,15 +174,31 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       _selectedPatient = patient;
       _viewingHistory = true;
       _isLoading = true;
+      _patientProfile = null;
+      _planVigente = null;
+      _patientPlans = [];
+      _ingredientesSegurosCache = [];
+      _recomendacionesCache = [];
+      _boostersSeleccionados = [];
+      _weeklyPlan = [];
+      _planInitialized = false;
     });
 
     try {
       final dio = ref.read(dioProvider);
-      final prefetch = await dio.get(
-        "pacientes/${patient['id']}/prefetch-planificacion",
-        queryParameters: {"include_ingredientes": false},
-      );
-      final payload = Map<String, dynamic>.from(prefetch.data ?? {});
+      final patientId = patient['id'];
+
+      final results = await Future.wait([
+        dio.get(
+          "pacientes/$patientId/prefetch-planificacion",
+          queryParameters: {"include_ingredientes": false},
+        ),
+        dio.get("pacientes/$patientId/planes"),
+      ]);
+
+      final payload = Map<String, dynamic>.from(results[0].data ?? {});
+      final List planesRaw = results[1].data ?? [];
+
       _patientProfile = Map<String, dynamic>.from(payload["expediente"] ?? {});
       _planVigente = payload["plan_vigente"] != null
           ? Map<String, dynamic>.from(payload["plan_vigente"])
@@ -192,27 +213,35 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           [];
 
       if (_recomendacionesCache.isEmpty) {
-        try {
-          final recoRes =
-              await dio.get("ingredientes/recomendados/${patient['id']}");
-          _recomendacionesCache = (recoRes.data as List?)
-                  ?.map((e) => Map<String, dynamic>.from(e))
-                  .toList() ??
-              [];
-        } catch (_) {}
+        dio.get("ingredientes/recomendados/$patientId").then((recoRes) {
+          if (mounted) {
+            setState(() {
+              _recomendacionesCache = (recoRes.data as List?)
+                      ?.map((e) => Map<String, dynamic>.from(e))
+                      .toList() ??
+                  [];
+              _boostersSeleccionados = _recomendacionesCache
+                  .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+                  .whereType<int>()
+                  .toList();
+            });
+          }
+        }).catchError((_) {});
+      } else {
+        _boostersSeleccionados = _recomendacionesCache
+            .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+            .whereType<int>()
+            .toList();
       }
-      _boostersSeleccionados = _recomendacionesCache
-          .map((r) => (r["id_ingrediente"] as num?)?.toInt())
-          .whereType<int>()
-          .toList();
 
       final estadoValidacion =
           Map<String, dynamic>.from(payload["estado_validacion"] ?? {});
       final mostrarModal = estadoValidacion["mostrar_modal"] == true;
+
       if (mostrarModal) {
-        await _mostrarModalValidacionClinica(patient['id'].toString());
+        await _mostrarModalValidacionClinica(patientId.toString());
         final resRevalidado = await dio.get(
-          "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
+          "pacientes/$patientId/control-mensual-actual/estado-validacion",
         );
         if (resRevalidado.data != null) {
           final dataRevalidada = Map<String, dynamic>.from(resRevalidado.data);
@@ -236,15 +265,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         }
       }
 
-      final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
-      final List planesRaw = resPlanes.data ?? [];
-      final List<Map<String, dynamic>> planes =
-          planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
-
       setState(() {
-        _patientPlans = planes;
+        _patientPlans =
+            planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
         _planInitialized = false;
-        _calculateSmartDates(planes, planVigente: _planVigente);
+        _calculateSmartDates(_patientPlans, planVigente: _planVigente);
       });
     } catch (e) {
       debugPrint("Error en _onPatientSelected: $e");
@@ -597,9 +622,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     setState(() {
       _viewingHistory = false;
       _planInitialized = false;
-      _weeklyPlan = []; // Limpiar plan previo
-      _calculateSmartDates(_patientPlans,
-          planVigente: _planVigente); // Recalcular fechas para el nuevo plan
+      _weeklyPlan = []; 
+      _calculateSmartDates(_patientPlans, planVigente: _planVigente); 
     });
     _showConfigModal();
   }
@@ -609,10 +633,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get("planes/${plan['id']}");
-      final List items =
-          res.data; // [{fecha, id_momento, id_receta, nombre_receta}]
+      final List items = res.data; 
 
-      // 1. Agrupar por fecha
       final Map<String, List<Map<String, dynamic>>> group = {};
       for (var it in items) {
         final f = it["fecha"].toString();
@@ -628,7 +650,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         final dayItems = group[fStr]!;
 
         final List<MealSlot> slots = [];
-        // Determinar snacks habilitados
         bool hasM = dayItems.any((i) => i["id_momento"] == 2);
         bool hasT = dayItems.any((i) => i["id_momento"] == 4);
 
@@ -693,35 +714,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   @override
   Widget build(BuildContext context) {
-    final body = Scaffold(
+    return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: _selectedPatient == null
-          ? _buildPatientSelection()
-          : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
-    );
-
-    if (_isLoading && _selectedPatient != null) {
-      return Stack(
+      body: Stack(
         children: [
-          body,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: Colors.white.withOpacity(0.70),
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-              ),
-            ),
-          ),
+          _selectedPatient == null
+              ? _buildPatientSelection()
+              : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
+          _buildLoadingOverlay(),
         ],
-      );
-    }
-
-    return body;
+      ),
+    );
   }
 
   Widget _buildPatientSelection() {
@@ -749,7 +752,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // Buscador
           Container(
             height: 48,
             decoration: BoxDecoration(
@@ -774,7 +776,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 24),
-          // Filtros
           SizedBox(
             height: 48,
             child: ListView.separated(
@@ -787,8 +788,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 return ChoiceChip(
                   label: Text(f),
                   selected: isSelected,
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedFilter = f);
+                  onSelected: (val) async {
+                    if (val) {
+                      setState(() {
+                        _selectedFilter = f;
+                        _isLoading = true;
+                      });
+                      await Future.delayed(const Duration(milliseconds: 300));
+                      if (mounted) setState(() => _isLoading = false);
+                    }
                   },
                   labelStyle: GoogleFonts.montserrat(
                     fontSize: 11,
@@ -813,13 +821,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // Listado de pacientes
-          if (_isLoading)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(40.0),
-              child: CircularProgressIndicator(),
-            ))
+          if (_isLoading && _patients.isEmpty)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 5,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: NutriShimmer(
+                  width: double.infinity,
+                  height: 100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            )
           else if (_patientsFiltrados.isEmpty)
             const Center(child: Text("No se encontraron pacientes"))
           else
@@ -838,20 +853,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Color _getAvatarColor(String nombre) {
     final colors = [
-      const Color(0xFFEFF6FF), // Blue
-      const Color(0xFFF5F3FF), // Purple
-      const Color(0xFFECFDF5), // Green
-      const Color(0xFFFFF7ED), // Orange
+      const Color(0xFFEFF6FF), 
+      const Color(0xFFF5F3FF), 
+      const Color(0xFFECFDF5), 
+      const Color(0xFFFFF7ED), 
     ];
     return colors[nombre.length % colors.length];
   }
 
   Color _getTextColor(String nombre) {
     final colors = [
-      const Color(0xFF2563EB), // Blue
-      const Color(0xFF7C3AED), // Purple
-      const Color(0xFF059669), // Green
-      const Color(0xFFD97706), // Orange
+      const Color(0xFF2563EB), 
+      const Color(0xFF7C3AED), 
+      const Color(0xFF059669), 
+      const Color(0xFFD97706), 
     ];
     return colors[nombre.length % colors.length];
   }
@@ -867,7 +882,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final String diagnostico = p["enfermedad_principal"] ?? "No registrado";
     final String condicionNutri = p["condicion_nutricional"] ?? "Desconocida";
 
-    // Asumimos inactivo o no validado hasta que se implementen flags reales en backend
     final bool planActivo = p["plan_activo"] == true;
     final bool validacionConfirmada = p["validacion_confirmada"] == true;
 
@@ -879,7 +893,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.01),
+            color: Colors.black.withValues(alpha: 0.01),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1020,7 +1034,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -1044,7 +1058,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Widget _buildHistoryLayout() {
     return Row(
       children: [
-        // Sidebar
         if (_patientProfile != null)
           PatientSummaryPanel(
             expediente: _patientProfile!,
@@ -1052,10 +1065,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
-          const SizedBox(
-              width: 320, child: Center(child: CircularProgressIndicator())),
+          Container(
+            width: 320,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(right: BorderSide(color: Color(0xFFF1F5F9))),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: const Column(
+              children: [
+                NutriShimmer(width: 100, height: 100, borderRadius: BorderRadius.all(Radius.circular(50))),
+                SizedBox(height: 24),
+                NutriShimmer(width: 200, height: 20),
+                SizedBox(height: 12),
+                NutriShimmer(width: 120, height: 14),
+                SizedBox(height: 48),
+                NutriCardShimmer(height: 90),
+                SizedBox(height: 20),
+                NutriCardShimmer(height: 90),
+                SizedBox(height: 20),
+                NutriCardShimmer(height: 90),
+              ],
+            ),
+          ),
 
-        // Contenido Historial
         Expanded(
           child: Column(
             children: [
@@ -1064,9 +1097,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               Expanded(
                 child: Container(
                   color: const Color(0xFFF1F5F9),
-                  child: _patientPlans.isEmpty
-                      ? _buildEmptyHistoryState()
-                      : _buildHistoryList(),
+                  child: _isLoading && _patientPlans.isEmpty
+                      ? ListView.builder(
+                          padding: const EdgeInsets.all(40),
+                          itemCount: 3,
+                          itemBuilder: (_, __) => const Padding(
+                            padding: EdgeInsets.only(bottom: 24),
+                            child: NutriCardShimmer(height: 140),
+                          ),
+                        )
+                      : _patientPlans.isEmpty
+                          ? _buildEmptyHistoryState()
+                          : _buildHistoryList(),
                 ),
               ),
             ],
@@ -1175,7 +1217,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }) {
     final bg = primary ? const Color(0xFFE8F5E9) : const Color(0xFFF1F5F9);
     final border =
-        primary ? greenBrand.withOpacity(0.35) : const Color(0xFFCBD5E1);
+        primary ? greenBrand.withValues(alpha: 0.35) : const Color(0xFFCBD5E1);
     final iconBg = primary ? greenBrand : const Color(0xFF0F172A);
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -1279,7 +1321,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
                   color: isVigente
-                      ? greenBrand.withOpacity(0.3)
+                      ? greenBrand.withValues(alpha: 0.3)
                       : Colors.transparent)),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -1290,7 +1332,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   height: 60,
                   decoration: BoxDecoration(
                       color: isVigente
-                          ? greenBrand.withOpacity(0.1)
+                          ? greenBrand.withValues(alpha: 0.1)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(16)),
                   child: Icon(Icons.description_outlined,
@@ -1395,7 +1437,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Sidebar Izquierdo
         if (_patientProfile != null)
           PatientSummaryPanel(
             expediente: _patientProfile!,
@@ -1403,10 +1444,25 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
-          const SizedBox(
-              width: 320, child: Center(child: CircularProgressIndicator())),
+          Container(
+            width: 320,
+            color: Colors.white,
+            padding: const EdgeInsets.all(24),
+            child: const Column(
+              children: [
+                NutriShimmer(width: 80, height: 80, borderRadius: BorderRadius.all(Radius.circular(40))),
+                SizedBox(height: 24),
+                NutriShimmer(width: 200, height: 20),
+                SizedBox(height: 12),
+                NutriShimmer(width: 150, height: 14),
+                SizedBox(height: 40),
+                NutriCardShimmer(height: 80),
+                SizedBox(height: 16),
+                NutriCardShimmer(height: 80),
+              ],
+            ),
+          ),
 
-        // Área Central de Trabajo
         Expanded(
           child: Column(
             children: [
@@ -1414,7 +1470,36 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               Expanded(
                 child: Container(
                   color: const Color(0xFFF1F5F9),
-                  child: _buildWeeklyTimeline(),
+                  child: _isLoading && _weeklyPlan.isEmpty
+                      ? ListView.builder(
+                          padding: const EdgeInsets.all(32),
+                          itemCount: 3,
+                          itemBuilder: (_, __) => Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const NutriShimmer(width: 100, height: 80),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const NutriShimmer(width: 200, height: 20),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        spacing: 16,
+                                        runSpacing: 16,
+                                        children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _buildWeeklyTimeline(),
                 ),
               ),
             ],
@@ -1431,7 +1516,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -1477,18 +1562,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
           const SizedBox(width: 12),
           _buildActionButton(
-            label: "Guardar Mes Completo",
-            icon: Icons.auto_mode_rounded,
-            onPressed: () => _savePlan(replicate: true),
-            color: Colors.indigo.shade600,
-          ),
-          const SizedBox(width: 12),
-          _buildActionButton(
             label: "Finalizar Plan",
             icon: Icons.check_circle_rounded,
-            onPressed: () => _savePlan(replicate: false),
+            onPressed: () => _savePlan(),
             color: greenBrand,
             isPrimary: true,
+            isLoading: _isSaving,
           ),
         ],
       ),
@@ -1500,32 +1579,47 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       required IconData icon,
       required VoidCallback onPressed,
       required Color color,
-      bool isPrimary = false}) {
-    return isPrimary
-        ? FilledButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: 18),
-            label: Text(label,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            style: FilledButton.styleFrom(
-              backgroundColor: color,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: 18, color: color),
-            label: Text(label,
-                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: color.withOpacity(0.5)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          );
+      bool isPrimary = false,
+      bool isLoading = false}) {
+    if (isPrimary) {
+      return FilledButton(
+        onPressed: isLoading ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 8),
+                  Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: isLoading ? null : onPressed,
+      icon: Icon(icon, size: 18, color: color),
+      label: Text(label,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: color.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Widget _buildWeeklyTimeline() {
@@ -1549,10 +1643,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.blue.withOpacity(0.05),
+                              color: Colors.blue.withValues(alpha: 0.05),
                               blurRadius: 4)
                         ],
                       ),
@@ -1579,7 +1673,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         child: Container(
                           width: 2,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                         ),
                       ),
                   ],
@@ -1661,14 +1755,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 8,
               offset: const Offset(0, 4))
         ],
         border: Border.all(
             color: hasRecipe
-                ? colorSlot.withOpacity(0.45)
-                : Colors.orange.withOpacity(0.1),
+                ? colorSlot.withValues(alpha: 0.45)
+                : Colors.orange.withValues(alpha: 0.1),
             width: hasRecipe ? 1.4 : 1),
       ),
       child: Column(
@@ -1678,7 +1772,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: hasRecipe
-                  ? colorSlot.withOpacity(0.1)
+                  ? colorSlot.withValues(alpha: 0.1)
                   : const Color(0xFFFFF7ED),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
@@ -1714,9 +1808,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.08),
+                            color: color.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: color.withOpacity(0.22)),
+                            border: Border.all(color: color.withValues(alpha: 0.22)),
                           ),
                           child: InkWell(
                             onTap: () => _mostrarDetalleReceta(
@@ -1814,7 +1908,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.orange,
                           side:
-                              BorderSide(color: Colors.orange.withOpacity(0.3)),
+                              BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -1836,12 +1930,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     
     final isAdjusting = _planInitialized;
     bool isGenerating = false;
-    bool isPreConfiguring = false;
 
-    // Solo pre-configuramos si es una creación nueva y es hoy
     final now = DateTime.now();
     if (!isAdjusting && _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day) {
-      isPreConfiguring = true;
       try {
         final dio = ref.read(dioProvider);
         final res = await dio.get("tutor/momentos-comida");
@@ -1875,14 +1966,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       } catch (e) {
         debugPrint("Error pre-configurando momentos inteligentes: $e");
       }
-      isPreConfiguring = false;
     }
 
     if (!mounted) return;
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Forzar uso de botones
+      barrierDismissible: false, 
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           final availableMoments = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
@@ -1944,9 +2034,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.05),
+                        color: Colors.blue.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         children: [
@@ -2051,7 +2141,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               if (isAdjusting) {
                                 Navigator.pop(context);
                               } else {
-                                // Si es creación, cancelar vuelve al historial
                                 setState(() => _viewingHistory = true);
                                 Navigator.pop(context);
                               }
@@ -2071,7 +2160,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       onPressed: isGenerating
                           ? null
                           : () async {
-                              // VALIDACIÓN CRÍTICA: Fecha de Control
                               final proximaCitaStr = _patientProfile?['ultimo_control']
                                   ?['fecha_proxima_cita'];
                               if (proximaCitaStr != null) {
@@ -2100,7 +2188,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                     ),
                                     duration: const Duration(seconds: 8),
                                   ));
-                                  return; // No cerrar el modal
+                                  return;
                                 }
                               }
 
@@ -2108,20 +2196,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               _morningSnackEnabled = morningSnack;
                               _afternoonSnackEnabled = afternoonSnack;
                               
-                              if (isAdjusting) {
-                                _initPlan(morningSnack, afternoonSnack);
+                              // SIEMPRE disparamos la generación automática al ajustar o crear
+                              final List<int> selectedMomentos = [];
+                              if (_durationType == "una comida") {
+                                selectedMomentos.add(_singleMealId);
                               } else {
-                                final List<int> selectedMomentos = [];
-                                if (_durationType == "una comida") {
-                                  selectedMomentos.add(_singleMealId);
-                                } else {
-                                  selectedMomentos.addAll([1, 3, 5]);
-                                  if (morningSnack) selectedMomentos.add(2);
-                                  if (afternoonSnack) selectedMomentos.add(4);
-                                }
-                                
-                                await _initPlanAutomaticWithCustomMoments(selectedMomentos);
+                                selectedMomentos.addAll([1, 3, 5]);
+                                if (morningSnack) selectedMomentos.add(2);
+                                if (afternoonSnack) selectedMomentos.add(4);
                               }
+                              
+                              await _initPlanAutomaticWithCustomMoments(selectedMomentos);
                               
                               if (context.mounted) Navigator.pop(context);
                             },
@@ -2135,7 +2220,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               ),
                             )
                           : Text(isAdjusting
-                              ? "Actualizar Plan"
+                              ? "Actualizar y Generar Plan"
                               : "Continuar y generar tabla"),
                     ),
                   ),
@@ -2163,14 +2248,38 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   void _initPlan(bool morning, bool afternoon) {
     final List<PlanDay> plan = [];
     DateTime current = _startDate;
+
+    final Map<String, Map<int, List<dynamic>>> planPrevio = {};
+    for (var d in _weeklyPlan) {
+      final dateKey = DateFormat('yyyy-MM-dd').format(d.date);
+      planPrevio[dateKey] = {};
+      for (var s in d.slots) {
+        planPrevio[dateKey]![s.momentId] = List.from(s.recipes);
+      }
+    }
+
     while (!current.isAfter(_endDate)) {
-      plan.add(PlanDay(date: current, slots: [
-        MealSlot(mealType: "Desayuno", momentId: 1),
-        if (morning) MealSlot(mealType: "Media mañana", momentId: 2),
-        MealSlot(mealType: "Almuerzo", momentId: 3),
-        if (afternoon) MealSlot(mealType: "Media tarde", momentId: 4),
-        MealSlot(mealType: "Merienda", momentId: 5),
-      ]));
+      final dateKey = DateFormat('yyyy-MM-dd').format(current);
+      final prevDay = planPrevio[dateKey];
+      final List<MealSlot> newSlots = [];
+      List<dynamic> getPrevRecipes(int mId) => prevDay?[mId] ?? [];
+
+      newSlots.add(MealSlot(
+          mealType: "Desayuno", momentId: 1, recipes: getPrevRecipes(1)));
+      if (morning) {
+        newSlots.add(MealSlot(
+            mealType: "Media mañana", momentId: 2, recipes: getPrevRecipes(2)));
+      }
+      newSlots.add(MealSlot(
+          mealType: "Almuerzo", momentId: 3, recipes: getPrevRecipes(3)));
+      if (afternoon) {
+        newSlots.add(MealSlot(
+            mealType: "Media tarde", momentId: 4, recipes: getPrevRecipes(4)));
+      }
+      newSlots.add(MealSlot(
+          mealType: "Merienda", momentId: 5, recipes: getPrevRecipes(5)));
+
+      plan.add(PlanDay(date: current, slots: newSlots));
       current = current.add(const Duration(days: 1));
     }
 
@@ -2181,14 +2290,36 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Future<void> _initPlanAutomaticWithCustomMoments(List<int> momentosIds) async {
-    final List<PlanDay> plan = [];
     final idPaciente = _selectedPatient?['id']?.toString();
     if (idPaciente == null) return;
 
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = "Iniciando generación de plan inteligente...";
+    });
+
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
-
       final totalDias = _endDate.difference(_startDate).inDays + 1;
+
+      final progressMessages = [
+        "Analizando perfil clínico y reglas de seguridad...",
+        "Filtrando catálogo de recetas seguras para el paciente...",
+        "Generando menús equilibrados para cada momento...",
+        "Optimizando variedad y rotación de alimentos...",
+        "Finalizando estructura del plan nutricional..."
+      ];
+
+      int msgIdx = 0;
+      final timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (msgIdx < progressMessages.length && _isLoading) {
+          if (mounted) {
+            setState(() => _loadingMessage = progressMessages[msgIdx++]);
+          }
+        } else {
+          t.cancel();
+        }
+      });
 
       final resp = await repo.planAutomatico(
         idPaciente: idPaciente,
@@ -2197,13 +2328,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         momentosIds: momentosIds,
       );
 
+      timer.cancel();
       final List<dynamic> diasData = resp['dias'] ?? [];
+      final List<PlanDay> plan = [];
 
       for (var diaData in diasData) {
         final DateTime fecha = DateTime.parse(diaData['fecha']);
         final List<dynamic> comidas = diaData['comidas'] ?? [];
-
-        // Agrupamos recetas por momentId para no duplicar slots en la UI
         final Map<int, MealSlot> groupedSlots = {};
 
         for (var comida in comidas) {
@@ -2214,12 +2345,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             "semaforo": comida['semaforo'] ?? "neutral",
             "imagen_url": comida['imagen_url'],
           };
-
           if (groupedSlots.containsKey(mId)) {
-            // Si el momento ya existe, solo añadimos la receta a la lista
             groupedSlots[mId]!.recipes.add(recipe);
           } else {
-            // Si es un nuevo momento, creamos el slot con la primera receta
             groupedSlots[mId] = MealSlot(
               mealType: comida['nombre_momento'],
               momentId: mId,
@@ -2227,26 +2355,71 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             );
           }
         }
-        
-        // Convertimos el mapa a una lista ordenada por momentId
         final sortedSlots = groupedSlots.keys.toList()..sort();
         plan.add(PlanDay(
-          date: fecha, 
-          slots: sortedSlots.map((id) => groupedSlots[id]!).toList()
-        ));
+            date: fecha,
+            slots: sortedSlots.map((id) => groupedSlots[id]!).toList()));
       }
 
-      setState(() {
-        _weeklyPlan = plan;
-        _planInitialized = true;
-      });
+      if (mounted) {
+        setState(() {
+          _weeklyPlan = plan;
+          _planInitialized = true;
+          _isLoading = false;
+          _loadingMessage = null;
+        });
+      }
     } catch (e) {
-      debugPrint("Error generando plan automático: $e");
-      // Fallback a plan vacío si falla la generación automática
-      bool morning = momentosIds.contains(2);
-      bool afternoon = momentosIds.contains(4);
-      _initPlan(morning, afternoon);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadingMessage = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al generar plan automático: $e")),
+        );
+      }
     }
+  }
+
+  String? _loadingMessage;
+
+  Widget _buildLoadingOverlay() {
+    if (!_isLoading || _loadingMessage == null) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.75),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 4,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "GENERANDO PLAN AUTOMÁTICO",
+              style: GoogleFonts.montserrat(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _loadingMessage!,
+              style: GoogleFonts.inter(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   IconData _getMomentIcon(int momentId) {
@@ -2270,7 +2443,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(text,
           style: TextStyle(
@@ -2357,8 +2530,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     } catch (_) {}
   }
 
-  void _savePlan({bool replicate = true}) async {
-    // 1. Validar que al menos haya una receta por slot
+  void _savePlan() async {
     for (var d in _weeklyPlan) {
       for (var s in d.slots) {
         if (s.recipes.isEmpty) {
@@ -2371,7 +2543,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       }
     }
 
-    // 2. Validar Fecha Límite (Próxima Cita)
     final proximaCitaStr =
         _patientProfile?['ultimo_control']?['fecha_proxima_cita'];
     if (proximaCitaStr != null) {
@@ -2386,6 +2557,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         return;
       }
     }
+
+    setState(() => _isSaving = true);
 
     final int totalComidas =
         3 + (_morningSnackEnabled ? 1 : 0) + (_afternoonSnackEnabled ? 1 : 0);
@@ -2410,19 +2583,21 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       await dio.post("plan-manual", data: {
         "id_paciente": _selectedPatient!["id"],
         "plan": planData,
-        "replicate": replicate,
         "boosters": _boostersSeleccionados,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             backgroundColor: Colors.green,
             content: Text("✅ Plan guardado y activado")));
-        _onPatientSelected(_selectedPatient!); // Recargar historial
+        _onPatientSelected(_selectedPatient!); 
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -2640,7 +2815,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-              color: greenBrand.withOpacity(0.1),
+              color: greenBrand.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8)),
           child: Text(title,
               style: const TextStyle(
@@ -2877,19 +3052,6 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                 ),
               ),
             ),
-          if (!_loading && _tipos.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "No hay tipos de comida aptos para este momento con las reglas actuales.",
-                  style: TextStyle(
-                      color: Colors.orange.shade800,
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.all(24),
             child: TextField(
@@ -2914,7 +3076,6 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                       borderSide: BorderSide.none)),
             ),
           ),
-          const SizedBox(height: 12),
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else

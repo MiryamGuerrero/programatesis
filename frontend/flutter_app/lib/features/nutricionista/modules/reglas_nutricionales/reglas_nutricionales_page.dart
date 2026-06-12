@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -6,6 +5,8 @@ import "package:google_fonts/google_fonts.dart";
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
 import "../../../../shared/widgets/layout_components.dart";
+import "../../../../shared/widgets/shimmer_components.dart";
+import "reglas_nutricionales_provider.dart";
 
 class ReglasNutricionalesPage extends ConsumerStatefulWidget {
   const ReglasNutricionalesPage({super.key});
@@ -15,199 +16,143 @@ class ReglasNutricionalesPage extends ConsumerStatefulWidget {
       _ReglasNutricionalesPageState();
 }
 
-class _ReglasNutricionalesPageState
-    extends ConsumerState<ReglasNutricionalesPage> {
-  bool _loading = true;
-  List<dynamic> _rules = [];
-  Map<String, List<dynamic>> _formData = {
-    "acciones": [],
-    "objetivos": [],
-    "condiciones": [],
-    "ingredientes": [],
-    "grupos": [],
-    "subgrupos": [],
-    "etiquetas": []
-  };
-
-  String _searchQuery = "";
-  final Set<String> _selectedObjetivos = {};
-  int? _filtroCondicion;
-  int? _filtroAccion;
-
-  Dio get _dio => ref.read(dioProvider);
+class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPage> {
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(reglasNutricionalesProvider.notifier).loadData();
+    });
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    try {
-      final results = await Future.wait([
-        _dio.get("reglas-nutricionales"),
-        _dio.get("reglas-nutricionales/form-data", queryParameters: {"compact": true}),
-      ]);
-      if (mounted) {
-        setState(() {
-          _rules = results[0].data as List;
-          _formData = Map<String, List<dynamic>>.from(results[1].data as Map);
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        NutriSnack.show(context, "Error al sincronizar motor de reglas",
-            isError: true, ref: ref);
-        setState(() => _loading = false);
-      }
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  List<dynamic> get _filtradas {
-    return _rules.where((r) {
-      final targetName = _getTargetName(r).toLowerCase();
-      final matchesSearch = targetName.contains(_searchQuery.toLowerCase());
-      final matchesTipo = _selectedObjetivos.isEmpty ||
-          _selectedObjetivos.contains(r["objetivo_codigo"]);
-
-      final condicionesIdsRaw = r["id_condiciones"];
-      final List<int> condicionesIds =
-          condicionesIdsRaw is List ? condicionesIdsRaw.cast<int>() : [];
-
-      final matchesCondicion =
-          _filtroCondicion == null || condicionesIds.contains(_filtroCondicion);
-      final matchesAccion =
-          _filtroAccion == null || r["id_accion"] == _filtroAccion;
-
-      return matchesSearch && matchesTipo && matchesCondicion && matchesAccion;
-    }).toList();
+  void _limpiarFiltros() {
+    _searchController.clear();
+    ref.read(reglasNutricionalesProvider.notifier).clearAllFilters();
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(reglasNutricionalesProvider);
+
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
-      body: _loading
-          ? const Center(
-              child: NutriLoading(mensaje: "Consultando motor de reglas..."))
-          : Column(
-              children: [
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(40, 32, 40, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildTopBar(),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStatsRow(),
-                        const SizedBox(height: 32),
-                        _buildFilterBar(),
-                        const SizedBox(height: 24),
-                        _buildTable(),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      body: state.errorMessage != null
+          ? _buildErrorView(state.errorMessage!)
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 32),
+                  _buildStatsRow(state),
+                  const SizedBox(height: 32),
+                  _buildToolbar(state),
+                  const SizedBox(height: 24),
+                  _buildObjetivoFilter(state),
+                  const SizedBox(height: 24),
+                  _buildTable(state),
+                ],
+              ),
             ),
     );
   }
 
-  Widget _buildTopBar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text("Gestión de reglas nutricionales",
-            style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulPrincipal,
-                letterSpacing: -0.5)),
-        Text(
-            "Configuración de lógica experta basada en etiquetas y condiciones nutricionales.",
-            style: GoogleFonts.inter(
-                color: Colors.blueGrey,
-                fontSize: 13,
-                fontWeight: FontWeight.w500)),
-        const SizedBox(height: 24),
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: TextField(
-                  style: GoogleFonts.inter(
-                      fontSize: 14, fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: "Buscar por alimento o ingrediente objetivo...",
-                    hintStyle: GoogleFonts.inter(
-                        color: Colors.grey.shade400, fontSize: 13),
-                    prefixIcon:
-                        const Icon(Icons.search, size: 20, color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-            SizedBox(
-              height: 48,
-              child: FilledButton.icon(
-                onPressed: () => _showForm(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTema.verdeSalud,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                ),
-                icon:
-                    const Icon(Icons.add_circle, size: 20, color: Colors.white),
-                label: Text("NUEVA REGLA",
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: Colors.white)),
-              ),
-            ),
+            Text("Gestión de Reglas Nutricionales",
+                style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            Text(
+                "Configuración de lógica experta basada en etiquetas y condiciones nutricionales.",
+                style: GoogleFonts.inter(
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
           ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _showForm(),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTema.verdeSalud,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          ),
+          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+          label: Text("NUEVA REGLA",
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildErrorView(String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning_rounded, size: 48, color: Colors.redAccent),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: GoogleFonts.montserrat(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.blueGrey,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => ref.read(reglasNutricionalesProvider.notifier).loadData(),
+            child: const Text("REINTENTAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(ReglasNutricionalesState state) {
+    if (state.isLoading) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(
             child: NutriResumenCard(
                 titulo: "TOTAL REGLAS",
-                valor: "${_rules.length}",
+                valor: "${state.rules.length}",
                 icon: Icons.rule_rounded)),
         const SizedBox(width: 20),
         Expanded(
             child: NutriResumenCard(
                 titulo: "ESTRICTAS",
-                valor:
-                    "${_rules.where((r) => r['es_estricta'] == true).length}",
+                valor: "${state.strictCount}",
                 colorValor: Colors.redAccent,
                 icon: Icons.gavel_rounded)),
         const SizedBox(width: 20),
@@ -221,9 +166,160 @@ class _ReglasNutricionalesPageState
     );
   }
 
-  Widget _buildFilterBar() {
-    final tipos = ["INGREDIENTE", "GRUPO", "SUBGRUPO", "ETIQUETA"];
+  Widget _buildToolbar(ReglasNutricionalesState state) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTema.grisLienzo,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => ref
+                    .read(reglasNutricionalesProvider.notifier)
+                    .setSearchQuery(v),
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: "Buscar por alimento o ingrediente objetivo...",
+                  prefixIcon: const Icon(Icons.search,
+                      size: 20, color: AppTema.azulPrincipal),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildSimpleFilterDropdown(
+              label: "CONDICIÓN",
+              value: state.filtroCondicion,
+              items: (state.formData["condiciones"] ?? []),
+              onChanged: (v) => ref
+                  .read(reglasNutricionalesProvider.notifier)
+                  .setFiltroCondicion(v),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildSimpleFilterDropdown(
+              label: "ACCIÓN",
+              value: state.filtroAccion,
+              items: (state.formData["acciones"] ?? []),
+              onChanged: (v) => ref
+                  .read(reglasNutricionalesProvider.notifier)
+                  .setFiltroAccion(v),
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: state.activeFilters ? _limpiarFiltros : null,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                side: BorderSide(color: Colors.grey.shade200),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+              ),
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+              label: Text(
+                "LIMPIAR",
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded,
+                size: 22, color: AppTema.azulPrincipal),
+            onPressed: () =>
+                ref.read(reglasNutricionalesProvider.notifier).loadData(),
+            tooltip: "Actualizar motor",
+            style: IconButton.styleFrom(
+              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildSimpleFilterDropdown({
+    required String label,
+    required int? value,
+    required List<dynamic> items,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+          color: AppTema.grisLienzo.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: value,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppTema.azulPrincipal, size: 20),
+          hint: Text(
+            label,
+            style: GoogleFonts.montserrat(
+              color: Colors.grey.shade600,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          items: [
+            DropdownMenuItem<int?>(
+              value: null,
+              child: Text(
+                "TODAS LAS ${label}ES",
+                style: GoogleFonts.montserrat(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ...items.map((item) {
+              return DropdownMenuItem<int?>(
+                value: item["id"],
+                child: Text(
+                  item["nombre"]?.toString().toUpperCase() ?? "SIN NOMBRE",
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObjetivoFilter(ReglasNutricionalesState state) {
+    final tipos = ["INGREDIENTE", "GRUPO", "SUBGRUPO", "ETIQUETA"];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -236,106 +332,18 @@ class _ReglasNutricionalesPageState
                     color: Colors.blueGrey,
                     letterSpacing: 1)),
             const SizedBox(width: 16),
-            _filterChip("TODOS", _selectedObjetivos.isEmpty,
-                () => setState(() => _selectedObjetivos.clear())),
+            _filterChip("TODOS", state.selectedObjetivos.isEmpty,
+                () => ref.read(reglasNutricionalesProvider.notifier).clearObjetivos()),
             const SizedBox(width: 12),
             ...tipos.map((t) => Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: _filterChip(
                       t,
-                      _selectedObjetivos.contains(t),
-                      () => setState(() => _selectedObjetivos.contains(t)
-                          ? _selectedObjetivos.remove(t)
-                          : _selectedObjetivos.add(t))),
+                      state.selectedObjetivos.contains(t),
+                      () => ref
+                          .read(reglasNutricionalesProvider.notifier)
+                          .toggleObjetivo(t)),
                 )),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("CONDICIÓN NUTRICIONAL:",
-                      style: GoogleFonts.montserrat(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.blueGrey,
-                          letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: _filtroCondicion,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300)),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text("TODAS LAS CONDICIONES")),
-                      ...(_formData["condiciones"] ?? []).map((c) =>
-                          DropdownMenuItem<int>(
-                              value: c["id"],
-                              child: Text(c["nombre"].toString().toUpperCase(),
-                                  overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setState(() => _filtroCondicion = v),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("ACCIÓN SISTEMA:",
-                      style: GoogleFonts.montserrat(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.blueGrey,
-                          letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: _filtroAccion,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300)),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text("TODAS LAS ACCIONES")),
-                      ...(_formData["acciones"] ?? []).map((a) =>
-                          DropdownMenuItem<int>(
-                              value: a["id"],
-                              child: Text(a["nombre"].toString().toUpperCase(),
-                                  overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setState(() => _filtroAccion = v),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ],
@@ -364,35 +372,37 @@ class _ReglasNutricionalesPageState
     );
   }
 
-  Widget _buildTable() {
+  Widget _buildTable(ReglasNutricionalesState state) {
     return NutriTableContainer(
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          cardTheme: const CardThemeData(
-              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-        ),
-        child: PaginatedDataTable(
-          header: null,
-          rowsPerPage: 5,
-          showFirstLastButtons: true,
-          availableRowsPerPage: const [5],
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          columns: [
-            _col("ACCIÓN"),
-            _col("OBJETIVO"),
-            _col("CONDICIONES"),
-            _col("TIPO"),
-            _col("ACCIONES"),
-          ],
-          source: _ReglasNutricionalesDataSource(
-            rules: _filtradas,
-            formData: _formData,
-            onEdit: _showForm,
-            onDelete: _deleteRule,
-            context: context,
-          ),
-        ),
-      ),
+      child: state.isLoading
+          ? const NutriTableShimmer(rows: 5, columns: 5)
+          : Theme(
+              data: Theme.of(context).copyWith(
+                cardTheme: const CardThemeData(
+                    elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+              ),
+              child: PaginatedDataTable(
+                header: null,
+                rowsPerPage: 5,
+                showFirstLastButtons: true,
+                availableRowsPerPage: const [5],
+                headingRowColor:
+                    WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                columns: [
+                  _col("ACCIÓN"),
+                  _col("OBJETIVO"),
+                  _col("CONDICIONES"),
+                  _col("TIPO"),
+                  _col("ACCIONES"),
+                ],
+                source: _ReglasNutricionalesDataSource(
+                  rules: state.filteredRules,
+                  formData: state.formData,
+                  onEdit: _showForm,
+                  onDelete: _deleteRule,
+                ),
+              ),
+            ),
     );
   }
 
@@ -403,18 +413,16 @@ class _ReglasNutricionalesPageState
               fontSize: 12,
               color: AppTema.azulOscuro)));
 
-  String _getTargetName(Map<String, dynamic> r) =>
-      r['ingrediente_nombre'] ??
-      r['grupo_nombre'] ??
-      r['subgrupo_nombre'] ??
-      r['etiqueta_nombre'] ??
-      "Objetivo";
-
   void _showForm([Map<String, dynamic>? rule]) {
+    final state = ref.read(reglasNutricionalesProvider);
     showDialog(
-        context: context,
-        builder: (ctx) => _NutritionalRuleFormDialog(
-            formData: _formData, initialRule: rule, onSaved: _loadData));
+      context: context,
+      builder: (ctx) => _NutritionalRuleFormDialog(
+        formData: state.formData,
+        initialRule: rule,
+        onSaved: () => ref.read(reglasNutricionalesProvider.notifier).loadData(),
+      ),
+    );
   }
 
   Future<void> _deleteRule(int id) async {
@@ -438,10 +446,7 @@ class _ReglasNutricionalesPageState
       ),
     );
     if (confirm == true) {
-      try {
-        await _dio.delete("reglas-nutricionales/$id");
-        _loadData();
-      } catch (e) {}
+      await ref.read(reglasNutricionalesProvider.notifier).deleteRule(id);
     }
   }
 }
@@ -451,14 +456,12 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
   final Map<String, List<dynamic>> formData;
   final Function(Map<String, dynamic>) onEdit;
   final Function(int) onDelete;
-  final BuildContext context;
 
   _ReglasNutricionalesDataSource({
     required this.rules,
     required this.formData,
     required this.onEdit,
     required this.onDelete,
-    required this.context,
   });
 
   @override
@@ -478,7 +481,7 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
 
     return DataRow(cells: [
       DataCell(_accionBadge(r['accion_codigo'] ?? 'N/A')),
-      DataCell(Text(_getTargetName(r),
+      DataCell(Text(reglasNutricionalesTargetName(r),
           style: GoogleFonts.lato(
               fontSize: 13,
               color: const Color(0xFF1E293B),
@@ -537,13 +540,6 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
     );
   }
 
-  String _getTargetName(Map<String, dynamic> r) =>
-      r['ingrediente_nombre'] ??
-      r['grupo_nombre'] ??
-      r['subgrupo_nombre'] ??
-      r['etiqueta_nombre'] ??
-      "Objetivo";
-
   @override
   bool get isRowCountApproximate => false;
   @override
@@ -592,11 +588,13 @@ class _NutritionalRuleFormDialogState
     List<dynamic> targetList = [];
     if (_idObjetivo == 1) {
       targetList = widget.formData["ingredientes"] ?? [];
-    } else if (_idObjetivo == 2)
+    } else if (_idObjetivo == 2) {
       targetList = widget.formData["grupos"] ?? [];
-    else if (_idObjetivo == 3)
+    } else if (_idObjetivo == 3) {
       targetList = widget.formData["etiquetas"] ?? [];
-    else if (_idObjetivo == 4) targetList = widget.formData["subgrupos"] ?? [];
+    } else if (_idObjetivo == 4) {
+      targetList = widget.formData["subgrupos"] ?? [];
+    }
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -624,8 +622,8 @@ class _NutritionalRuleFormDialogState
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildFieldSection("OBJETIVO", [
-                DropdownButtonFormField<int>(
-                  value: _idObjetivo,
+                  DropdownButtonFormField<int>(
+                    initialValue: _idObjetivo,
                   decoration:
                       _modalDecor("Tipo de Objetivo*", Icons.track_changes),
                   items: widget.formData["objetivos"]
@@ -642,8 +640,8 @@ class _NutritionalRuleFormDialogState
                 ),
                 if (_idObjetivo != null) ...[
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    value: _idTarget,
+                    DropdownButtonFormField<int>(
+                      initialValue: _idTarget,
                     decoration:
                         _modalDecor("Seleccionar Item*", Icons.ads_click),
                     items: targetList
@@ -662,7 +660,7 @@ class _NutritionalRuleFormDialogState
               const SizedBox(height: 16),
               _buildFieldSection("ACCIÓN", [
                 DropdownButtonFormField<int>(
-                  value: _idAccion,
+                  initialValue: _idAccion,
                   decoration:
                       _modalDecor("Acción Sugerida*", Icons.lightbulb_outline),
                   items: widget.formData["acciones"]
@@ -758,7 +756,9 @@ class _NutritionalRuleFormDialogState
     if (_idAccion == null ||
         _idObjetivo == null ||
         _idTarget == null ||
-        _selectedCondiciones.isEmpty) return;
+        _selectedCondiciones.isEmpty) {
+      return;
+    }
     setState(() => _saving = true);
     try {
       final payload = {

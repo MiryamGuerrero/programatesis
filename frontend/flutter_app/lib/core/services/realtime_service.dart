@@ -1,7 +1,6 @@
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../state/app_providers.dart";
-import "../state/notification_provider.dart";
 import "../../shared/models/app_role.dart";
 
 final realtimeServiceProvider = Provider((ref) => RealtimeService(ref));
@@ -34,11 +33,13 @@ class RealtimeService {
             String rolDesc = "usuario";
             if (rolId == 1) {
               rolDesc = "Administrador";
-            } else if (rolId == 2)
+            } else if (rolId == 2) {
               rolDesc = "Médico";
-            else if (rolId == 3)
+            } else if (rolId == 3) {
               rolDesc = "Nutricionista";
-            else if (rolId == 4) rolDesc = "Tutor";
+            } else if (rolId == 4) {
+              rolDesc = "Tutor";
+            }
 
             _ref.read(notificationProvider.notifier).add(
                   "Nuevo Registro Detectado",

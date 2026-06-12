@@ -10,11 +10,13 @@ import '../../../../shared/widgets/layout_components.dart';
 class IngredienteFormPage extends ConsumerStatefulWidget {
   final int? idIngrediente;
   final VoidCallback onBack;
+  final VoidCallback onSaved;
 
   const IngredienteFormPage({
     super.key,
     this.idIngrediente,
     required this.onBack,
+    required this.onSaved,
   });
 
   @override
@@ -817,7 +819,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
 
       if (mounted) {
         NutriSnack.show(context, "Ingrediente guardado correctamente");
-        widget.onBack();
+        widget.onSaved();
       }
     } catch (e) {
       if (mounted) {

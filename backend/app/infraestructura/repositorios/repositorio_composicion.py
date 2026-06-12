@@ -132,6 +132,23 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
             if clave in self.COMBINACIONES_LIGERAS_PROHIBIDAS:
                 raise ValueError("La combinacion no es valida para COMBINACION_LIGERA")
 
+    def obtener_todas_combinaciones_por_condiciones(self, ids_momentos: List[int], ids_condiciones: List[int]) -> List[dict]:
+        """Trae todas las combinaciones aplicables para una lista de momentos y condiciones en una sola consulta."""
+        if not ids_momentos or not ids_condiciones:
+            return []
+        with db_cursor() as cur:
+            sql = """
+                SELECT DISTINCT r.id, r.id_momento, r.platillos, r.rol
+                FROM nutricion.regla_menu_combinacion r
+                JOIN nutricion.regla_menu_combinacion_condicion rc ON rc.id_regla_menu_combinacion = r.id
+                WHERE r.id_momento = ANY(%s) 
+                  AND r.activo = true
+                  AND rc.id_condicion_nutricional = ANY(%s)
+            """
+            cur.execute(sql, (ids_momentos, ids_condiciones))
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     def obtener_combinaciones_por_condiciones(self, id_momento: int, ids_condiciones: List[int]) -> List[dict]:
         with db_cursor() as cur:
             self._asegurar_tablas_reglas_menu(cur)
