@@ -255,7 +255,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVO ALIMENTO",
+          label: Text("NUEVA ALIMENTO",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -416,47 +416,28 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     );
   }
 
-  Widget _buildTableContainer() {
-    return NutriTableContainer(
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          cardTheme: const CardThemeData(
-              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-        ),
-        child: PaginatedDataTable(
-          header: null,
-          rowsPerPage: _rowsPerPage,
-          availableRowsPerPage: const [_rowsPerPage],
-          onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
-          showFirstLastButtons: true,
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          columns: [
-            _col("ALIMENTO"),
-            _col("CATEGORÍA"),
-            _col("SUBGRUPO"),
-            _col("KCAL/100G"),
-            _col("ACCIONES"),
-          ],
-          source: _IngredientesDataSource(
-            items: _items,
-            totalRows: _total,
-            offset: _offset,
-            isLoading: _loading,
-            onView: (id) => _showDetail(id),
-            onEdit: (id) => _showForm(id),
-            context: context,
-          ),
-        ),
-      ),
-    );
-  }
+  Future<void> _toggleActivo(int id, bool valor) async {
+    final index = _items.indexWhere((item) => item['id'] == id);
+    if (index != -1) {
+      final oldItem = _items[index];
+      setState(() {
+        _items[index] = {...oldItem, 'activo': valor};
+      });
 
-  DataColumn _col(String l) => DataColumn(
-      label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulOscuro)));
+      try {
+        final dio = ref.read(dioProvider);
+        await dio.patch("crud/ingredientes/$id/estado", data: {"activa": valor});
+      } catch (e) {
+        setState(() {
+          _items[index] = oldItem;
+        });
+        if (mounted) {
+          NutriSnack.show(context, "Error al cambiar estado: $e",
+              isError: true, ref: ref);
+        }
+      }
+    }
+  }
 
   Future<void> _eliminar(int id) async {
     final confirm = await showDialog<bool>(
@@ -478,14 +459,27 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     );
 
     if (confirm == true) {
+      final oldItems = List<dynamic>.from(_items);
+      final oldTotal = _total;
+
+      setState(() {
+        _items.removeWhere((item) => item['id'] == id);
+        if (oldItems.length != _items.length) {
+          _total--;
+        }
+      });
+
       try {
         final repo = ref.read(inteligenciaRepositoryProvider);
         await repo.eliminarIngrediente(id);
         if (mounted) {
           NutriSnack.show(context, "Alimento eliminado", ref: ref);
         }
-        _fetch(offset: _offset);
       } catch (e) {
+        setState(() {
+          _items = oldItems;
+          _total = oldTotal;
+        });
         if (mounted) {
           NutriSnack.show(context, "Error al eliminar: $e",
               isError: true, ref: ref);
@@ -493,6 +487,51 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       }
     }
   }
+
+  Widget _buildTableContainer() {
+    return NutriTableContainer(
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          cardTheme: const CardThemeData(
+              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+        ),
+        child: PaginatedDataTable(
+          header: null,
+          rowsPerPage: _rowsPerPage,
+          availableRowsPerPage: const [_rowsPerPage],
+          onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
+          showFirstLastButtons: true,
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+          columns: [
+            _col("ALIMENTO"),
+            _col("CATEGORÍA"),
+            _col("SUBGRUPO"),
+            _col("ACTIVO"),
+            _col("KCAL/100G"),
+            _col("ACCIONES"),
+          ],
+          source: _IngredientesDataSource(
+            items: _items,
+            totalRows: _total,
+            offset: _offset,
+            isLoading: _loading,
+            onView: (id) => _showDetail(id),
+            onEdit: (id) => _showForm(id),
+            onDelete: (id) => _eliminar(id),
+            onToggleStatus: (id, val) => _toggleActivo(id, val),
+            context: context,
+          ),
+        ),
+      ),
+    );
+  }
+
+  DataColumn _col(String l) => DataColumn(
+      label: Text(l,
+          style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: AppTema.azulOscuro)));
 }
 
 class _IngredientesDataSource extends DataTableSource {
@@ -502,6 +541,8 @@ class _IngredientesDataSource extends DataTableSource {
   final bool isLoading;
   final Function(int) onView;
   final Function(int) onEdit;
+  final Function(int) onDelete;
+  final Function(int, bool) onToggleStatus;
   final BuildContext context;
 
   _IngredientesDataSource({
@@ -511,6 +552,8 @@ class _IngredientesDataSource extends DataTableSource {
     required this.isLoading,
     required this.onView,
     required this.onEdit,
+    required this.onDelete,
+    required this.onToggleStatus,
     required this.context,
   });
 
@@ -536,6 +579,7 @@ class _IngredientesDataSource extends DataTableSource {
         const DataCell(NutriShimmer(width: 150, height: 10)),
         const DataCell(NutriShimmer(width: 100, height: 10)),
         const DataCell(NutriShimmer(width: 80, height: 20)),
+        const DataCell(NutriShimmer(width: 40, height: 10)),
         const DataCell(NutriShimmer(width: 60, height: 10)),
         DataCell(Row(
           children: [
@@ -571,6 +615,11 @@ class _IngredientesDataSource extends DataTableSource {
                 fontWeight: FontWeight.w600,
                 color: AppTema.azulPrincipal)),
       )),
+      DataCell(Switch(
+        value: ing['activo'] ?? true,
+        activeColor: AppTema.verdeSalud,
+        onChanged: (v) => onToggleStatus(ing['id'], v),
+      )),
       DataCell(Text("${_fmt(ing['energia_kcal'])} kcal",
           style: GoogleFonts.inter(
               fontWeight: FontWeight.w800,
@@ -586,6 +635,10 @@ class _IngredientesDataSource extends DataTableSource {
               icon: const Icon(Icons.edit_note_rounded,
                   size: 22, color: Colors.blueGrey),
               onPressed: () => onEdit(ing['id'])),
+          IconButton(
+              icon: const Icon(Icons.delete_outline_rounded,
+                  size: 20, color: Colors.redAccent),
+              onPressed: () => onDelete(ing['id'])),
         ],
       )),
     ]);

@@ -307,6 +307,58 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 condiciones_activas=todas_condiciones
             )
 
+    def listar_pacientes_paginado(self, q: str = None, limit: int = 10, offset: int = 0, include_total: bool = False) -> dict:
+        where_clauses = ["v.id is not null"]
+        params = []
+
+        if q:
+            where_clauses.append("(v.nombre_completo ilike %s or v.cedula ilike %s)")
+            params.extend([f"%{q}%", f"%{q}%"])
+
+        where_str = f"where {' and '.join(where_clauses)}"
+
+        total = 0
+        with db_cursor() as cur:
+            if include_total:
+                cur.execute(f"select count(*) from usuarios.vista_gestion_pacientes v {where_str}", tuple(params))
+                total = cur.fetchone()[0]
+
+            sql = f"""
+                with validacion_actual as (
+                    select distinct on (id_paciente) id_paciente, confirmado
+                    from clinico.validacion_control_nutricional_mensual
+                    where anio = extract(year from current_date)::int
+                      and mes = extract(month from current_date)::int
+                    order by id_paciente, id desc
+                ),
+                plan_activo as (
+                    select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
+                    from interaccion.plan_nutricional
+                    where coalesce(vigente, false) = true
+                    order by id_paciente, created_at desc nulls last, id desc
+                )
+                select
+                    v.*,
+                    p.id_sexo,
+                    (pa.id is not null) as plan_activo,
+                    pa.id as plan_activo_id,
+                    pa.fecha_inicio as plan_activo_inicio,
+                    pa.fecha_fin as plan_activo_fin,
+                    coalesce(va.confirmado, false) as validacion_confirmada
+                from usuarios.vista_gestion_pacientes v
+                join usuarios.paciente p on p.id = v.id
+                left join plan_activo pa on pa.id_paciente = v.id
+                left join validacion_actual va on va.id_paciente = v.id
+                {where_str}
+                order by v.nombre_completo
+                limit %s offset %s
+            """
+            cur.execute(sql, tuple(params + [limit, offset]))
+            cols = [desc[0] for desc in cur.description]
+            items = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+            return {"items": items, "total": total}
+
     def listar_todos_pacientes(self) -> List[dict]:
         with db_cursor() as cur:
             sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
@@ -883,6 +935,19 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
     def buscar_pacientes(self, query: str, limite: int = 50) -> List[dict]:
         with db_cursor() as cur:
             sql = """
+                with validacion_actual as (
+                    select distinct on (id_paciente) id_paciente, confirmado
+                    from clinico.validacion_control_nutricional_mensual
+                    where anio = extract(year from current_date)::int
+                      and mes = extract(month from current_date)::int
+                    order by id_paciente, id desc
+                ),
+                plan_activo as (
+                    select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
+                    from interaccion.plan_nutricional
+                    where coalesce(vigente, false) = true
+                    order by id_paciente, created_at desc nulls last, id desc
+                )
                 select
                     v.*,
                     p.id_sexo,
@@ -890,27 +955,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     pa.id as plan_activo_id,
                     pa.fecha_inicio as plan_activo_inicio,
                     pa.fecha_fin as plan_activo_fin,
-                    coalesce((
-                        select vc.confirmado
-                        from clinico.control_paciente cp
-                        left join clinico.validacion_control_nutricional_mensual vc
-                          on vc.id_control = cp.id
-                         and vc.anio = extract(year from current_date)::int
-                         and vc.mes = extract(month from current_date)::int
-                        where cp.id_paciente = v.id
-                        order by cp.fecha_control desc, cp.id desc
-                        limit 1
-                    ), false) as validacion_confirmada
+                    coalesce(va.confirmado, false) as validacion_confirmada
                 from usuarios.vista_gestion_pacientes v
                 join usuarios.paciente p on p.id = v.id
-                left join lateral (
-                    select pn.id, pn.fecha_inicio::text, pn.fecha_fin::text
-                    from interaccion.plan_nutricional pn
-                    where pn.id_paciente = v.id
-                      and coalesce(pn.vigente, false) = true
-                    order by pn.created_at desc nulls last, pn.id desc
-                    limit 1
-                ) pa on true
+                left join plan_activo pa on pa.id_paciente = v.id
+                left join validacion_actual va on va.id_paciente = v.id
                 where v.nombre_completo ilike %s or v.cedula ilike %s
                 order by v.nombre_completo
                 limit %s

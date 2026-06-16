@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -24,7 +25,11 @@ class _CondicionesNutricionalesPageState
   bool _loading = true;
   bool _loadingStats = true;
   List<dynamic> _condiciones = [];
+  int _total = 0;
+  int _offset = 0;
+  static const int _rowsPerPage = 5;
   String _searchQuery = "";
+  Timer? _searchDebounce;
 
   bool get _filtrosActivos => _searchQuery.isNotEmpty;
 
@@ -33,7 +38,12 @@ class _CondicionesNutricionalesPageState
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (mounted) setState(() {});
+      if (mounted && !_tabController.indexIsChanging) {
+        setState(() {
+          _offset = 0;
+          _fetchData(updateStats: true);
+        });
+      }
     });
     _fetchData(updateStats: true);
   }
@@ -42,26 +52,45 @@ class _CondicionesNutricionalesPageState
   void dispose() {
     _searchController.dispose();
     _tabController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   void _limpiarFiltros() {
     _searchController.clear();
-    setState(() => _searchQuery = "");
+    setState(() {
+      _searchQuery = "";
+      _offset = 0;
+    });
+    _fetchData(offset: 0, updateStats: true);
   }
 
-  Future<void> _fetchData({bool updateStats = false}) async {
+  Future<void> _fetchData({int? offset, bool updateStats = false}) async {
+    final nextOffset = offset ?? _offset;
     if (!mounted) return;
     setState(() {
       _loading = true;
+      _offset = nextOffset;
       if (updateStats) _loadingStats = true;
     });
+
+    final String indicadorFiltro = _tabController.index == 1 ? "HFA" : "BMI";
+
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("condiciones-nutricionales");
+      final res = await dio.get("condiciones-nutricionales", queryParameters: {
+        "limit": _rowsPerPage,
+        "offset": nextOffset,
+        "include_total": true,
+        "indicador": indicadorFiltro,
+        "q": _searchQuery.isNotEmpty ? _searchQuery : null,
+      });
+
       if (mounted) {
+        final data = Map<String, dynamic>.from(res.data);
         setState(() {
-          _condiciones = res.data as List;
+          _condiciones = data['items'] as List;
+          _total = data['total'] ?? 0;
           _loading = false;
           _loadingStats = false;
         });
@@ -76,24 +105,6 @@ class _CondicionesNutricionalesPageState
     }
   }
 
-  List<dynamic> get _pesoItems => _condiciones
-      .where((c) =>
-          (c["indicador_codigo"]?.toString() ?? "").toUpperCase() != "HFA" &&
-          c["nombre"]
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()))
-      .toList();
-
-  List<dynamic> get _tallaItems => _condiciones
-      .where((c) =>
-          (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA" &&
-          c["nombre"]
-              .toString()
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()))
-      .toList();
-
   String _truncateDescription(String? desc) {
     if (desc == null || desc.isEmpty) return "-";
     int dotIndex = desc.indexOf('.');
@@ -107,23 +118,21 @@ class _CondicionesNutricionalesPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
-      body: Scrollbar(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 32),
-              _buildStatsRow(),
-              const SizedBox(height: 32),
-              _buildToolbar(),
-              const SizedBox(height: 24),
-              _buildTabs(),
-              const SizedBox(height: 24),
-              _buildMainContent(),
-            ],
-          ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(),
+            const SizedBox(height: 32),
+            _buildToolbar(),
+            const SizedBox(height: 24),
+            _buildTabs(),
+            const SizedBox(height: 24),
+            _buildMainContent(),
+          ],
         ),
       ),
     );
@@ -178,21 +187,12 @@ class _CondicionesNutricionalesPageState
       );
     }
 
-    final pesoCount = _condiciones
-        .where((c) =>
-            (c["indicador_codigo"]?.toString() ?? "").toUpperCase() != "HFA")
-        .length;
-    final tallaCount = _condiciones
-        .where((c) =>
-            (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA")
-        .length;
-
     return Row(
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'CONDICIONES DE PESO',
-            valor: '$pesoCount',
+            titulo: 'CONDICIONES PESO (BMI)',
+            valor: _tabController.index == 0 ? '$_total' : '-',
             icon: Icons.monitor_weight_rounded,
             colorValor: AppTema.azulPrincipal,
           ),
@@ -200,8 +200,8 @@ class _CondicionesNutricionalesPageState
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: 'CONDICIONES DE TALLA',
-            valor: '$tallaCount',
+            titulo: 'CONDICIONES TALLA (HFA)',
+            valor: _tabController.index == 1 ? '$_total' : '-',
             icon: Icons.height_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -229,7 +229,15 @@ class _CondicionesNutricionalesPageState
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                    if (mounted) {
+                      setState(() => _searchQuery = v);
+                      _fetchData(offset: 0, updateStats: true);
+                    }
+                  });
+                },
                 style:
                     GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
@@ -301,47 +309,51 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildMainContent() {
-    final items = _tabController.index == 0 ? _pesoItems : _tallaItems;
-
-    return Column(
-      children: [
-        NutriTableContainer(
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              cardTheme: const CardThemeData(
-                  elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-            ),
-            child: PaginatedDataTable(
-              header: null,
-              rowsPerPage: 10,
-              showFirstLastButtons: true,
-              availableRowsPerPage: const [10],
-              headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-              columns: [
-                _col("IDENTIDAD", flex: 5),
-                _col("ESTADO", flex: 2, center: true),
-                _col("ACCIONES", flex: 3, center: true),
-              ],
-              source: _CondicionesDataSource(
-                items: items,
-                isLoading: _loading,
-                onVer: (c) => _verDetalle(c),
-                onEdit: (c) => _abrirFormulario(condicion: c),
-                onDelete: (c) => _eliminar(c),
-                truncateDesc: _truncateDescription,
-                context: context,
-              ),
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: _rowsPerPage,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [_rowsPerPage],
+            onPageChanged: (idx) => _fetchData(offset: idx),
+            columnSpacing: 20,
+            horizontalMargin: 20,
+            dataRowMinHeight: 65,
+            dataRowMaxHeight: double.infinity,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            columns: [
+              _col("IDENTIDAD", width: totalWidth * 0.50),
+              _col("ESTADO", width: totalWidth * 0.15, center: true),
+              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+            ],
+            source: _CondicionesDataSource(
+              items: _condiciones,
+              totalRows: _total,
+              offset: _offset,
+              isLoading: _loading,
+              onVer: (c) => _verDetalle(c),
+              onEdit: (c) => _abrirFormulario(condicion: c),
+              onDelete: (c) => _eliminar(c),
+              totalWidth: totalWidth,
+              context: context,
             ),
           ),
-        ),
-      ],
+        );
+      }),
     );
   }
 
-  DataColumn _col(String label, {int flex = 1, bool center = false}) {
+  DataColumn _col(String label, {required double width, bool center = false}) {
     return DataColumn(
-      label: Expanded(
-        flex: flex,
+      label: SizedBox(
+        width: width,
         child: Container(
           alignment: center ? Alignment.center : Alignment.centerLeft,
           child: Text(
@@ -395,15 +407,22 @@ class _CondicionesNutricionalesPageState
       ),
     );
     if (confirm == true) {
+      final oldCondiciones = List<dynamic>.from(_condiciones);
+      setState(() {
+        _condiciones.removeWhere((item) => item['id'] == c['id']);
+      });
+
       try {
         await ref
             .read(dioProvider)
             .delete("condiciones-nutricionales/${c["id"]}");
-        _fetchData(updateStats: true);
         if (mounted) {
           NutriSnack.show(context, "Condición eliminada", ref: ref);
         }
       } catch (e) {
+        setState(() {
+          _condiciones = oldCondiciones;
+        });
         if (mounted) {
           NutriSnack.show(context, "Error al eliminar: $e",
               isError: true, ref: ref);
@@ -522,7 +541,6 @@ class _DetalleCondicionModal extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // CABECERA
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -587,14 +605,10 @@ class _DetalleCondicionModal extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 32),
-
-            // CONTENIDO PRINCIPAL (DOS COLUMNAS)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // COLUMNA IZQUIERDA: DESCRIPCIÓN
                 Expanded(
                   flex: 3,
                   child: Column(
@@ -645,18 +659,12 @@ class _DetalleCondicionModal extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 32),
-
-                // DIVIDER VERTICAL
                 const IntrinsicHeight(
                   child:
                       VerticalDivider(thickness: 1, color: Color(0xFFF1F5F9)),
                 ),
-
                 const SizedBox(width: 32),
-
-                // COLUMNA DERECHA: ASPECTOS RELACIONADOS
                 Expanded(
                   flex: 2,
                   child: Column(
@@ -695,10 +703,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
-            // FOOTER
             Center(
               child: SizedBox(
                 width: 250,
@@ -967,7 +972,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             style: GoogleFonts.inter(
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
-                color: AppTema.azulPrincipal.withOpacity(0.5),
+                color: AppTema.azulPrincipal.withValues(alpha: 0.5),
                 letterSpacing: 1.5)),
       );
 
@@ -1009,7 +1014,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: sel ? AppTema.verdeSalud.withOpacity(0.05) : Colors.white,
+            color: sel ? AppTema.verdeSalud.withValues(alpha: 0.05) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: color, width: sel ? 2 : 1.5),
           ),
@@ -1072,20 +1077,24 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
 
 class _CondicionesDataSource extends DataTableSource {
   final List<dynamic> items;
+  final int totalRows;
+  final int offset;
   final bool isLoading;
   final Function(Map<String, dynamic>) onVer;
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onDelete;
-  final String Function(String?) truncateDesc;
+  final double totalWidth;
   final BuildContext context;
 
   _CondicionesDataSource({
     required this.items,
+    required this.totalRows,
+    required this.offset,
     required this.isLoading,
     required this.onVer,
     required this.onEdit,
     required this.onDelete,
-    required this.truncateDesc,
+    required this.totalWidth,
     required this.context,
   });
 
@@ -1093,93 +1102,128 @@ class _CondicionesDataSource extends DataTableSource {
   DataRow? getRow(int index) {
     if (isLoading) {
       return DataRow(cells: [
-        DataCell(Row(
-          children: [
-            const NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.all(Radius.circular(4))),
-            const SizedBox(width: 12),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const NutriShimmer(width: 150, height: 12),
-                const SizedBox(height: 4),
-                const NutriShimmer(width: 200, height: 10),
-              ],
-            ),
-          ],
+        DataCell(SizedBox(
+          width: totalWidth * 0.50,
+          child: Row(
+            children: [
+              const NutriShimmer(
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.all(Radius.circular(4))),
+              const SizedBox(width: 12),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const NutriShimmer(width: 150, height: 12),
+                  const SizedBox(height: 4),
+                  NutriShimmer(
+                      width: 200,
+                      height: 10,
+                      borderRadius: BorderRadius.circular(4)),
+                ],
+              ),
+            ],
+          ),
         )),
-        const DataCell(Center(child: NutriShimmer(width: 60, height: 20, borderRadius: BorderRadius.all(Radius.circular(10))))),
-        DataCell(Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
-            const SizedBox(width: 12),
-            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
-            const SizedBox(width: 12),
-            const NutriShimmer(width: 28, height: 28, borderRadius: BorderRadius.all(Radius.circular(14))),
-          ],
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Center(
+                child: NutriShimmer(
+                    width: 60,
+                    height: 20,
+                    borderRadius: BorderRadius.all(Radius.circular(10)))))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              NutriShimmer(
+                  width: 28,
+                  height: 28,
+                  borderRadius: BorderRadius.circular(14)),
+              const SizedBox(width: 12),
+              NutriShimmer(
+                  width: 28,
+                  height: 28,
+                  borderRadius: BorderRadius.circular(14)),
+              const SizedBox(width: 12),
+              NutriShimmer(
+                  width: 28,
+                  height: 28,
+                  borderRadius: BorderRadius.circular(14)),
+            ],
+          ),
         )),
       ]);
     }
 
-    if (index >= items.length) return null;
-    final c = items[index] as Map<String, dynamic>;
-    final bool isTalla = (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= items.length) return null;
+    final c = items[localIndex] as Map<String, dynamic>;
+    final bool isTalla =
+        (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
 
     return DataRow(cells: [
-      DataCell(Row(
-        children: [
-          Icon(
-              isTalla
-                  ? Icons.height_rounded
-                  : Icons.monitor_weight_rounded,
-              size: 24,
-              color: AppTema.azulPrincipal.withOpacity(0.7)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(c["nombre"]?.toString() ?? "Condición",
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1E293B))),
-                Text(truncateDesc(c["descripcion"]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blueGrey)),
-              ],
-            ),
+      DataCell(SizedBox(
+        width: totalWidth * 0.50,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            children: [
+              Icon(isTalla ? Icons.height_rounded : Icons.monitor_weight_rounded,
+                  size: 24, color: AppTema.azulPrincipal.withValues(alpha: 0.7)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c["nombre"]?.toString() ?? "Condición",
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1E293B))),
+                    Text(c["descripcion"]?.toString() ?? "-",
+                        softWrap: true,
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blueGrey)),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       )),
-      DataCell(Center(child: _StatusBadge(isActive: c['activa'] == true))),
-      DataCell(Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _HoverActionButton(
-              icon: Icons.visibility_outlined,
-              label: "Ver",
-              color: AppTema.azulPrincipal,
-              onTap: () => onVer(c)),
-          const SizedBox(width: 12),
-          _HoverActionButton(
-              icon: Icons.edit_outlined,
-              label: "Edit",
-              color: Colors.orange,
-              onTap: () => onEdit(c)),
-          const SizedBox(width: 12),
-          _HoverActionButton(
-              icon: Icons.delete_outline_rounded,
-              label: "Borrar",
-              color: Colors.red,
-              onTap: () => onDelete(c)),
-        ],
+      DataCell(SizedBox(
+          width: totalWidth * 0.15,
+          child: Center(child: _StatusBadge(isActive: c['activa'] == true)))),
+      DataCell(SizedBox(
+        width: totalWidth * 0.25,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _HoverActionButton(
+                icon: Icons.visibility_outlined,
+                label: "Ver",
+                color: AppTema.azulPrincipal,
+                onTap: () => onVer(c)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.edit_outlined,
+                label: "Editar",
+                color: Colors.orange,
+                onTap: () => onEdit(c)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.delete_outline_rounded,
+                label: "Borrar",
+                color: Colors.red,
+                onTap: () => onDelete(c)),
+          ],
+        ),
       )),
     ]);
   }
@@ -1187,7 +1231,7 @@ class _CondicionesDataSource extends DataTableSource {
   @override
   bool get isRowCountApproximate => false;
   @override
-  int get rowCount => (isLoading && items.isEmpty) ? 5 : items.length;
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
   @override
   int get selectedRowCount => 0;
 }

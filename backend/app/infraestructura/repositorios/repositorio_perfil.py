@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, List
 import re
 import time
+from app.infraestructura.database.db import db_cursor
 from .base import RepositorioBasePostgres
 from ...domain.repositorios.interfaces import IRepositorioPerfil
 from ...domain.modelos.usuario import PerfilUsuario
@@ -114,6 +115,47 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         """
         return self.ejecutar_consulta(sql)
 
+    def listar_usuarios_paginado(self, 
+                                q: Optional[str] = None, 
+                                rol_ids: Optional[List[int]] = None,
+                                limit: int = 10, 
+                                offset: int = 0,
+                                include_total: bool = False) -> Dict[str, Any]:
+        where_clauses = []
+        params = []
+        
+        if q:
+            where_clauses.append("(u.nombre_completo ilike %s or u.email ilike %s)")
+            params.extend([f"%{q}%", f"%{q}%"])
+            
+        if rol_ids:
+            where_clauses.append("u.id_rol = any(%s)")
+            params.append(rol_ids)
+            
+        where_str = f"where {' and '.join(where_clauses)}" if where_clauses else ""
+        
+        total = 0
+        if include_total:
+            sql_count = f"select count(*) from usuarios.usuario u {where_str}"
+            res_count = self.ejecutar_uno(sql_count, tuple(params))
+            total = res_count["count"] if res_count else 0
+            
+        sql = f"""
+            select 
+                u.id, u.cedula, u.email, u.nombre_completo, u.username,
+                r.nombre as rol_nombre,
+                {self.ROL_CODIGO_SQL} as rol_codigo,
+                u.id_rol, u.activo, u.telefono, u.direccion
+            from usuarios.usuario u
+            join usuarios.rol r on r.id = u.id_rol
+            {where_str}
+            order by u.nombre_completo
+            limit %s offset %s
+        """
+        items = self.ejecutar_consulta(sql, tuple(params + [limit, offset]))
+        
+        return {"items": items, "total": total}
+
     def crear_usuario(self, datos: dict) -> str:
         email = datos["email"].lower().strip()
         password = datos["password"]
@@ -206,6 +248,61 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         with db_cursor() as cur:
             cur.execute(sql, list(items.values()) + [user_id, user_id])
             return cur.rowcount > 0
+
+    def obtener_catalogo_paginado_v2(
+        self, esquema: str, tabla: str, limit: int = 10, offset: int = 0, 
+        filtro_tipos: List[int] = None, indicador: str = None, 
+        q: str = None, include_total: bool = False
+    ) -> dict:
+        """Versión paginada avanzada con soporte de filtros por indicador y búsqueda."""
+        esquemas_permitidos = {"usuarios", "nutricion", "clinico", "seguridad", "heuristico"}
+        if esquema not in esquemas_permitidos:
+            raise ValueError(f"Esquema {esquema} no permitido")
+
+        where_clauses = []
+        params = []
+        
+        if filtro_tipos:
+            if tabla == "condicion":
+                where_clauses.append("id_tipo_condicion = ANY(%s)")
+                params.append(filtro_tipos)
+            elif tabla == "usuario":
+                where_clauses.append("id_rol = ANY(%s)")
+                params.append(filtro_tipos)
+
+        if indicador and tabla == "condicion":
+            if indicador.upper() == "HFA":
+                where_clauses.append("upper(indicador_codigo) = 'HFA'")
+            else:
+                where_clauses.append("upper(indicador_codigo) != 'HFA'")
+        
+        if q:
+            where_clauses.append("nombre ilike %s")
+            params.append(f"%{q}%")
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = " WHERE " + " AND ".join(where_clauses)
+
+        total = 0
+        from app.infraestructura.database.db import db_cursor
+        with db_cursor() as cur:
+            if include_total:
+                sql_count = f"SELECT count(*) FROM {esquema}.{tabla} {where_sql}"
+                cur.execute(sql_count, tuple(params))
+                total = cur.fetchone()[0]
+            
+            if esquema == "heuristico" and tabla == "condicion":
+                sql_items = f"SELECT *, dias_duracion_estandar as duracion_dias_sugerida FROM {esquema}.{tabla} {where_sql} ORDER BY nombre LIMIT %s OFFSET %s"
+            else:
+                sql_items = f"SELECT * FROM {esquema}.{tabla} {where_sql} ORDER BY id LIMIT %s OFFSET %s"
+
+            params_items = params + [limit, offset]
+            cur.execute(sql_items, tuple(params_items))
+            cols = [d[0] for d in cur.description]
+            items = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+            return {"items": items, "total": total}
 
     def obtener_catalogo(self, esquema: str, tabla: str, filtro_tipos: List[int] = None) -> List[dict]:
         esquemas_permitidos = {"usuarios", "nutricion", "clinico", "seguridad", "heuristico"}

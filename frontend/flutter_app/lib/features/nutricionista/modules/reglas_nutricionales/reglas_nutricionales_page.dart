@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -18,6 +20,7 @@ class ReglasNutricionalesPage extends ConsumerStatefulWidget {
 
 class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPage> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -130,7 +134,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
   }
 
   Widget _buildStatsRow(ReglasNutricionalesState state) {
-    if (state.isLoading) {
+    if (state.isLoading && state.rules.isEmpty) {
       return const Row(
         children: [
           Expanded(child: NutriResumenCardShimmer()),
@@ -146,7 +150,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
         Expanded(
             child: NutriResumenCard(
                 titulo: "TOTAL REGLAS",
-                valor: "${state.rules.length}",
+                valor: "${state.totalItems}",
                 icon: Icons.rule_rounded)),
         const SizedBox(width: 20),
         Expanded(
@@ -185,9 +189,14 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: (v) => ref
-                    .read(reglasNutricionalesProvider.notifier)
-                    .setSearchQuery(v),
+                onChanged: (v) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                    ref
+                        .read(reglasNutricionalesProvider.notifier)
+                        .setSearchQuery(v);
+                  });
+                },
                 style: GoogleFonts.inter(
                     fontSize: 14, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
@@ -374,44 +383,69 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
 
   Widget _buildTable(ReglasNutricionalesState state) {
     return NutriTableContainer(
-      child: state.isLoading
-          ? const NutriTableShimmer(rows: 5, columns: 5)
-          : Theme(
-              data: Theme.of(context).copyWith(
-                cardTheme: const CardThemeData(
-                    elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-              ),
-              child: PaginatedDataTable(
-                header: null,
-                rowsPerPage: 5,
-                showFirstLastButtons: true,
-                availableRowsPerPage: const [5],
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-                columns: [
-                  _col("ACCIÓN"),
-                  _col("OBJETIVO"),
-                  _col("CONDICIONES"),
-                  _col("TIPO"),
-                  _col("ACCIONES"),
-                ],
-                source: _ReglasNutricionalesDataSource(
-                  rules: state.filteredRules,
-                  formData: state.formData,
-                  onEdit: _showForm,
-                  onDelete: _deleteRule,
-                ),
-              ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: ReglasNutricionalesNotifier.pageSize,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [ReglasNutricionalesNotifier.pageSize],
+            onPageChanged: (idx) => ref
+                .read(reglasNutricionalesProvider.notifier)
+                .loadData(offset: idx),
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dataRowMinHeight: 65,
+            dataRowMaxHeight: double.infinity,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            columns: [
+              _col("ACCIÓN", width: totalWidth * 0.15),
+              _col("OBJETIVO", width: totalWidth * 0.20),
+              _col("CONDICIONES", width: totalWidth * 0.35),
+              _col("TIPO", width: totalWidth * 0.15),
+              _col("ACCIONES", width: totalWidth * 0.15, center: true),
+            ],
+            source: _ReglasNutricionalesDataSource(
+              rules: state.rules,
+              totalRows: state.totalItems,
+              offset: state.offset,
+              formData: state.formData,
+              isLoading: state.isLoading,
+              onEdit: _showForm,
+              onDelete: _deleteRule,
+              totalWidth: totalWidth,
+              context: context,
             ),
+          ),
+        );
+      }),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(
-      label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulOscuro)));
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppTema.azulOscuro),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showForm([Map<String, dynamic>? rule]) {
     final state = ref.read(reglasNutricionalesProvider);
@@ -453,21 +487,73 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
 
 class _ReglasNutricionalesDataSource extends DataTableSource {
   final List<dynamic> rules;
+  final int totalRows;
+  final int offset;
+  final bool isLoading;
   final Map<String, List<dynamic>> formData;
   final Function(Map<String, dynamic>) onEdit;
   final Function(int) onDelete;
+  final double totalWidth;
+  final BuildContext context;
 
   _ReglasNutricionalesDataSource({
     required this.rules,
+    required this.totalRows,
+    required this.offset,
+    required this.isLoading,
     required this.formData,
     required this.onEdit,
     required this.onDelete,
+    required this.totalWidth,
+    required this.context,
   });
 
   @override
   DataRow? getRow(int index) {
-    if (index >= rules.length) return null;
-    final r = rules[index];
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: NutriShimmer(width: 80, height: 20),
+                )))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.20,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: NutriShimmer(width: double.infinity, height: 12)))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.35,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: NutriShimmer(width: double.infinity, height: 12)))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: NutriShimmer(width: 100, height: 20)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.15,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+            ],
+          ),
+        )),
+      ]);
+    }
+
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= rules.length) return null;
+    final r = rules[localIndex];
 
     final condicionesIdsRaw = r["id_condiciones"];
     final List<dynamic> condicionesIds =
@@ -480,39 +566,67 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
     }).join(", ");
 
     return DataRow(cells: [
-      DataCell(_accionBadge(r['accion_codigo'] ?? 'N/A')),
-      DataCell(Text(reglasNutricionalesTargetName(r),
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w700))),
       DataCell(SizedBox(
-          width: 250,
-          child: Text(
-              nombresCondiciones.isEmpty
-                  ? "SIN CONDICIONES"
-                  : nombresCondiciones,
-              style: GoogleFonts.lato(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.blueGrey),
-              overflow: TextOverflow.ellipsis))),
-      DataCell(NutriBadge(
-          label: r['es_estricta'] == true ? "ESTRICTA" : "RECOMENDACIÓN",
-          type: r['es_estricta'] == true ? 'danger' : 'info')),
-      DataCell(Row(
-        children: [
-          IconButton(
-              tooltip: "Editar",
-              icon: const Icon(Icons.edit_note_rounded,
-                  color: Colors.orange, size: 22),
-              onPressed: () => onEdit(r)),
-          IconButton(
-              tooltip: "Eliminar",
-              icon: const Icon(Icons.delete_outline_rounded,
-                  color: Colors.redAccent, size: 20),
-              onPressed: () => onDelete(r["id"])),
-        ],
+          width: totalWidth * 0.15,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _accionBadge(r['accion_codigo'] ?? 'N/A'),
+            ),
+          ))),
+      DataCell(SizedBox(
+        width: totalWidth * 0.20,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
+          child: Text(reglasNutricionalesTargetName(r),
+              softWrap: true,
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w700)),
+        ),
+      )),
+      DataCell(SizedBox(
+          width: totalWidth * 0.35,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8),
+            child: Text(
+                nombresCondiciones.isEmpty
+                    ? "SIN CONDICIONES"
+                    : nombresCondiciones,
+                softWrap: true,
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blueGrey)),
+          ))),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: NutriBadge(
+              label: r['es_estricta'] == true ? "ESTRICTA" : "RECOMENDACIÓN",
+              type: r['es_estricta'] == true ? 'danger' : 'info'),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+                tooltip: "Editar regla",
+                icon: const Icon(Icons.edit_note_rounded,
+                    color: Colors.orange, size: 22),
+                onPressed: () => onEdit(r)),
+            IconButton(
+                tooltip: "Eliminar regla",
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.redAccent, size: 20),
+                onPressed: () => onDelete(r["id"])),
+          ],
+        ),
       )),
     ]);
   }
@@ -543,7 +657,7 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
   @override
   bool get isRowCountApproximate => false;
   @override
-  int get rowCount => rules.length;
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
   @override
   int get selectedRowCount => 0;
 }
@@ -623,11 +737,11 @@ class _NutritionalRuleFormDialogState
             children: [
               _buildFieldSection("OBJETIVO", [
                   DropdownButtonFormField<int>(
-                    initialValue: _idObjetivo,
+                    value: _idObjetivo,
                   decoration:
                       _modalDecor("Tipo de Objetivo*", Icons.track_changes),
-                  items: widget.formData["objetivos"]
-                      ?.map((o) => DropdownMenuItem<int>(
+                  items: (widget.formData["objetivos"] ?? [])
+                      .map((o) => DropdownMenuItem<int>(
                           value: o["id"],
                           child: Text(o["nombre"].toString().toUpperCase(),
                               style: GoogleFonts.montserrat(
@@ -641,7 +755,7 @@ class _NutritionalRuleFormDialogState
                 if (_idObjetivo != null) ...[
                   const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
-                      initialValue: _idTarget,
+                      value: _idTarget,
                     decoration:
                         _modalDecor("Seleccionar Item*", Icons.ads_click),
                     items: targetList
@@ -660,11 +774,11 @@ class _NutritionalRuleFormDialogState
               const SizedBox(height: 16),
               _buildFieldSection("ACCIÓN", [
                 DropdownButtonFormField<int>(
-                  initialValue: _idAccion,
+                  value: _idAccion,
                   decoration:
                       _modalDecor("Acción Sugerida*", Icons.lightbulb_outline),
-                  items: widget.formData["acciones"]
-                      ?.map((a) => DropdownMenuItem<int>(
+                  items: (widget.formData["acciones"] ?? [])
+                      .map((a) => DropdownMenuItem<int>(
                           value: a["id"],
                           child: Text(a["nombre"].toString().toUpperCase(),
                               style: GoogleFonts.montserrat(

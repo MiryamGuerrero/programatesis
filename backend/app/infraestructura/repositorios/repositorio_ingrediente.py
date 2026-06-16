@@ -397,86 +397,37 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             """, (id_paciente,))
             return {row[0]: (float(row[1]) > 0) for row in cur.fetchall()}
 
-    def buscar_ingredientes_filtrados(self, id_paciente: str | None, consulta: str = None, limite: int = 50) -> List[dict]:
+    def buscar_ingredientes_filtrados(self, id_paciente: str | None, consulta: str = "", limite: int = 300) -> List[dict]:
         """
-        Busca ingredientes aplicando filtros de alergias del paciente.
-        Si id_paciente es None, devuelve todos los ingredientes activos.
+        Versión de alto rendimiento para búsqueda de ingredientes seguros.
+        Utiliza la función SQL optimizada en Supabase.
         """
+        if not id_paciente or id_paciente in ("null", "none"):
+            # Si no hay paciente, devolvemos búsqueda simple
+            with db_cursor() as cur:
+                sql = """
+                    select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario, false as es_recomendado 
+                    from nutricion.ingrediente i
+                    left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
+                    where i.activo = true
+                """
+                params = []
+                if consulta:
+                    sql += " and (i.nombre ilike %s or exists (select 1 from unnest(i.sinonimos) s where s ilike %s))"
+                    params.extend([f"%{consulta}%", f"%{consulta}%"])
+                sql += " order by i.nombre limit %s"
+                params.append(limite)
+                cur.execute(sql, params)
+                columnas = [desc[0] for desc in cur.description]
+                return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
         with db_cursor() as cur:
-            ing_prohibidos = set()
-            sub_prohibidos = set()
-            ing_recomendados = set()
-
-            if id_paciente and id_paciente != "null" and id_paciente != "none":
-                # 1. Obtener IDs de ingredientes y subgrupos prohibidos
-                cur.execute(
-                    "select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s and activa = true",
-                    (id_paciente,)
-                )
-                ing_prohibidos = {r[0] for r in cur.fetchall()}
-
-                cur.execute(
-                    "select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s and activa = true",
-                    (id_paciente,)
-                )
-                sub_prohibidos = {r[0] for r in cur.fetchall()}
-                sub_restricciones, ing_restricciones = self._expandir_restricciones_paciente(cur, id_paciente)
-                sub_prohibidos |= sub_restricciones
-                ing_prohibidos |= ing_restricciones
-
-                # 2. Obtener recomendaciones actuales
-                cur.execute(
-                    "select id_ingrediente from clinico.recomendacion_ingrediente where id_paciente = %s and activa = true",
-                    (id_paciente,)
-                )
-                ing_recomendados = {r[0] for r in cur.fetchall()}
-
-            # 4. Consulta principal con exclusion por subgrupo e ingrediente y busqueda por sinonimos
-            where_clause = "i.activo = true"
-            params = []
-            
-            if consulta:
-                stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
-                words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
-                if not words and consulta.strip(): words = [consulta.lower().strip()]
-                
-                if words:
-                    word_conditions = []
-                    for w in words:
-                        word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
-                        pattern = f"\\y{w}\\y"
-                        params.extend([pattern, pattern])
-                    where_clause += " and (" + " and ".join(word_conditions) + ")"
-            
-            if ing_prohibidos:
-                where_clause += " and i.id != all(%s)"
-                params.append(list(ing_prohibidos))
-            
-            if sub_prohibidos:
-                where_clause += " and (i.id_subgrupo_alimentario is null or i.id_subgrupo_alimentario != all(%s))"
-                params.append(list(sub_prohibidos))
-
-            # Respetar el límite solicitado. Para validaciones internas (recomendador)
-            # se invocan límites altos y no debe recortarse a 200.
-            final_limit = limite if limite and limite > 0 else 200
-
-            sql = f"""
-                select i.id, i.nombre, sg.nombre as subgrupo, i.id_subgrupo_alimentario
-                from nutricion.ingrediente i
-                left join nutricion.subgrupo_alimentario sg on sg.id = i.id_subgrupo_alimentario
-                where {where_clause}
-                order by i.nombre limit %s
-            """
-            params.append(final_limit)
-
-            cur.execute(sql, params)
-            columnas = [desc[0] for desc in cur.description]
-            resultados = []
-            for row in cur.fetchall():
-                d = dict(zip(columnas, row))
-                d["es_recomendado"] = d["id"] in ing_recomendados
-                resultados.append(d)
-            return resultados
+            cur.execute(
+                "SELECT * FROM nutricion.obtener_ingredientes_seguros_eficiente(%s, %s, %s)",
+                (id_paciente, consulta or "", limite)
+            )
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
 
     def registrar_recomendacion(self, id_paciente: str, id_ingrediente: int, id_profesional: str, id_rol: int, motivo: str = None, prioridad: int = 1) -> bool:
         with db_cursor() as cur:

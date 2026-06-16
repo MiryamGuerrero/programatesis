@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass # Evitar ruido en el shutdown
 
-# NutriReuma API - Arquitectura Hexagonal Pragmática
+# NutriReuma API - Arquitectura Hexagonal Pragmática (Reload Marker v2)
 app = FastAPI(
     title="NutriReuma API",
     description="Sistema experto para el soporte de decisiones en nutrición pediátrica para pacientes con enfermedades reumáticas.",

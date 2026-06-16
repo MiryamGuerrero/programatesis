@@ -1,11 +1,15 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
+
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
 import "../../../../shared/widgets/layout_components.dart";
 import "../../../../shared/widgets/nutri_avatar.dart";
-
-import "package:google_fonts/google_fonts.dart";
+import "../../../../shared/widgets/shimmer_components.dart";
+import "admin_users_notifier.dart";
 
 class AdminTutorsPage extends ConsumerStatefulWidget {
   const AdminTutorsPage({super.key});
@@ -14,269 +18,361 @@ class AdminTutorsPage extends ConsumerStatefulWidget {
 }
 
 class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
-  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
-  bool _isTutor(Map<String, dynamic> user) {
-    final roleCode = user["rol_codigo"]?.toString().toLowerCase().trim() ?? "";
-    final roleName = user["rol_nombre"]?.toString().toLowerCase().trim() ?? "";
-    final roleId = user["id_rol"]?.toString().trim() ?? "";
-    return roleCode == "tutor" ||
-        roleCode.contains("tutor") ||
-        roleName.contains("tutor") ||
-        roleId == "4";
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(adminTutorsProvider.notifier).loadPage();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _limpiarFiltros() {
+    _searchController.clear();
+    ref.read(adminTutorsProvider.notifier).clearFilters();
   }
 
   @override
   Widget build(BuildContext context) {
-    final usersAsync = ref.watch(usersListProvider);
+    final state = ref.watch(adminTutorsProvider);
 
     return Scaffold(
       backgroundColor: AppTema.grisLienzo,
-      body: usersAsync.when(
-        data: (users) {
-          final tutors = users.where(_isTutor).toList();
-
-          return SingleChildScrollView(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: TextField(
-                          style: GoogleFonts.inter(
-                              fontSize: 14, fontWeight: FontWeight.w500),
-                          decoration: InputDecoration(
-                            hintText: "Buscar por nombre o correo...",
-                            hintStyle: GoogleFonts.inter(
-                                color: Colors.grey.shade400, fontSize: 13),
-                            prefixIcon: const Icon(Icons.search,
-                                size: 20, color: Colors.grey),
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: () => _dialogoInvitacion(),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTema.verdeSalud,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                        ),
-                        icon: const Icon(Icons.add_circle,
-                            size: 20, color: Colors.white),
-                        label: Text("INVITAR TUTOR",
-                            style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: Colors.white)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                NutriTableContainer(child: _buildTutorTable(tutors)),
-              ],
-            ),
-          );
-        },
-        loading: () =>
-            const NutriLoading(mensaje: "Cargando representantes..."),
-        error: (e, _) => Center(child: Text("Error al cargar tutores: $e")),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 32),
+            _buildStatsRow(state),
+            const SizedBox(height: 32),
+            _buildToolbar(state),
+            const SizedBox(height: 24),
+            _buildTable(state),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Gestión de Cuentas: Tutores",
-                    style: GoogleFonts.montserrat(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppTema.azulPrincipal,
-                        letterSpacing: -0.5)),
-                Text("Supervisión de accesos para representantes y padres.",
-                    style: GoogleFonts.montserrat(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
-              ],
-            ),
-            IconButton(
-              icon:
-                  const Icon(Icons.sync_rounded, color: AppTema.azulPrincipal),
-              onPressed: () => ref.invalidate(usersListProvider),
-              tooltip: "Sincronizar",
-            ),
+            Text("Gestión de Cuentas: Tutores",
+                style: GoogleFonts.montserrat(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            Text(
+                "Supervisión de accesos para representantes y padres de familia.",
+                style: GoogleFonts.montserrat(
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
           ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _dialogoInvitacion(),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTema.verdeSalud,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          ),
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+          label: Text("INVITAR TUTOR",
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
   }
 
+  Widget _buildStatsRow(AdminUsersState state) {
+    if (state.isLoading && state.users.isEmpty) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'REPRESENTANTES REGISTRADOS',
+            valor: '${state.totalItems}',
+            icon: Icons.family_restroom_rounded,
+            colorValor: AppTema.azulPrincipal,
+          ),
+        ),
+        const SizedBox(width: 20),
+        const Expanded(
+          child: NutriResumenCard(
+            titulo: 'ESTADO SERVICIO',
+            valor: 'ACTIVO',
+            icon: Icons.verified_user_rounded,
+            colorValor: AppTema.verdeSalud,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolbar(AdminUsersState state) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTema.grisLienzo,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                    ref.read(adminTutorsProvider.notifier).setSearchQuery(v);
+                  });
+                },
+                style:
+                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: "Buscar por nombre o correo de representante...",
+                  prefixIcon: const Icon(Icons.search,
+                      size: 20, color: AppTema.azulPrincipal),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: state.activeFilters ? _limpiarFiltros : null,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                side: BorderSide(color: Colors.grey.shade200),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+              ),
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+              label: Text(
+                "LIMPIAR",
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded,
+                size: 22, color: AppTema.azulPrincipal),
+            onPressed: () => ref.read(adminTutorsProvider.notifier).loadPage(),
+            tooltip: "Actualizar lista",
+            style: IconButton.styleFrom(
+              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTable(AdminUsersState state) {
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: AdminUsersNotifier.pageSize,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [AdminUsersNotifier.pageSize],
+            onPageChanged: (idx) =>
+                ref.read(adminTutorsProvider.notifier).loadPage(offset: idx),
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dataRowMinHeight: 70,
+            dataRowMaxHeight: double.infinity,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            columns: [
+              _col("REPRESENTANTE", width: totalWidth * 0.40),
+              _col("IDENTIFICACIÓN", width: totalWidth * 0.20),
+              _col("ESTADO", width: totalWidth * 0.15, center: true),
+              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+            ],
+            source: _AdminTutorsDataSource(
+              items: state.users,
+              totalRows: state.totalItems,
+              offset: state.offset,
+              isLoading: state.isLoading,
+              onToggle: (u) => ref
+                  .read(adminTutorsProvider.notifier)
+                  .toggleUserStatus(u["id"].toString(), u["activo"] == true),
+              onDelete: (u) => _eliminarTutor(u),
+              totalWidth: totalWidth,
+              context: context,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppTema.azulOscuro),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _eliminarTutor(Map<String, dynamic> user) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Eliminar Tutor"),
+        content: Text(
+            "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción es irreversible."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text("ELIMINAR")),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref
+          .read(adminTutorsProvider.notifier)
+          .deleteUser(user["id"].toString());
+      if (mounted) {
+        NutriSnack.show(context, "Representante eliminado con éxito");
+      }
+    }
+  }
+
   void _dialogoInvitacion() {
     final nombreCtrl = TextEditingController();
-    final apellidosCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
+    final cedulaCtrl = TextEditingController();
     bool obscurePass = true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          titlePadding: EdgeInsets.zero,
-          title: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            decoration: const BoxDecoration(
-                color: AppTema.azulPrincipal,
-                borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24))),
-            child: Row(children: [
-              const Icon(Icons.person_add_alt_1_rounded,
-                  color: Colors.white, size: 22),
-              const SizedBox(width: 12),
-              Text("Invitar Nuevo Tutor",
-                  style: GoogleFonts.montserrat(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold)),
-            ]),
-          ),
+          title: Text("Invitar Nuevo Tutor",
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
           content: SizedBox(
             width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                      child: TextField(
-                          controller: nombreCtrl,
-                          decoration: const InputDecoration(
-                              labelText: "Nombres",
-                              prefixIcon:
-                                  Icon(Icons.person_outline, size: 18)))),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: TextField(
-                          controller: apellidosCtrl,
-                          decoration: const InputDecoration(
-                              labelText: "Apellidos",
-                              prefixIcon:
-                                  Icon(Icons.person_outline, size: 18)))),
-                ]),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(
-                        labelText: "Correo Electrónico",
-                        prefixIcon: Icon(Icons.alternate_email, size: 18))),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: passCtrl,
-                    obscureText: obscurePass,
-                    decoration: InputDecoration(
-                      labelText: "Contraseña Temporal",
-                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            obscurePass
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 18,
-                            color: AppTema.azulPrincipal),
-                        onPressed: () =>
-                            setDialogState(() => obscurePass = !obscurePass),
-                      ),
-                    )),
+                _input(nombreCtrl, "Nombre completo", Icons.person_outline),
                 const SizedBox(height: 16),
+                _input(emailCtrl, "Correo electrónico", Icons.email_outlined),
+                const SizedBox(height: 16),
+                _input(cedulaCtrl, "Cédula (Opcional)",
+                    Icons.perm_identity_rounded),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: obscurePass,
+                  decoration: _inputDecor("Contraseña temporal", Icons.lock_outline)
+                      .copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePass
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () =>
+                          setDialogState(() => obscurePass = !obscurePass),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        side: const BorderSide(color: Colors.grey)),
-                    child: Text("CANCELAR",
-                        style: GoogleFonts.montserrat(
-                            color: Colors.grey,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold))),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTema.azulPrincipal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20)),
-                  onPressed: () async {
-                    if (emailCtrl.text.isEmpty ||
-                        passCtrl.text.isEmpty ||
-                        nombreCtrl.text.isEmpty) return;
-                    try {
-                      final repo = ref.read(supabaseCrudRepositoryProvider);
-                      await repo.createUser(
-                        email: emailCtrl.text,
-                        nombreCompleto:
-                            "${nombreCtrl.text.trim()} ${apellidosCtrl.text.trim()}",
-                        idRol: 4,
-                        password: passCtrl.text,
-                      );
-                      ref.invalidate(usersListProvider);
-                      if (mounted) {
-                        Navigator.pop(context);
-                        NutriSnack.show(context, "Tutor invitado con éxito",
-                            ref: ref);
-                      }
-                    } catch (e) {
-                      if (mounted)
-                        NutriSnack.show(context, "Error al invitar tutor",
-                            isError: true, ref: ref);
-                    }
-                  },
-                  child: Text("ENVIAR ACCESO",
-                      style: GoogleFonts.montserrat(
-                          fontSize: 11, fontWeight: FontWeight.bold)),
-                ),
-              ],
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CANCELAR")),
+            FilledButton(
+              onPressed: () async {
+                if (emailCtrl.text.isEmpty || nombreCtrl.text.isEmpty) return;
+                try {
+                  final repo = ref.read(supabaseCrudRepositoryProvider);
+                  await repo.createUser(
+                    email: emailCtrl.text.trim(),
+                    nombreCompleto: nombreCtrl.text.trim(),
+                    idRol: 4, // Rol Tutor
+                    password: passCtrl.text,
+                    cedula: cedulaCtrl.text,
+                  );
+                  ref.read(adminTutorsProvider.notifier).loadPage();
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (context.mounted)
+                    NutriSnack.show(context, "Error: $e", isError: true);
+                }
+              },
+              child: const Text("INVITAR"),
             ),
           ],
         ),
@@ -284,149 +380,253 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
     );
   }
 
-  Widget _buildTutorTable(List<Map<String, dynamic>> tutors) {
-    final filtered = tutors.where((u) {
-      final q = _searchQuery.toLowerCase().trim();
-      return u["nombre_completo"].toString().toLowerCase().contains(q) ||
-          u["username"].toString().toLowerCase().contains(q) ||
-          u["email"].toString().toLowerCase().contains(q);
-    }).toList();
+  Widget _input(TextEditingController c, String h, IconData i) => TextField(
+      controller: c,
+      decoration: _inputDecor(h, i));
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        cardTheme: const CardThemeData(
-            elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-      ),
-      child: PaginatedDataTable(
-        header: null,
-        rowsPerPage: 5,
-        showFirstLastButtons: true,
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-        columns: [
-          DataColumn(
-              label: Text("USUARIO",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: AppTema.azulOscuro))),
-          DataColumn(
-              label: Text("NOMBRE",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: AppTema.azulOscuro))),
-          DataColumn(
-              label: Text("CORREO",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: AppTema.azulOscuro))),
-          DataColumn(
-              label: Text("ESTADO",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: AppTema.azulOscuro))),
-          DataColumn(
-              label: Text("GESTIÓN",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: AppTema.azulOscuro))),
-        ],
-        source: _TutorsDataSource(
-          tutors: filtered,
-          context: context,
-          ref: ref,
-        ),
-      ),
-    );
-  }
+  InputDecoration _inputDecor(String h, IconData i) => InputDecoration(
+      labelText: h,
+      prefixIcon: Icon(i, size: 20),
+      filled: true,
+      fillColor: AppTema.grisLienzo,
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none));
 }
 
-class _TutorsDataSource extends DataTableSource {
-  final List<Map<String, dynamic>> tutors;
+class _AdminTutorsDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> items;
+  final int totalRows;
+  final int offset;
+  final bool isLoading;
+  final Function(Map<String, dynamic>) onToggle;
+  final Function(Map<String, dynamic>) onDelete;
+  final double totalWidth;
   final BuildContext context;
-  final WidgetRef ref;
 
-  _TutorsDataSource({
-    required this.tutors,
+  _AdminTutorsDataSource({
+    required this.items,
+    required this.totalRows,
+    required this.offset,
+    required this.isLoading,
+    required this.onToggle,
+    required this.onDelete,
+    required this.totalWidth,
     required this.context,
-    required this.ref,
   });
 
   @override
   DataRow? getRow(int index) {
-    if (index >= tutors.length) return null;
-    final u = tutors[index];
-    final nombre = u["nombre_completo"] ?? "-";
-    final username = (u["username"]?.toString().trim().isNotEmpty ?? false)
-        ? u["username"].toString()
-        : u["email"]?.toString().split("@").first ?? "usuario";
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.40,
+          child: Row(
+            children: [
+              const NutriShimmer(
+                  width: 32,
+                  height: 32,
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
+              const SizedBox(width: 12),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const NutriShimmer(width: 120, height: 12),
+                  const SizedBox(height: 4),
+                  const NutriShimmer(width: 180, height: 10),
+                ],
+              ),
+            ],
+          ),
+        )),
+        DataCell(SizedBox(
+            width: totalWidth * 0.20,
+            child: const NutriShimmer(width: 80, height: 10))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Center(child: NutriShimmer(width: 60, height: 20)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const NutriShimmer(
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.all(Radius.circular(12))),
+              const SizedBox(width: 12),
+              const NutriShimmer(
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.all(Radius.circular(12))),
+            ],
+          ),
+        )),
+      ]);
+    }
+
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= items.length) return null;
+    final u = items[localIndex];
+
     return DataRow(cells: [
-      DataCell(Row(
-        children: [
-          NutriAvatar(nombreCompleto: nombre, radio: 16),
-          const SizedBox(width: 12),
-          Text(username,
-              style: GoogleFonts.lato(
-                  fontSize: 13,
-                  color: const Color(0xFF1E293B),
-                  fontWeight: FontWeight.w700)),
-        ],
+      DataCell(SizedBox(
+        width: totalWidth * 0.40,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
+          child: Row(
+            children: [
+              NutriAvatar(nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(u["nombre_completo"] ?? "Sin nombre",
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: AppTema.azulOscuro)),
+                    Text(u["email"] ?? "",
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: Colors.blueGrey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       )),
-      DataCell(Text(nombre,
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(Text(u["email"] ?? "-",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(NutriBadge(
-          label: (u["activo"] ?? true) ? "ACTIVO" : "INACTIVO",
-          type: (u["activo"] ?? true) ? "success" : "danger")),
-      DataCell(Row(children: [
-        Tooltip(
-            message: "Enviar Reseteo de Contraseña",
-            child: IconButton(
-                icon: const Icon(Icons.lock_reset_rounded,
-                    size: 18, color: Colors.orange),
-                onPressed: () => NutriSnack.show(
-                    context, "Correo de reseteo enviado",
-                    ref: ref))),
-        Tooltip(
-            message: "Suspender Cuenta",
-            child: IconButton(
-                icon: Icon(
-                    (u["activo"] ?? true)
-                        ? Icons.person_off_outlined
-                        : Icons.person_add_alt_1_outlined,
-                    size: 18,
-                    color: (u["activo"] ?? true)
-                        ? Colors.redAccent
-                        : Colors.green),
-                onPressed: () async {
-                  final nuevo = !(u["activo"] ?? true);
-                  await ref
-                      .read(supabaseCrudRepositoryProvider)
-                      .updateUser(userId: u["id"], activo: nuevo);
-                  ref.invalidate(usersListProvider);
-                  if (context.mounted)
-                    NutriSnack.show(context,
-                        nuevo ? "Acceso habilitado" : "Acceso suspendido",
-                        ref: ref);
-                })),
-      ])),
+      DataCell(SizedBox(
+        width: totalWidth * 0.20,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(u["cedula"]?.toString() ?? "N/A",
+              style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTema.azulPrincipal)),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Center(
+          child: _StatusBadge(isActive: u["activo"] == true),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.25,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _HoverActionButton(
+                icon: u["activo"] == true
+                    ? Icons.block_flipped
+                    : Icons.check_circle_outline,
+                label: u["activo"] == true ? "Baja" : "Alta",
+                color: u["activo"] == true ? Colors.orange : Colors.green,
+                onTap: () => onToggle(u)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.delete_outline_rounded,
+                label: "Borrar",
+                color: Colors.redAccent,
+                onTap: () => onDelete(u)),
+          ],
+        ),
+      )),
     ]);
   }
 
   @override
   bool get isRowCountApproximate => false;
   @override
-  int get rowCount => tutors.length;
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
   @override
   int get selectedRowCount => 0;
+}
+
+class _StatusBadge extends StatelessWidget {
+  final bool isActive;
+  const _StatusBadge({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppTema.verdeSalud : Colors.redAccent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        isActive ? "ACTIVO" : "INACTIVO",
+        style: GoogleFonts.montserrat(
+            color: color, fontWeight: FontWeight.w800, fontSize: 10),
+      ),
+    );
+  }
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withValues(alpha: 0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 20),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

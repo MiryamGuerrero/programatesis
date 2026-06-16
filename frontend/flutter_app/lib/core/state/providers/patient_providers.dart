@@ -77,13 +77,6 @@ final listaComprasProvider = FutureProvider.family<
       start: arg.start, end: arg.end);
 });
 
-// NAVEGACIÓN INTERNA MÉDICO
-enum MedicoView { list, register, control, fixedEdit }
-
-final medicoNavProvider = StateProvider<MedicoView>((ref) => MedicoView.list);
-final selectedPatientProvider =
-    StateProvider<Map<String, dynamic>?>((ref) => null);
-
 final supabaseCrudRepositoryProvider = Provider<SupabaseCrudRepository>((ref) {
   return SupabaseCrudRepository(
     ref.watch(dioProvider),

@@ -54,6 +54,59 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
             )
         """)
 
+    def obtener_configuracion_maestra(self, id_momento_inicial: Optional[int] = None) -> dict:
+        """Obtiene todo el estado inicial del modulo en una sola consulta masiva."""
+        with db_cursor() as cur:
+            self._asegurar_tablas_reglas_menu(cur)
+            
+            # 1. Momentos
+            cur.execute("SELECT id, nombre, orden, hora_inicio, hora_fin, obligatorio, activo, color FROM nutricion.momento_comida ORDER BY orden")
+            momentos = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            # 2. Tipos de plato
+            cur.execute("SELECT id, nombre FROM nutricion.tipo_plato ORDER BY nombre")
+            tipos = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            # 3. Condiciones
+            cur.execute("SELECT id, nombre FROM heuristico.condicion WHERE id_tipo_condicion = 3 ORDER BY nombre")
+            condiciones = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            # 4. Todas las reglas inteligentes (Combinaciones clinicas)
+            cur.execute("""
+                SELECT r.id, r.id_momento, m.nombre AS momento_nombre, r.rol,
+                       r.platillos, r.activo,
+                       coalesce(
+                         jsonb_agg(
+                           jsonb_build_object('id', c.id, 'nombre', c.nombre)
+                           ORDER BY c.nombre
+                         ) FILTER (WHERE c.id IS NOT NULL),
+                         '[]'::jsonb
+                       ) AS condiciones_nutricionales
+                FROM nutricion.regla_menu_combinacion r
+                JOIN nutricion.momento_comida m ON m.id = r.id_momento
+                LEFT JOIN nutricion.regla_menu_combinacion_condicion rc
+                    ON rc.id_regla_menu_combinacion = r.id
+                LEFT JOIN heuristico.condicion c
+                    ON c.id = rc.id_condicion_nutricional
+                GROUP BY r.id, m.nombre
+                ORDER BY r.id_momento, r.rol, r.id
+            """)
+            todas_reglas = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            # 5. Regla especifica del momento inicial (Si aplica)
+            regla_detalle = None
+            if id_momento_inicial or momentos:
+                mid = id_momento_inicial or momentos[0]["id"]
+                regla_detalle = self.obtener_regla_completa_por_momento(mid)
+
+            return {
+                "momentos": momentos,
+                "tipos_plato": tipos,
+                "condiciones": condiciones,
+                "todas_reglas": todas_reglas,
+                "regla_detalle_inicial": regla_detalle
+            }
+
     def _normalizar_texto(self, valor: str) -> str:
         return " ".join(str(valor).strip().upper().split())
 
@@ -164,17 +217,16 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
             cols = [d[0] for d in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 
-    def listar_reglas_menu_combinacion(self, id_momento: int) -> List[dict]:
-        return self._listar_reglas_menu(cur_where="WHERE r.id_momento = %s", params=(id_momento,))
-
-    def listar_todas_reglas_menu_combinacion(self) -> List[dict]:
-        return self._listar_reglas_menu(cur_where="", params=())
-
-    def _listar_reglas_menu(self, cur_where: str, params: tuple) -> List[dict]:
+    def _listar_reglas_menu(self, cur_where: str, params: tuple, limite: int = 12, offset: int = 0) -> dict:
         where_clause = f" {cur_where}" if cur_where.strip() else ""
-        group_suffix = "WHERE r.id_momento = %s" if "id_momento = %s" in cur_where else ""
         with db_cursor() as cur:
             self._asegurar_tablas_reglas_menu(cur)
+            
+            # 1. Total count
+            cur.execute(f"SELECT count(*) FROM nutricion.regla_menu_combinacion r {where_clause}", params)
+            total = cur.fetchone()[0]
+
+            # 2. Paginated items
             sql = f"""
                 SELECT r.id, r.id_momento, m.nombre AS momento_nombre, r.rol,
                        r.platillos, r.activo,
@@ -194,10 +246,29 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
                 {where_clause}
                 GROUP BY r.id, m.nombre
                 ORDER BY r.rol, r.id
+                LIMIT %s OFFSET %s
             """
-            cur.execute(sql, params)
+            cur.execute(sql, params + (limite, offset))
             cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            items = [dict(zip(cols, row)) for row in cur.fetchall()]
+            
+            return {"items": items, "total": total}
+
+    def listar_reglas_menu_combinacion(self, id_momento: int, limite: int = 12, offset: int = 0) -> dict:
+        return self._listar_reglas_menu(
+            cur_where="WHERE r.id_momento = %s", 
+            params=(id_momento,),
+            limite=limite,
+            offset=offset
+        )
+
+    def listar_todas_reglas_menu_combinacion(self, limite: int = 12, offset: int = 0) -> dict:
+        return self._listar_reglas_menu(
+            cur_where="", 
+            params=(),
+            limite=limite,
+            offset=offset
+        )
 
     def _asignar_momento_a_recetas_por_tipos(self, cur, id_momento: int, tipos: list[dict]) -> int:
         """Auto-asigna un momento a recetas que tienen los tipos de plato de una regla."""

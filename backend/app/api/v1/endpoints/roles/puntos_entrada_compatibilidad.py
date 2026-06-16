@@ -384,11 +384,18 @@ def gestion_pacientes_buscar_compat(q: str = Query(default="")):
 
 @router.get("/reglas-nutricionales")
 def reglas_nutricionales_compat(
+    limit: int = Query(default=10, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
     # Filtramos para que el nutricionista solo vea condiciones Nutricionales (3)
+    if include_total or limit != 500:
+        return repo.listar_reglas_detalladas(
+            tipos_condicion=[3], limite=limit, offset=offset, include_total=include_total
+        )
     return repo.listar_reglas_detalladas(tipos_condicion=[3])
 
 @router.get("/reglas-nutricionales/form-data")
@@ -905,12 +912,27 @@ def guardar_plan_manual(
 
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat(
+    limit: int = Query(default=10, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
+    indicador: str = Query(default=None),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    # Traemos las condiciones nutricionales (tipo 3)
-    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+    
+    # Filtro de tipos base (Nutricionales = 3)
+    filtro_tipos = [3]
+    
+    if include_total or limit != 500 or indicador:
+        return repo.obtener_catalogo_paginado_v2(
+            "heuristico", "condicion", 
+            limit=limit, 
+            offset=offset, 
+            filtro_tipos=filtro_tipos,
+            indicador=indicador
+        )
+    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=filtro_tipos)
 
 @router.post("/condiciones-nutricionales")
 def crear_condicion_nutri(
@@ -976,10 +998,18 @@ def listar_tipos_plato_compat():
     repo = RepositorioRecetaPostgres()
     return repo.listar_tipos_plato()
 
+@router.get("/crud/recetas/metadatos")
+def obtener_metadatos_recetas_compat(
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    return repo.obtener_estadisticas_recetas()
+
 @router.get("/crud/recetas")
 def crud_recetas_compat(
     q: str = Query(default=""),
-    limit: int = Query(default=1000),
+    limit: int = Query(default=12),
     offset: int = Query(default=0),
     id_momento: int = Query(default=None),
     id_tipo_plato: int = Query(default=None),

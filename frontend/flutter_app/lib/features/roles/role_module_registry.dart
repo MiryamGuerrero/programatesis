@@ -214,7 +214,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "plan_manual",
-          title: "Plan Manual",
+          title: "Plan Nutricional",
           icon: Icons.calendar_month_rounded,
           builder: () => DeferredModuleWidget(
             loader: nutri_plan.loadLibrary,

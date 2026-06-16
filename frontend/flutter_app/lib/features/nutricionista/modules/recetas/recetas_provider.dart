@@ -30,7 +30,14 @@ class RecetasState {
     this.momentoSeleccionado,
     this.tipoPlatoSeleccionado,
     this.currentPage = 0,
+    this.totalItems = 0,
+    this.activos = 0,
+    this.inactivos = 0,
   });
+
+  final int totalItems;
+  final int activos;
+  final int inactivos;
 
   RecetasState copyWith({
     bool? isLoading,
@@ -47,6 +54,9 @@ class RecetasState {
     bool clearMomentoSeleccionado = false,
     bool clearTipoPlatoSeleccionado = false,
     int? currentPage,
+    int? totalItems,
+    int? activos,
+    int? inactivos,
   }) {
     return RecetasState(
       isLoading: isLoading ?? this.isLoading,
@@ -64,75 +74,20 @@ class RecetasState {
           ? null
           : (tipoPlatoSeleccionado ?? this.tipoPlatoSeleccionado),
       currentPage: currentPage ?? this.currentPage,
+      totalItems: totalItems ?? this.totalItems,
+      activos: activos ?? this.activos,
+      inactivos: inactivos ?? this.inactivos,
     );
   }
 
-  List<Map<String, dynamic>> get filteredRecetas {
-    return recetas.where((row) {
-      final queryValue = query.trim().toLowerCase();
-      final textoBusqueda = [
-        row["nombre"],
-        row["descripcion"],
-        row["categoria"],
-        row["momentos_nombres"],
-        row["tipos_plato_nombres"],
-      ].whereType<Object>().join(" ").toLowerCase();
-
-      final coincideBusqueda =
-          queryValue.isEmpty || textoBusqueda.contains(queryValue);
-      final coincideMomento = momentoSeleccionado == null ||
-          _contieneId(row, ["momentos_ids", "momentos"], momentoSeleccionado!);
-      final coincideTipoPlato = tipoPlatoSeleccionado == null ||
-          _contieneId(
-              row, ["tipos_plato_ids", "tipos_plato"], tipoPlatoSeleccionado!);
-
-      return coincideBusqueda && coincideMomento && coincideTipoPlato;
-    }).toList();
-  }
-
-  int get totalItems => filteredRecetas.length;
-
   int get totalPages => (totalItems / pageSize).ceil();
 
-  List<Map<String, dynamic>> get visibleRecetas {
-    final startIndex = currentPage * pageSize;
-    final endIndex = (startIndex + pageSize < totalItems)
-        ? startIndex + pageSize
-        : totalItems;
-    if (startIndex >= totalItems) {
-      return const [];
-    }
-    return filteredRecetas.sublist(startIndex, endIndex);
-  }
-
-  int get activos => recetas.where((r) => r["activa"] == true).length;
-
-  int get inactivos => recetas.length - activos;
+  List<Map<String, dynamic>> get visibleRecetas => recetas;
 
   bool get filtrosActivos =>
       query.trim().isNotEmpty ||
       momentoSeleccionado != null ||
       tipoPlatoSeleccionado != null;
-
-  static bool _contieneId(
-      Map<String, dynamic> row, List<String> keys, int idBuscado) {
-    for (final key in keys) {
-      final value = row[key];
-      if (value is List && value.any((item) => _asInt(item) == idBuscado)) {
-        return true;
-      }
-      if (_asInt(value) == idBuscado) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static int? _asInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? "");
-  }
 }
 
 class RecetasNotifier extends StateNotifier<RecetasState> {
@@ -141,48 +96,81 @@ class RecetasNotifier extends StateNotifier<RecetasState> {
   final Ref _ref;
 
   Future<void> loadRecetas({bool reload = false}) async {
-    state = state.copyWith(
-      isLoading: true,
-      isLoadingMetadata: reload || state.recetas.isEmpty,
-      recetas: reload ? const [] : state.recetas,
-      clearError: true,
-    );
+    if (reload || state.recetas.isEmpty) {
+      state = state.copyWith(isLoading: true, clearError: true);
+      if (reload || state.totalItems == 0) {
+        await _loadMetadata();
+      }
+    } else {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
+
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
       final dio = _ref.read(dioProvider);
-      final results = await Future.wait([
-        repo.fetchRecetas(limit: 1000),
-        dio.get("crud/momentos"),
-        dio.get("crud/tipos-plato"),
-      ]);
+
+      // Cargar catálogos solo si están vacíos
+      if (state.momentosComida.isEmpty || state.tiposPlato.isEmpty) {
+        final catalogs = await Future.wait([
+          dio.get("crud/momentos"),
+          dio.get("crud/tipos-plato"),
+        ]);
+        state = state.copyWith(
+          momentosComida: _toRows((catalogs[0] as Response).data),
+          tiposPlato: _toRows((catalogs[1] as Response).data),
+        );
+      }
+
+      final result = await repo.fetchRecetasPage(
+        query: state.query,
+        idMomento: state.momentoSeleccionado,
+        idTipoPlato: state.tipoPlatoSeleccionado,
+        limit: RecetasState.pageSize,
+        offset: state.currentPage * RecetasState.pageSize,
+      );
 
       state = state.copyWith(
         isLoading: false,
-        isLoadingMetadata: false,
-        recetas: List<Map<String, dynamic>>.from(results[0] as List),
-        momentosComida: _toRows((results[1] as Response).data),
-        tiposPlato: _toRows((results[2] as Response).data),
-        currentPage: 0,
+        recetas: result.items,
+        totalItems: result.total,
       );
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
-        isLoadingMetadata: false,
         error: "No se pudieron cargar las recetas.",
       );
     }
   }
 
+  Future<void> _loadMetadata() async {
+    state = state.copyWith(isLoadingMetadata: true);
+    try {
+      final dio = _ref.read(dioProvider);
+      final res = await dio.get("crud/recetas/metadatos");
+      final data = Map<String, dynamic>.from(res.data);
+      state = state.copyWith(
+        isLoadingMetadata: false,
+        activos: (data["activos"] as num?)?.toInt() ?? 0,
+        inactivos: (data["inactivos"] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
+      state = state.copyWith(isLoadingMetadata: false);
+    }
+  }
+
   void setQuery(String value) {
     state = state.copyWith(query: value, currentPage: 0);
+    loadRecetas();
   }
 
   void setMomentoSeleccionado(int? value) {
     state = state.copyWith(momentoSeleccionado: value, currentPage: 0);
+    loadRecetas();
   }
 
   void setTipoPlatoSeleccionado(int? value) {
     state = state.copyWith(tipoPlatoSeleccionado: value, currentPage: 0);
+    loadRecetas();
   }
 
   void clearFilters() {
@@ -192,6 +180,7 @@ class RecetasNotifier extends StateNotifier<RecetasState> {
       clearTipoPlatoSeleccionado: true,
       currentPage: 0,
     );
+    loadRecetas();
   }
 
   void setLoading(bool value) {
@@ -205,25 +194,65 @@ class RecetasNotifier extends StateNotifier<RecetasState> {
   void nextPage() {
     if (state.currentPage < state.totalPages - 1) {
       state = state.copyWith(currentPage: state.currentPage + 1);
+      loadRecetas();
     }
   }
 
   void previousPage() {
     if (state.currentPage > 0) {
       state = state.copyWith(currentPage: state.currentPage - 1);
+      loadRecetas();
     }
   }
 
   Future<void> toggleActiva(int id, bool valor) async {
-    final dio = _ref.read(dioProvider);
-    await dio.patch("crud/recetas/$id/estado", data: {"activa": valor});
-    await loadRecetas();
+    // 1. Actualización Granular Local (Sin carga global)
+    final index = state.recetas.indexWhere((r) => r["id"] == id);
+    if (index != -1) {
+      final updatedRecetas = List<Map<String, dynamic>>.from(state.recetas);
+      final oldItem = updatedRecetas[index];
+      updatedRecetas[index] = {...oldItem, "activa": valor};
+
+      state = state.copyWith(
+        recetas: updatedRecetas,
+        activos: valor ? state.activos + 1 : state.activos - 1,
+        inactivos: valor ? state.inactivos - 1 : state.inactivos + 1,
+      );
+    }
+
+    // 2. Sincronización con el servidor
+    try {
+      final dio = _ref.read(dioProvider);
+      await dio.patch("crud/recetas/$id/estado", data: {"activa": valor});
+    } catch (_) {
+      // Revertir en caso de error (opcional para robustez extrema)
+      loadRecetas();
+    }
   }
 
   Future<void> eliminarReceta(int id) async {
-    final dio = _ref.read(dioProvider);
-    await dio.delete("crud/recetas/$id");
-    await loadRecetas();
+    // 1. Remoción Granular Local
+    final index = state.recetas.indexWhere((r) => r["id"] == id);
+    if (index != -1) {
+      final updatedRecetas = List<Map<String, dynamic>>.from(state.recetas);
+      final wasActive = updatedRecetas[index]["activa"] == true;
+      updatedRecetas.removeAt(index);
+
+      state = state.copyWith(
+        recetas: updatedRecetas,
+        totalItems: state.totalItems - 1,
+        activos: wasActive ? state.activos - 1 : state.activos,
+        inactivos: wasActive ? state.inactivos : state.inactivos - 1,
+      );
+    }
+
+    // 2. Sincronización con el servidor
+    try {
+      final dio = _ref.read(dioProvider);
+      await dio.delete("crud/recetas/$id");
+    } catch (_) {
+      loadRecetas();
+    }
   }
 
   static List<Map<String, dynamic>> _toRows(dynamic payload) {

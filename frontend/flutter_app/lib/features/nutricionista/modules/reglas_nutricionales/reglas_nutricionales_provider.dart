@@ -19,6 +19,8 @@ class ReglasNutricionalesState {
   final int? filtroCondicion;
   final int? filtroAccion;
   final String? errorMessage;
+  final int totalItems;
+  final int offset;
 
   const ReglasNutricionalesState({
     this.isLoading = true,
@@ -29,6 +31,8 @@ class ReglasNutricionalesState {
     this.filtroCondicion,
     this.filtroAccion,
     this.errorMessage,
+    this.totalItems = 0,
+    this.offset = 0,
   });
 
   ReglasNutricionalesState copyWith({
@@ -43,6 +47,8 @@ class ReglasNutricionalesState {
     bool clearFiltroCondicion = false,
     bool clearFiltroAccion = false,
     bool clearErrorMessage = false,
+    int? totalItems,
+    int? offset,
   }) {
     return ReglasNutricionalesState(
       isLoading: isLoading ?? this.isLoading,
@@ -50,35 +56,19 @@ class ReglasNutricionalesState {
       formData: formData ?? this.formData,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedObjetivos: selectedObjetivos ?? this.selectedObjetivos,
-      filtroCondicion:
-          clearFiltroCondicion ? null : (filtroCondicion ?? this.filtroCondicion),
+      filtroCondicion: clearFiltroCondicion
+          ? null
+          : (filtroCondicion ?? this.filtroCondicion),
       filtroAccion:
           clearFiltroAccion ? null : (filtroAccion ?? this.filtroAccion),
-      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      totalItems: totalItems ?? this.totalItems,
+      offset: offset ?? this.offset,
     );
   }
 
-  List<dynamic> get filteredRules {
-    final query = searchQuery.toLowerCase();
-
-    return rules.where((r) {
-      final rule = r as Map<String, dynamic>;
-      final targetName = reglasNutricionalesTargetName(rule).toLowerCase();
-      final matchesSearch = targetName.contains(query);
-      final matchesTipo = selectedObjetivos.isEmpty ||
-          selectedObjetivos.contains(rule["objetivo_codigo"]);
-
-      final condicionesIdsRaw = rule["id_condiciones"];
-      final condicionesIds =
-          condicionesIdsRaw is List ? condicionesIdsRaw.cast<int>() : <int>[];
-
-      final matchesCondicion =
-          filtroCondicion == null || condicionesIds.contains(filtroCondicion);
-      final matchesAccion = filtroAccion == null || rule["id_accion"] == filtroAccion;
-
-      return matchesSearch && matchesTipo && matchesCondicion && matchesAccion;
-    }).toList();
-  }
+  List<dynamic> get filteredRules => rules;
 
   int get strictCount =>
       rules.where((r) => (r as Map<String, dynamic>)["es_estricta"] == true).length;
@@ -90,26 +80,44 @@ class ReglasNutricionalesState {
       filtroAccion != null;
 }
 
-class ReglasNutricionalesNotifier extends StateNotifier<ReglasNutricionalesState> {
-  ReglasNutricionalesNotifier(this._dio) : super(const ReglasNutricionalesState());
+class ReglasNutricionalesNotifier
+    extends StateNotifier<ReglasNutricionalesState> {
+  ReglasNutricionalesNotifier(this._dio)
+      : super(const ReglasNutricionalesState());
 
   final Dio _dio;
+  static const int pageSize = 5;
 
-  Future<void> loadData() async {
-    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+  Future<void> loadData({int? offset}) async {
+    final nextOffset = offset ?? state.offset;
+    state = state.copyWith(isLoading: true, clearErrorMessage: true, offset: nextOffset);
     try {
-      final results = await Future.wait([
-        _dio.get("reglas-nutricionales"),
-        _dio.get(
+      final List<Future<dynamic>> requests = [
+        _dio.get("reglas-nutricionales", queryParameters: {
+          "limit": pageSize,
+          "offset": nextOffset,
+          "include_total": true,
+        }),
+      ];
+
+      // Solo cargar catálogos si no existen en memoria
+      if (state.formData.isEmpty) {
+        requests.add(_dio.get(
           "reglas-nutricionales/form-data",
           queryParameters: {"compact": true},
-        ),
-      ]);
+        ));
+      }
+
+      final results = await Future.wait(requests);
+      final rulesResult = Map<String, dynamic>.from(results[0].data as Map);
 
       state = state.copyWith(
         isLoading: false,
-        rules: results[0].data as List,
-        formData: Map<String, List<dynamic>>.from(results[1].data as Map),
+        rules: rulesResult["items"] as List,
+        totalItems: rulesResult["total"] ?? 0,
+        formData: results.length > 1
+            ? Map<String, List<dynamic>>.from(results[1].data as Map)
+            : state.formData,
       );
     } catch (_) {
       state = state.copyWith(
@@ -120,7 +128,8 @@ class ReglasNutricionalesNotifier extends StateNotifier<ReglasNutricionalesState
   }
 
   void setSearchQuery(String value) {
-    state = state.copyWith(searchQuery: value);
+    state = state.copyWith(searchQuery: value, offset: 0);
+    loadData(offset: 0);
   }
 
   void clearObjetivos() {
@@ -138,11 +147,13 @@ class ReglasNutricionalesNotifier extends StateNotifier<ReglasNutricionalesState
   }
 
   void setFiltroCondicion(int? value) {
-    state = state.copyWith(filtroCondicion: value, clearFiltroCondicion: value == null);
+    state = state.copyWith(
+        filtroCondicion: value, clearFiltroCondicion: value == null);
   }
 
   void setFiltroAccion(int? value) {
-    state = state.copyWith(filtroAccion: value, clearFiltroAccion: value == null);
+    state = state.copyWith(
+        filtroAccion: value, clearFiltroAccion: value == null);
   }
 
   void clearAllFilters() {
@@ -155,12 +166,20 @@ class ReglasNutricionalesNotifier extends StateNotifier<ReglasNutricionalesState
   }
 
   Future<void> deleteRule(int id) async {
+    // 1. Actualización Granular Local
+    final oldRules = List<dynamic>.from(state.rules);
+    final nextRules = oldRules.where((r) => r["id"] != id).toList();
+
+    state = state.copyWith(
+        rules: nextRules, totalItems: state.totalItems - 1);
+
+    // 2. Sincronización con el servidor
     try {
       await _dio.delete("reglas-nutricionales/$id");
-      await loadData();
     } catch (_) {
+      // Revertir en caso de error
+      state = state.copyWith(rules: oldRules, totalItems: state.totalItems + 1);
       state = state.copyWith(
-        isLoading: false,
         errorMessage: "No se pudo eliminar la regla seleccionada",
       );
     }

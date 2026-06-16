@@ -18,6 +18,35 @@ class SupabaseCrudRepository {
     return _toRows(response.data);
   }
 
+  Future<({List<Map<String, dynamic>> items, int total})> fetchUsersPage({
+    String query = "",
+    List<int>? rolIds,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "usuarios",
+      queryParameters: {
+        "q": query,
+        if (rolIds != null && rolIds.isNotEmpty) "rol_ids": rolIds,
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+      },
+    );
+
+    if (response.data is List) {
+      final items = _toRows(response.data);
+      return (items: items, total: items.length);
+    }
+
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
+  }
+
   Future<void> createUser({
     required String email,
     required String nombreCompleto,
@@ -202,7 +231,7 @@ class SupabaseCrudRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchPatients() async {
-    final response = await _dio.get("pacientes");
+    final response = await _dio.get("tutor/mis-pacientes");
     return _toRows(response.data);
   }
 
@@ -390,6 +419,27 @@ class SupabaseCrudRepository {
   Future<List<Map<String, dynamic>>> fetchIngredientes() async {
     final response = await _dio.get("ingredientes");
     return _toRows(response.data);
+  }
+
+  Future<({List<Map<String, dynamic>> items, int total})> fetchLabelsPage({
+    String query = "",
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "nutricionista/etiquetas",
+      queryParameters: {
+        "q": query,
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+      },
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<List<Map<String, dynamic>>> fetchCatalog(

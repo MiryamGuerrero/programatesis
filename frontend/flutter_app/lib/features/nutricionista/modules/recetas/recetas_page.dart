@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -24,18 +26,20 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   bool _isEditing = false;
   Map<String, dynamic>? _recetaParaEditar;
   int? _loadingDetailId;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(recetasProvider.notifier).loadRecetas();
+      ref.read(recetasProvider.notifier).loadRecetas(reload: true);
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -49,7 +53,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             _isEditing = false;
             _recetaParaEditar = null;
           });
-          ref.read(recetasProvider.notifier).loadRecetas();
+          ref.read(recetasProvider.notifier).loadRecetas(reload: true);
         },
       );
     }
@@ -190,14 +194,14 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         Expanded(
           child: NutriResumenCard(
             titulo: "TOTAL RECETAS",
-            valor: "${state.recetas.length}",
+            valor: "${state.totalItems}",
             icon: Icons.menu_book_rounded,
           ),
         ),
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: "VISIBLES",
+            titulo: "FILTRADAS",
             valor: "${state.totalItems}",
             colorValor: AppTema.verdeSalud,
             icon: Icons.filter_list_rounded,
@@ -206,7 +210,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: "ACTIVAS",
+            titulo: "ACTIVAS / INACT.",
             valor: "${state.activos} / ${state.inactivos}",
             colorValor: AppTema.azulOscuro,
             icon: Icons.check_circle_outline,
@@ -235,8 +239,12 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: (v) =>
-                    ref.read(recetasProvider.notifier).setQuery(v),
+                onChanged: (v) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+                    ref.read(recetasProvider.notifier).setQuery(v);
+                  });
+                },
                 style:
                     GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(

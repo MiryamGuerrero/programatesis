@@ -22,6 +22,69 @@ class RepositorioMedico {
     return _toRows(response.data);
   }
 
+  Future<({List<Map<String, dynamic>> items, int total})> fetchPatientsPage({
+    String query = "",
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "pacientes",
+      queryParameters: {
+        "q": query,
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+      },
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Future<({List<Map<String, dynamic>> items, int total})> fetchMedicalRulesPage({
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "reglas-medicas",
+      queryParameters: {
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+      },
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Future<({List<Map<String, dynamic>> items, int total})> fetchMedicalConditionsPage({
+    String query = "",
+    int? tipo,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      "catalogos/condiciones",
+      queryParameters: {
+        "q": query,
+        if (tipo != null) "tipo": tipo,
+        "limit": limit,
+        "offset": offset,
+        "include_total": true,
+      },
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (
+      items: _toRows(data["items"]),
+      total: (data["total"] as num?)?.toInt() ?? 0,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> buscarPacientes({
     required String query,
     int limit = 10,

@@ -75,9 +75,27 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             
             return reglas
 
-    def listar_reglas_detalladas(self, tipos_condicion: List[int] = [1, 2, 3]) -> List[dict]:
+    def listar_reglas_detalladas(
+        self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10, offset: int = 0, include_total: bool = False
+    ) -> dict | List[dict]:
         with db_cursor() as cur:
-            sql = """
+            # 1. Base WHERE clause
+            where_sql = "where c.id_tipo_condicion = ANY(%s)"
+            
+            # 2. Total count if requested
+            total = 0
+            if include_total:
+                cur.execute(f"""
+                    select count(distinct r.id)
+                    from heuristico.regla r
+                    join heuristico.condicion_regla cr on cr.id_regla = r.id
+                    join heuristico.condicion c on c.id = cr.id_condicion
+                    {where_sql}
+                """, (tipos_condicion,))
+                total = cur.fetchone()[0]
+
+            # 3. Main query
+            sql = f"""
                 select 
                     r.id, r.id_accion, r.id_tipo_objetivo,
                     r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta,
@@ -105,17 +123,23 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
                 left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
                 left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
-                where c.id_tipo_condicion = ANY(%s)
+                {where_sql}
                 group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible
+                order by r.id desc
+                limit %s offset %s
             """
             try:
-                cur.execute(sql, (tipos_condicion,))
+                cur.execute(sql, (tipos_condicion, limite, offset))
                 columnas = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
-                return [dict(zip(columnas, row)) for row in rows]
+                items = [dict(zip(columnas, row)) for row in rows]
+                
+                if include_total:
+                    return {"items": items, "total": total}
+                return items
             except Exception as e:
                 print(f"Error en listar_reglas_detalladas: {e}")
-                return []
+                return {"items": [], "total": 0} if include_total else []
 
     def guardar_regla(self, data: dict) -> int:
         with db_cursor() as cur:
