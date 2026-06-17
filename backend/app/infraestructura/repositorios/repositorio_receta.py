@@ -172,6 +172,58 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                 unicos.append(v)
         return unicos
 
+    def obtener_estadisticas_recetas(self) -> dict:
+        """Retorna conteos rapidos para los KPIs del nutricionista."""
+        with db_cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE activa = true) as activos,
+                    COUNT(*) FILTER (WHERE activa = false) as inactivos
+                FROM nutricion.receta
+            """)
+            row = cur.fetchone()
+            return {
+                "total": row[0] or 0,
+                "activos": row[1] or 0,
+                "inactivos": row[2] or 0
+            }
+
+    def _sql_receta_resumen_base(self, where_clause: str) -> str:
+        """Version ligera de la consulta de recetas para listados y vistas previas."""
+        return f"""
+            SELECT 
+                r.id, 
+                r.nombre, 
+                r.descripcion, 
+                r.dificultad,
+                r.porciones,
+                r.tiempo_total_min,
+                r.activa, 
+                r.imagen_url,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.energia_kcal, 0))::numeric, 2), 0) AS calorias_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.proteinas_g, 0))::numeric, 2), 0) AS proteinas_totales,
+                COALESCE(ROUND(SUM((COALESCE(ri.peso_en_gramos, 0)::numeric / 100) * COALESCE(ic.hidratos_carbono_g, 0))::numeric, 2), 0) AS carbohidratos_totales,
+                (
+                    SELECT STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre)
+                    FROM nutricion.receta_momento rm
+                    JOIN nutricion.momento_comida m ON m.id = rm.id_momento
+                    WHERE rm.id_receta = r.id
+                ) AS momentos_nombres,
+                (
+                    SELECT STRING_AGG(DISTINCT tp.nombre, ', ' ORDER BY tp.nombre)
+                    FROM nutricion.receta_tipo_plato rtp
+                    JOIN nutricion.tipo_plato tp ON tp.id = rtp.id_tipo_plato
+                    WHERE rtp.id_receta = r.id
+                ) AS tipos_plato_nombres
+            FROM nutricion.receta r
+            LEFT JOIN nutricion.receta_ingrediente ri ON ri.id_receta = r.id
+            LEFT JOIN nutricion.ingrediente i ON i.id = ri.id_ingrediente
+            LEFT JOIN nutricion.ingrediente_composicion ic ON ic.id_ingrediente = ri.id_ingrediente
+            WHERE {where_clause}
+            GROUP BY r.id
+        """
+
     def _sql_receta_detalle_base(self, where_clause: str) -> str:
         return f"""
             SELECT
@@ -249,18 +301,70 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             GROUP BY r.id, r.calorias_por_porcion
         """
 
-    def listar_recetas(self, consulta: str = "", limite: int = 1000) -> List[dict]:
+    def _recargar_indices_recetas_seguras(self, cur):
+        """Asegura que los indices de busqueda esten listos (No hace nada si ya existen)"""
+        pass
+
+    def _build_recetas_filters(
+        self,
+        consulta: str = "",
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> tuple[str, list]:
         where_clause = "TRUE"
-        params = [None]
+        params = []
         if consulta:
             where_clause += " and r.nombre ilike %s"
             params.append(f"%{consulta}%")
-        sql = self._sql_receta_detalle_base(where_clause) + " ORDER BY r.nombre LIMIT %s"
-        params.append(limite)
+        if id_momento:
+            where_clause += " and exists (select 1 from nutricion.receta_momento rm where rm.id_receta = r.id and rm.id_momento = %s)"
+            params.append(id_momento)
+        if id_tipo_plato:
+            where_clause += " and exists (select 1 from nutricion.receta_tipo_plato rtp where rtp.id_receta = r.id and rtp.id_tipo_plato = %s)"
+            params.append(id_tipo_plato)
+        return where_clause, params
+
+    def listar_recetas(
+        self,
+        consulta: str = "",
+        limite: int = 12,
+        offset: int = 0,
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> List[dict]:
+        where_clause, filter_params = self._build_recetas_filters(
+            consulta,
+            id_momento,
+            id_tipo_plato,
+        )
+        # En el resumen no necesitamos id_paciente, usamos None
+        sql = self._sql_receta_resumen_base(where_clause) + " ORDER BY r.nombre LIMIT %s OFFSET %s"
         with db_cursor() as cur:
-            cur.execute(sql, params)
+            cur.execute(sql, filter_params + [limite, offset])
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def contar_recetas(
+        self,
+        consulta: str = "",
+        id_momento: int | None = None,
+        id_tipo_plato: int | None = None,
+    ) -> int:
+        where_clause, params = self._build_recetas_filters(
+            consulta,
+            id_momento,
+            id_tipo_plato,
+        )
+        with db_cursor() as cur:
+            cur.execute(
+                f"""
+                select count(*)
+                from nutricion.receta r
+                where {where_clause}
+                """,
+                params,
+            )
+            return int(cur.fetchone()[0] or 0)
 
     def obtener_detalle_completo(self, id_receta: int, id_paciente: str | None = None) -> Optional[dict]:
         with db_cursor() as cur:
@@ -372,6 +476,19 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             if not row: return None
             cols = [d[0] for d in cur.description]
             return dict(zip(cols, row))
+
+    def obtener_recetas_seguras_bulk(self, id_paciente: str, limite: int = 1000) -> List[dict]:
+        """
+        VersiÃ³n de alto rendimiento para generaciÃ³n de planes masivos.
+        Utiliza la funciÃ³n SQL optimizada en Supabase.
+        """
+        with db_cursor() as cur:
+            cur.execute(
+                "SELECT * FROM nutricion.obtener_recetas_seguras_eficiente(%s, %s)",
+                (id_paciente, limite)
+            )
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
 
     def obtener_recetas_seguras_para_paciente(
         self,

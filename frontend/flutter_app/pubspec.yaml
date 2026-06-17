@@ -17,6 +17,7 @@ dependencies:
   intl: ^0.20.0
   google_fonts: ^6.2.1
   fl_chart: ^1.2.0
+  shimmer: ^3.0.0
   flutter_localizations:
     sdk: flutter
   image_picker: ^1.1.2
@@ -31,6 +32,19 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/logo 1.png
-    - assets/images/logo sin.png
-    - assets/images/
+    - assets/images/logo 1.webp
+    - assets/images/logo sin.webp
+    - assets/images/catalogo_condiciones.webp
+    - assets/images/gestion.webp
+    - assets/images/gestion_pacientes.webp
+    - assets/images/kp3.webp
+    - assets/images/kpi_1.webp
+    - assets/images/kpi_3.webp
+    - assets/images/kpi_joint.webp
+    - assets/images/kpi_total.webp
+    - assets/images/modal_icon_mi.webp
+    - assets/images/nutri_clinic_hero.webp
+    - assets/images/pacientes.webp
+    - assets/images/rule_joint_icon.webp
+    - assets/images/rule_temporal_icon.webp
+

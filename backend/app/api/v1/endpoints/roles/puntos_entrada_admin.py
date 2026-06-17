@@ -6,6 +6,7 @@ from app.api.v1.dependencias import obtener_caso_uso_gestionar_usuarios, obtener
 from app.aplicacion.clinica.gestionar_usuarios import CasoUsoGestionarUsuarios
 from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(tags=["Administrador"])
 
@@ -30,10 +31,25 @@ class UpdateUserRequest(BaseModel):
     direccion: Optional[str] = None
 
 @router.get("/usuarios")
+@cached(ttl=15)
 def listar_usuarios(
+    q: Optional[str] = Query(default=None),
+    rol_ids: Optional[List[int]] = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
     caso_uso: CasoUsoGestionarUsuarios = Depends(obtener_caso_uso_gestionar_usuarios),
     _=Depends(require_roles("admin"))
-) -> List[dict[str, Any]]:
+) -> dict[str, Any] | List[dict[str, Any]]:
+    if q or rol_ids or limit != 10 or offset != 0 or include_total:
+        repo = RepositorioPerfilPostgres()
+        return repo.listar_usuarios_paginado(
+            q=q, 
+            rol_ids=rol_ids, 
+            limit=limit, 
+            offset=offset, 
+            include_total=include_total
+        )
     return caso_uso.listar_todos()
 
 @router.post("/usuarios")
@@ -121,6 +137,7 @@ def clean_neutro_action(
         return {"deleted_rows": cur.rowcount, "success": True}
 
 @router.get("/crud/catalog")
+@cached(ttl=30)
 def obtener_catalogo_maestro(
     schema: str = Query(...),
     table: str = Query(...),

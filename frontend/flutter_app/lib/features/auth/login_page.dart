@@ -8,8 +8,8 @@ import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 
 // Ruta de los logos
-const String kLogoConNombre = "assets/images/logo 1.png";
-const String kLogoSinNombre = "assets/images/logo sin.png";
+const String kLogoConNombre = "assets/images/logo 1.webp";
+const String kLogoSinNombre = "assets/images/logo sin.webp";
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -199,11 +199,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           runSpacing: AppSpacing.md,
           children: [
             _buildFeatureCard(context, Icons.analytics_outlined,
-                "Evaluación\nEspecializada", _verde),
+                "Evaluación Especializada", _verde),
             _buildFeatureCard(context, Icons.monitor_heart_outlined,
-                "Seguimiento\nClínico", _azul),
+                "Seguimiento Clínico", _azul),
             _buildFeatureCard(
-                context, Icons.security_outlined, "Acceso\nAutorizado", _verde),
+                context, Icons.security_outlined, "Acceso Autorizado", _verde),
           ],
         ),
       ],
@@ -213,16 +213,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget _buildFeatureCard(
       BuildContext context, IconData icon, String title, Color accent) {
     return Container(
-      width: context.responsiveValue(mobile: 130, tablet: 140),
-      height: context.responsiveValue(mobile: 135, tablet: 145),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      width: context.responsiveValue(mobile: 150, tablet: 160),
+      height: context.responsiveValue(mobile: 150, tablet: 160),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm + 4, vertical: AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, 10)),
         ],
@@ -230,18 +231,24 @@ class _LoginPageState extends ConsumerState<LoginPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: _azulOscuro, size: 36),
+          Icon(icon, color: _azulOscuro, size: 32),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.montserrat(
-                fontSize: AppTextSizes.caption(context.screenWidth) * 1.2,
-                fontWeight: FontWeight.w700,
-                color: _azulOscuro,
-                height: 1.2),
+          Expanded(
+            child: Center(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                softWrap: true,
+                maxLines: 2,
+                style: GoogleFonts.montserrat(
+                    fontSize: AppTextSizes.caption(context.screenWidth) * 1.05,
+                    fontWeight: FontWeight.w700,
+                    color: _azulOscuro,
+                    height: 1.1),
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           Container(
               width: 30,
               height: 3,
@@ -347,14 +354,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   context: context,
                   controller: _emailController,
                   label: "CORREO ELECTRÓNICO",
-                  hint: "usuario@clinica.com",
+                  hint: "usuario@nutrireuma.com",
                   icon: Icons.mail_outline),
               const SizedBox(height: AppSpacing.lg),
               _buildField(
                   context: context,
                   controller: _passwordController,
                   label: "CONTRASEÑA",
-                  hint: "••••••••",
+                  hint: "",
                   icon: Icons.lock_outline,
                   isPass: true),
               const SizedBox(height: AppSpacing.xl),
@@ -454,6 +461,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
               fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: GoogleFonts.lato(
+              color: _grisTexto.withValues(alpha: 0.4),
+              fontSize: AppTextSizes.body(context.screenWidth),
+              fontWeight: FontWeight.w500,
+            ),
+            // Esto hace que el hint desaparezca apenas el usuario hace clic o empieza a escribir
+            floatingLabelBehavior: FloatingLabelBehavior.never,
+            hintFadeDuration: Duration.zero,
             prefixIcon: Icon(icon, size: 22),
             suffixIcon: isPass
                 ? IconButton(

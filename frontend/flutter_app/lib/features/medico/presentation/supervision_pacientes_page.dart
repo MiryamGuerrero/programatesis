@@ -1,12 +1,15 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
 import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
-import "../../../core/state/app_providers.dart";
+import "../../../shared/widgets/shimmer_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
+import "_shared/medico_nav_providers.dart";
 import "registro_paciente_page.dart";
 import "registro_mensual_page.dart";
 
@@ -15,8 +18,9 @@ class SupervisionPacientesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentView = ref.watch(medicoNavProvider);
-    final selectedPatient = ref.watch(selectedPatientProvider);
+    final navState = ref.watch(medicoNavProvider);
+    final currentView = navState.currentView;
+    final selectedPatient = navState.selectedPatient;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
@@ -51,26 +55,34 @@ class _ListaPacientesView extends ConsumerStatefulWidget {
 }
 
 class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
-  String _searchQuery = "";
-  int _currentPage = 1;
-  final int _itemsPerPage = 10;
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   bool _archiving = false;
   bool _archiveSuccess = false;
 
-  String _formatName(String fullName) {
-    if (fullName.isEmpty) return "-";
-    final parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 3) {
-      return "${parts[0]} ${parts[parts.length > 2 ? 2 : 1]}";
-    } else if (parts.length == 2) {
-      return "${parts[0]} ${parts[1]}";
-    }
-    return fullName;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(medicalPatientsProvider.notifier).loadPage();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _limpiarFiltros() {
+    _searchController.clear();
+    ref.read(medicalPatientsProvider.notifier).clearFilters();
   }
 
   @override
   Widget build(BuildContext context) {
-    final patientsAsync = ref.watch(medicoPatientsProvider);
+    final state = ref.watch(medicalPatientsProvider);
 
     return Scaffold(
       backgroundColor: AppTema.grisFondo,
@@ -84,11 +96,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               children: [
                 _buildHeader(),
                 const SizedBox(height: 24),
-                _buildStatsRow(patientsAsync.valueOrNull ?? []),
+                _buildStatsRow(state),
                 const SizedBox(height: 24),
-                _buildSearchBarAndAddButton(),
+                _buildSearchBarAndAddButton(state),
                 const SizedBox(height: 16),
-                _buildPatientsTable(patientsAsync),
+                _buildPatientsTable(state),
               ],
             ),
           ),
@@ -155,63 +167,61 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
   }
 
-  Widget _buildStatsRow(List<Map<String, dynamic>> patients) {
-    final int total = patients.length;
-    final int brotes = patients.where((p) {
-      final s = p['severidad'].toString().toLowerCase();
+  Widget _buildStatsRow(MedicalPatientsState state) {
+    if (state.isLoading && state.patients.isEmpty) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
+    }
+
+    final total = state.totalItems;
+    final brotes = state.patients.where((p) {
+      final s = p['severidad']?.toString().toLowerCase() ?? "";
       return p['brote_activo'] == true ||
           s.contains("brote") ||
           s.contains("grave");
     }).length;
 
-    final Map<String, int> counts = {};
-    for (var p in patients) {
-      final name = p['enfermedad_principal'] ?? "OTRA";
-      counts[name] = (counts[name] ?? 0) + 1;
-    }
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final principal = sorted.isNotEmpty ? sorted.first.key : "N/A";
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const double spacing = 20.0;
-        return Row(
-          children: [
-            Expanded(
-              child: _KPICard(
-                title: "Pacientes activos",
-                value: "$total",
-                color: AppTema.azulPrincipal,
-                imagePath: "assets/images/kpi_total.png",
-              ),
-            ),
-            const SizedBox(width: spacing),
-            Expanded(
-              child: _KPICard(
-                title: "Con brote activo",
-                value: "$brotes",
-                color: Colors.red,
-                icon: Icons.notifications_none_rounded,
-              ),
-            ),
-            const SizedBox(width: spacing),
-            Expanded(
-              child: _KPICard(
-                title: "Patología más frecuente",
-                value: principal,
-                color: const Color(0xFF10B981),
-                imagePath: "assets/images/kpi_joint.png",
-                isLargeValue: true,
-              ),
-            ),
-          ],
-        );
-      },
+    return Row(
+      children: [
+        Expanded(
+          child: _KPICard(
+            title: "Pacientes activos",
+            value: "$total",
+            color: AppTema.azulPrincipal,
+            imagePath: "assets/images/kpi_total.webp",
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: _KPICard(
+            title: "Con brote activo",
+            value: "$brotes",
+            color: Colors.red,
+            icon: Icons.notifications_none_rounded,
+          ),
+        ),
+        const SizedBox(width: 20),
+        const Expanded(
+          child: _KPICard(
+            title: "Control clínico",
+            value: "ACTIVO",
+            color: Color(0xFF10B981),
+            imagePath: "assets/images/kpi_joint.webp",
+            isLargeValue: true,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSearchBarAndAddButton() {
+  Widget _buildSearchBarAndAddButton(MedicalPatientsState state) {
     return Row(
       children: [
         Expanded(
@@ -223,6 +233,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
+              controller: _searchController,
               style:
                   GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
@@ -236,20 +247,29 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onChanged: (v) => setState(() {
-                _searchQuery = v;
-                _currentPage = 1;
-              }),
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  ref.read(medicalPatientsProvider.notifier).setSearchQuery(v);
+                });
+              },
             ),
           ),
         ),
         const SizedBox(width: 16),
+        if (state.activeFilters) ...[
+          IconButton(
+            onPressed: _limpiarFiltros,
+            icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.grey),
+            tooltip: "Limpiar filtros",
+          ),
+          const SizedBox(width: 8),
+        ],
         SizedBox(
           height: 48,
           child: FilledButton.icon(
             onPressed: () {
-              ref.read(selectedPatientProvider.notifier).state = null;
-              ref.read(medicoNavProvider.notifier).state = MedicoView.register;
+              ref.read(medicoNavProvider.notifier).setView(MedicoView.register);
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppTema.verdeSalud,
@@ -269,188 +289,297 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
   }
 
-  Widget _buildPatientsTable(
-      AsyncValue<List<Map<String, dynamic>>> patientsAsync) {
-    return patientsAsync.when(
-      data: (patients) {
-        final filtered = patients.where((p) {
-          final term = _searchQuery.toLowerCase();
-          return p["nombre_completo"].toString().toLowerCase().contains(term) ||
-              p["cedula"].toString().toLowerCase().contains(term);
-        }).toList();
-
-        if (filtered.isEmpty)
-          return const NutriTableContainer(
-              child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: Center(
-                      child: Text("No se encontraron pacientes activos."))));
-
-        final totalItems = filtered.length;
-        final startIndex = (_currentPage - 1) * _itemsPerPage;
-        final endIndex = startIndex + _itemsPerPage > totalItems
-            ? totalItems
-            : startIndex + _itemsPerPage;
-        final currentItems = filtered.sublist(startIndex, endIndex);
-
-        return Column(
-          children: [
-            NutriTableContainer(
-              child: Column(
-                children: [
-                  _buildTableHead(),
-                  ...currentItems.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final p = entry.value;
-                    return _buildTableRow(p, index);
-                  }),
-                ],
-              ),
-            ),
-            if (totalItems > 0) ...[
-              const SizedBox(height: 16),
-              _buildPagination(totalItems, startIndex + 1, endIndex),
+  Widget _buildPatientsTable(MedicalPatientsState state) {
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: MedicalPatientsNotifier.pageSize,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [MedicalPatientsNotifier.pageSize],
+            onPageChanged: (idx) =>
+                ref.read(medicalPatientsProvider.notifier).loadPage(offset: idx),
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dataRowMinHeight: 70,
+            dataRowMaxHeight: double.infinity,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            columns: [
+              _col("PACIENTE", width: totalWidth * 0.30),
+              _col("CÉDULA", width: totalWidth * 0.15),
+              _col("ENFERMEDAD", width: totalWidth * 0.20),
+              _col("ESTADO", width: totalWidth * 0.15, center: true),
+              _col("ACCIONES", width: totalWidth * 0.20, center: true),
             ],
-          ],
+            source: _MedicalPatientsDataSource(
+              items: state.patients,
+              totalRows: state.totalItems,
+              offset: state.offset,
+              isLoading: state.isLoading,
+              onControl: (p) {
+                ref.read(medicoNavProvider.notifier).setView(MedicoView.control, patient: p);
+              },
+              onEdit: (p) {
+                ref.read(medicoNavProvider.notifier).setView(MedicoView.fixedEdit, patient: p);
+              },
+              onArchive: (p) => _confirmarArchivarPaciente(p),
+              totalWidth: totalWidth,
+              context: context,
+            ),
+          ),
         );
-      },
-      loading: () =>
-          const NutriLoading(mensaje: "Sincronizando expedientes..."),
-      error: (e, _) => Center(child: Text("Error: $e")),
+      }),
     );
   }
 
-  Widget _buildTableHead() {
-    return Container(
-      color: AppTema.azulPrincipal,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: _tableHeaderLabel("Nombre del paciente")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Cédula")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Enfermedad principal")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Severidad actual")),
-          Expanded(flex: 1, child: _tableHeaderLabel("Edad")),
-          Expanded(flex: 2, child: _tableHeaderLabel("Última atención")),
-          Expanded(
-              flex: 5, child: Center(child: _tableHeaderLabel("Acciones"))),
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: AppTema.azulOscuro),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmarArchivarPaciente(Map<String, dynamic> p) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text("Archivar paciente",
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        content: Text(
+          "El paciente ${p['nombre_completo'] ?? ''} dejará de aparecer en la gestión activa. Su expediente e historial clínico se conservan.",
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.archive_outlined, size: 18),
+            label: const Text("Archivar"),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          ),
         ],
       ),
     );
+    if (confirm == true) await _archivarPaciente(p);
   }
 
-  Widget _tableHeaderLabel(String label) {
-    return Text(label,
-        style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white));
+  Future<void> _archivarPaciente(Map<String, dynamic> p) async {
+    if (_archiving) return;
+    setState(() {
+      _archiving = true;
+      _archiveSuccess = false;
+    });
+
+    try {
+      await ref
+          .read(repositorioMedicoProvider)
+          .archivarPaciente(p["id"].toString());
+      ref.invalidate(medicalPatientsProvider);
+      if (!mounted) return;
+      setState(() => _archiveSuccess = true);
+      await Future.delayed(const Duration(milliseconds: 1200));
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(context, "Error al archivar", isError: true, ref: ref);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _archiving = false;
+          _archiveSuccess = false;
+        });
+      }
+    }
   }
+}
 
-  Widget _buildTableRow(Map<String, dynamic> p, int index) {
-    final bool isSelected =
-        ref.watch(selectedPatientProvider)?['id'] == p['id'];
-    final bool isEven = index % 2 == 0;
+class _MedicalPatientsDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> items;
+  final int totalRows;
+  final int offset;
+  final bool isLoading;
+  final Function(Map<String, dynamic>) onControl;
+  final Function(Map<String, dynamic>) onEdit;
+  final Function(Map<String, dynamic>) onArchive;
+  final double totalWidth;
+  final BuildContext context;
 
-    return InkWell(
-      onTap: () => ref.read(selectedPatientProvider.notifier).state = p,
-      hoverColor: AppTema.azulPrincipal.withValues(alpha: 0.02),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTema.azulPrincipal.withValues(alpha: 0.08)
-              : (isEven ? Colors.white : const Color(0xFFF1F5F9)),
-          border: Border(
-            left: BorderSide(
-                color: isSelected ? AppTema.azulPrincipal : Colors.transparent,
-                width: 4),
+  _MedicalPatientsDataSource({
+    required this.items,
+    required this.totalRows,
+    required this.offset,
+    required this.isLoading,
+    required this.onControl,
+    required this.onEdit,
+    required this.onArchive,
+    required this.totalWidth,
+    required this.context,
+  });
+
+  @override
+  DataRow? getRow(int index) {
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.30,
+          child: Row(
+            children: [
+              const NutriShimmer(
+                  width: 32,
+                  height: 32,
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
+              const SizedBox(width: 12),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const NutriShimmer(width: 120, height: 12),
+                  const SizedBox(height: 4),
+                  NutriShimmer(
+                      width: 150,
+                      height: 10,
+                      borderRadius: BorderRadius.circular(4)),
+                ],
+              ),
+            ],
+          ),
+        )),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 80, height: 10)))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.20,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 100, height: 10)))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Center(child: NutriShimmer(width: 60, height: 20)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.20,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+            ],
+          ),
+        )),
+      ]);
+    }
+
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= items.length) return null;
+    final p = items[localIndex];
+
+    return DataRow(cells: [
+      DataCell(SizedBox(
+        width: totalWidth * 0.30,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
+          child: Row(
+            children: [
+              _buildAvatar(p["nombre_completo"]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p["nombre_completo"] ?? "Sin nombre",
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: AppTema.azulOscuro)),
+                    Text("${p["edad_anios"] ?? 0} años",
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: Colors.blueGrey)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(p["cedula"]?.toString() ?? "-",
+              style: GoogleFonts.inter(
+                  fontSize: 11, fontWeight: FontWeight.w500)),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.20,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(p["enfermedad_principal"]?.toString() ?? "-",
+              softWrap: true,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppTema.azulPrincipal,
+                  fontWeight: FontWeight.w600)),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Center(child: _buildSeverityBadge(p["severidad"])),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.20,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  _buildAvatar(p["nombre_completo"]),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_formatName(p["nombre_completo"] ?? ""),
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1E293B))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-                flex: 2,
-                child: Text(p["cedula"]?.toString() ?? "-",
-                    style: GoogleFonts.inter(
-                        fontSize: 11, fontWeight: FontWeight.w500))),
-            Expanded(
-                flex: 2,
-                child: Text(p["enfermedad_principal"]?.toString() ?? "-",
-                    style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppTema.azulPrincipal,
-                        fontWeight: FontWeight.w600))),
-            Expanded(flex: 2, child: _buildSeverityBadge(p["severidad"])),
-            Expanded(
-                flex: 1,
-                child: Text("${p["edad_anios"] ?? 0} años",
-                    style: GoogleFonts.inter(
-                        fontSize: 11, fontWeight: FontWeight.w500))),
-            Expanded(
-                flex: 2,
-                child: Text(_formatDate(p["ultima_atencion"]),
-                    style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blueGrey.shade700))),
-            Expanded(
-              flex: 5,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _actionButton(
-                      icon: Icons.calendar_month_outlined,
-                      label: "Registro mensual",
-                      color: AppTema.azulPrincipal,
-                      onTap: () {
-                        ref.read(selectedPatientProvider.notifier).state = p;
-                        ref.read(medicoNavProvider.notifier).state =
-                            MedicoView.control;
-                      }),
-                  const SizedBox(width: 16),
-                  _actionButton(
-                      icon: Icons.edit_outlined,
-                      label: "Editar expediente",
-                      color: Colors.orange,
-                      onTap: () {
-                        ref.read(selectedPatientProvider.notifier).state = p;
-                        ref.read(medicoNavProvider.notifier).state =
-                            MedicoView.fixedEdit;
-                      }),
-                  const SizedBox(width: 16),
-                  _actionButton(
-                      icon: Icons.archive_outlined,
-                      label: "Archivar",
-                      color: Colors.red,
-                      onTap: () => _confirmarArchivarPaciente(p)),
-                ],
-              ),
-            ),
+            _HoverActionButton(
+                icon: Icons.calendar_month_outlined,
+                label: "Control",
+                color: AppTema.azulPrincipal,
+                onTap: () => onControl(p)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.edit_note_rounded,
+                label: "Editar",
+                color: Colors.orange,
+                onTap: () => onEdit(p)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.archive_outlined,
+                label: "Archivar",
+                color: Colors.redAccent,
+                onTap: () => onArchive(p)),
           ],
         ),
-      ),
-    );
+      )),
+    ]);
   }
 
   Widget _buildAvatar(String? name) {
@@ -506,200 +635,12 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     );
   }
 
-  Widget _actionButton(
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
-    return _HoverActionButton(
-        icon: icon, label: label, color: color, onTap: onTap);
-  }
-
-  String _formatDate(dynamic raw) {
-    final text = raw?.toString();
-    if (text == null || text.isEmpty) return "Sin registro";
-    try {
-      final date = DateTime.parse(text);
-      final day = date.day.toString().padLeft(2, "0");
-      final month = date.month.toString().padLeft(2, "0");
-      return "$day/$month/${date.year}";
-    } catch (_) {
-      return text.length >= 10 ? text.substring(0, 10) : text;
-    }
-  }
-
-  Widget _buildPagination(int total, int start, int end) {
-    final totalPages = (total / _itemsPerPage).ceil();
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text("Mostrando $start a $end de $total pacientes",
-            style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.blueGrey)),
-        Row(
-          children: [
-            _pageButton(Icons.chevron_left,
-                _currentPage > 1 ? () => setState(() => _currentPage--) : null),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTema.azulPrincipal,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text("$_currentPage",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(width: 8),
-            _pageButton(
-                Icons.chevron_right,
-                _currentPage < totalPages
-                    ? () => setState(() => _currentPage++)
-                    : null),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _pageButton(IconData icon, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Icon(icon,
-            size: 20,
-            color: onTap == null ? Colors.grey.shade300 : Colors.black),
-      ),
-    );
-  }
-
-  Future<void> _confirmarArchivarPaciente(Map<String, dynamic> p) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text("Archivar paciente",
-            style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
-        content: Text(
-          "El paciente ${p['nombre_completo'] ?? ''} dejará de aparecer en la gestión activa. Su expediente e historial clínico se conservan.",
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar")),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.archive_outlined, size: 18),
-            label: const Text("Archivar"),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) await _archivarPaciente(p);
-  }
-
-  Future<void> _archivarPaciente(Map<String, dynamic> p) async {
-    if (_archiving) return;
-    setState(() {
-      _archiving = true;
-      _archiveSuccess = false;
-    });
-
-    try {
-      await ref
-          .read(repositorioMedicoProvider)
-          .archivarPaciente(p["id"].toString());
-      ref.invalidate(medicoPatientsProvider);
-      if (!mounted) return;
-      setState(() => _archiveSuccess = true);
-      await Future.delayed(const Duration(milliseconds: 1200));
-    } catch (e) {
-      if (mounted)
-        NutriSnack.show(context, "Error al archivar", isError: true, ref: ref);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _archiving = false;
-          _archiveSuccess = false;
-        });
-      }
-    }
-  }
-}
-
-class _HoverActionButton extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _HoverActionButton(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      required this.onTap});
-
   @override
-  State<_HoverActionButton> createState() => _HoverActionButtonState();
-}
-
-class _HoverActionButtonState extends State<_HoverActionButton> {
-  bool _isHovered = false;
-
+  bool get isRowCountApproximate => false;
   @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.transparent,
-        splashColor: widget.color.withValues(alpha: 0.2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.2)
-                    : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 20),
-              const SizedBox(height: 4),
-              Text(widget.label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                      height: 1.0)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
+  @override
+  int get selectedRowCount => 0;
 }
 
 class _KPICard extends StatelessWidget {
@@ -775,6 +716,68 @@ class _KPICard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withValues(alpha: 0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 20),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
+            ],
+          ),
+        ),
       ),
     );
   }

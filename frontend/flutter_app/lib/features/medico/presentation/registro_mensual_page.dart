@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, unused_field, unused_element, no_leading_underscores_for_local_identifiers, curly_braces_in_flow_control_structures, prefer_const_constructors, prefer_const_literals_to_create_immutables, unnecessary_brace_in_string_interps, unnecessary_string_interpolations
+
 import "dart:async";
 import "dart:math";
 import "package:flutter/material.dart";
@@ -10,9 +12,9 @@ import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/patient_summary_panel.dart";
 import "../../../shared/widgets/layout_components.dart";
-import "../../../shared/widgets/nutri_avatar.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
+import "_shared/medico_nav_providers.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -874,7 +876,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         IconButton.filledTonal(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
             onPressed: () =>
-                ref.read(medicoNavProvider.notifier).state = MedicoView.list),
+                ref.read(medicoNavProvider.notifier).goBackToList()),
         const SizedBox(width: 24),
         Column(
             crossAxisAlignment: CrossAxisAlignment.start,

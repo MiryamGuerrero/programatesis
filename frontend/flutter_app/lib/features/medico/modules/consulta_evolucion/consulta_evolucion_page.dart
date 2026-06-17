@@ -453,127 +453,6 @@ class _ChartCard extends StatelessWidget {
 }
 
 extension _EvolutionCharts on _ConsultaEvolucionPageState {
-  Widget _buildDualLineChart(
-    List<Map<String, dynamic>> historial,
-    String keyA,
-    String keyB,
-    Color colorA,
-    Color colorB,
-  ) {
-    return LineChart(
-      LineChartData(
-        minY: 0,
-        maxY: 10,
-        gridData: const FlGridData(show: true),
-        titlesData: FlTitlesData(
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 28,
-              getTitlesWidget: (value, meta) {
-                final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length)
-                  return const SizedBox.shrink();
-                return Text(_fmtDate(historial[idx]["fecha_control"]),
-                    style: const TextStyle(fontSize: 9));
-              },
-            ),
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: List.generate(
-                historial.length,
-                (i) => FlSpot(i.toDouble(),
-                    (historial[i][keyA] as num? ?? 0).toDouble())),
-            isCurved: true,
-            color: colorA,
-            barWidth: 3,
-            dotData: const FlDotData(show: false),
-          ),
-          LineChartBarData(
-            spots: List.generate(
-                historial.length,
-                (i) => FlSpot(i.toDouble(),
-                    (historial[i][keyB] as num? ?? 0).toDouble())),
-            isCurved: true,
-            color: colorB,
-            barWidth: 3,
-            dotData: const FlDotData(show: false),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeightChart(List<Map<String, dynamic>> historial) {
-    return LineChart(
-      LineChartData(
-        minY: 0,
-        gridData: const FlGridData(show: true),
-        titlesData: FlTitlesData(
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 28,
-              getTitlesWidget: (value, meta) {
-                final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length)
-                  return const SizedBox.shrink();
-                return Text(_fmtDate(historial[idx]["fecha_control"]),
-                    style: const TextStyle(fontSize: 9));
-              },
-            ),
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: List.generate(
-                historial.length,
-                (i) => FlSpot(i.toDouble(),
-                    (historial[i]["peso_kg"] as num? ?? 0).toDouble())),
-            isCurved: true,
-            color: Colors.green,
-            barWidth: 3,
-            dotData: const FlDotData(show: false),
-          ),
-          LineChartBarData(
-            spots: List.generate(
-                historial.length,
-                (i) => FlSpot(i.toDouble(),
-                    (historial[i]["talla_cm"] as num? ?? 0).toDouble())),
-            isCurved: true,
-            color: Colors.blue,
-            barWidth: 3,
-            dotData: const FlDotData(show: false),
-          ),
-          LineChartBarData(
-            spots: List.generate(
-                historial.length,
-                (i) => FlSpot(i.toDouble(),
-                    (historial[i]["z_score_bmi"] as num? ?? 0).toDouble())),
-            isCurved: true,
-            color: Colors.orange,
-            barWidth: 3,
-            dotData: const FlDotData(show: false),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildClinicalActivityChart(List<Map<String, dynamic>> historial) {
     return _buildMultiMetricChart(
       historial,
@@ -668,8 +547,9 @@ extension _EvolutionCharts on _ConsultaEvolucionPageState {
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= historial.length)
+                if (idx < 0 || idx >= historial.length) {
                   return const SizedBox.shrink();
+                }
                 return Text(_fmtDate(historial[idx]["fecha_control"]),
                     style: const TextStyle(fontSize: 9));
               },

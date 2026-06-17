@@ -31,7 +31,14 @@ class ServicioOMS(ServicioOMSBase):
 
     @staticmethod
     def _rango_referencia(indicador: str, sexo: str, campo: str) -> tuple[Optional[float], Optional[float]]:
+        # Validacion de seguridad para evitar inyeccion via identificadores de columna
+        columnas_permitidas = {"medida_cm", "edad_dias", "edad_meses"}
+        if campo not in columnas_permitidas:
+            raise ValueError(f"Campo no permitido para referencia OMS: {campo}")
+
         with db_cursor() as cur:
+            # Aunque psycopg no permite parametros para nombres de columnas, 
+            # la validacion previa asegura que solo se usen identificadores seguros.
             cur.execute(
                 f"""
                 select min({campo})::float, max({campo})::float

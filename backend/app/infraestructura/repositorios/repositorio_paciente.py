@@ -307,6 +307,58 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 condiciones_activas=todas_condiciones
             )
 
+    def listar_pacientes_paginado(self, q: str = None, limit: int = 10, offset: int = 0, include_total: bool = False) -> dict:
+        where_clauses = ["v.id is not null"]
+        params = []
+
+        if q:
+            where_clauses.append("(v.nombre_completo ilike %s or v.cedula ilike %s)")
+            params.extend([f"%{q}%", f"%{q}%"])
+
+        where_str = f"where {' and '.join(where_clauses)}"
+
+        total = 0
+        with db_cursor() as cur:
+            if include_total:
+                cur.execute(f"select count(*) from usuarios.vista_gestion_pacientes v {where_str}", tuple(params))
+                total = cur.fetchone()[0]
+
+            sql = f"""
+                with validacion_actual as (
+                    select distinct on (id_paciente) id_paciente, confirmado
+                    from clinico.validacion_control_nutricional_mensual
+                    where anio = extract(year from current_date)::int
+                      and mes = extract(month from current_date)::int
+                    order by id_paciente, id desc
+                ),
+                plan_activo as (
+                    select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
+                    from interaccion.plan_nutricional
+                    where coalesce(vigente, false) = true
+                    order by id_paciente, created_at desc nulls last, id desc
+                )
+                select
+                    v.*,
+                    p.id_sexo,
+                    (pa.id is not null) as plan_activo,
+                    pa.id as plan_activo_id,
+                    pa.fecha_inicio as plan_activo_inicio,
+                    pa.fecha_fin as plan_activo_fin,
+                    coalesce(va.confirmado, false) as validacion_confirmada
+                from usuarios.vista_gestion_pacientes v
+                join usuarios.paciente p on p.id = v.id
+                left join plan_activo pa on pa.id_paciente = v.id
+                left join validacion_actual va on va.id_paciente = v.id
+                {where_str}
+                order by v.nombre_completo
+                limit %s offset %s
+            """
+            cur.execute(sql, tuple(params + [limit, offset]))
+            cols = [desc[0] for desc in cur.description]
+            items = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+            return {"items": items, "total": total}
+
     def listar_todos_pacientes(self) -> List[dict]:
         with db_cursor() as cur:
             sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
@@ -883,6 +935,19 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
     def buscar_pacientes(self, query: str, limite: int = 50) -> List[dict]:
         with db_cursor() as cur:
             sql = """
+                with validacion_actual as (
+                    select distinct on (id_paciente) id_paciente, confirmado
+                    from clinico.validacion_control_nutricional_mensual
+                    where anio = extract(year from current_date)::int
+                      and mes = extract(month from current_date)::int
+                    order by id_paciente, id desc
+                ),
+                plan_activo as (
+                    select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
+                    from interaccion.plan_nutricional
+                    where coalesce(vigente, false) = true
+                    order by id_paciente, created_at desc nulls last, id desc
+                )
                 select
                     v.*,
                     p.id_sexo,
@@ -890,27 +955,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     pa.id as plan_activo_id,
                     pa.fecha_inicio as plan_activo_inicio,
                     pa.fecha_fin as plan_activo_fin,
-                    coalesce((
-                        select vc.confirmado
-                        from clinico.control_paciente cp
-                        left join clinico.validacion_control_nutricional_mensual vc
-                          on vc.id_control = cp.id
-                         and vc.anio = extract(year from current_date)::int
-                         and vc.mes = extract(month from current_date)::int
-                        where cp.id_paciente = v.id
-                        order by cp.fecha_control desc, cp.id desc
-                        limit 1
-                    ), false) as validacion_confirmada
+                    coalesce(va.confirmado, false) as validacion_confirmada
                 from usuarios.vista_gestion_pacientes v
                 join usuarios.paciente p on p.id = v.id
-                left join lateral (
-                    select pn.id, pn.fecha_inicio::text, pn.fecha_fin::text
-                    from interaccion.plan_nutricional pn
-                    where pn.id_paciente = v.id
-                      and coalesce(pn.vigente, false) = true
-                    order by pn.created_at desc nulls last, pn.id desc
-                    limit 1
-                ) pa on true
+                left join plan_activo pa on pa.id_paciente = v.id
+                left join validacion_actual va on va.id_paciente = v.id
                 where v.nombre_completo ilike %s or v.cedula ilike %s
                 order by v.nombre_completo
                 limit %s
@@ -1096,6 +1145,103 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 )
 
         return True
+
+    def obtener_perfil_reducido_planificacion(self, id_paciente: str) -> dict:
+        """
+        VersiÃ³n optimizada de consulta de perfil para el sidebar de planificaciÃ³n.
+        Evita historial de controles masivo y otros datos no crÃ­ticos.
+        """
+        with db_cursor() as cur:
+            # 1. Datos del Paciente y Tutor
+            cur.execute("""
+                select p.id::text, p.nombre_completo::text, p.fecha_nacimiento::text, p.cedula::text, p.id_sexo,
+                       s.descripcion::text as sexo_nombre,
+                       u.nombre_completo::text as tutor_nombre, u.email::text as tutor_email
+                from usuarios.paciente p
+                left join usuarios.catalogo_sexo s on s.id = p.id_sexo
+                left join usuarios.tutor_paciente tp on tp.id_paciente = p.id and tp.es_principal = true
+                left join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                where p.id = %s
+            """, (id_paciente,))
+            pac_row = cur.fetchone()
+            if not pac_row: return {"error": "No existe"}
+            
+            cols = [d[0] for d in cur.description]
+            data = dict(zip(cols, pac_row))
+            paciente = {
+                "id": data["id"],
+                "nombre_completo": data["nombre_completo"],
+                "fecha_nacimiento": data["fecha_nacimiento"],
+                "cedula": data["cedula"],
+                "id_sexo": data["id_sexo"],
+                "sexo_nombre": data["sexo_nombre"]
+            }
+            tutor = {
+                "nombre_completo": data["tutor_nombre"],
+                "email": data["tutor_email"]
+            }
+
+            # 2. DiagnÃ³stico Principal
+            cur.execute("""
+                select c.nombre::text as condicion_nombre 
+                from clinico.diagnostico_paciente dp 
+                join heuristico.condicion c on c.id = dp.id_condicion 
+                where dp.id_paciente = %s and dp.esta_activo = true 
+                order by dp.fecha_diagnostico desc
+                limit 1
+            """, (id_paciente,))
+            diag_row = cur.fetchone()
+            diagnostico = {"condicion_nombre": diag_row[0]} if diag_row else {}
+
+            # 3. Ãšltimo Control (Resumen)
+            cur.execute("""
+                select id::text, fecha_control::text, peso_kg, talla_cm, estado_nutricional::text, 
+                       id_condicion_nutricional_resultado, escala_inflamacion, en_brote, fecha_proxima_cita::text
+                from clinico.control_paciente 
+                where id_paciente = %s 
+                order by fecha_control desc, id desc
+                limit 1
+            """, (id_paciente,))
+            ctrl_row = cur.fetchone()
+            ultimo_control = dict(zip([d[0] for d in cur.description], ctrl_row)) if ctrl_row else {}
+
+            # 4. Resumen de Alergias y Restricciones
+            cur.execute("""
+                select s.nombre::text
+                from clinico.alergia_paciente_subgrupo ap
+                join nutricion.subgrupo_alimentario s on s.id = ap.id_subgrupo_alimentario
+                where ap.id_paciente = %s and ap.activa = true
+            """, (id_paciente,))
+            al_subs = [{"nombre": r[0]} for r in cur.fetchall()]
+
+            cur.execute("""
+                select i.nombre::text
+                from clinico.alergia_paciente_ingrediente ai
+                join nutricion.ingrediente i on i.id = ai.id_ingrediente
+                where ai.id_paciente = %s and ai.activa = true
+            """, (id_paciente,))
+            al_ings = [{"nombre": r[0]} for r in cur.fetchall()]
+
+            cur.execute("""
+                select rp.codigo_restriccion::text as codigo, cra.nombre::text as nombre
+                from clinico.restriccion_paciente rp
+                left join clinico.catalogo_restriccion_alimentaria cra on cra.codigo = rp.codigo_restriccion
+                where rp.id_paciente = %s and rp.activa = true
+            """, (id_paciente,))
+            restricciones_detalle = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+            
+            return {
+                "paciente": paciente,
+                "tutor": tutor,
+                "diagnostico": diagnostico,
+                "ultimo_control": ultimo_control,
+                "alergias": {
+                    "subgrupos": al_subs,
+                    "ingredientes": al_ings
+                },
+                "restricciones_alimentarias_detalle": restricciones_detalle,
+                "es_intolerante_lactosa": any(r["codigo"] == "INTOLERANCIA_LACTOSA" for r in restricciones_detalle)
+            }
 
     def obtener_expediente_completo(self, id_paciente: str) -> dict:
         with db_cursor() as cur:

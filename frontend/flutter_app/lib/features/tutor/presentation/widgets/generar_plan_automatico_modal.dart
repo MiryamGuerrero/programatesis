@@ -19,14 +19,69 @@ class _GenerarPlanAutomaticoModalState
   String _durationType = "una semana";
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 6));
+  
   bool _morningSnackEnabled = false;
   bool _afternoonSnackEnabled = false;
-
   bool _isLoading = false;
+
+  Map<int, bool> _momentosPasados = {};
+  int _singleMealId = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSmartMealSelection();
+  }
+
+  Future<void> _initSmartMealSelection() async {
+    final now = DateTime.now();
+    // Solo si es hoy
+    if (_startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day) {
+      try {
+        final dio = ref.read(dioProvider);
+        final res = await dio.get("tutor/momentos-comida");
+        final momentos = List<dynamic>.from(res.data);
+        
+        final Map<int, bool> pasados = {};
+
+        for (var m in momentos) {
+          final mId = m['id'];
+          final horaFinStr = m['hora_fin'];
+          if (horaFinStr == null) continue;
+
+          final parts = horaFinStr.toString().split(':');
+          final mHoraFin = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          final currentTodo = TimeOfDay.fromDateTime(now);
+
+          bool yaPaso = currentTodo.hour > mHoraFin.hour || 
+                       (currentTodo.hour == mHoraFin.hour && currentTodo.minute > mHoraFin.minute);
+
+          if (yaPaso) {
+             pasados[mId] = true;
+             if (mId == 2) setState(() => _morningSnackEnabled = false);
+             if (mId == 4) setState(() => _afternoonSnackEnabled = false);
+          }
+        }
+
+        setState(() {
+          _momentosPasados = pasados;
+          // Ajustar singleMealId si el seleccionado ya pasó
+          if (_momentosPasados[_singleMealId] == true) {
+            final available = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+            if (available.isNotEmpty) {
+              _singleMealId = available.first;
+            }
+          }
+        });
+      } catch (e) {
+        debugPrint("Error pre-configurando momentos inteligentes: $e");
+      }
+    }
+  }
 
   void _updateEndDate() {
     setState(() {
-      if (_durationType == "un día") {
+      if (_durationType == "una comida" || _durationType == "un día") {
         _endDate = _startDate;
       } else if (_durationType == "una semana") {
         _endDate = _startDate.add(const Duration(days: 6));
@@ -41,14 +96,16 @@ class _GenerarPlanAutomaticoModalState
     try {
       final repo = ref.read(repositorioTutorProvider);
 
-      final List<int> momentosObligatorios = [
-        1,
-        3,
-        5
-      ]; // Desayuno, Almuerzo, Merienda
-      final List<int> momentosOpcionales = [];
-      if (_morningSnackEnabled) momentosOpcionales.add(2);
-      if (_afternoonSnackEnabled) momentosOpcionales.add(4);
+      List<int> momentosObligatorios = [];
+      List<int> momentosOpcionales = [];
+
+      if (_durationType == "una comida") {
+        momentosObligatorios = [_singleMealId];
+      } else {
+        momentosObligatorios = [1, 3, 5]; // Desayuno, Almuerzo, Merienda
+        if (_morningSnackEnabled) momentosOpcionales.add(2);
+        if (_afternoonSnackEnabled) momentosOpcionales.add(4);
+      }
 
       final totalDias = _endDate.difference(_startDate).inDays + 1;
 
@@ -72,9 +129,21 @@ class _GenerarPlanAutomaticoModalState
     }
   }
 
+  String _getMomentName(int id) {
+    switch (id) {
+      case 1: return "Desayuno";
+      case 2: return "Media mañana";
+      case 3: return "Almuerzo";
+      case 4: return "Media tarde";
+      case 5: return "Merienda";
+      default: return "Comida";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final availableMoments = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
 
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -108,7 +177,8 @@ class _GenerarPlanAutomaticoModalState
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 items: const [
-                  DropdownMenuItem(value: "un día", child: Text("Un día")),
+                  DropdownMenuItem(value: "una comida", child: Text("Una sola comida")),
+                  DropdownMenuItem(value: "un día", child: Text("Un día completo")),
                   DropdownMenuItem(
                       value: "una semana", child: Text("Una semana")),
                   DropdownMenuItem(value: "un mes", child: Text("Un mes")),
@@ -139,7 +209,9 @@ class _GenerarPlanAutomaticoModalState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                      _durationType == "una comida" 
+                          ? "Generación rápida de 1 comida"
+                          : "${_endDate.difference(_startDate).inDays + 1} días de vigencia",
                       style: TextStyle(
                           color: Colors.blue.shade700,
                           fontSize: 12,
@@ -149,25 +221,62 @@ class _GenerarPlanAutomaticoModalState
                 ),
               ),
               const Divider(height: 40, thickness: 1),
-              _buildModalSectionTitle("Comidas base"),
-              const Text("Se establecerán Desayuno, Almuerzo y Merienda.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.blueGrey, height: 1.4)),
-              const SizedBox(height: 16),
-              _buildModalSectionTitle("Snacks opcionales"),
-              _buildConfigTile(
-                  "Media mañana",
-                  "Entre desayuno y almuerzo",
-                  Icons.coffee,
-                  _morningSnackEnabled,
-                  (v) => setState(() => _morningSnackEnabled = v!)),
-              _buildConfigTile(
-                  "Media tarde",
-                  "Entre almuerzo y cena",
-                  Icons.apple,
-                  _afternoonSnackEnabled,
-                  (v) => setState(() => _afternoonSnackEnabled = v!)),
+              
+              if (_durationType == "una comida") ...[
+                _buildModalSectionTitle("Selecciona la comida"),
+                if (availableMoments.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade200)
+                    ),
+                    child: const Text(
+                      "Todos los momentos de comida para el día de hoy ya han pasado.",
+                      style: TextStyle(color: Colors.deepOrange, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  DropdownButtonFormField<int>(
+                    value: availableMoments.contains(_singleMealId) ? _singleMealId : availableMoments.first,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.blue.shade50,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    items: availableMoments.map((id) => DropdownMenuItem(
+                      value: id,
+                      child: Text(_getMomentName(id), style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _singleMealId = v!),
+                  ),
+              ] else ...[
+                _buildModalSectionTitle("Comidas base"),
+                const Text("Se establecerán Desayuno, Almuerzo y Merienda.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.blueGrey, height: 1.4)),
+                const SizedBox(height: 16),
+                _buildModalSectionTitle("Snacks opcionales"),
+                _buildConfigTile(
+                    "Media mañana",
+                    "Entre desayuno y almuerzo",
+                    Icons.coffee,
+                    _morningSnackEnabled,
+                    (v) => setState(() => _morningSnackEnabled = v!)),
+                _buildConfigTile(
+                    "Media tarde",
+                    "Entre almuerzo y cena",
+                    Icons.apple,
+                    _afternoonSnackEnabled,
+                    (v) => setState(() => _afternoonSnackEnabled = v!)),
+              ],
             ],
           ),
         ),

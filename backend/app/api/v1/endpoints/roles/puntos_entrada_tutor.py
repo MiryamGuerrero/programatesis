@@ -10,26 +10,18 @@ from app.api.v1.dependencias import (
 from app.aplicacion.nutricion.gestionar_seguimiento import CasoUsoGestionarSeguimiento
 from app.aplicacion.nutricion.generar_plan_automatico import CasoUsoGenerarPlanAutomatico
 from app.infraestructura.database.db import db_cursor
-from pydantic import BaseModel
+from app.schemas.v1.tutor import (
+    RegistroConsumoRequest, 
+    GenerarPlanRequest, 
+    IntercambiarRecetaRequest,
+    SuccessResponse,
+    TipSaludableResponse,
+    SubgrupoPreferenciaResponse
+)
 
 router = APIRouter(prefix="/tutor", tags=["Tutor"])
 
-class RegistroConsumoRequest(BaseModel):
-    id_plan_item: int
-    id_estado_consumo: int
-    observacion: str | None = None
-
-class GenerarPlanRequest(BaseModel):
-    id_paciente: str
-    dias: int
-    fecha_inicio: date
-    momentos_obligatorios: List[int]
-    momentos_opcionales: List[int]
-
-class IntercambiarRecetaRequest(BaseModel):
-    id_plan_item: int
-
-@router.get("/mis-pacientes")
+@router.get("/mis-pacientes", response_model=List[Dict[str, Any]])
 def obtener_mis_pacientes(
     user: UserContext = Depends(require_roles("tutor", "admin")),
     caso_uso: CasoUsoGestionarSeguimiento = Depends(obtener_caso_uso_gestionar_seguimiento)
@@ -45,7 +37,7 @@ def verificar_onboarding(id_paciente: str, _=Depends(require_roles("tutor", "adm
         res = cur.fetchone()
         return {"configuradas": res[0] if res else False}
 
-@router.get("/subgrupos-preferencia/{id_paciente}")
+@router.get("/subgrupos-preferencia/{id_paciente}", response_model=List[SubgrupoPreferenciaResponse])
 def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tutor", "admin"))):
     with db_cursor() as cur:
         cur.execute("""
@@ -123,7 +115,7 @@ def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tuto
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
-@router.post("/guardar-preferencias")
+@router.post("/guardar-preferencias", response_model=SuccessResponse)
 def guardar_preferencias(payload: Dict[str, Any], _=Depends(require_roles("tutor", "admin"))):
     id_paciente = payload.get("id_paciente")
     subgrupos_ids = payload.get("subgrupos_ids", [])
@@ -135,9 +127,9 @@ def guardar_preferencias(payload: Dict[str, Any], _=Depends(require_roles("tutor
             values = [(id_paciente, sid) for sid in subgrupos_ids]
             cur.executemany("INSERT INTO interaccion.preferencia_paciente (id_paciente, id_subgrupo_alimentario) VALUES (%s, %s)", values)
         cur.execute("UPDATE usuarios.paciente SET preferencias_configuradas = true WHERE id = %s", (id_paciente,))
-        return {"success": True}
+        return SuccessResponse()
 
-@router.post("/marcar-consumida")
+@router.post("/marcar-consumida", response_model=SuccessResponse)
 def marcar_consumida(payload: Dict[str, Any], _=Depends(require_roles("tutor", "admin"))):
     id_plan_item = payload.get("id_plan_item")
     consumida = bool(payload.get("consumida", True))
@@ -146,7 +138,7 @@ def marcar_consumida(payload: Dict[str, Any], _=Depends(require_roles("tutor", "
     from app.infraestructura.repositorios.repositorio_seguimiento import RepositorioSeguimientoPostgres
     repo = RepositorioSeguimientoPostgres()
     exito = repo.marcar_item_consumido(id_plan_item, consumida)
-    return {"success": exito}
+    return SuccessResponse(success=exito)
 
 @router.get("/plan-diario/{id_paciente}")
 def obtener_plan_diario(
@@ -233,13 +225,13 @@ def obtener_estadisticas_adherencia(
     return caso_uso.obtener_estadisticas_adherencia(id_paciente, dias)
 
 @router.get("/momentos-comida")
-def listar_momentos(_=Depends(require_roles("tutor", "admin"))):
+def listar_momentos(_=Depends(require_roles("tutor", "admin", "nutricionista"))):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
     return repo.listar_momentos_comida()
 
 @router.get("/tipos-plato")
-def listar_tipos_plato(_=Depends(require_roles("tutor", "admin"))):
+def listar_tipos_plato(_=Depends(require_roles("tutor", "admin", "nutricionista"))):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
     return repo.listar_tipos_plato()
@@ -282,12 +274,16 @@ def generar_plan_automatico(
     caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
+        def simple_logger(msg: str):
+            print(f"[GEN_PLAN] {msg}")
+
         return caso_uso.ejecutar_tutor(
             id_paciente=request.id_paciente,
             dias=request.dias,
             fecha_inicio=request.fecha_inicio,
             momentos_obligatorios=request.momentos_obligatorios,
-            momentos_opcionales=request.momentos_opcionales
+            momentos_opcionales=request.momentos_opcionales,
+            log_callback=simple_logger
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -303,7 +299,7 @@ def intercambiar_receta_plan(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/tips-saludables")
+@router.get("/tips-saludables", response_model=TipSaludableResponse)
 def obtener_tip_saludable(_=Depends(require_roles("tutor", "admin"))):
     import random
     tips = [
@@ -328,4 +324,4 @@ def obtener_tip_saludable(_=Depends(require_roles("tutor", "admin"))):
         {"mensaje": "La **fibra** es el mejor amigo de tu **intestino**.", "categoria": "nutricion"},
         {"mensaje": "Cada **paso** cuenta en tu camino al **bienestar**.", "categoria": "crecimiento"}
     ]
-    return random.choice(tips)
+    return TipSaludableResponse(**random.choice(tips))

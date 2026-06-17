@@ -8,6 +8,9 @@ class CasoUsoGestionarIngredientes:
     def listar_ingredientes(self, consulta: str = None, limite: int = 100, desplazamiento: int = 0, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> List[Dict[str, Any]]:
         return self.repo_ingrediente.listar_ingredientes_admin(consulta, limite, desplazamiento, incluir_inactivos, id_grupo, id_subgrupo)
 
+    def contar_ingredientes(self, consulta: str = None, incluir_inactivos: bool = False, id_grupo: int = None, id_subgrupo: int = None) -> int:
+        return self.repo_ingrediente.contar_ingredientes_admin(consulta, incluir_inactivos, id_grupo, id_subgrupo)
+
     def buscar_para_paciente(self, id_paciente: str, consulta: str = None, limite: int = 50) -> List[Dict[str, Any]]:
         return self.repo_ingrediente.buscar_ingredientes_filtrados(id_paciente, consulta, limite)
 

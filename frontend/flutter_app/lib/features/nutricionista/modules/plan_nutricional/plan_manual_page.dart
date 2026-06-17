@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +8,7 @@ import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
+import '../../../../shared/widgets/shimmer_components.dart';
 import '../../../../shared/widgets/layout_components.dart';
 
 // --- MODELOS ---
@@ -40,8 +43,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<Map<String, dynamic>> _patients = [];
   List<dynamic> _patientPlans = []; // Historial de planes
   bool _isLoading = false;
-  bool _viewingHistory = true; // Nueva bandera de estado
+  bool _isLoadingHistory = false;
+  bool _viewingHistory = true; 
   bool _recomendadorAbierto = false;
+  bool _isSaving = false;
+  bool _isLoadingRecomendaciones = false;
+  int? _loadingPlanId;
+  int? _editingPlanId;
+  bool _isDirty = false;
+  Timer? _searchDebounce;
 
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
@@ -132,7 +142,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         if (vigFin.isAfter(latestEnd)) latestEnd = vigFin;
       } catch (_) {}
     }
-    _startDate = latestEnd.add(const Duration(days: 1));
+    
+    if (latestEnd.isAfter(todayOnly)) {
+      _startDate = latestEnd.add(const Duration(days: 1));
+    } else {
+      _startDate = todayOnly;
+    }
 
     _endDate = _startDate.add(const Duration(days: 6));
     _calendarViewDate = _startDate;
@@ -164,15 +179,31 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       _selectedPatient = patient;
       _viewingHistory = true;
       _isLoading = true;
+      _patientProfile = null;
+      _planVigente = null;
+      _patientPlans = [];
+      _ingredientesSegurosCache = [];
+      _recomendacionesCache = [];
+      _boostersSeleccionados = [];
+      _weeklyPlan = [];
+      _planInitialized = false;
     });
 
     try {
       final dio = ref.read(dioProvider);
-      final prefetch = await dio.get(
-        "pacientes/${patient['id']}/prefetch-planificacion",
-        queryParameters: {"include_ingredientes": false},
-      );
-      final payload = Map<String, dynamic>.from(prefetch.data ?? {});
+      final patientId = patient['id'];
+
+      final results = await Future.wait([
+        dio.get(
+          "pacientes/$patientId/prefetch-planificacion",
+          queryParameters: {"include_ingredientes": true},
+        ),
+        dio.get("pacientes/$patientId/planes"),
+      ]);
+
+      final payload = Map<String, dynamic>.from(results[0].data ?? {});
+      final List planesRaw = results[1].data ?? [];
+
       _patientProfile = Map<String, dynamic>.from(payload["expediente"] ?? {});
       _planVigente = payload["plan_vigente"] != null
           ? Map<String, dynamic>.from(payload["plan_vigente"])
@@ -187,27 +218,35 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           [];
 
       if (_recomendacionesCache.isEmpty) {
-        try {
-          final recoRes =
-              await dio.get("ingredientes/recomendados/${patient['id']}");
-          _recomendacionesCache = (recoRes.data as List?)
-                  ?.map((e) => Map<String, dynamic>.from(e))
-                  .toList() ??
-              [];
-        } catch (_) {}
+        dio.get("ingredientes/recomendados/$patientId").then((recoRes) {
+          if (mounted) {
+            setState(() {
+              _recomendacionesCache = (recoRes.data as List?)
+                      ?.map((e) => Map<String, dynamic>.from(e))
+                      .toList() ??
+                  [];
+              _boostersSeleccionados = _recomendacionesCache
+                  .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+                  .whereType<int>()
+                  .toList();
+            });
+          }
+        }).catchError((_) {});
+      } else {
+        _boostersSeleccionados = _recomendacionesCache
+            .map((r) => (r["id_ingrediente"] as num?)?.toInt())
+            .whereType<int>()
+            .toList();
       }
-      _boostersSeleccionados = _recomendacionesCache
-          .map((r) => (r["id_ingrediente"] as num?)?.toInt())
-          .whereType<int>()
-          .toList();
 
       final estadoValidacion =
           Map<String, dynamic>.from(payload["estado_validacion"] ?? {});
       final mostrarModal = estadoValidacion["mostrar_modal"] == true;
+
       if (mostrarModal) {
-        await _mostrarModalValidacionClinica(patient['id'].toString());
+        await _mostrarModalValidacionClinica(patientId.toString());
         final resRevalidado = await dio.get(
-          "pacientes/${patient['id']}/control-mensual-actual/estado-validacion",
+          "pacientes/$patientId/control-mensual-actual/estado-validacion",
         );
         if (resRevalidado.data != null) {
           final dataRevalidada = Map<String, dynamic>.from(resRevalidado.data);
@@ -231,15 +270,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         }
       }
 
-      final resPlanes = await dio.get("pacientes/${patient['id']}/planes");
-      final List planesRaw = resPlanes.data ?? [];
-      final List<Map<String, dynamic>> planes =
-          planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
-
       setState(() {
-        _patientPlans = planes;
+        _patientPlans =
+            planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
         _planInitialized = false;
-        _calculateSmartDates(planes, planVigente: _planVigente);
+        _calculateSmartDates(_patientPlans, planVigente: _planVigente);
       });
     } catch (e) {
       debugPrint("Error en _onPatientSelected: $e");
@@ -347,15 +382,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Future<void> _abrirRecomendadorIngredientes() async {
-    if (_selectedPatient == null || _isLoading || _recomendadorAbierto) return;
-    setState(() => _recomendadorAbierto = true);
+    if (_selectedPatient == null ||
+        _isLoadingRecomendaciones ||
+        _recomendadorAbierto) return;
+    setState(() => _isLoadingRecomendaciones = true);
     try {
       await _modalRecomendacionesNutri(_selectedPatient!["id"].toString());
     } finally {
       if (mounted) {
-        setState(() => _recomendadorAbierto = false);
+        setState(() => _isLoadingRecomendaciones = false);
       } else {
-        _recomendadorAbierto = false;
+        _isLoadingRecomendaciones = false;
       }
     }
   }
@@ -592,22 +629,31 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     setState(() {
       _viewingHistory = false;
       _planInitialized = false;
-      _weeklyPlan = []; // Limpiar plan previo
-      _calculateSmartDates(_patientPlans,
-          planVigente: _planVigente); // Recalcular fechas para el nuevo plan
+      _editingPlanId = null;
+      _isDirty = false;
+      _weeklyPlan = [];
+
+      // Resetear configuraciones a valores por defecto
+      _durationType = "una semana";
+      _morningSnackEnabled = false;
+      _afternoonSnackEnabled = false;
+      _singleMealId = 3;
+
+      _calculateSmartDates(_patientPlans, planVigente: _planVigente);
     });
     _showConfigModal();
   }
 
   Future<void> _verDetallePlan(Map<String, dynamic> plan) async {
-    setState(() => _isLoading = true);
+    final planId = (plan['id'] as num?)?.toInt();
+    if (planId == null) return;
+
+    setState(() => _loadingPlanId = planId);
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("planes/${plan['id']}");
-      final List items =
-          res.data; // [{fecha, id_momento, id_receta, nombre_receta}]
+      final res = await dio.get("planes/$planId");
+      final List items = res.data; 
 
-      // 1. Agrupar por fecha
       final Map<String, List<Map<String, dynamic>>> group = {};
       for (var it in items) {
         final f = it["fecha"].toString();
@@ -623,7 +669,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         final dayItems = group[fStr]!;
 
         final List<MealSlot> slots = [];
-        // Determinar snacks habilitados
         bool hasM = dayItems.any((i) => i["id_momento"] == 2);
         bool hasT = dayItems.any((i) => i["id_momento"] == 4);
 
@@ -631,20 +676,22 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             mealType: "Desayuno",
             momentId: 1,
             recipes: _findRecipe(dayItems, 1)));
-        if (hasM)
+        if (hasM) {
           slots.add(MealSlot(
               mealType: "Media mañana",
               momentId: 2,
               recipes: _findRecipe(dayItems, 2)));
+        }
         slots.add(MealSlot(
             mealType: "Almuerzo",
             momentId: 3,
             recipes: _findRecipe(dayItems, 3)));
-        if (hasT)
+        if (hasT) {
           slots.add(MealSlot(
               mealType: "Media tarde",
               momentId: 4,
               recipes: _findRecipe(dayItems, 4)));
+        }
         slots.add(MealSlot(
             mealType: "Merienda",
             momentId: 5,
@@ -657,6 +704,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         _weeklyPlan = reconstructed;
         _viewingHistory = false;
         _planInitialized = true;
+        _editingPlanId = planId;
+        _isDirty = false;
         _startDate = reconstructed.first.date;
         _endDate = reconstructed.last.date;
         _morningSnackEnabled =
@@ -665,11 +714,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             reconstructed.any((d) => d.slots.any((s) => s.momentId == 4));
       });
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error al cargar plan: $e")));
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _loadingPlanId = null);
     }
   }
 
@@ -688,35 +738,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   @override
   Widget build(BuildContext context) {
-    final body = Scaffold(
+    return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: _selectedPatient == null
-          ? _buildPatientSelection()
-          : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
-    );
-
-    if (_isLoading && _selectedPatient != null) {
-      return Stack(
+      body: Stack(
         children: [
-          body,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: Colors.white.withOpacity(0.70),
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-              ),
-            ),
-          ),
+          _selectedPatient == null
+              ? _buildPatientSelection()
+              : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
+          _buildLoadingOverlay(),
         ],
-      );
-    }
-
-    return body;
+      ),
+    );
   }
 
   Widget _buildPatientSelection() {
@@ -726,7 +758,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Planificación nutricional manual",
+            "Planificación nutricional",
             style: GoogleFonts.inter(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -744,7 +776,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // Buscador
           Container(
             height: 48,
             decoration: BoxDecoration(
@@ -769,7 +800,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 24),
-          // Filtros
           SizedBox(
             height: 48,
             child: ListView.separated(
@@ -782,8 +812,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 return ChoiceChip(
                   label: Text(f),
                   selected: isSelected,
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedFilter = f);
+                  onSelected: (val) async {
+                    if (val) {
+                      setState(() {
+                        _selectedFilter = f;
+                        _isLoading = true;
+                      });
+                      await Future.delayed(const Duration(milliseconds: 300));
+                      if (mounted) setState(() => _isLoading = false);
+                    }
                   },
                   labelStyle: GoogleFonts.montserrat(
                     fontSize: 11,
@@ -808,13 +845,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // Listado de pacientes
-          if (_isLoading)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(40.0),
-              child: CircularProgressIndicator(),
-            ))
+          if (_isLoading && _patients.isEmpty)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 5,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: NutriShimmer(
+                  width: double.infinity,
+                  height: 100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            )
           else if (_patientsFiltrados.isEmpty)
             const Center(child: Text("No se encontraron pacientes"))
           else
@@ -833,20 +877,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Color _getAvatarColor(String nombre) {
     final colors = [
-      const Color(0xFFEFF6FF), // Blue
-      const Color(0xFFF5F3FF), // Purple
-      const Color(0xFFECFDF5), // Green
-      const Color(0xFFFFF7ED), // Orange
+      const Color(0xFFEFF6FF), 
+      const Color(0xFFF5F3FF), 
+      const Color(0xFFECFDF5), 
+      const Color(0xFFFFF7ED), 
     ];
     return colors[nombre.length % colors.length];
   }
 
   Color _getTextColor(String nombre) {
     final colors = [
-      const Color(0xFF2563EB), // Blue
-      const Color(0xFF7C3AED), // Purple
-      const Color(0xFF059669), // Green
-      const Color(0xFFD97706), // Orange
+      const Color(0xFF2563EB), 
+      const Color(0xFF7C3AED), 
+      const Color(0xFF059669), 
+      const Color(0xFFD97706), 
     ];
     return colors[nombre.length % colors.length];
   }
@@ -862,7 +906,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final String diagnostico = p["enfermedad_principal"] ?? "No registrado";
     final String condicionNutri = p["condicion_nutricional"] ?? "Desconocida";
 
-    // Asumimos inactivo o no validado hasta que se implementen flags reales en backend
     final bool planActivo = p["plan_activo"] == true;
     final bool validacionConfirmada = p["validacion_confirmada"] == true;
 
@@ -874,7 +917,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.01),
+            color: Colors.black.withValues(alpha: 0.01),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1015,7 +1058,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -1039,7 +1082,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Widget _buildHistoryLayout() {
     return Row(
       children: [
-        // Sidebar
         if (_patientProfile != null)
           PatientSummaryPanel(
             expediente: _patientProfile!,
@@ -1047,21 +1089,51 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
-          const SizedBox(
-              width: 320, child: Center(child: CircularProgressIndicator())),
-
-        // Contenido Historial
+          Container(
+            width: 320,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(right: BorderSide(color: Color(0xFFF1F5F9))),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: const Column(
+              children: [
+                NutriShimmer(
+                    width: 100,
+                    height: 100,
+                    borderRadius: BorderRadius.all(Radius.circular(50))),
+                SizedBox(height: 24),
+                NutriShimmer(width: 200, height: 20),
+                SizedBox(height: 12),
+                NutriShimmer(width: 120, height: 14),
+                SizedBox(height: 48),
+                NutriCardShimmer(height: 90),
+                SizedBox(height: 20),
+                NutriCardShimmer(height: 90),
+                SizedBox(height: 20),
+                NutriCardShimmer(height: 90),
+              ],
+            ),
+          ),
         Expanded(
           child: Column(
             children: [
               _buildHistoryTopBar(),
-              _buildWorkflowSections(),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF1F5F9),
-                  child: _patientPlans.isEmpty
-                      ? _buildEmptyHistoryState()
-                      : _buildHistoryList(),
+                  child: _isLoading && _patientPlans.isEmpty
+                      ? ListView.builder(
+                          padding: const EdgeInsets.all(40),
+                          itemCount: 3,
+                          itemBuilder: (_, __) => const Padding(
+                            padding: EdgeInsets.only(bottom: 24),
+                            child: NutriCardShimmer(height: 140),
+                          ),
+                        )
+                      : _patientPlans.isEmpty
+                          ? _buildEmptyHistoryState()
+                          : _buildHistoryList(),
                 ),
               ),
             ],
@@ -1109,7 +1181,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           FilledButton.icon(
             onPressed: _startNewPlan,
             icon: const Icon(Icons.add_rounded),
-            label: const Text("Seccion Plan Manual",
+            label: const Text("Crear plan",
                 style: TextStyle(fontWeight: FontWeight.bold)),
             style: FilledButton.styleFrom(
               backgroundColor: greenBrand,
@@ -1122,102 +1194,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           OutlinedButton.icon(
             onPressed: _abrirRecomendadorIngredientes,
             icon: const Icon(Icons.eco_outlined),
-            label: const Text("Seccion Recomendador"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWorkflowSections() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildWorkflowCard(
-              title: "Seccion Plan Manual",
-              description:
-                  "Arma o ajusta el plan nutricional completo del paciente.",
-              icon: Icons.calendar_month_rounded,
-              primary: true,
-              onTap: _startNewPlan,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildWorkflowCard(
-              title: "Seccion Recomendador",
-              description:
-                  "Selecciona ingredientes seguros para potenciar el algoritmo.",
-              icon: Icons.eco_outlined,
-              primary: false,
-              onTap: _abrirRecomendadorIngredientes,
+            label: const Text("Recomendaciones"),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildWorkflowCard({
-    required String title,
-    required String description,
-    required IconData icon,
-    required bool primary,
-    required VoidCallback onTap,
-  }) {
-    final bg = primary ? const Color(0xFFE8F5E9) : const Color(0xFFF1F5F9);
-    final border =
-        primary ? greenBrand.withOpacity(0.35) : const Color(0xFFCBD5E1);
-    final iconBg = primary ? greenBrand : const Color(0xFF0F172A);
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: Color(0xFF0F172A)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style:
-                        const TextStyle(fontSize: 12, color: Colors.blueGrey),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: Colors.blueGrey),
-          ],
-        ),
       ),
     );
   }
@@ -1246,11 +1230,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               OutlinedButton.icon(
                   onPressed: _startNewPlan,
                   icon: const Icon(Icons.add),
-                  label: const Text("Seccion Plan Manual")),
+                  label: const Text("Crear plan")),
               OutlinedButton.icon(
                 onPressed: _abrirRecomendadorIngredientes,
                 icon: const Icon(Icons.eco_outlined),
-                label: const Text("Seccion Recomendador"),
+                label: const Text("Recomendaciones"),
               ),
             ],
           ),
@@ -1266,7 +1250,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       itemCount: _patientPlans.length,
       itemBuilder: (context, idx) {
         final p = _patientPlans[idx];
+        final pId = (p['id'] as num?)?.toInt();
         final isVigente = p["vigente"] == true;
+        final bool isLoadingThis = _loadingPlanId == pId;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 20),
@@ -1274,7 +1260,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
                   color: isVigente
-                      ? greenBrand.withOpacity(0.3)
+                      ? greenBrand.withValues(alpha: 0.3)
                       : Colors.transparent)),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -1285,7 +1271,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   height: 60,
                   decoration: BoxDecoration(
                       color: isVigente
-                          ? greenBrand.withOpacity(0.1)
+                          ? greenBrand.withValues(alpha: 0.1)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(16)),
                   child: Icon(Icons.description_outlined,
@@ -1332,13 +1318,23 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         IconButton(
                           icon: const Icon(Icons.delete_outline_rounded,
                               color: Colors.redAccent),
-                          onPressed: () => _deletePlan(p["id"]),
+                          onPressed: () => _deletePlan(pId ?? 0),
                           tooltip: "Eliminar plan",
                         ),
                         const SizedBox(width: 8),
-                        FilledButton.tonal(
-                          onPressed: () => _verDetallePlan(p),
-                          child: const Text("Ver Detalle"),
+                        SizedBox(
+                          width: 140,
+                          child: FilledButton.tonal(
+                            onPressed:
+                                isLoadingThis ? null : () => _verDetallePlan(p),
+                            child: isLoadingThis
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Text("Ver Detalle"),
+                          ),
                         ),
                       ],
                     ),
@@ -1390,7 +1386,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Sidebar Izquierdo
         if (_patientProfile != null)
           PatientSummaryPanel(
             expediente: _patientProfile!,
@@ -1398,10 +1393,25 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             onVerExpediente: _mostrarExpedienteMaestroDialog,
           )
         else
-          const SizedBox(
-              width: 320, child: Center(child: CircularProgressIndicator())),
+          Container(
+            width: 320,
+            color: Colors.white,
+            padding: const EdgeInsets.all(24),
+            child: const Column(
+              children: [
+                NutriShimmer(width: 80, height: 80, borderRadius: BorderRadius.all(Radius.circular(40))),
+                SizedBox(height: 24),
+                NutriShimmer(width: 200, height: 20),
+                SizedBox(height: 12),
+                NutriShimmer(width: 150, height: 14),
+                SizedBox(height: 40),
+                NutriCardShimmer(height: 80),
+                SizedBox(height: 16),
+                NutriCardShimmer(height: 80),
+              ],
+            ),
+          ),
 
-        // Área Central de Trabajo
         Expanded(
           child: Column(
             children: [
@@ -1409,7 +1419,36 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               Expanded(
                 child: Container(
                   color: const Color(0xFFF1F5F9),
-                  child: _buildWeeklyTimeline(),
+                  child: _isLoading && _weeklyPlan.isEmpty
+                      ? ListView.builder(
+                          padding: const EdgeInsets.all(32),
+                          itemCount: 3,
+                          itemBuilder: (_, __) => Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const NutriShimmer(width: 100, height: 80),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const NutriShimmer(width: 200, height: 20),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        spacing: 16,
+                                        runSpacing: 16,
+                                        children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _buildWeeklyTimeline(),
                 ),
               ),
             ],
@@ -1420,13 +1459,16 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Widget _buildModernTopBar() {
+    final bool canFinalize =
+        (_editingPlanId == null || _isDirty) && !_isSaving;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -1472,18 +1514,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
           const SizedBox(width: 12),
           _buildActionButton(
-            label: "Guardar Mes Completo",
-            icon: Icons.auto_mode_rounded,
-            onPressed: () => _savePlan(replicate: true),
-            color: Colors.indigo.shade600,
-          ),
-          const SizedBox(width: 12),
-          _buildActionButton(
             label: "Finalizar Plan",
             icon: Icons.check_circle_rounded,
-            onPressed: () => _savePlan(replicate: false),
-            color: greenBrand,
+            onPressed: canFinalize ? () => _savePlan() : () {},
+            color: canFinalize ? greenBrand : Colors.grey,
             isPrimary: true,
+            isLoading: _isSaving,
           ),
         ],
       ),
@@ -1495,32 +1531,81 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       required IconData icon,
       required VoidCallback onPressed,
       required Color color,
-      bool isPrimary = false}) {
-    return isPrimary
-        ? FilledButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: 18),
-            label: Text(label,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            style: FilledButton.styleFrom(
-              backgroundColor: color,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+      bool isPrimary = false,
+      bool isLoading = false}) {
+    if (isPrimary) {
+      return FilledButton(
+        onPressed: isLoading ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (isLoading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            Opacity(
+              opacity: isLoading ? 0.0 : 1.0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 8),
+                  Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: Icon(icon, size: 18, color: color),
-            label: Text(label,
-                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: color.withOpacity(0.5)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+          ],
+        ),
+      );
+    }
+
+    return OutlinedButton(
+      onPressed: isLoading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: color.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (isLoading)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: color,
+              ),
             ),
-          );
+          Opacity(
+            opacity: isLoading ? 0.0 : 1.0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Text(label,
+                    style:
+                        TextStyle(color: color, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildWeeklyTimeline() {
@@ -1544,10 +1629,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.blue.withOpacity(0.05),
+                              color: Colors.blue.withValues(alpha: 0.05),
                               blurRadius: 4)
                         ],
                       ),
@@ -1574,7 +1659,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         child: Container(
                           width: 2,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                         ),
                       ),
                   ],
@@ -1656,14 +1741,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 8,
               offset: const Offset(0, 4))
         ],
         border: Border.all(
             color: hasRecipe
-                ? colorSlot.withOpacity(0.45)
-                : Colors.orange.withOpacity(0.1),
+                ? colorSlot.withValues(alpha: 0.45)
+                : Colors.orange.withValues(alpha: 0.1),
             width: hasRecipe ? 1.4 : 1),
       ),
       child: Column(
@@ -1673,7 +1758,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: hasRecipe
-                  ? colorSlot.withOpacity(0.1)
+                  ? colorSlot.withValues(alpha: 0.1)
                   : const Color(0xFFFFF7ED),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
@@ -1709,9 +1794,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.08),
+                            color: color.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: color.withOpacity(0.22)),
+                            border: Border.all(color: color.withValues(alpha: 0.22)),
                           ),
                           child: InkWell(
                             onTap: () => _mostrarDetalleReceta(
@@ -1780,10 +1865,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: const Icon(Icons.refresh_rounded,
+                            icon: const Icon(Icons.edit_rounded,
                                 size: 18, color: Colors.blueGrey),
                             onPressed: () => _openRecipePicker(dayIdx, slotIdx),
-                            tooltip: "Cambiar recetas",
+                            tooltip: "Editar recetas",
                           ),
                           const SizedBox(width: 8),
                           IconButton(
@@ -1792,7 +1877,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             constraints: const BoxConstraints(),
                             icon: const Icon(Icons.delete_outline_rounded,
                                 size: 18, color: Colors.redAccent),
-                            onPressed: () => setState(() => s.recipes = []),
+                            onPressed: () => setState(() {
+                              s.recipes = [];
+                              _isDirty = true;
+                            }),
                             tooltip: "Quitar",
                           ),
                         ],
@@ -1809,7 +1897,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.orange,
                           side:
-                              BorderSide(color: Colors.orange.withOpacity(0.3)),
+                              BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -1822,238 +1910,364 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
-  void _showConfigModal() {
+  Map<int, bool> _momentosPasados = {};
+  int _singleMealId = 3;
+
+  void _showConfigModal() async {
     bool morningSnack = _morningSnackEnabled;
     bool afternoonSnack = _afternoonSnackEnabled;
+    
     final isAdjusting = _planInitialized;
     bool isGenerating = false;
 
+    final now = DateTime.now();
+    if (!isAdjusting && _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day) {
+      try {
+        final dio = ref.read(dioProvider);
+        final res = await dio.get("tutor/momentos-comida");
+        final momentos = List<dynamic>.from(res.data);
+        final Map<int, bool> pasados = {};
+
+        for (var m in momentos) {
+          final mId = m['id'];
+          final horaFinStr = m['hora_fin'];
+          if (horaFinStr == null) continue;
+          final parts = horaFinStr.toString().split(':');
+          final mHoraFin = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          final currentTodo = TimeOfDay.fromDateTime(now);
+          bool yaPaso = currentTodo.hour > mHoraFin.hour || 
+                       (currentTodo.hour == mHoraFin.hour && currentTodo.minute > mHoraFin.minute);
+          
+          if (yaPaso) {
+            pasados[mId] = true;
+            if (mId == 2) morningSnack = false;
+            if (mId == 4) afternoonSnack = false;
+          }
+        }
+
+        _momentosPasados = pasados;
+        if (_momentosPasados[_singleMealId] == true) {
+          final available = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+          if (available.isNotEmpty) {
+            _singleMealId = available.first;
+          }
+        }
+      } catch (e) {
+        debugPrint("Error pre-configurando momentos inteligentes: $e");
+      }
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
-      barrierDismissible: false, // Forzar uso de botones
+      barrierDismissible: false, 
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Column(
-            children: [
-              const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
-              const SizedBox(height: 12),
-              Text(
-                  isAdjusting
-                      ? "Ajustar plan nutricional"
-                      : "Configurar plan alimentario",
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildModalSectionTitle("Periodo de Vigencia"),
-                  DropdownButtonFormField<String>(
-                    value: _durationType,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: "un día", child: Text("Un día")),
-                      DropdownMenuItem(
-                          value: "una semana", child: Text("Una semana")),
-                      DropdownMenuItem(value: "un mes", child: Text("Un mes")),
-                    ],
-                    onChanged: (v) {
-                      setModalState(() {
-                        _durationType = v!;
-                        if (_durationType == "un día") {
-                          _endDate = _startDate;
-                        } else if (_durationType == "una semana") {
-                          _endDate = _startDate.add(const Duration(days: 6));
-                        } else if (_durationType == "un mes") {
-                          _endDate = _startDate.add(const Duration(days: 30));
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModalSectionTitle("Resumen de Fechas"),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.calendar_month, color: Colors.blue),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                              fontSize: 14),
-                        ),
-                        Text(
-                          "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
-                          style: TextStyle(
-                              color: Colors.blue.shade700, fontSize: 12),
-                        ),
+        builder: (context, setModalState) {
+          final availableMoments = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Column(
+              children: [
+                const Icon(Icons.settings_suggest, size: 40, color: Colors.blue),
+                const SizedBox(height: 12),
+                Text(
+                    isAdjusting
+                        ? "Ajustar plan nutricional"
+                        : "Configurar plan alimentario",
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildModalSectionTitle("Periodo de Vigencia"),
+                    DropdownButtonFormField<String>(
+                      value: _durationType,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: "una comida", child: Text("Una sola comida")),
+                        DropdownMenuItem(value: "un día", child: Text("Un día completo")),
+                        DropdownMenuItem(
+                            value: "una semana", child: Text("Una semana")),
+                        DropdownMenuItem(value: "un mes", child: Text("Un mes")),
                       ],
+                      onChanged: (v) {
+                        setModalState(() {
+                          _durationType = v!;
+                          if (_durationType == "una comida" || _durationType == "un día") {
+                            _endDate = _startDate;
+                          } else if (_durationType == "una semana") {
+                            _endDate = _startDate.add(const Duration(days: 6));
+                          } else if (_durationType == "un mes") {
+                            _endDate = _startDate.add(const Duration(days: 30));
+                          }
+                        });
+                      },
                     ),
-                  ),
-                  const Divider(height: 32),
-                  _buildModalSectionTitle("Tiempos obligatorios"),
-                  const Text("Se establecerán 3 comidas base por día.",
-                      style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
-                  const SizedBox(height: 12),
-                  _buildConfigTile(
-                      "Desayuno", "Principal", Icons.wb_twilight, true, null),
-                  _buildConfigTile(
-                      "Almuerzo", "Principal", Icons.wb_sunny, true, null),
-                  _buildConfigTile("Merienda", "Principal",
-                      Icons.nightlight_round, true, null),
-                  const Divider(height: 32),
-                  _buildModalSectionTitle("Snacks opcionales"),
-                  _buildConfigTile(
-                      "Snack media mañana",
-                      "Entre desayuno y almuerzo",
-                      Icons.coffee,
-                      morningSnack,
-                      (v) => setModalState(() => morningSnack = v!)),
-                  _buildConfigTile(
-                      "Snack media tarde",
-                      "Entre almuerzo y cena",
-                      Icons.apple,
-                      afternoonSnack,
-                      (v) => setModalState(() => afternoonSnack = v!)),
-                ],
+                    const SizedBox(height: 16),
+                    _buildModalSectionTitle("Resumen de Fechas"),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.calendar_month, color: Colors.blue),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                                fontSize: 14),
+                          ),
+                          Text(
+                            _durationType == "una comida"
+                                ? "Generación rápida de 1 comida"
+                                : "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                            style: TextStyle(
+                                color: Colors.blue.shade700, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 32),
+                    
+                    if (_durationType == "una comida") ...[
+                      _buildModalSectionTitle("Selecciona la comida"),
+                      if (availableMoments.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade200)
+                          ),
+                          child: const Text(
+                            "Todos los momentos de comida para el día de hoy ya han pasado.",
+                            style: TextStyle(color: Colors.deepOrange, fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<int>(
+                          value: availableMoments.contains(_singleMealId) ? _singleMealId : availableMoments.first,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.blue.shade50,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: availableMoments.map((id) => DropdownMenuItem(
+                            value: id,
+                            child: Text(_getMomentName(id), style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                          )).toList(),
+                          onChanged: (v) => setModalState(() => _singleMealId = v!),
+                        ),
+                    ] else ...[
+                      _buildModalSectionTitle("Tiempos obligatorios"),
+                      const Text("Se establecerán 3 comidas base por día.",
+                          style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                      const SizedBox(height: 12),
+                      _buildConfigTile(
+                          "Desayuno", "Principal", Icons.wb_twilight, true, null),
+                      _buildConfigTile(
+                          "Almuerzo", "Principal", Icons.wb_sunny, true, null),
+                      _buildConfigTile("Merienda", "Principal",
+                          Icons.nightlight_round, true, null),
+                      const Divider(height: 32),
+                      _buildModalSectionTitle("Snacks opcionales"),
+                      _buildConfigTile(
+                          "Snack media mañana",
+                          "Entre desayuno y almuerzo",
+                          Icons.coffee,
+                          morningSnack,
+                          (v) => setModalState(() => morningSnack = v!)),
+                      _buildConfigTile(
+                          "Snack media tarde",
+                          "Entre almuerzo y cena",
+                          Icons.apple,
+                          afternoonSnack,
+                          (v) => setModalState(() => afternoonSnack = v!)),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: isGenerating
-                        ? null
-                        : () {
-                            if (isAdjusting) {
-                              Navigator.pop(context);
-                            } else {
-                              // Si es creación, cancelar vuelve al historial
-                              setState(() => _viewingHistory = true);
-                              Navigator.pop(context);
-                            }
-                          },
-                    child: const Text("Cancelar"),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: isGenerating
-                        ? null
-                        : () async {
-                            // VALIDACIÓN CRÍTICA: Fecha de Control
-                            final proximaCitaStr = _patientProfile?['ultimo_control']
-                                ?['fecha_proxima_cita'];
-                            if (proximaCitaStr != null) {
-                              final proximaCita = DateTime.parse(proximaCitaStr);
-                              if (_endDate.isAfter(proximaCita)) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  backgroundColor: Colors.redAccent,
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                          "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
-                                          style:
-                                              TextStyle(fontWeight: FontWeight.bold)),
-                                      Text(
-                                          "El plan excede la fecha del próximo control ($proximaCitaStr)."),
-                                      const Text("Acciones sugeridas:"),
-                                      const Text(
-                                          "• Edite un plan existente para ampliarlo."),
-                                      const Text(
-                                          "• Cree un plan de menor duración (Día/Semana)."),
-                                      const Text(
-                                          "• Elimine planes futuros para liberar el calendario."),
-                                    ],
-                                  ),
-                                  duration: const Duration(seconds: 8),
-                                ));
-                                return; // No cerrar el modal
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isGenerating
+                          ? null
+                          : () {
+                              if (isAdjusting) {
+                                Navigator.pop(context);
+                              } else {
+                                setState(() => _viewingHistory = true);
+                                Navigator.pop(context);
                               }
-                            }
-
-                            setModalState(() => isGenerating = true);
-                            _morningSnackEnabled = morningSnack;
-                            _afternoonSnackEnabled = afternoonSnack;
-                            
-                            if (isAdjusting) {
-                              _initPlan(morningSnack, afternoonSnack);
-                            } else {
-                              await _initPlanAutomatic(morningSnack, afternoonSnack);
-                            }
-                            
-                            if (context.mounted) Navigator.pop(context);
-                          },
-                    child: isGenerating
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(isAdjusting
-                            ? "Actualizar Plan"
-                            : "Continuar y generar tabla"),
+                            },
+                      child: const Text("Cancelar"),
+                    ),
                   ),
-                ),
-              ],
-            )
-          ],
-        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isGenerating
+                          ? null
+                          : () async {
+                              final proximaCitaStr = _patientProfile?['ultimo_control']
+                                  ?['fecha_proxima_cita'];
+                              if (proximaCitaStr != null) {
+                                final proximaCita = DateTime.parse(proximaCitaStr);
+                                if (_endDate.isAfter(proximaCita)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    backgroundColor: Colors.redAccent,
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                            "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
+                                            style:
+                                                TextStyle(fontWeight: FontWeight.bold)),
+                                        Text(
+                                            "El plan excede la fecha del próximo control ($proximaCitaStr)."),
+                                        const Text("Acciones sugeridas:"),
+                                        const Text(
+                                            "• Edite un plan existente para ampliarlo."),
+                                        const Text(
+                                            "• Cree un plan de menor duración (Día/Semana)."),
+                                        const Text(
+                                            "• Elimine planes futuros para liberar el calendario."),
+                                      ],
+                                    ),
+                                    duration: const Duration(seconds: 8),
+                                  ));
+                                  return;
+                                }
+                              }
+
+                              setModalState(() => isGenerating = true);
+                              _morningSnackEnabled = morningSnack;
+                              _afternoonSnackEnabled = afternoonSnack;
+                              
+                              // SIEMPRE disparamos la generación automática al ajustar o crear
+                              final List<int> selectedMomentos = [];
+                              if (_durationType == "una comida") {
+                                selectedMomentos.add(_singleMealId);
+                              } else {
+                                selectedMomentos.addAll([1, 3, 5]);
+                                if (morningSnack) selectedMomentos.add(2);
+                                if (afternoonSnack) selectedMomentos.add(4);
+                              }
+                              
+                              // Cerramos el modal inmediatamente para mostrar el overlay de carga global
+                              if (context.mounted) Navigator.pop(context);
+
+                              await _initPlanAutomaticWithCustomMoments(selectedMomentos);
+                            },
+                      child: isGenerating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text("Continuar y generar plan"),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          );
+        }
       ),
     );
+  }
+
+
+  String _getMomentName(int id) {
+    switch (id) {
+      case 1: return "Desayuno";
+      case 2: return "Media mañana";
+      case 3: return "Almuerzo";
+      case 4: return "Media tarde";
+      case 5: return "Merienda";
+      default: return "Comida";
+    }
   }
 
   void _initPlan(bool morning, bool afternoon) {
     final List<PlanDay> plan = [];
     DateTime current = _startDate;
+
+    final Map<String, Map<int, List<dynamic>>> planPrevio = {};
+    for (var d in _weeklyPlan) {
+      final dateKey = DateFormat('yyyy-MM-dd').format(d.date);
+      planPrevio[dateKey] = {};
+      for (var s in d.slots) {
+        planPrevio[dateKey]![s.momentId] = List.from(s.recipes);
+      }
+    }
+
     while (!current.isAfter(_endDate)) {
-      plan.add(PlanDay(date: current, slots: [
-        MealSlot(mealType: "Desayuno", momentId: 1),
-        if (morning) MealSlot(mealType: "Media mañana", momentId: 2),
-        MealSlot(mealType: "Almuerzo", momentId: 3),
-        if (afternoon) MealSlot(mealType: "Media tarde", momentId: 4),
-        MealSlot(mealType: "Merienda", momentId: 5),
-      ]));
+      final dateKey = DateFormat('yyyy-MM-dd').format(current);
+      final prevDay = planPrevio[dateKey];
+      final List<MealSlot> newSlots = [];
+      List<dynamic> getPrevRecipes(int mId) => prevDay?[mId] ?? [];
+
+      newSlots.add(MealSlot(
+          mealType: "Desayuno", momentId: 1, recipes: getPrevRecipes(1)));
+      if (morning) {
+        newSlots.add(MealSlot(
+            mealType: "Media mañana", momentId: 2, recipes: getPrevRecipes(2)));
+      }
+      newSlots.add(MealSlot(
+          mealType: "Almuerzo", momentId: 3, recipes: getPrevRecipes(3)));
+      if (afternoon) {
+        newSlots.add(MealSlot(
+            mealType: "Media tarde", momentId: 4, recipes: getPrevRecipes(4)));
+      }
+      newSlots.add(MealSlot(
+          mealType: "Merienda", momentId: 5, recipes: getPrevRecipes(5)));
+
+      plan.add(PlanDay(date: current, slots: newSlots));
       current = current.add(const Duration(days: 1));
     }
 
@@ -2063,19 +2277,37 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     });
   }
 
-  Future<void> _initPlanAutomatic(bool morning, bool afternoon) async {
-    final List<PlanDay> plan = [];
+  Future<void> _initPlanAutomaticWithCustomMoments(List<int> momentosIds) async {
     final idPaciente = _selectedPatient?['id']?.toString();
     if (idPaciente == null) return;
 
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = "Iniciando generación de plan inteligente...";
+    });
+
     try {
       final repo = ref.read(inteligenciaRepositoryProvider);
-
-      final List<int> momentosIds = [1, 3, 5];
-      if (morning) momentosIds.add(2);
-      if (afternoon) momentosIds.add(4);
-
       final totalDias = _endDate.difference(_startDate).inDays + 1;
+
+      final progressMessages = [
+        "Analizando perfil clínico y reglas de seguridad...",
+        "Filtrando catálogo de recetas seguras para el paciente...",
+        "Generando menús equilibrados para cada momento...",
+        "Optimizando variedad y rotación de alimentos...",
+        "Finalizando estructura del plan nutricional..."
+      ];
+
+      int msgIdx = 0;
+      final timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (msgIdx < progressMessages.length && _isLoading) {
+          if (mounted) {
+            setState(() => _loadingMessage = progressMessages[msgIdx++]);
+          }
+        } else {
+          t.cancel();
+        }
+      });
 
       final resp = await repo.planAutomatico(
         idPaciente: idPaciente,
@@ -2084,13 +2316,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         momentosIds: momentosIds,
       );
 
+      timer.cancel();
       final List<dynamic> diasData = resp['dias'] ?? [];
+      final List<PlanDay> plan = [];
 
       for (var diaData in diasData) {
         final DateTime fecha = DateTime.parse(diaData['fecha']);
         final List<dynamic> comidas = diaData['comidas'] ?? [];
-
-        // Agrupamos recetas por momentId para no duplicar slots en la UI
         final Map<int, MealSlot> groupedSlots = {};
 
         for (var comida in comidas) {
@@ -2101,12 +2333,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             "semaforo": comida['semaforo'] ?? "neutral",
             "imagen_url": comida['imagen_url'],
           };
-
           if (groupedSlots.containsKey(mId)) {
-            // Si el momento ya existe, solo añadimos la receta a la lista
             groupedSlots[mId]!.recipes.add(recipe);
           } else {
-            // Si es un nuevo momento, creamos el slot con la primera receta
             groupedSlots[mId] = MealSlot(
               mealType: comida['nombre_momento'],
               momentId: mId,
@@ -2114,24 +2343,71 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             );
           }
         }
-        
-        // Convertimos el mapa a una lista ordenada por momentId
         final sortedSlots = groupedSlots.keys.toList()..sort();
         plan.add(PlanDay(
-          date: fecha, 
-          slots: sortedSlots.map((id) => groupedSlots[id]!).toList()
-        ));
+            date: fecha,
+            slots: sortedSlots.map((id) => groupedSlots[id]!).toList()));
       }
 
-      setState(() {
-        _weeklyPlan = plan;
-        _planInitialized = true;
-      });
+      if (mounted) {
+        setState(() {
+          _weeklyPlan = plan;
+          _planInitialized = true;
+          _isLoading = false;
+          _loadingMessage = null;
+        });
+      }
     } catch (e) {
-      debugPrint("Error generando plan automático: $e");
-      // Fallback a plan vacío si falla la generación automática
-      _initPlan(morning, afternoon);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadingMessage = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al generar plan automático: $e")),
+        );
+      }
     }
+  }
+
+  String? _loadingMessage;
+
+  Widget _buildLoadingOverlay() {
+    if (!_isLoading || _loadingMessage == null) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.75),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 4,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "GENERANDO PLAN AUTOMÁTICO",
+              style: GoogleFonts.montserrat(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _loadingMessage!,
+              style: GoogleFonts.inter(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   IconData _getMomentIcon(int momentId) {
@@ -2155,7 +2431,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(text,
           style: TextStyle(
@@ -2180,7 +2456,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             mealType: slot.mealType,
             dayName: dateStr,
             initialSelected: List<Map<String, dynamic>>.from(slot.recipes),
-            onSelected: (recipes) => setState(() => slot.recipes = recipes),
+            onSelected: (recipes) {
+              setState(() {
+                slot.recipes = recipes;
+                _isDirty = true;
+              });
+            },
           ),
         ),
       ),
@@ -2194,6 +2475,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         _weeklyPlan[idx + 1].slots[i].recipes =
             List.from(_weeklyPlan[idx].slots[i].recipes);
       }
+      _isDirty = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Día duplicado exitosamente")));
@@ -2242,21 +2524,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     } catch (_) {}
   }
 
-  void _savePlan({bool replicate = true}) async {
-    // 1. Validar que al menos haya una receta por slot
-    for (var d in _weeklyPlan) {
-      for (var s in d.slots) {
-        if (s.recipes.isEmpty) {
-          final dateStr = DateFormat('yyyy-MM-dd').format(d.date);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              backgroundColor: Colors.orange,
-              content: Text("Falta receta en $dateStr - ${s.mealType}")));
-          return;
-        }
-      }
-    }
+  void _savePlan() async {
+    // ELIMINADA la restricción de que cada slot debe tener una receta.
+    // Esto permite guardar planes de una sola comida o con momentos omitidos por horario.
 
-    // 2. Validar Fecha Límite (Próxima Cita)
     final proximaCitaStr =
         _patientProfile?['ultimo_control']?['fecha_proxima_cita'];
     if (proximaCitaStr != null) {
@@ -2271,6 +2542,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         return;
       }
     }
+
+    setState(() => _isSaving = true);
 
     final int totalComidas =
         3 + (_morningSnackEnabled ? 1 : 0) + (_afternoonSnackEnabled ? 1 : 0);
@@ -2295,19 +2568,22 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       await dio.post("plan-manual", data: {
         "id_paciente": _selectedPatient!["id"],
         "plan": planData,
-        "replicate": replicate,
         "boosters": _boostersSeleccionados,
       });
       if (mounted) {
+        setState(() => _isDirty = false); // Ya no hay cambios pendientes
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             backgroundColor: Colors.green,
             content: Text("✅ Plan guardado y activado")));
-        _onPatientSelected(_selectedPatient!); // Recargar historial
+        _onPatientSelected(_selectedPatient!); 
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -2525,7 +2801,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-              color: greenBrand.withOpacity(0.1),
+              color: greenBrand.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8)),
           child: Text(title,
               style: const TextStyle(
@@ -2762,19 +3038,6 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                 ),
               ),
             ),
-          if (!_loading && _tipos.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "No hay tipos de comida aptos para este momento con las reglas actuales.",
-                  style: TextStyle(
-                      color: Colors.orange.shade800,
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.all(24),
             child: TextField(
@@ -2799,7 +3062,6 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                       borderSide: BorderSide.none)),
             ),
           ),
-          const SizedBox(height: 12),
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else

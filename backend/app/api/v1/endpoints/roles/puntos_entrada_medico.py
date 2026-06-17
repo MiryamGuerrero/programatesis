@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional, List, Dict
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles, UserContext
@@ -358,9 +358,22 @@ def consumo_alimentario_paciente(
 
 @router.get("/pacientes")
 def listar_todos_los_pacientes(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
+    if q or limit != 10 or offset != 0 or include_total:
+        from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+        repo = RepositorioPacientePostgres()
+        return repo.listar_pacientes_paginado(
+            q=q,
+            limit=limit,
+            offset=offset,
+            include_total=include_total
+        )
     return caso_uso.listar_todos()
 
 @router.delete("/pacientes/{id_paciente}")
@@ -478,11 +491,20 @@ def registrar_tutor_solo(
 
 @router.get("/reglas-medicas")
 def listar_reglas_medicas(
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    include_total: bool = Query(False),
     _=Depends(require_roles("admin", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
-    return repo.listar_reglas_detalladas()
+    # Para el médico, filtramos por tipos: 1 (Clínica) y 2 (Temporal)
+    return repo.listar_reglas_detalladas(
+        tipos_condicion=[1, 2],
+        limite=limit,
+        offset=offset,
+        include_total=include_total
+    )
 
 @router.get("/reglas-medicas/form-data")
 def obtener_form_data_reglas(
@@ -529,14 +551,36 @@ def eliminar_regla_medica(
     repo.eliminar_regla(id_regla)
     return {"success": True}
 
-# --- CRUD CATÁLOGO DE CONDICIONES ---
+# --- CRUD CATÁLOGO DE CONDICIONES (Standardized Pagination) ---
 
 @router.get("/catalogos/condiciones")
 def listar_condiciones_catalogo(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
+    indicador: Optional[str] = Query(default=None),
+    tipo: Optional[int] = Query(default=None),
     _=Depends(require_roles("admin", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
+    
+    # Si se pasan parámetros de paginación o búsqueda, usamos la v2
+    if q or limit != 10 or offset != 0 or include_total or indicador or tipo:
+        # Los tipos para el médico son 1 (Crónica/Joint) y 2 (Temporal)
+        # Si no se especifica tipo, filtramos por ambos
+        filtro_tipos = [tipo] if tipo else [1, 2]
+        return repo.obtener_catalogo_paginado_v2(
+            "heuristico", "condicion",
+            q=q,
+            limit=limit,
+            offset=offset,
+            include_total=include_total,
+            indicador=indicador,
+            filtro_tipos=filtro_tipos
+        )
+        
     return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2])
 
 @router.get("/catalogos/tipos-condicion")

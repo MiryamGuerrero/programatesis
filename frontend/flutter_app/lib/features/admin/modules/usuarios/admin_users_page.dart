@@ -1,31 +1,15 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:google_fonts/google_fonts.dart";
+
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
 import "../../../../shared/widgets/layout_components.dart";
 import "../../../../shared/widgets/nutri_avatar.dart";
-import "../../../../core/state/notification_provider.dart";
-
-import "package:google_fonts/google_fonts.dart";
-
-final rolesStaffProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final allRoles = await ref
-      .watch(supabaseCrudRepositoryProvider)
-      .fetchCatalog("usuarios", "rol");
-  final allowedRoles = [
-    "médico",
-    "nutricionista",
-    "administrador",
-    "médico/a",
-    "medico",
-    "admin"
-  ];
-  return allRoles.where((r) {
-    final nombre = r["nombre"].toString().toLowerCase();
-    return allowedRoles.any((allowed) => nombre.contains(allowed));
-  }).toList();
-});
+import "../../../../shared/widgets/shimmer_components.dart";
+import "admin_users_notifier.dart";
 
 class AdminUsersPage extends ConsumerStatefulWidget {
   const AdminUsersPage({super.key});
@@ -34,12 +18,32 @@ class AdminUsersPage extends ConsumerStatefulWidget {
 }
 
 class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
-  String _searchQuery = "";
-  final Set<String> _selectedRoles = {};
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(adminUsersProvider.notifier).loadPage();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _limpiarFiltros() {
+    _searchController.clear();
+    ref.read(adminUsersProvider.notifier).clearFilters();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final usersAsync = ref.watch(usersListProvider);
+    final state = ref.watch(adminUsersProvider);
     final rolesAsync = ref.watch(rolesStaffProvider);
 
     return Scaffold(
@@ -49,553 +53,205 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Gestión de Equipo Médico",
-                        style: GoogleFonts.montserrat(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: AppTema.azulPrincipal,
-                            letterSpacing: -0.5)),
-                    Text(
-                        "Control institucional de accesos y perfiles profesionales.",
-                        style: GoogleFonts.montserrat(
-                            color: Colors.blueGrey,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
-                IconButton(
-                    icon: const Icon(Icons.sync_rounded,
-                        color: AppTema.azulPrincipal),
-                    onPressed: () => ref.invalidate(usersListProvider)),
-              ],
-            ),
+            _buildHeader(),
             const SizedBox(height: 32),
-            usersAsync.when(
-              data: (users) {
-                final staff = users.where((u) {
-                  final code = u["rol_codigo"]?.toString().toLowerCase() ?? "";
-                  return code != "tutor";
-                }).toList();
-                int medicos = staff
-                    .where((u) => u["rol_codigo"]
-                        .toString()
-                        .toLowerCase()
-                        .contains("med"))
-                    .length;
-                int nutris = staff
-                    .where((u) => u["rol_codigo"]
-                        .toString()
-                        .toLowerCase()
-                        .contains("nutri"))
-                    .length;
-                return Row(
-                  children: [
-                    Expanded(
-                        child: NutriResumenCard(
-                            titulo: "TOTAL PERSONAL",
-                            valor: "${staff.length}",
-                            icon: Icons.people_alt_rounded)),
-                    const SizedBox(width: 20),
-                    Expanded(
-                        child: NutriResumenCard(
-                            titulo: "MÉDICOS",
-                            valor: "$medicos",
-                            colorValor: AppTema.verdeSalud,
-                            icon: Icons.medical_services_rounded)),
-                    const SizedBox(width: 20),
-                    Expanded(
-                        child: NutriResumenCard(
-                            titulo: "NUTRICIONISTAS",
-                            valor: "$nutris",
-                            colorValor: AppTema.azulOscuro,
-                            icon: Icons.restaurant_menu_rounded)),
-                  ],
-                );
-              },
-              loading: () => const SizedBox(
-                  height: 80,
-                  child: Center(child: CircularProgressIndicator())),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
+            _buildStatsRow(state),
             const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: TextField(
-                      style: GoogleFonts.inter(
-                          fontSize: 14, fontWeight: FontWeight.w500),
-                      decoration: InputDecoration(
-                        hintText: "Buscar por nombre de profesional...",
-                        hintStyle: GoogleFonts.inter(
-                            color: Colors.grey.shade400, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search,
-                            size: 20, color: Colors.grey),
-                        border: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: () => _dialogoUsuario(null),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTema.verdeSalud,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                    ),
-                    icon: const Icon(Icons.add_circle,
-                        size: 20, color: Colors.white),
-                    label: Text("NUEVO MIEMBRO",
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            rolesAsync.when(
-              data: (roles) => Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Row(
-                  children: [
-                    Text("FILTRAR POR ROL:",
-                        style: GoogleFonts.montserrat(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.blueGrey,
-                            letterSpacing: 1)),
-                    const SizedBox(width: 16),
-                    _filterChip("TODOS", _selectedRoles.isEmpty,
-                        () => setState(() => _selectedRoles.clear())),
-                    const SizedBox(width: 12),
-                    ...roles.map((r) => Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: _filterChip(
-                              r["nombre"].toString().toUpperCase(),
-                              _selectedRoles.contains(r["nombre"]),
-                              () => setState(() =>
-                                  _selectedRoles.contains(r["nombre"])
-                                      ? _selectedRoles.remove(r["nombre"])
-                                      : _selectedRoles.add(r["nombre"]))),
-                        )),
-                  ],
-                ),
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            NutriTableContainer(
-              child: usersAsync.when(
-                data: (users) {
-                  final rolesData = rolesAsync.valueOrNull ?? [];
-                  final nombresRolesPermitidos =
-                      rolesData.map((r) => r["nombre"].toString()).toSet();
-                  final filtered = users.where((u) {
-                    final nameMatches = u["nombre_completo"]
-                        .toString()
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase());
-                    final roleName = u["rol_nombre"].toString();
-                    return nameMatches &&
-                        (_selectedRoles.isEmpty ||
-                            _selectedRoles.contains(roleName)) &&
-                        nombresRolesPermitidos.contains(roleName);
-                  }).toList();
-
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      cardTheme: const CardThemeData(
-                          elevation: 0,
-                          color: Colors.white,
-                          margin: EdgeInsets.zero),
-                    ),
-                    child: PaginatedDataTable(
-                      header: null,
-                      rowsPerPage: 5,
-                      showFirstLastButtons: true,
-                      headingRowColor:
-                          WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-                      columns: [
-                        DataColumn(
-                            label: Text("PROFESIONAL",
-                                style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    color: AppTema.azulOscuro))),
-                        DataColumn(
-                            label: Text("CÉDULA",
-                                style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    color: AppTema.azulOscuro))),
-                        DataColumn(
-                            label: Text("CORREO",
-                                style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    color: AppTema.azulOscuro))),
-                        DataColumn(
-                            label: Text("ROL",
-                                style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    color: AppTema.azulOscuro))),
-                        DataColumn(
-                            label: Text("ACCIONES",
-                                style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    color: AppTema.azulOscuro))),
-                      ],
-                      source: _UsersDataSource(
-                        users: filtered,
-                        onEdit: _dialogoUsuario,
-                        onToggle: _toggle,
-                      ),
-                    ),
-                  );
-                },
-                loading: () => const NutriLoading(
-                    mensaje: "Obteniendo lista de profesionales..."),
-                error: (e, _) => Center(child: Text("Error: $e")),
-              ),
-            ),
+            _buildToolbar(state),
+            const SizedBox(height: 24),
+            _buildRolesFilter(rolesAsync, state),
+            const SizedBox(height: 24),
+            _buildTable(state),
           ],
         ),
       ),
     );
   }
 
-  void _dialogoUsuario(Map<String, dynamic>? user) {
-    final bool isEdit = user != null;
-    final formKey = GlobalKey<FormState>();
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Gestión de Equipo Médico",
+                style: GoogleFonts.montserrat(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            Text(
+                "Control institucional de accesos y perfiles profesionales del centro.",
+                style: GoogleFonts.montserrat(
+                    color: Colors.blueGrey,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _dialogoUsuario(null),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTema.verdeSalud,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          ),
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+          label: Text("NUEVO MIEMBRO",
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800, fontSize: 13)),
+        ),
+      ],
+    );
+  }
 
-    String nombres = "";
-    String apellidos = "";
-    if (isEdit && user["nombre_completo"] != null) {
-      final partes = user["nombre_completo"].toString().trim().split(" ");
-      int mid = (partes.length / 2).floor();
-      if (partes.length == 3) mid = 1;
-      nombres = partes.sublist(0, mid).join(" ");
-      apellidos = partes.sublist(mid).join(" ");
+  Widget _buildStatsRow(AdminUsersState state) {
+    if (state.isLoading && state.users.isEmpty) {
+      return const Row(
+        children: [
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+          SizedBox(width: 20),
+          Expanded(child: NutriResumenCardShimmer()),
+        ],
+      );
     }
 
-    final nombresCtrl = TextEditingController(text: nombres);
-    final apellidosCtrl = TextEditingController(text: apellidos);
-    final emailCtrl =
-        TextEditingController(text: user?["email"]?.toString() ?? "");
-    final passCtrl = TextEditingController();
-    final cedulaCtrl =
-        TextEditingController(text: user?["cedula"]?.toString() ?? "");
-    final telefonoCtrl =
-        TextEditingController(text: user?["telefono"]?.toString() ?? "");
-    final direccionCtrl =
-        TextEditingController(text: user?["direccion"]?.toString() ?? "");
-    int? rolId = user?["id_rol"];
-    bool obscurePass = true;
-    Map<String, String?> serverErrors = {};
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          titlePadding: EdgeInsets.zero,
-          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-          title: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            decoration: const BoxDecoration(
-                color: AppTema.azulPrincipal,
-                borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24))),
-            child: Row(children: [
-              Icon(
-                  isEdit
-                      ? Icons.edit_note_rounded
-                      : Icons.person_add_alt_1_rounded,
-                  color: Colors.white,
-                  size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro",
-                      style: GoogleFonts.montserrat(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17))),
-              IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.cancel_rounded,
-                      color: Colors.white70, size: 22)),
-            ]),
+    return Row(
+      children: [
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'TOTAL PERSONAL',
+            valor: '${state.totalItems}',
+            icon: Icons.people_alt_rounded,
+            colorValor: AppTema.azulPrincipal,
           ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: SizedBox(
-                width: 420,
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  _buildFieldSection("Datos Personales", [
-                    Row(children: [
-                      Expanded(
-                          child: _buildModalField(
-                              controller: nombresCtrl,
-                              label: "Nombres *",
-                              icon: Icons.person_outline,
-                              validator: (v) =>
-                                  v!.isEmpty ? "Obligatorio" : null)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _buildModalField(
-                              controller: apellidosCtrl,
-                              label: "Apellidos *",
-                              icon: Icons.person_outline,
-                              validator: (v) =>
-                                  v!.isEmpty ? "Obligatorio" : null)),
-                    ]),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(
-                          child: _buildModalField(
-                              controller: cedulaCtrl,
-                              label: "Cédula/ID",
-                              icon: Icons.fingerprint)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _buildModalField(
-                              controller: telefonoCtrl,
-                              label: "Teléfono",
-                              icon: Icons.phone_android_outlined)),
-                    ]),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildFieldSection("Acceso al Sistema", [
-                    _buildModalField(
-                        controller: emailCtrl,
-                        label: "Email *",
-                        icon: Icons.alternate_email,
-                        enabled: !isEdit,
-                        errorText: serverErrors["email"],
-                        validator: (v) => (v!.isEmpty || !v.contains("@"))
-                            ? "Email inválido"
-                            : null),
-                    if (!isEdit) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: passCtrl,
-                        obscureText: obscurePass,
-                        style: GoogleFonts.lato(fontSize: 13),
-                        validator: (v) =>
-                            v!.length < 6 ? "Mínimo 6 caracteres" : null,
-                        decoration: _modalInputDecoration(
-                                "Contraseña Temporal *", Icons.lock_outline)
-                            .copyWith(
-                          suffixIcon: IconButton(
-                              icon: Icon(
-                                  obscurePass
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 18,
-                                  color: AppTema.azulPrincipal),
-                              onPressed: () => setDialogState(
-                                  () => obscurePass = !obscurePass)),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Consumer(builder: (context, ref, _) {
-                      final roles =
-                          ref.watch(rolesStaffProvider).valueOrNull ?? [];
-                      return DropdownButtonFormField<int>(
-                        initialValue: rolId,
-                        style: GoogleFonts.lato(
-                            color: Colors.black87, fontSize: 13),
-                        validator: (v) =>
-                            v == null ? "Seleccione un rol" : null,
-                        decoration: _modalInputDecoration("Rol Profesional *",
-                            Icons.admin_panel_settings_outlined),
-                        items: roles
-                            .map((r) => DropdownMenuItem<int>(
-                                value: r["id"],
-                                child: Text(
-                                    r["nombre"].toString().toUpperCase(),
-                                    style: const TextStyle(fontSize: 12))))
-                            .toList(),
-                        onChanged: (v) => setDialogState(() => rolId = v),
-                      );
-                    }),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildFieldSection("Localización", [
-                    _buildModalField(
-                        controller: direccionCtrl,
-                        label: "Dirección",
-                        icon: Icons.location_on_outlined,
-                        maxLines: 1),
-                  ]),
-                  const SizedBox(height: 24),
-                ]),
+        ),
+        const SizedBox(width: 20),
+        const Expanded(
+          child: NutriResumenCard(
+            titulo: 'ESTADO SERVICIO',
+            valor: 'ESTABLE',
+            icon: Icons.verified_user_rounded,
+            colorValor: AppTema.verdeSalud,
+          ),
+        ),
+        const SizedBox(width: 20),
+        const Expanded(
+          child: NutriResumenCard(
+            titulo: 'CONTROL ACCESOS',
+            valor: 'ACTIVO',
+            icon: Icons.shield_outlined,
+            colorValor: AppTema.azulOscuro,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolbar(AdminUsersState state) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTema.grisLienzo,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                    ref.read(adminUsersProvider.notifier).setSearchQuery(v);
+                  });
+                },
+                style:
+                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: "Buscar por nombre de profesional...",
+                  prefixIcon: const Icon(Icons.search,
+                      size: 20, color: AppTema.azulPrincipal),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
           ),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          actions: [
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      side: const BorderSide(color: Colors.grey)),
-                  child: Text("CANCELAR",
-                      style: GoogleFonts.montserrat(
-                          color: Colors.grey,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold))),
-              const SizedBox(width: 10),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTema.azulPrincipal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24)),
-                onPressed: () async {
-                  if (!formKey.currentState!.validate()) return;
-                  setDialogState(() => serverErrors = {});
-                  final repo = ref.read(supabaseCrudRepositoryProvider);
-                  try {
-                    final full =
-                        "${nombresCtrl.text.trim()} ${apellidosCtrl.text.trim()}";
-                    if (isEdit) {
-                      await repo.updateUser(
-                          userId: user["id"],
-                          nombreCompleto: full,
-                          cedula: cedulaCtrl.text,
-                          telefono: telefonoCtrl.text,
-                          direccion: direccionCtrl.text,
-                          idRol: rolId);
-                    } else {
-                      await repo.createUser(
-                          email: emailCtrl.text,
-                          nombreCompleto: full,
-                          idRol: rolId!,
-                          password: passCtrl.text,
-                          cedula: cedulaCtrl.text,
-                          telefono: telefonoCtrl.text,
-                          direccion: direccionCtrl.text);
-                      ref.read(notificationProvider.notifier).add("Seguridad",
-                          "Se requiere reseteo de clave para ${nombresCtrl.text}",
-                          type: NutriNotificationType.warning);
-                    }
-                    ref.invalidate(usersListProvider);
-                    ref.invalidate(miPerfilProvider);
-                    if (mounted) {
-                      Navigator.pop(context);
-                      NutriSnack.show(
-                          context,
-                          isEdit
-                              ? "Actualizado correctamente"
-                              : "Registrado correctamente",
-                          ref: ref);
-                    }
-                  } catch (e) {
-                    final err = e.toString().toLowerCase();
-                    if (err.contains("email")) {
-                      setDialogState(() =>
-                          serverErrors["email"] = "Este correo ya está en uso");
-                    } else {
-                      NutriSnack.show(context, "Error en la operación",
-                          isError: true, ref: ref);
-                    }
-                  }
-                },
-                child: Text(isEdit ? "GUARDAR" : "CREAR",
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 16),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: state.activeFilters ? _limpiarFiltros : null,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                side: BorderSide(color: Colors.grey.shade200),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
               ),
-            ]),
-          ],
-        ),
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+              label: Text(
+                "LIMPIAR",
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded,
+                size: 22, color: AppTema.azulPrincipal),
+            onPressed: () => ref.read(adminUsersProvider.notifier).loadPage(),
+            tooltip: "Actualizar lista",
+            style: IconButton.styleFrom(
+              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFieldSection(String title, List<Widget> children) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title.toUpperCase(),
-          style: GoogleFonts.montserrat(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Colors.black87,
-              letterSpacing: 1.1)),
-      const SizedBox(height: 8),
-      ...children,
-    ]);
-  }
-
-  Widget _buildModalField(
-      {required TextEditingController controller,
-      required String label,
-      required IconData icon,
-      bool enabled = true,
-      int maxLines = 1,
-      FormFieldValidator<String>? validator,
-      String? errorText}) {
-    return TextFormField(
-        controller: controller,
-        enabled: enabled,
-        maxLines: maxLines,
-        validator: validator,
-        style: GoogleFonts.lato(fontSize: 13),
-        decoration:
-            _modalInputDecoration(label, icon).copyWith(errorText: errorText));
-  }
-
-  InputDecoration _modalInputDecoration(String label, IconData icon) {
-    bool isMandatory = label.contains("*");
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(
-          fontSize: 12,
-          color: isMandatory
-              ? AppTema.azulPrincipal.withOpacity(0.8)
-              : Colors.black54),
-      prefixIcon:
-          Icon(icon, size: 18, color: AppTema.azulPrincipal.withOpacity(0.6)),
-      floatingLabelStyle: const TextStyle(
-          color: AppTema.azulPrincipal, fontWeight: FontWeight.bold),
-      filled: true,
-      fillColor: AppTema.grisLienzo.withOpacity(0.5),
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      errorStyle: const TextStyle(fontSize: 10),
+  Widget _buildRolesFilter(
+      AsyncValue<List<Map<String, dynamic>>> rolesAsync, AdminUsersState state) {
+    return rolesAsync.maybeWhen(
+      data: (roles) => Row(
+        children: [
+          Text("FILTRAR POR ROL:",
+              style: GoogleFonts.montserrat(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.blueGrey,
+                  letterSpacing: 1)),
+          const SizedBox(width: 16),
+          _filterChip("TODOS", state.selectedRolIds.isEmpty,
+              () => ref.read(adminUsersProvider.notifier).clearFilters()),
+          const SizedBox(width: 12),
+          ...roles.map((r) => Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _filterChip(
+                    r["nombre"].toString().toUpperCase(),
+                    state.selectedRolIds.contains(r["id"]),
+                    () => ref
+                        .read(adminUsersProvider.notifier)
+                        .toggleRol(r["id"])),
+              )),
+        ],
+      ),
+      orElse: () => const SizedBox.shrink(),
     );
   }
 
@@ -621,96 +277,513 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
   }
 
-  Future<void> _toggle(Map<String, dynamic> u) async {
-    try {
-      final nuevo = !(u["activo"] ?? true);
+  Widget _buildTable(AdminUsersState state) {
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: AdminUsersNotifier.pageSize,
+            showFirstLastButtons: true,
+            availableRowsPerPage: const [AdminUsersNotifier.pageSize],
+            onPageChanged: (idx) =>
+                ref.read(adminUsersProvider.notifier).loadPage(offset: idx),
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dataRowMinHeight: 70,
+            dataRowMaxHeight: double.infinity,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            columns: [
+              _col("PROFESIONAL", width: totalWidth * 0.35),
+              _col("ROL / CARGO", width: totalWidth * 0.25),
+              _col("ESTADO", width: totalWidth * 0.15, center: true),
+              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+            ],
+            source: _AdminUsersDataSource(
+              items: state.users,
+              totalRows: state.totalItems,
+              offset: state.offset,
+              isLoading: state.isLoading,
+              onEdit: _dialogoUsuario,
+              onToggle: (u) => ref
+                  .read(adminUsersProvider.notifier)
+                  .toggleUserStatus(u["id"].toString(), u["activo"] == true),
+              onDelete: (u) => _eliminarUsuario(u),
+              totalWidth: totalWidth,
+              context: context,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppTema.azulOscuro),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _eliminarUsuario(Map<String, dynamic> user) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Eliminar Acceso"),
+        content: Text(
+            "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción revocará todos los accesos al sistema."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text("ELIMINAR")),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
       await ref
-          .read(supabaseCrudRepositoryProvider)
-          .updateUser(userId: u["id"], activo: nuevo);
-      ref.invalidate(usersListProvider);
-      if (mounted)
-        NutriSnack.show(
-            context, nuevo ? "Acceso habilitado" : "Acceso restringido",
-            ref: ref);
-    } catch (e) {
-      if (mounted)
-        NutriSnack.show(context, "Error al cambiar estado",
-            isError: true, ref: ref);
+          .read(adminUsersProvider.notifier)
+          .deleteUser(user["id"].toString());
+      if (mounted) {
+        NutriSnack.show(context, "Profesional eliminado con éxito");
+      }
     }
+  }
+
+  void _dialogoUsuario(Map<String, dynamic>? user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _FormularioUsuario(
+        user: user,
+        onSuccess: () => ref.read(adminUsersProvider.notifier).loadPage(),
+      ),
+    );
   }
 }
 
-class _UsersDataSource extends DataTableSource {
-  final List<Map<String, dynamic>> users;
+class _AdminUsersDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> items;
+  final int totalRows;
+  final int offset;
+  final bool isLoading;
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onToggle;
+  final Function(Map<String, dynamic>) onDelete;
+  final double totalWidth;
+  final BuildContext context;
 
-  _UsersDataSource({
-    required this.users,
+  _AdminUsersDataSource({
+    required this.items,
+    required this.totalRows,
+    required this.offset,
+    required this.isLoading,
     required this.onEdit,
     required this.onToggle,
+    required this.onDelete,
+    required this.totalWidth,
+    required this.context,
   });
 
   @override
   DataRow? getRow(int index) {
-    if (index >= users.length) return null;
-    final u = users[index];
-    final nombre = u["nombre_completo"] ?? "Usuario";
-    final activo = u["activo"] ?? true;
+    if (isLoading) {
+      return DataRow(cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.35,
+          child: Row(
+            children: [
+              const NutriShimmer(
+                  width: 32,
+                  height: 32,
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
+              const SizedBox(width: 12),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const NutriShimmer(width: 120, height: 12),
+                  const SizedBox(height: 4),
+                  NutriShimmer(
+                      width: 180,
+                      height: 10,
+                      borderRadius: BorderRadius.circular(4)),
+                ],
+              ),
+            ],
+          ),
+        )),
+        DataCell(SizedBox(
+            width: totalWidth * 0.25,
+            child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 80, height: 10)))),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: const Center(child: NutriShimmer(width: 60, height: 20)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+            ],
+          ),
+        )),
+      ]);
+    }
+
+    final localIndex = index - offset;
+    if (localIndex < 0 || localIndex >= items.length) return null;
+    final u = items[localIndex];
 
     return DataRow(cells: [
-      DataCell(Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          NutriAvatar(
-              nombreCompleto: nombre,
-              radio: 14,
-              colorTexto: AppTema.azulPrincipal),
-          const SizedBox(width: 10),
-          Text(nombre,
-              style: GoogleFonts.lato(
-                  fontSize: 13,
-                  color: const Color(0xFF1E293B),
-                  fontWeight: FontWeight.w500)),
-        ],
+      DataCell(SizedBox(
+        width: totalWidth * 0.35,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
+          child: Row(
+            children: [
+              NutriAvatar(nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(u["nombre_completo"] ?? "Sin nombre",
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: AppTema.azulOscuro)),
+                    Text(u["email"] ?? "",
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: Colors.blueGrey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       )),
-      DataCell(Text(u["cedula"] ?? "-",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w500))),
-      DataCell(Text(u["email"] ?? "-",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w500))),
-      DataCell(NutriBadge(
-          label: u["rol_nombre"].toString().toUpperCase(), type: "info")),
-      DataCell(Row(children: [
-        Tooltip(
-            message: "Editar Profesional",
-            child: IconButton(
-                icon: const Icon(Icons.edit_outlined,
-                    color: AppTema.azulPrincipal, size: 18),
-                onPressed: () => onEdit(u))),
-        Tooltip(
-            message: "Gestionar Acceso",
-            child: IconButton(
-                icon: Icon(
-                    activo
-                        ? Icons.person_off_outlined
-                        : Icons.person_add_alt_1_outlined,
-                    color: activo ? Colors.redAccent : Colors.green,
-                    size: 18),
-                onPressed: () => onToggle(u))),
-      ])),
+      DataCell(SizedBox(
+        width: totalWidth * 0.25,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(u["rol_nombre"]?.toString().toUpperCase() ?? "STAFF",
+              style: GoogleFonts.montserrat(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulPrincipal)),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.15,
+        child: Center(
+          child: _StatusBadge(isActive: u["activo"] == true),
+        ),
+      )),
+      DataCell(SizedBox(
+        width: totalWidth * 0.25,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _HoverActionButton(
+                icon: Icons.edit_note_rounded,
+                label: "Editar",
+                color: Colors.blueGrey,
+                onTap: () => onEdit(u)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: u["activo"] == true
+                    ? Icons.block_flipped
+                    : Icons.check_circle_outline,
+                label: u["activo"] == true ? "Baja" : "Alta",
+                color: u["activo"] == true ? Colors.orange : Colors.green,
+                onTap: () => onToggle(u)),
+            const SizedBox(width: 12),
+            _HoverActionButton(
+                icon: Icons.delete_outline_rounded,
+                label: "Borrar",
+                color: Colors.redAccent,
+                onTap: () => onDelete(u)),
+          ],
+        ),
+      )),
     ]);
   }
 
   @override
   bool get isRowCountApproximate => false;
   @override
-  int get rowCount => users.length;
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
   @override
   int get selectedRowCount => 0;
 }
+
+class _StatusBadge extends StatelessWidget {
+  final bool isActive;
+  const _StatusBadge({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppTema.verdeSalud : Colors.redAccent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        isActive ? "ACTIVO" : "INACTIVO",
+        style: GoogleFonts.montserrat(
+            color: color, fontWeight: FontWeight.w800, fontSize: 10),
+      ),
+    );
+  }
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withValues(alpha: 0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 20),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FormularioUsuario extends ConsumerStatefulWidget {
+  final Map<String, dynamic>? user;
+  final VoidCallback onSuccess;
+  const _FormularioUsuario({this.user, required this.onSuccess});
+  @override
+  ConsumerState<_FormularioUsuario> createState() => _FormularioUsuarioState();
+}
+
+class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
+  final _emailCtrl = TextEditingController();
+  final _nombreCtrl = TextEditingController();
+  final _cedulaCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  int? _idRol;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.user != null) {
+      _emailCtrl.text = widget.user!["email"] ?? "";
+      _nombreCtrl.text = widget.user!["nombre_completo"] ?? "";
+      _cedulaCtrl.text = widget.user!["cedula"] ?? "";
+      _idRol = widget.user!["id_rol"];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rolesAsync = ref.watch(rolesStaffProvider);
+    final isEdit = widget.user != null;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      title: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro del Equipo",
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
+            const SizedBox(height: 16),
+            _input(_emailCtrl, "Correo electrónico", Icons.email_outlined),
+            const SizedBox(height: 16),
+            _input(_cedulaCtrl, "Cédula", Icons.perm_identity_rounded),
+            const SizedBox(height: 16),
+            if (!isEdit) ...[
+              _input(_passCtrl, "Contraseña temporal", Icons.lock_outline,
+                  obscure: true),
+              const SizedBox(height: 16),
+            ],
+            rolesAsync.when(
+              data: (roles) => DropdownButtonFormField<int>(
+                value: _idRol,
+                decoration: _inputDecor("Rol asignado", Icons.work_outline),
+                items: roles
+                    .map((r) => DropdownMenuItem<int>(
+                          value: r["id"],
+                          child: Text(r["nombre"].toString().toUpperCase(),
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _idRol = v),
+              ),
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => const Text("Error al cargar roles"),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("CANCELAR",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, color: Colors.grey))),
+        FilledButton(
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? "GUARDANDO..." : "GUARDAR")),
+      ],
+    );
+  }
+
+  Widget _input(TextEditingController c, String h, IconData i,
+          {bool obscure = false}) =>
+      TextField(
+          controller: c,
+          obscureText: obscure,
+          decoration: _inputDecor(h, i));
+
+  InputDecoration _inputDecor(String h, IconData i) => InputDecoration(
+      labelText: h,
+      prefixIcon: Icon(i, size: 20),
+      filled: true,
+      fillColor: AppTema.grisLienzo,
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none));
+
+  Future<void> _save() async {
+    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _idRol == null) {
+      NutriSnack.show(context, "Por favor complete los campos obligatorios",
+          isError: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      if (widget.user != null) {
+        await repo.updateUser(
+          userId: widget.user!["id"].toString(),
+          nombreCompleto: _nombreCtrl.text,
+          email: _emailCtrl.text,
+          cedula: _cedulaCtrl.text,
+          idRol: _idRol,
+        );
+      } else {
+        await repo.createUser(
+          email: _emailCtrl.text,
+          nombreCompleto: _nombreCtrl.text,
+          idRol: _idRol!,
+          password: _passCtrl.text,
+          cedula: _cedulaCtrl.text,
+        );
+      }
+      widget.onSuccess();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted)
+        NutriSnack.show(context, "Error al guardar: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
+final rolesStaffProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final allRoles = await ref
+      .watch(supabaseCrudRepositoryProvider)
+      .fetchCatalog("usuarios", "rol");
+  final allowedRoles = [
+    "médico",
+    "nutricionista",
+    "administrador",
+    "médico/a",
+    "medico",
+    "admin"
+  ];
+  return allRoles.where((r) {
+    final nombre = r["nombre"].toString().toLowerCase();
+    return allowedRoles.any((allowed) => nombre.contains(allowed));
+  }).toList();
+});

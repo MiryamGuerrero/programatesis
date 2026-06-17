@@ -12,6 +12,7 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
+import "_shared/medico_nav_providers.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -703,7 +704,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               icon: const Icon(Icons.arrow_back_ios_new_rounded,
                   size: 18, color: greenBrand),
               onPressed: () =>
-                  ref.read(medicoNavProvider.notifier).state = MedicoView.list),
+                  ref.read(medicoNavProvider.notifier).goBackToList()),
           const SizedBox(width: 24),
           Expanded(
               child: Text(
@@ -1166,7 +1167,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       });
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.invalidate(medicoPatientsProvider);
-      if (mounted) ref.read(medicoNavProvider.notifier).state = MedicoView.list;
+      if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
     } catch (e) {
       if (mounted) {
         NutriSnack.show(
@@ -1344,7 +1345,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       setState(() => _showSuccess = true);
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.invalidate(medicoPatientsProvider);
-      if (mounted) ref.read(medicoNavProvider.notifier).state = MedicoView.list;
+      if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
     } catch (e) {
       if (mounted) {
         NutriSnack.show(

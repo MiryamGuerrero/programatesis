@@ -12,6 +12,7 @@ from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngr
 from app.aplicacion.clinica.gestionar_catalogos import CasoUsoGestionarCatalogos
 from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
 from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(tags=["Compatibilidad"])
 
@@ -237,21 +238,28 @@ def prefetch_planificacion_paciente(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """
-    Precarga en una sola llamada lo necesario para plan manual:
-    - estado de validación nutricional
-    - diagnóstico y expediente mínimo
-    - ingredientes seguros
-    - ingredientes recomendados (potenciadores)
-    - condiciones separadas por peso/talla para la validación clínica
+    Precarga optimizada para plan manual:
+    - expediente reducido (sidebar)
+    - estado de validación mensual
+    - plan vigente
+    - ingredientes recomendados (siempre incluidos por ser pocos y vitales)
+    - ingredientes seguros (opcionales por ser pesados)
     """
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     from app.infraestructura.database.db import db_cursor
 
-    expediente = RepositorioPacientePostgres().obtener_expediente_completo(id_paciente)
+    repo_pac = RepositorioPacientePostgres()
+    repo_ing = RepositorioIngredientePostgres()
+
+    # 1. Perfil reducido ( Sidebar + Datos base) - MUCHO MÁS RÁPIDO
+    expediente = repo_pac.obtener_perfil_reducido_planificacion(id_paciente)
+    
+    # 2. Estado de validación
     estado_validacion = obtener_estado_validacion_control_mensual(id_paciente)
 
+    # 3. Plan Vigente
     plan_vigente = None
     with db_cursor() as cur:
         cur.execute(
@@ -279,13 +287,14 @@ def prefetch_planificacion_paciente(
         if row_plan:
             plan_vigente = dict(zip([d[0] for d in cur.description], row_plan))
 
+    # 4. Ingredientes (Recomendados siempre, Seguros opcionales)
     ingredientes_seguros = []
-    ingredientes_recomendados = []
     if include_ingredientes:
-        repo_ing = RepositorioIngredientePostgres()
         ingredientes_seguros = repo_ing.buscar_ingredientes_filtrados(id_paciente, consulta="", limite=300)
-        ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
+    
+    ingredientes_recomendados = repo_ing.listar_recomendaciones_paciente(id_paciente)
 
+    # 5. Catálogo de condiciones para validación modal
     condiciones = RepositorioPerfilPostgres().obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
     condiciones_peso = []
     condiciones_talla = []
@@ -304,7 +313,7 @@ def prefetch_planificacion_paciente(
     return {
         "estado_validacion": estado_validacion,
         "expediente": expediente,
-        "diagnostico": expediente.get("diagnostico") if isinstance(expediente, dict) else {},
+        "diagnostico": expediente.get("diagnostico", {}),
         "plan_vigente": plan_vigente,
         "ingredientes_seguros": ingredientes_seguros,
         "ingredientes_recomendados": ingredientes_recomendados,
@@ -375,24 +384,46 @@ def gestion_pacientes_buscar_compat(q: str = Query(default="")):
 
 @router.get("/reglas-nutricionales")
 def reglas_nutricionales_compat(
+    limit: int = Query(default=10, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
     # Filtramos para que el nutricionista solo vea condiciones Nutricionales (3)
+    if include_total or limit != 500:
+        return repo.listar_reglas_detalladas(
+            tipos_condicion=[3], limite=limit, offset=offset, include_total=include_total
+        )
     return repo.listar_reglas_detalladas(tipos_condicion=[3])
 
 @router.get("/reglas-nutricionales/form-data")
+@cached(ttl=30)
 def reglas_form_data_compat(
+    compact: bool = Query(default=False, description="Si true, devuelve solo metadatos ligeros para carga inicial"),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
     # Solo Nutricionales (3)
+    condiciones = repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+    acciones = repo.obtener_catalogo("heuristico", "catalogo_accion")
+    objetivos = repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla")
+
+    if compact:
+        # Respuesta reducida para carga inicial: evitar payloads grandes (ingredientes, grupos)
+        return {
+            "condiciones": condiciones,
+            "acciones": acciones,
+            "objetivos": objetivos,
+        }
+
+    # Respuesta completa (por defecto)
     return {
-        "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3]),
-        "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
-        "objetivos": repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla"),
+        "condiciones": condiciones,
+        "acciones": acciones,
+        "objetivos": objetivos,
         "ingredientes": repo.obtener_catalogo("nutricion", "ingrediente"),
         "grupos": repo.obtener_catalogo("nutricion", "grupo_alimentario"),
         "subgrupos": repo.obtener_catalogo("nutricion", "subgrupo_alimentario"),
@@ -463,6 +494,12 @@ def ingredientes_lista_compat(
         # Si hay más, asumimos un número alto o implementamos un count en el repo
         # Por ahora, para que la paginación funcione, retornamos el offset + items + 1 si está lleno
         total = offset + len(items_filtrados) + (1 if len(items_filtrados) == limit else 0)
+
+    total = caso_uso.contar_ingredientes(
+        consulta=q,
+        id_grupo=cat,
+        id_subgrupo=subcat,
+    )
 
     return {
         "items": items_filtrados,
@@ -827,61 +864,75 @@ def guardar_plan_manual(
                 """
             )
             cols_item = {r[0] for r in cur.fetchall()}
+            
+            # OPTIMIZACIÓN: Preparar inserción masiva (bulk insert)
+            item_cols = ["id_plan", "id_momento", "id_receta", "fecha_programada"]
+            if "created_at" in cols_item:
+                item_cols.append("created_at")
+            if "comidas_por_dia" in cols_item:
+                item_cols.append("comidas_por_dia")
+
+            bulk_params = []
             for item in plan_items:
-                item_cols = ["id_plan", "id_momento", "id_receta", "fecha_programada"]
-                item_vals = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
+                row = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
                 if "created_at" in cols_item:
-                    item_cols.append("created_at")
-                    item_vals.append("now()")
+                    row.append(datetime.now()) # Usamos datetime de python para executemany
                 if "comidas_por_dia" in cols_item:
-                    item_cols.append("comidas_por_dia")
-                    item_vals.append(item.get("comidas_por_dia"))
+                    row.append(item.get("comidas_por_dia"))
+                bulk_params.append(tuple(row))
 
-                icols = []
-                iph = []
-                iparams = []
-                for c, v in zip(item_cols, item_vals):
-                    icols.append(c)
-                    if v == "now()":
-                        iph.append("now()")
-                    else:
-                        iph.append("%s")
-                        iparams.append(v)
-                cur.execute(
-                    f"insert into interaccion.plan_item ({', '.join(icols)}) values ({', '.join(iph)})",
-                    tuple(iparams),
-                )
+            placeholders = ["%s"] * len(item_cols)
+            insert_sql = f"insert into interaccion.plan_item ({', '.join(item_cols)}) values ({', '.join(placeholders)})"
+            
+            cur.executemany(insert_sql, bulk_params)
 
-        # 1. Limpiar recomendaciones previas de la nutri para este paciente (opcional, según lógica de negocio)
-        # Aquí asumimos que las recomendaciones del plan mensual reemplazan las anteriores de la nutri
+        # 1. Limpiar recomendaciones previas
         cur.execute("""
             delete from clinico.recomendacion_ingrediente 
             where id_paciente = %s and id_rol_recomienda = 3
         """, (id_paciente,))
         
-        # 2. Insertar nuevos potenciadores
-        if boosters and id_profesional_interno is None:
-            raise HTTPException(
-                status_code=400,
-                detail="No se pudo resolver el profesional autenticado para guardar potenciadores.",
-            )
-        for ing_id in boosters:
-            cur.execute("""
+        # 2. Insertar nuevos potenciadores (Bulk)
+        if boosters:
+            if id_profesional_interno is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se pudo resolver el profesional autenticado para guardar potenciadores.",
+                )
+            
+            reco_sql = """
                 insert into clinico.recomendacion_ingrediente 
                 (id_paciente, id_ingrediente, id_profesional, id_rol_recomienda, motivo, prioridad)
                 values (%s, %s, %s, 3, 'Potenciador de Plan Mensual', 3)
-            """, (id_paciente, ing_id, id_profesional_interno))
+            """
+            reco_params = [(id_paciente, ing_id, id_profesional_interno) for ing_id in boosters]
+            cur.executemany(reco_sql, reco_params)
             
     return {"success": True, "message": "Plan y potenciadores activados", "id_plan": id_plan}
 
 @router.get("/condiciones-nutricionales")
 def condiciones_nutricionales_compat(
+    limit: int = Query(default=10, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
+    indicador: str = Query(default=None),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
     repo = RepositorioPerfilPostgres()
-    # Traemos las condiciones nutricionales (tipo 3)
-    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[3])
+    
+    # Filtro de tipos base (Nutricionales = 3)
+    filtro_tipos = [3]
+    
+    if include_total or limit != 500 or indicador:
+        return repo.obtener_catalogo_paginado_v2(
+            "heuristico", "condicion", 
+            limit=limit, 
+            offset=offset, 
+            filtro_tipos=filtro_tipos,
+            indicador=indicador
+        )
+    return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=filtro_tipos)
 
 @router.post("/condiciones-nutricionales")
 def crear_condicion_nutri(
@@ -947,14 +998,42 @@ def listar_tipos_plato_compat():
     repo = RepositorioRecetaPostgres()
     return repo.listar_tipos_plato()
 
-@router.get("/crud/recetas")
-def crud_recetas_compat(
-    q: str = Query(default=""),
-    limit: int = Query(default=1000)
+@router.get("/crud/recetas/metadatos")
+def obtener_metadatos_recetas_compat(
+    _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
-    return repo.listar_recetas(consulta=q, limite=limit)
+    return repo.obtener_estadisticas_recetas()
+
+@router.get("/crud/recetas")
+def crud_recetas_compat(
+    q: str = Query(default=""),
+    limit: int = Query(default=12),
+    offset: int = Query(default=0),
+    id_momento: int = Query(default=None),
+    id_tipo_plato: int = Query(default=None),
+    include_total: bool = Query(default=False),
+):
+    from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
+    repo = RepositorioRecetaPostgres()
+    items = repo.listar_recetas(
+        consulta=q,
+        limite=limit,
+        offset=offset,
+        id_momento=id_momento,
+        id_tipo_plato=id_tipo_plato,
+    )
+    if include_total:
+        return {
+            "items": items,
+            "total": repo.contar_recetas(
+                consulta=q,
+                id_momento=id_momento,
+                id_tipo_plato=id_tipo_plato,
+            ),
+        }
+    return items
 
 @router.get("/crud/recetas/{id_receta}")
 def obtener_receta_detalle_completo(id_receta: int):

@@ -319,7 +319,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             fileName: 'receta_${DateTime.now().millisecondsSinceEpoch}.webp',
           );
         } catch (e) {
-          NutriSnack.show(context, 'Error al subir imagen: $e', isError: true);
+          if (mounted) {
+            NutriSnack.show(context, 'Error al subir imagen: $e',
+                isError: true);
+          }
         } finally {
           setState(() => _uploadingImage = false);
         }
@@ -375,10 +378,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       if (detail is! Map) return null;
       if (detail['estado']?.toString() != 'NO_APTA_REUMATICA') return null;
       final motivos = detail['motivos'];
-      if (motivos is! List)
+      if (motivos is! List) {
         return [
           'Esta receta no es apta para el filtro clinico base reumatico.'
         ];
+      }
       final salida = motivos
           .map((m) => m?.toString().trim() ?? '')
           .where((m) => m.isNotEmpty)
@@ -682,12 +686,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       case 'facil':
       case 'fácil':
       case 'fã¡cil':
-      case 'fácil':
         return 'Fácil';
       case 'dificil':
       case 'difícil':
       case 'difã­cil':
-      case 'difícil':
         return 'Difícil';
       case 'media':
         return 'Media';
@@ -820,12 +822,15 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         _activa =
             decoded['activa'] is bool ? decoded['activa'] as bool : _activa;
         _imagenUrl = _texto(decoded['imagen_url'], fallback: _imagenUrl ?? '');
-        if (_imagenUrl != null && _imagenUrl!.isEmpty) _imagenUrl = null;
+        if (_imagenUrl != null && _imagenUrl!.isEmpty) {
+          _imagenUrl = null;
+        }
         _imageFile = null;
         _imagePreviewBytes = null;
 
-        if (ingredientesNormalizados.isNotEmpty)
+        if (ingredientesNormalizados.isNotEmpty) {
           _ingredientes = ingredientesNormalizados;
+        }
         if (pasos.isNotEmpty) {
           _pasos = pasos
               .asMap()
@@ -853,6 +858,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           .length;
       final etiquetasSinId =
           etiquetasNormalizadas.where((etq) => etq['id'] == null).length;
+      if (!mounted) return;
       NutriSnack.show(
         context,
         sinId == 0 && etiquetasSinId == 0
@@ -861,8 +867,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         isError: sinId > 0 || etiquetasSinId > 0,
       );
     } on FormatException catch (e) {
+      if (!mounted) return;
       NutriSnack.show(context, 'JSON inválido: ${e.message}', isError: true);
     } catch (e) {
+      if (!mounted) return;
       NutriSnack.show(context, 'No se pudo cargar el JSON: $e', isError: true);
     }
   }
@@ -966,7 +974,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     if (value is! List) return actual;
     final ids = <int>[];
     for (final item in value) {
-      if (item is Map && item['aplica'] == false) continue;
+        if (item is Map && item['aplica'] == false) {
+          continue;
+        }
       final id = item is Map
           ? _entero(item['id'] ??
               item['id_momento'] ??
@@ -986,7 +996,9 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
               ?.toString()
               .trim()
           : item?.toString().trim();
-      if (nombre == null || nombre.isEmpty) continue;
+      if (nombre == null || nombre.isEmpty) {
+        continue;
+      }
       final nombreNormalizado = _normalizarTextoBusqueda(nombre);
       for (final opt in catalogo) {
         if (opt is Map &&
@@ -1049,6 +1061,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       _validarEtiquetasConfirmadasContraCatalogo() async {
     final catalogo = await _cargarCatalogoEtiquetas();
     if (catalogo.isEmpty && _etiquetasSeleccionadas.isNotEmpty) {
+      if (!mounted) return null;
       NutriSnack.show(
         context,
         'No se pudo validar el catálogo de etiquetas. Intenta guardar nuevamente.',
@@ -1078,6 +1091,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       setState(() {
         _etiquetasSeleccionadas = validadas;
       });
+      if (!mounted) return null;
       NutriSnack.show(
         context,
         'Se retiraron ${invalidas.length} etiqueta(s) fuera del catálogo backend. Revisa y guarda nuevamente.',

@@ -9,6 +9,7 @@ from app.aplicacion.nutricion.gestionar_ingredientes import CasoUsoGestionarIngr
 from app.aplicacion.nutricion.gestionar_variables import CasoUsoGestionarVariables
 from app.core.security import UserContext
 from app.infraestructura.database.db import db_cursor
+from app.api.v1.simple_cache import cached
 
 router = APIRouter(prefix="/nutricionista", tags=["Nutricionista Admin"])
 
@@ -101,21 +102,57 @@ def list_variables_catalog(
 @router.get("/etiquetas")
 def list_labels_catalog(
     q: str | None = Query(default=None),
-    limit: int = Query(default=300, ge=1, le=1000),
+    limit: int = Query(default=10, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False),
     _=Depends(require_roles("admin", "nutricionista", "medico")),
-) -> list[dict[str, Any]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     with db_cursor() as cur:
-        sql = "select id, nombre_visible, codigo, descripcion, created_at from nutricion.etiqueta_nutricional"
+        # Base query
+        sql_base = "from nutricion.etiqueta_nutricional e"
+        where_clause = ""
         params: list[Any] = []
+        
         if q and q.strip():
-            sql += " where nombre_visible ilike %s or codigo ilike %s"
-            term = f"%{q.strip()}%"
-            params.extend([term, term])
-        sql += " order by created_at desc limit %s"
-        params.append(limit)
-        cur.execute(sql, tuple(params))
+            where_clause = " where e.nombre_visible ilike %s"
+            params.append(f"%{q.strip()}%")
+
+        # 1. Total count if requested
+        total = 0
+        if include_total:
+            cur.execute(f"select count(*) {sql_base} {where_clause}", tuple(params))
+            total = cur.fetchone()[0]
+
+        # 2. Main query
+        sql = f"""
+            select 
+                e.id, 
+                e.nombre_visible, 
+                e.codigo, 
+                e.descripcion, 
+                e.created_at,
+                (
+                    select string_agg(i.nombre, ', ')
+                    from (
+                        select i2.nombre
+                        from nutricion.ingrediente_etiqueta ie
+                        join nutricion.ingrediente i2 on i2.id = ie.id_ingrediente
+                        where ie.id_etiqueta = e.id
+                        order by i2.nombre
+                        limit 5
+                    ) i
+                ) as ingredientes
+            {sql_base}
+            {where_clause}
+            order by e.created_at desc limit %s offset %s
+        """
+        cur.execute(sql, tuple(params + [limit, offset]))
         cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        items = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        if include_total:
+            return {"items": items, "total": total}
+        return items
 
 @router.post("/etiquetas")
 def upsert_label_catalog(
@@ -318,7 +355,16 @@ def list_combination_roles(
 ):
     return ROLES_COMBINACION_UI
 
+@router.get("/configuracion-maestra-menu")
+def obtener_configuracion_maestra_menu(
+    id_momento_inicial: int = Query(default=None),
+    _=Depends(require_roles("admin", "nutricionista")),
+):
+    repo = RepositorioComposicionPostgres()
+    return repo.obtener_configuracion_maestra(id_momento_inicial)
+
 @router.get("/reglas-menu-combinaciones")
+@cached(ttl=30)
 def list_all_menu_combination_rules(
     _=Depends(require_roles("admin", "nutricionista")),
 ):

@@ -7,19 +7,27 @@ import "core/config/app_config.dart";
 
 Future<void> bootstrapApp(Widget app) async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('es_EC', null);
+  
+  // Ejecutamos las inicializaciones críticas en paralelo sin bloquear el arranque visual
+  final initTasks = Future.wait([
+    initializeDateFormatting('es_EC', null),
+    if (AppConfig.supabaseUrl.isNotEmpty && AppConfig.supabaseAnonKey.isNotEmpty)
+      Supabase.initialize(
+        url: AppConfig.supabaseUrl,
+        anonKey: AppConfig.supabaseAnonKey,
+      ),
+  ]);
 
   if (AppConfig.supabaseUrl.isEmpty || AppConfig.supabaseAnonKey.isEmpty) {
     runApp(const _MissingConfigApp());
     return;
   }
 
-  await Supabase.initialize(
-    url: AppConfig.supabaseUrl,
-    anonKey: AppConfig.supabaseAnonKey,
-  );
-
+  // Lanzamos la app inmediatamente
   runApp(ProviderScope(child: app));
+  
+  // Las tareas de fondo pueden terminar después de que la UI ya es visible
+  await initTasks;
 }
 
 class _MissingConfigApp extends StatelessWidget {
