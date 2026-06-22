@@ -1025,8 +1025,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     if (_catalogoEtiquetasCache != null) return _catalogoEtiquetasCache!;
     try {
       final dio = ref.read(dioProvider);
-      final resp =
-          await dio.get('nutricionista/etiquetas', queryParameters: {'q': ''});
+      final resp = await dio.get('nutricionista/etiquetas', queryParameters: {'q': '', 'limit': 1000});
       _catalogoEtiquetasCache = List<Map<String, dynamic>>.from(resp.data);
       return _catalogoEtiquetasCache!;
     } catch (e) {

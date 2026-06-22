@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "../../../../core/state/app_providers.dart";
@@ -39,7 +38,8 @@ class AdminUsersState {
       selectedRolIds: selectedRolIds ?? this.selectedRolIds,
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
-      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
@@ -47,24 +47,39 @@ class AdminUsersState {
 }
 
 class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
-  AdminUsersNotifier(this._ref) : super(const AdminUsersState());
+  AdminUsersNotifier(
+    this._ref, {
+    this.allowedRolIds = const {},
+    Set<int> initialSelectedRolIds = const {},
+  }) : super(AdminUsersState(selectedRolIds: initialSelectedRolIds));
 
   final Ref _ref;
+  final Set<int> allowedRolIds;
   static const int pageSize = 5;
+
+  List<int> get _effectiveRolIds {
+    if (state.selectedRolIds.isEmpty) return allowedRolIds.toList();
+    if (allowedRolIds.isEmpty) return state.selectedRolIds.toList();
+    final scopedSelection = state.selectedRolIds
+        .where((rolId) => allowedRolIds.contains(rolId))
+        .toList();
+    return scopedSelection.isEmpty ? allowedRolIds.toList() : scopedSelection;
+  }
 
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
-    state = state.copyWith(isLoading: true, offset: nextOffset, clearErrorMessage: true);
-    
+    state = state.copyWith(
+        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
       final result = await repo.fetchUsersPage(
         query: state.searchQuery,
-        rolIds: state.selectedRolIds.toList(),
+        rolIds: _effectiveRolIds,
         limit: pageSize,
         offset: nextOffset,
       );
-      
+
       state = state.copyWith(
         isLoading: false,
         users: result.items,
@@ -109,41 +124,48 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       }
       return u;
     }).toList();
-    
+
     state = state.copyWith(users: nextUsers);
-    
+
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
       await repo.updateUser(userId: userId, activo: !currentStatus);
     } catch (e) {
-      state = state.copyWith(users: oldUsers, errorMessage: "Error al actualizar estado");
+      state = state.copyWith(
+          users: oldUsers, errorMessage: "Error al actualizar estado");
     }
   }
 
   Future<void> deleteUser(String userId) async {
     final oldUsers = List<Map<String, dynamic>>.from(state.users);
     final nextUsers = oldUsers.where((u) => u["id"] != userId).toList();
-    
+
     state = state.copyWith(users: nextUsers, totalItems: state.totalItems - 1);
-    
+
     try {
       final dio = _ref.read(dioProvider);
       await dio.delete("usuarios/$userId");
     } catch (e) {
-      state = state.copyWith(users: oldUsers, totalItems: state.totalItems + 1, errorMessage: "Error al eliminar usuario");
+      state = state.copyWith(
+          users: oldUsers,
+          totalItems: state.totalItems + 1,
+          errorMessage: "Error al eliminar usuario");
     }
   }
 }
 
 // Proveedor para Equipo Médico (Excluye Tutor si no se selecciona)
-final adminUsersProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  return AdminUsersNotifier(ref);
+final adminUsersProvider =
+    StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
+  return AdminUsersNotifier(ref, allowedRolIds: const {1, 2, 3});
 });
 
 // Proveedor para Tutores (Filtra por id_rol = 4 por defecto)
-final adminTutorsProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  final notifier = AdminUsersNotifier(ref);
-  // Inicializamos con rol de tutor (id_rol = 4)
-  notifier.state = notifier.state.copyWith(selectedRolIds: {4});
-  return notifier;
+final adminTutorsProvider =
+    StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
+  return AdminUsersNotifier(
+    ref,
+    allowedRolIds: const {4},
+    initialSelectedRolIds: const {4},
+  );
 });

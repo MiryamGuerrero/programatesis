@@ -76,11 +76,40 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             return reglas
 
     def listar_reglas_detalladas(
-        self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10, offset: int = 0, include_total: bool = False
+        self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10,
+        offset: int = 0, include_total: bool = False,
+        busqueda: str | None = None,
     ) -> dict | List[dict]:
         with db_cursor() as cur:
             # 1. Base WHERE clause
-            where_sql = "where c.id_tipo_condicion = ANY(%s)"
+            where_sql = "where c.id_tipo_condicion = ANY(%(tipos)s)"
+            params = {
+                "tipos": tipos_condicion,
+                "limite": limite,
+                "offset": offset,
+            }
+            if busqueda and busqueda.strip():
+                params["busqueda"] = f"%{busqueda.strip()}%"
+                where_sql += """
+                    and (
+                        r.id::text ilike %(busqueda)s
+                        or coalesce(r.mensaje_error, '') ilike %(busqueda)s
+                        or coalesce(a.nombre, '') ilike %(busqueda)s
+                        or coalesce(t.nombre, '') ilike %(busqueda)s
+                        or coalesce(i.nombre, '') ilike %(busqueda)s
+                        or coalesce(g.nombre, '') ilike %(busqueda)s
+                        or coalesce(s.nombre, '') ilike %(busqueda)s
+                        or coalesce(e.nombre_visible, '') ilike %(busqueda)s
+                        or exists (
+                            select 1
+                            from heuristico.condicion_regla cr_busqueda
+                            join heuristico.condicion c_busqueda
+                              on c_busqueda.id = cr_busqueda.id_condicion
+                            where cr_busqueda.id_regla = r.id
+                              and c_busqueda.nombre ilike %(busqueda)s
+                        )
+                    )
+                """
             
             # 2. Total count if requested
             total = 0
@@ -90,8 +119,14 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     from heuristico.regla r
                     join heuristico.condicion_regla cr on cr.id_regla = r.id
                     join heuristico.condicion c on c.id = cr.id_condicion
+                    join heuristico.catalogo_accion a on a.id = r.id_accion
+                    join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
+                    left join nutricion.ingrediente i on i.id = r.id_ingrediente
+                    left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
+                    left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
+                    left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
                     {where_sql}
-                """, (tipos_condicion,))
+                """, params)
                 total = cur.fetchone()[0]
 
             # 3. Main query
@@ -126,10 +161,10 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 {where_sql}
                 group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible
                 order by r.id desc
-                limit %s offset %s
+                limit %(limite)s offset %(offset)s
             """
             try:
-                cur.execute(sql, (tipos_condicion, limite, offset))
+                cur.execute(sql, params)
                 columnas = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
                 items = [dict(zip(columnas, row)) for row in rows]

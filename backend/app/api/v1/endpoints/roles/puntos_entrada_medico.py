@@ -491,6 +491,7 @@ def registrar_tutor_solo(
 
 @router.get("/reglas-medicas")
 def listar_reglas_medicas(
+    q: Optional[str] = Query(default=None),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     include_total: bool = Query(False),
@@ -503,24 +504,79 @@ def listar_reglas_medicas(
         tipos_condicion=[1, 2],
         limite=limit,
         offset=offset,
-        include_total=include_total
+        include_total=include_total,
+        busqueda=q,
     )
 
 @router.get("/reglas-medicas/form-data")
 def obtener_form_data_reglas(
     _=Depends(require_roles("admin", "medico"))
 ):
-    from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
-    repo = RepositorioPerfilPostgres()
-    return {
-        "condiciones": repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=[1, 2]),
-        "acciones": repo.obtener_catalogo("heuristico", "catalogo_accion"),
-        "objetivos": repo.obtener_catalogo("heuristico", "catalogo_objetivo_regla"),
-        "ingredientes": repo.obtener_catalogo("nutricion", "ingrediente"),
-        "grupos": repo.obtener_catalogo("nutricion", "grupo_alimentario"),
-        "subgrupos": repo.obtener_catalogo("nutricion", "subgrupo_alimentario"),
-        "etiquetas": repo.obtener_catalogo("nutricion", "etiqueta_nutricional")
-    }
+    # Los combos solo usan id y nombre. Una unica consulta evita siete viajes
+    # consecutivos a PostgreSQL y reduce considerablemente el payload.
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            select jsonb_build_object(
+                'condiciones', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by nombre
+                    )
+                    from heuristico.condicion
+                    where id_tipo_condicion = any(%s)
+                ), '[]'::jsonb),
+                'acciones', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by id
+                    )
+                    from heuristico.catalogo_accion
+                ), '[]'::jsonb),
+                'objetivos', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by id
+                    )
+                    from heuristico.catalogo_objetivo_regla
+                ), '[]'::jsonb),
+                'ingredientes', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by nombre
+                    )
+                    from nutricion.ingrediente
+                ), '[]'::jsonb),
+                'grupos', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by nombre
+                    )
+                    from nutricion.grupo_alimentario
+                ), '[]'::jsonb),
+                'subgrupos', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object('id', id, 'nombre', nombre)
+                        order by nombre
+                    )
+                    from nutricion.subgrupo_alimentario
+                ), '[]'::jsonb),
+                'etiquetas', coalesce((
+                    select jsonb_agg(
+                        jsonb_build_object(
+                            'id', id,
+                            'nombre', nombre_visible,
+                            'nombre_visible', nombre_visible
+                        )
+                        order by nombre_visible
+                    )
+                    from nutricion.etiqueta_nutricional
+                ), '[]'::jsonb)
+            )
+            """,
+            ([1, 2],),
+        )
+        return cur.fetchone()[0]
 
 @router.post("/reglas-medicas")
 def guardar_nueva_regla(

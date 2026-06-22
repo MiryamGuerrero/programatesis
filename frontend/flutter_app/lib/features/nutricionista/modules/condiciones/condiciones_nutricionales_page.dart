@@ -87,20 +87,28 @@ class _CondicionesNutricionalesPageState
       });
 
       if (mounted) {
+        if (res.data == null) {
+           throw Exception("La respuesta del servidor es nula");
+        }
+        
         final data = Map<String, dynamic>.from(res.data);
         setState(() {
-          _condiciones = data['items'] as List;
+          _condiciones = data['items'] as List? ?? [];
           _total = data['total'] ?? 0;
           _loading = false;
           _loadingStats = false;
         });
       }
     } catch (e) {
+      debugPrint("Error fetching condiciones: $e");
       if (mounted) {
         setState(() {
           _loading = false;
           _loadingStats = false;
+          _condiciones = [];
+          _total = 0;
         });
+        NutriSnack.show(context, "No se pudieron cargar las condiciones: $e", isError: true, ref: ref);
       }
     }
   }

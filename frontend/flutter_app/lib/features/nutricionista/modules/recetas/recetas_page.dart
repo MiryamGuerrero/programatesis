@@ -25,7 +25,8 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   Map<String, dynamic>? _selectedReceta;
   bool _isEditing = false;
   Map<String, dynamic>? _recetaParaEditar;
-  int? _loadingDetailId;
+  int? _loadingRecetaId;
+  String? _loadingAction; // 'ver', 'editar', 'eliminar'
   Timer? _searchDebounce;
 
   @override
@@ -410,9 +411,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
           itemBuilder: (context, index) {
             final receta = visible[index];
             final id = receta["id"] as int;
+            final isTargetCard = _loadingRecetaId == id;
             return RecetaCard(
               receta: receta,
-              isLoading: _loadingDetailId == id,
+              loadingAction: isTargetCard ? _loadingAction : null,
               onVer: () => _abrirDetalleCompleto(id),
               onEditar: () => _prepararEdicion(id),
               onEliminar: () => _confirmarEliminacion(receta),
@@ -436,7 +438,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
 
   Future<void> _abrirDetalleCompleto(int id) async {
     final dio = ref.read(dioProvider);
-    setState(() => _loadingDetailId = id);
+    setState(() {
+      _loadingRecetaId = id;
+      _loadingAction = 'ver';
+    });
     try {
       final resp = await dio.get("crud/recetas/$id");
       if (!mounted) return;
@@ -447,14 +452,20 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _loadingDetailId = null);
+        setState(() {
+          _loadingRecetaId = null;
+          _loadingAction = null;
+        });
       }
     }
   }
 
   Future<void> _prepararEdicion(int id) async {
     final dio = ref.read(dioProvider);
-    setState(() => _loadingDetailId = id);
+    setState(() {
+      _loadingRecetaId = id;
+      _loadingAction = 'editar';
+    });
     try {
       final resp = await dio.get("crud/recetas/$id");
       if (!mounted) return;
@@ -469,7 +480,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _loadingDetailId = null);
+        setState(() {
+          _loadingRecetaId = null;
+          _loadingAction = null;
+        });
       }
     }
   }

@@ -68,7 +68,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
   List<Map<String, dynamic>> _tiposPlato = const [];
   List<Map<String, dynamic>> _condicionesNutricionales = const [];
   List<Map<String, dynamic>> _reglasInteligentes = const [];
-  List<Map<String, dynamic>> _todasReglas = const [];
+  int _totalReglasGlobal = 0;
   int _totalReglas = 0;
   int _paginaActualReglas = 0;
   static const int _itemsPorPaginaReglas = 9;
@@ -124,8 +124,11 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       final momentos = _toRows(data['momentos']);
       final tipos = _toRows(data['tipos_plato']);
       final condiciones = _toRows(data['condiciones']);
-      final todasReglas = _toRows(data['todas_reglas']);
+      final totalReglasGlobal = _asInt(data['total_reglas']) ?? 0;
       final reglaDetalleInicial = data['regla_detalle_inicial'];
+      final combinacionesIniciales = data['combinaciones_iniciales'] is Map
+          ? Map<String, dynamic>.from(data['combinaciones_iniciales'] as Map)
+          : <String, dynamic>{};
 
       Map<String, dynamic>? selected =
           momentos.isNotEmpty ? momentos.first : null;
@@ -145,15 +148,21 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         _tiposPlato = tipos;
         _condicionesNutricionales = condiciones;
         _selectedMomento = selected;
-        _todasReglas = todasReglas;
+        _totalReglasGlobal = totalReglasGlobal;
       });
 
       if (reglaDetalleInicial != null) {
         final regla = Map<String, dynamic>.from(reglaDetalleInicial as Map);
-        _aplicarReglaEnEstado(regla);
-        if (selected != null) {
-          _loadRuleForMoment(selected);
+        final selectedId = selected == null ? null : _asInt(selected['id']);
+        if (selectedId != null) {
+          _cacheReglasCompletas[selectedId] = regla;
         }
+        _aplicarReglaEnEstado(regla);
+        setState(() {
+          _reglasInteligentes = _toRows(combinacionesIniciales['items']);
+          _totalReglas = _asInt(combinacionesIniciales['total']) ?? 0;
+          _paginaActualReglas = 0;
+        });
       } else if (selected != null) {
         await _loadRuleForMoment(selected);
       }
@@ -184,15 +193,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     try {
       final dio = ref.read(dioProvider);
 
+      Future<dynamic>? detailRequest;
       if (!_cacheReglasCompletas.containsKey(mId)) {
         setState(() => _loadingDetails = true);
-        final respGral =
-            await dio.get('nutricionista/reglas-generales/por-momento/$mId');
-        _cacheReglasCompletas[mId] =
-            Map<String, dynamic>.from(respGral.data as Map);
+        detailRequest =
+            dio.get('nutricionista/reglas-generales/por-momento/$mId');
       }
 
-      final respCombo = await dio.get(
+      final comboRequest = dio.get(
         'nutricionista/reglas-menu-combinaciones/por-momento/$mId',
         queryParameters: {
           'limit': _itemsPorPaginaReglas,
@@ -200,6 +208,14 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           'include_total': true,
         },
       );
+
+      if (detailRequest != null) {
+        final respGral = await detailRequest;
+        _cacheReglasCompletas[mId] =
+            Map<String, dynamic>.from(respGral.data as Map);
+      }
+
+      final respCombo = await comboRequest;
 
       final comboData = Map<String, dynamic>.from(respCombo.data as Map);
 
@@ -409,7 +425,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       Expanded(
           child: NutriResumenCard(
               titulo: 'Reglas Totales',
-              valor: '${_todasReglas.length}',
+              valor: '$_totalReglasGlobal',
               icon: Icons.auto_awesome_rounded,
               colorValor: AppTema.azulOscuro)),
     ]);

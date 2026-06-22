@@ -4,7 +4,7 @@ import '../../../../../core/theme/app_theme.dart';
 
 class RecetaCard extends StatelessWidget {
   final Map<String, dynamic> receta;
-  final bool isLoading;
+  final String? loadingAction;
   final VoidCallback? onVer;
   final VoidCallback? onEditar;
   final VoidCallback? onEliminar;
@@ -13,7 +13,7 @@ class RecetaCard extends StatelessWidget {
   const RecetaCard({
     super.key,
     required this.receta,
-    this.isLoading = false,
+    this.loadingAction,
     this.onVer,
     this.onEditar,
     this.onEliminar,
@@ -341,6 +341,11 @@ class RecetaCard extends StatelessWidget {
   }
 
   Widget _buildFooter() {
+    final bool isVerLoading = loadingAction == 'ver';
+    final bool isEditarLoading = loadingAction == 'editar';
+    final bool isEliminarLoading = loadingAction == 'eliminar';
+    final bool isAnyLoading = loadingAction != null;
+
     return Padding(
       padding: const EdgeInsets.only(left: 18, right: 18, bottom: 16),
       child: Row(
@@ -350,7 +355,7 @@ class RecetaCard extends StatelessWidget {
             child: SizedBox(
               height: 44,
               child: FilledButton(
-                onPressed: isLoading ? null : onVer,
+                onPressed: isAnyLoading ? null : onVer,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTema.azulPrincipal,
                   shape: RoundedRectangleBorder(
@@ -358,7 +363,7 @@ class RecetaCard extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                child: isLoading
+                child: isVerLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -386,17 +391,29 @@ class RecetaCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           // Botones Secundarios
-          _buildSecondaryButton(Icons.edit_rounded, onEditar),
+          _buildSecondaryButton(
+            icon: Icons.edit_rounded,
+            onPressed: isAnyLoading ? null : onEditar,
+            isLoading: isEditarLoading,
+          ),
           const SizedBox(width: 8),
-          _buildSecondaryButton(Icons.delete_outline_rounded, onEliminar,
-              isDanger: true),
+          _buildSecondaryButton(
+            icon: Icons.delete_outline_rounded,
+            onPressed: isAnyLoading ? null : onEliminar,
+            isLoading: isEliminarLoading,
+            isDanger: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSecondaryButton(IconData icon, VoidCallback? onPressed,
-      {bool isDanger = false}) {
+  Widget _buildSecondaryButton({
+    required IconData icon,
+    VoidCallback? onPressed,
+    bool isLoading = false,
+    bool isDanger = false,
+  }) {
     return Container(
       height: 44,
       width: 44,
@@ -407,11 +424,20 @@ class RecetaCard extends StatelessWidget {
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: Icon(
-          icon,
-          size: 18,
-          color: isDanger ? Colors.redAccent : Colors.blueGrey.shade400,
-        ),
+        icon: isLoading
+            ? SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                  color: isDanger ? Colors.redAccent : AppTema.azulPrincipal,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(
+                icon,
+                size: 18,
+                color: isDanger ? Colors.redAccent : Colors.blueGrey.shade400,
+              ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import "dart:math" as math;
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -84,6 +85,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   @override
   Widget build(BuildContext context) {
+    final isAndroidApp =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (isAndroidApp) return _buildAndroidLogin(context);
+
     final bool isWide = !context.isMobile && !context.isMobileSmall;
 
     return Scaffold(
@@ -136,6 +141,51 @@ class _LoginPageState extends ConsumerState<LoginPage>
                             _buildLoginCard(context),
                           ],
                         ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAndroidLogin(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _animController,
+              builder: (_, __) {
+                return CustomPaint(
+                  painter: _ProfessionalBackgroundPainter(
+                    value: _animController.value,
+                  ),
+                );
+              },
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.responsiveSpacing(AppSpacing.lg),
+                  vertical: context.responsiveSpacing(AppSpacing.xl),
+                ),
+                child: Column(
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(0, -18),
+                      child: _buildMobileHeader(
+                        context,
+                        emphasized: true,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    _buildLoginCard(context),
+                  ],
                 ),
               ),
             ),
@@ -259,13 +309,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildMobileHeader(BuildContext context) {
+  Widget _buildMobileHeader(
+    BuildContext context, {
+    bool emphasized = false,
+  }) {
     return Column(
       children: [
         RichText(
           text: TextSpan(
             style: GoogleFonts.montserrat(
-                fontSize: AppTextSizes.headline(context.screenWidth),
+                fontSize: emphasized
+                    ? 38
+                    : AppTextSizes.headline(context.screenWidth),
                 fontWeight: FontWeight.w800),
             children: const [
               TextSpan(text: "Nutri", style: TextStyle(color: _azul)),

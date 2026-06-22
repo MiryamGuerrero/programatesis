@@ -169,27 +169,29 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   Future<void> _loadCatalogos() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("catalogos/condiciones");
-      final resRegistro = await dio.get("registro/paciente-integral/catalogos");
-      final resIng =
-          await dio.get("nutricionista/ingredientes/catalogo-simple");
-      final resSubs = await dio.get("nutricionista/subgrupos/catalogo-simple");
+
+      final results = await Future.wait([
+        dio.get("catalogos/condiciones"),
+        dio.get("registro/paciente-integral/catalogos"),
+        dio.get("nutricionista/ingredientes/catalogo-simple"),
+        dio.get("nutricionista/subgrupos/catalogo-simple"),
+      ]);
 
       if (mounted) {
         setState(() {
-          final allCond = res.data as List;
+          final allCond = results[0].data as List;
           _condicionesTemporalesCat = allCond
               .where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2)
               .toList();
           _patologiasCat = allCond
               .where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1)
               .toList();
-          _ingredientesCat = resIng.data as List? ?? [];
-          _subgruposCat = resSubs.data as List? ?? [];
-          _restriccionesAlimentariasCat = (resRegistro.data
+          _restriccionesAlimentariasCat = (results[1].data
                       as Map<String, dynamic>)["restricciones_alimentarias"]
                   as List? ??
               [];
+          _ingredientesCat = results[2].data as List? ?? [];
+          _subgruposCat = results[3].data as List? ?? [];
         });
       }
     } catch (e) {
@@ -223,32 +225,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     setState(() => _loading = true);
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio
-          .get("pacientes/${widget.paciente['id']}/expediente-completo");
-      final data = res.data;
-      Map<String, dynamic>? consumo;
-      try {
-        final repo = ref.read(repositorioMedicoProvider);
-        consumo = await repo.obtenerConsumoAlimentario(
-            widget.paciente['id'].toString(),
-            dias: 180);
-      } catch (e) {
-        debugPrint("Error cargando consumo alimentario: $e");
-      }
-      try {
-        final repo = ref.read(repositorioMedicoProvider);
-        final evo = await repo
-            .obtenerEvolucionMensual(widget.paciente['id'].toString());
-        if (mounted) {
-          _evolucionMensual = evo;
-          final controls = List<Map<String, dynamic>>.from(
-              (evo['controles'] as List? ?? [])
-                  .map((e) => Map<String, dynamic>.from(e as Map)));
-          _controlSeleccionadoEvo = controls.isNotEmpty ? controls.last : null;
-        }
-      } catch (e) {
-        debugPrint("Error cargando evolución mensual: $e");
-      }
+      final patientIdStr = widget.paciente['id'].toString();
+      final response =
+          await dio.get("pacientes/$patientIdStr/expediente-completo");
+      final data = Map<String, dynamic>.from(response.data as Map);
+
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
       final evaluadoHoy = historial.any((c) => c['fecha_control'] == hoy);
@@ -262,7 +243,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
       setState(() {
         _expediente = data;
-        _consumoAlimentario = consumo;
         _yaEvaluadoHoy = evaluadoHoy;
         _controlMensualYaHecho = estadoControl['ya_hecho'] == true;
         _controlMensualHabilitado = estadoControl['habilitado'] == true;
@@ -287,12 +267,42 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
         _loading = false;
       });
+      unawaited(_cargarAnalitica(patientIdStr));
       if (_peso.text.isNotEmpty && _talla.text.isNotEmpty) {
         _calculateOMS();
       }
     } catch (e) {
-      setState(() => _loading = false);
+      debugPrint("Error general en _cargarExpediente: $e");
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
+  }
+
+  Future<void> _cargarAnalitica(String patientId) async {
+    final repo = ref.read(repositorioMedicoProvider);
+    final results = await Future.wait([
+      repo.obtenerConsumoAlimentario(patientId, dias: 180).catchError((e) {
+        debugPrint("Error cargando consumo alimentario: $e");
+        return <String, dynamic>{};
+      }),
+      repo.obtenerEvolucionMensual(patientId).catchError((e) {
+        debugPrint("Error cargando evolución mensual: $e");
+        return <String, dynamic>{};
+      }),
+    ]);
+    if (!mounted || widget.paciente['id'].toString() != patientId) return;
+
+    final consumo = results[0];
+    final evolucion = results[1];
+    final controles = List<Map<String, dynamic>>.from(
+        (evolucion['controles'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map)));
+    setState(() {
+      _consumoAlimentario = consumo.isEmpty ? null : consumo;
+      _evolucionMensual = evolucion.isEmpty ? null : evolucion;
+      _controlSeleccionadoEvo = controles.isNotEmpty ? controles.last : null;
+    });
   }
 
   Map<String, dynamic> _evaluarEstadoControlMensual(List historial) {

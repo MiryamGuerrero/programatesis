@@ -18,11 +18,29 @@ class ReglasMedicasPage extends ConsumerStatefulWidget {
 }
 
 class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(medicalRulesProvider.notifier).loadPage();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      ref.read(medicalRulesProvider.notifier).setSearchQuery(value.trim());
     });
   }
 
@@ -81,8 +99,8 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
           label: Text("NUEVA REGLA",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
@@ -131,15 +149,47 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
           border: Border.all(color: const Color(0xFFF1F5F9))),
       child: Row(
         children: [
-          const Expanded(child: SizedBox()),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: "Buscar por acción, objetivo o diagnóstico...",
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: "Limpiar búsqueda",
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () {
+                          _searchDebounce?.cancel();
+                          _searchController.clear();
+                          ref
+                              .read(medicalRulesProvider.notifier)
+                              .setSearchQuery("");
+                          setState(() {});
+                        },
+                      ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
           IconButton(
             icon: const Icon(Icons.refresh_rounded,
                 size: 22, color: AppTema.azulPrincipal),
             onPressed: () => ref.read(medicalRulesProvider.notifier).loadPage(),
             tooltip: "Actualizar motor",
             style: IconButton.styleFrom(
-              backgroundColor:
-                  AppTema.azulPrincipal.withValues(alpha: 0.05),
+              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
@@ -213,8 +263,21 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
     );
   }
 
-  void _showForm([Map<String, dynamic>? rule]) {
-    final state = ref.read(medicalRulesProvider);
+  Future<void> _showForm([Map<String, dynamic>? rule]) async {
+    var state = ref.read(medicalRulesProvider);
+    if (state.formData.isEmpty) {
+      await ref.read(medicalRulesProvider.notifier).loadFormData();
+      if (!mounted) return;
+      state = ref.read(medicalRulesProvider);
+      if (state.formData.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No se pudieron cargar los datos del formulario."),
+          ),
+        );
+        return;
+      }
+    }
     showDialog(
       context: context,
       builder: (ctx) => _NutritionalRuleFormDialog(
@@ -231,9 +294,12 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text("¿Eliminar Regla Médica?"),
-        content: const Text("Esta acción eliminará la lógica del motor experto."),
+        content:
+            const Text("Esta acción eliminará la lógica del motor experto."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
@@ -304,10 +370,14 @@ class _MedicalRulesDataSource extends DataTableSource {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
               const SizedBox(width: 8),
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
             ],
           ),
         )),
@@ -318,7 +388,8 @@ class _MedicalRulesDataSource extends DataTableSource {
     if (localIndex < 0 || localIndex >= rules.length) return null;
     final r = rules[localIndex];
 
-    final nombresCondiciones = (r["condiciones_nombres"] ?? "SIN DIAGNÓSTICOS").toString();
+    final nombresCondiciones =
+        (r["condiciones_nombres"] ?? "SIN DIAGNÓSTICOS").toString();
 
     return DataRow(cells: [
       DataCell(SizedBox(
@@ -501,8 +572,8 @@ class _NutritionalRuleFormDialogState
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildFieldSection("OBJETIVO", [
-                  DropdownButtonFormField<int>(
-                    value: _idObjetivo,
+                DropdownButtonFormField<int>(
+                  initialValue: _idObjetivo,
                   decoration:
                       _modalDecor("Tipo de Objetivo*", Icons.track_changes),
                   items: (widget.formData["objetivos"] ?? [])
@@ -519,8 +590,8 @@ class _NutritionalRuleFormDialogState
                 ),
                 if (_idObjetivo != null) ...[
                   const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      value: _idTarget,
+                  DropdownButtonFormField<int>(
+                    initialValue: _idTarget,
                     decoration:
                         _modalDecor("Seleccionar Item*", Icons.ads_click),
                     items: targetList
@@ -539,7 +610,7 @@ class _NutritionalRuleFormDialogState
               const SizedBox(height: 16),
               _buildFieldSection("ACCIÓN", [
                 DropdownButtonFormField<int>(
-                  value: _idAccion,
+                  initialValue: _idAccion,
                   decoration:
                       _modalDecor("Acción Sugerida*", Icons.lightbulb_outline),
                   items: (widget.formData["acciones"] ?? [])
@@ -601,7 +672,8 @@ class _NutritionalRuleFormDialogState
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text("CANCELAR",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey))),
+                style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.bold, color: Colors.grey))),
         FilledButton(
             onPressed: _saving ? null : _save,
             child: Text(_saving ? "..." : "GUARDAR REGLA",
@@ -639,7 +711,6 @@ class _NutritionalRuleFormDialogState
     }
     setState(() => _saving = true);
     try {
-      final dio = ref.read(dioProvider);
       final payload = {
         "id_accion": _idAccion,
         "id_tipo_objetivo": _idObjetivo,
@@ -652,9 +723,9 @@ class _NutritionalRuleFormDialogState
         "id_subgrupo_alimentario": _idObjetivo == 4 ? _idTarget : null
       };
       if (widget.initialRule != null) {
-        await ref.read(dioProvider).put(
-            "reglas-medicas/${widget.initialRule!['id']}",
-            data: payload);
+        await ref
+            .read(dioProvider)
+            .put("reglas-medicas/${widget.initialRule!['id']}", data: payload);
       } else {
         await ref.read(dioProvider).post("reglas-medicas", data: payload);
       }

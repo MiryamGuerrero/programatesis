@@ -590,39 +590,43 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                 // Lista de sugerencias (se muestra debajo si hay búsqueda)
                 if (_tagSearchCtrl.text.isNotEmpty &&
                     _etiquetasFiltradas.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10)
-                      ],
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _etiquetasFiltradas.length,
-                      itemBuilder: (context, index) {
-                        final etq = _etiquetasFiltradas[index];
-                        return ListTile(
-                          title: Text(etq['nombre_visible'] ?? '',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w500)),
-                          trailing: const Icon(Icons.add_circle_outline_rounded,
-                              size: 18, color: AppTema.azulPrincipal),
-                          onTap: () {
-                            setState(() {
-                              _etiquetasSeleccionadas.add(etq['id']);
-                              _tagSearchCtrl.clear();
-                              _etiquetasFiltradas = _etiquetasCatalog;
-                            });
-                          },
-                        );
-                      },
+                  Material(
+                    color: Colors.transparent,
+                    elevation: 10,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _etiquetasFiltradas.length,
+                        itemBuilder: (context, index) {
+                          final etq = _etiquetasFiltradas[index];
+                          return Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              title: Text(etq['nombre_visible'] ?? '',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w500)),
+                              trailing: const Icon(Icons.add_circle_outline_rounded,
+                                  size: 18, color: AppTema.azulPrincipal),
+                              onTap: () {
+                                setState(() {
+                                  _etiquetasSeleccionadas.add(etq['id']);
+                                  _tagSearchCtrl.clear();
+                                  _etiquetasFiltradas = _etiquetasCatalog;
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
               ],

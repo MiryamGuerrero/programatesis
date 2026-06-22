@@ -555,10 +555,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         id_condicion_nutricional_resultado, estado_nutricional, id_medico,
                         puntos_dolor, escala_inflamacion, nivel_fatiga,
                         articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
-                        en_brote, estado_enfermedad, nota_evolucion, fecha_proxima_cita, created_at
+                        en_brote, estado_enfermedad, valor_pcr, valor_vsg, nota_evolucion, fecha_proxima_cita, created_at
                     ) values (
                         %s, now(), %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
                     ) returning id
                 """, (
                     id_paciente, float(datos.get("peso_kg") or 0), float(datos.get("talla_cm") or 0), evaluacion["edad_meses"],
@@ -567,7 +567,9 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     int(datos.get("fatiga", datos.get("nivel_fatiga", 10)) or 10),
                     int(datos.get("articulaciones_inflamadas") or 0), int(datos.get("articulaciones_dolorosas") or 0),
                     datos.get("minutos_rigidez"), bool(datos.get("en_brote")),
-                    datos.get("estado_enfermedad") or "Seguimiento", datos.get("nota_evolucion"), datos.get("fecha_proxima_cita")
+                    datos.get("estado_enfermedad") or "Seguimiento",
+                    float(datos.get("valor_pcr") or 0), float(datos.get("valor_vsg") or 0),
+                    datos.get("nota_evolucion"), datos.get("fecha_proxima_cita")
                 ))
                 cid = cur.fetchone()[0]
                 
@@ -1284,6 +1286,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                        estado_nutricional::text, id_condicion_nutricional_resultado,
                        puntos_dolor, escala_inflamacion, nivel_fatiga, articulaciones_inflamadas, 
                        articulaciones_dolorosas, minutos_rigidez, en_brote, estado_enfermedad::text, 
+                       valor_pcr, valor_vsg,
                        nota_evolucion::text, fecha_proxima_cita::text, null::numeric as z_score_bmi
                 from clinico.control_paciente 
                 where id_paciente = %s 

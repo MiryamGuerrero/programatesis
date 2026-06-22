@@ -450,9 +450,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         (_patientProfile!["ultimo_control"] ?? {}) as Map<String, dynamic>;
     final paciente =
         (_patientProfile!["paciente"] ?? {}) as Map<String, dynamic>;
-    final condicionesResp = await dio.get("condiciones-nutricionales");
+    final condicionesResp = await dio.get(
+      "condiciones-nutricionales",
+      queryParameters: {"limit": 500},
+    );
+    final List rawData;
+    if (condicionesResp.data is Map) {
+      rawData = condicionesResp.data["items"] ?? [];
+    } else {
+      rawData = condicionesResp.data ?? [];
+    }
     final List<Map<String, dynamic>> condiciones =
-        List<Map<String, dynamic>>.from(condicionesResp.data ?? []);
+        List<Map<String, dynamic>>.from(rawData);
     final condicionesPeso = _filtrarCondicionesPeso(condiciones);
     final condicionesTalla = _filtrarCondicionesTalla(condiciones);
 
