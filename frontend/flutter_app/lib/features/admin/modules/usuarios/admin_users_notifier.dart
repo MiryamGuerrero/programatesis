@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "../../../../core/state/app_providers.dart";
@@ -10,6 +9,7 @@ class AdminUsersState {
   final Set<int> selectedRolIds;
   final int totalItems;
   final int offset;
+  final Map<int, int> roleCounts;
   final String? errorMessage;
 
   const AdminUsersState({
@@ -19,6 +19,7 @@ class AdminUsersState {
     this.selectedRolIds = const {},
     this.totalItems = 0,
     this.offset = 0,
+    this.roleCounts = const {},
     this.errorMessage,
   });
 
@@ -29,6 +30,7 @@ class AdminUsersState {
     Set<int>? selectedRolIds,
     int? totalItems,
     int? offset,
+    Map<int, int>? roleCounts,
     String? errorMessage,
     bool clearErrorMessage = false,
   }) {
@@ -39,6 +41,7 @@ class AdminUsersState {
       selectedRolIds: selectedRolIds ?? this.selectedRolIds,
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
+      roleCounts: roleCounts ?? this.roleCounts,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -47,10 +50,41 @@ class AdminUsersState {
 }
 
 class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
-  AdminUsersNotifier(this._ref) : super(const AdminUsersState());
+  AdminUsersNotifier(
+    this._ref, {
+    Set<int> allowedRolIds = const {},
+  })  : _allowedRolIds = allowedRolIds,
+        super(const AdminUsersState());
 
   final Ref _ref;
+  final Set<int> _allowedRolIds;
   static const int pageSize = 5;
+
+  List<int> get _effectiveRolIds {
+    if (state.selectedRolIds.isNotEmpty) {
+      return state.selectedRolIds.toList();
+    }
+    return _allowedRolIds.toList();
+  }
+
+  Future<Map<int, int>> _loadRoleCounts() async {
+    if (_allowedRolIds.isEmpty) return const {};
+
+    final repo = _ref.read(supabaseCrudRepositoryProvider);
+    final entries = await Future.wait(
+      _allowedRolIds.map((roleId) async {
+        final result = await repo.fetchUsersPage(
+          query: state.searchQuery,
+          rolIds: [roleId],
+          limit: 1,
+          offset: 0,
+        );
+        return MapEntry(roleId, result.total);
+      }),
+    );
+
+    return Map<int, int>.fromEntries(entries);
+  }
 
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
@@ -58,17 +92,23 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
-      final result = await repo.fetchUsersPage(
-        query: state.searchQuery,
-        rolIds: state.selectedRolIds.toList(),
-        limit: pageSize,
-        offset: nextOffset,
-      );
+      final results = await Future.wait([
+        repo.fetchUsersPage(
+          query: state.searchQuery,
+          rolIds: _effectiveRolIds,
+          limit: pageSize,
+          offset: nextOffset,
+        ),
+        _loadRoleCounts(),
+      ]);
+      final result = results[0] as ({List<Map<String, dynamic>> items, int total});
+      final roleCounts = results[1] as Map<int, int>;
       
       state = state.copyWith(
         isLoading: false,
         users: result.items,
         totalItems: result.total,
+        roleCounts: roleCounts,
       );
     } catch (e) {
       state = state.copyWith(
@@ -137,13 +177,10 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
 
 // Proveedor para Equipo Médico (Excluye Tutor si no se selecciona)
 final adminUsersProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  return AdminUsersNotifier(ref);
+  return AdminUsersNotifier(ref, allowedRolIds: {1, 2, 3});
 });
 
 // Proveedor para Tutores (Filtra por id_rol = 4 por defecto)
 final adminTutorsProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  final notifier = AdminUsersNotifier(ref);
-  // Inicializamos con rol de tutor (id_rol = 4)
-  notifier.state = notifier.state.copyWith(selectedRolIds: {4});
-  return notifier;
+  return AdminUsersNotifier(ref, allowedRolIds: {4});
 });

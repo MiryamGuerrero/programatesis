@@ -1,0 +1,725 @@
+ARQUITECTURA POR CAPAS DEL PROYECTO REUMANUTRI
+================================================
+
+Proyecto analizado: programatesis
+Fecha de analisis: 18/06/2026
+
+1. VISION GENERAL
+-----------------
+
+ReumaNutri es un sistema de soporte nutricional y clinico para pacientes
+pediatricos con enfermedades reumaticas. El proyecto esta dividido en cuatro
+bloques principales:
+
+1. Frontend Flutter:
+   Aplicacion visual usada por administradores, medicos, nutricionistas y
+   tutores.
+
+2. Backend FastAPI:
+   API principal en Python. Organiza la logica en capas: presentacion,
+   aplicacion, dominio e infraestructura.
+
+3. Supabase/PostgreSQL:
+   Base de datos, autenticacion, almacenamiento y ejecucion de algunas
+   funciones serverless.
+
+4. Supabase Edge Functions:
+   Funciones en TypeScript/Deno para tareas especificas como plan inteligente,
+   reemplazo equivalente y recomendacion puntual.
+
+La arquitectura general puede leerse asi:
+
+Usuario
+  -> Flutter
+  -> API FastAPI
+  -> Casos de uso
+  -> Servicios de dominio / reglas
+  -> Repositorios
+  -> Supabase PostgreSQL
+  -> Respuesta de vuelta a Flutter
+
+
+2. CAPAS PRINCIPALES DEL BACKEND
+--------------------------------
+
+El backend esta en:
+
+programatesis/backend/app
+
+Sigue una arquitectura por capas con enfoque hexagonal pragmatico. Esto
+significa que la logica importante del negocio no depende directamente de la
+base de datos ni de FastAPI. FastAPI y PostgreSQL quedan como mecanismos de
+entrada y salida.
+
+
+2.1 CAPA DE PRESENTACION
+------------------------
+
+Ubicacion principal:
+
+backend/app/api
+
+Responsabilidad:
+
+Esta capa recibe las peticiones HTTP desde el frontend o desde otros clientes.
+Valida datos de entrada, aplica dependencias de autenticacion/autorizacion y
+llama a los casos de uso de la capa de aplicacion.
+
+Archivos importantes:
+
+- backend/app/main.py
+  Crea la aplicacion FastAPI, configura CORS, GZip, cabeceras de cache,
+  manejadores de errores y registra el router principal.
+
+- backend/app/api/v1/router.py
+  Construye el router de la API usando el registro central de rutas.
+
+- backend/app/api/v1/route_registry.py
+  Agrupa los routers por modulo y rol:
+  auth, admin, medico, nutricionista, tutor, perfil y compatibilidad.
+
+- backend/app/api/v1/endpoints/roles
+  Contiene los puntos de entrada HTTP por rol:
+  admin, medico, nutricionista, tutor, perfil y compatibilidad.
+
+- backend/app/api/v1/dtos
+  Define estructuras de entrada/salida para la API.
+
+Que NO debe hacer esta capa:
+
+- No debe contener reglas clinicas complejas.
+- No debe construir consultas SQL extensas.
+- No debe decidir como se calcula un diagnostico o un plan nutricional.
+
+Interaccion:
+
+Flutter hace una peticion HTTP.
+La capa API recibe la peticion.
+La capa API llama a un caso de uso.
+El caso de uso devuelve datos.
+La API responde en JSON.
+
+
+2.2 CAPA DE APLICACION
+----------------------
+
+Ubicacion principal:
+
+backend/app/aplicacion
+
+Responsabilidad:
+
+Esta capa representa los casos de uso del sistema. Coordina procesos completos
+de negocio usando repositorios y servicios de dominio.
+
+Submodulos principales:
+
+- backend/app/aplicacion/clinica
+  Casos de uso relacionados con pacientes, usuarios, catalogos, controles
+  clinicos, perfil de usuario y supervision de adherencia.
+
+- backend/app/aplicacion/nutricion
+  Casos de uso relacionados con ingredientes, variables nutricionales,
+  seguimiento, evaluacion de reglas y generacion automatica de planes.
+
+Archivos representativos:
+
+- gestionar_pacientes.py
+- gestionar_control_clinico.py
+- gestionar_catalogos.py
+- gestionar_usuarios.py
+- supervisar_adherencia.py
+- gestionar_ingredientes.py
+- gestionar_variables.py
+- evaluar_reglas_paciente.py
+- generar_plan_automatico.py
+- gestionar_seguimiento.py
+
+Funcion de esta capa:
+
+- Orquestar el flujo de una operacion.
+- Pedir informacion a repositorios.
+- Aplicar servicios de dominio cuando corresponde.
+- Decidir el orden de pasos.
+- Devolver un resultado listo para la API.
+
+Ejemplo:
+
+Para generar un plan automatico:
+
+1. Recibe el id del paciente y parametros del plan.
+2. Consulta datos del paciente.
+3. Consulta recetas disponibles.
+4. Evalua restricciones o condiciones.
+5. Genera la propuesta de plan.
+6. Guarda el plan o devuelve el resultado.
+
+Esta capa no deberia conocer detalles de conexion a PostgreSQL. Para eso usa
+interfaces y repositorios.
+
+
+2.3 CAPA DE DOMINIO
+-------------------
+
+Ubicacion principal:
+
+backend/app/domain
+
+Responsabilidad:
+
+Contiene el conocimiento central del negocio: modelos, reglas, servicios puros,
+excepciones e interfaces que definen lo que la aplicacion necesita de la
+infraestructura.
+
+Subcarpetas:
+
+- backend/app/domain/modelos
+  Entidades y estructuras de negocio:
+  paciente, usuario, clinico, nutricion, reglas, seguimiento y plan nutricional.
+
+- backend/app/domain/servicios
+  Logica especializada del negocio:
+  servicio_oms, servicio_planificador, servicio_heuristico,
+  restricciones_alimentarias y resolutor_conflictos.
+
+- backend/app/domain/repositorios/interfaces.py
+  Contratos que deben cumplir los repositorios concretos.
+
+- backend/app/domain/excepciones.py
+  Errores propios del dominio:
+  validacion, recurso no encontrado, regla de negocio, etc.
+
+Importancia de esta capa:
+
+Es la capa mas estable. Deberia poder entenderse sin saber si los datos vienen
+de Supabase, PostgreSQL, archivos o cualquier otro origen.
+
+Ejemplos de contratos definidos:
+
+- IRepositorioPaciente
+- IRepositorioPerfil
+- IRepositorioRegla
+- IRepositorioIngrediente
+- IRepositorioNutricion
+- IRepositorioClinico
+- IRepositorioReceta
+- IRepositorioSeguimiento
+- IRepositorioPlan
+
+Interaccion:
+
+La aplicacion depende del dominio.
+La infraestructura implementa las interfaces del dominio.
+El dominio no deberia depender de FastAPI ni de Supabase.
+
+
+2.4 CAPA DE INFRAESTRUCTURA
+---------------------------
+
+Ubicacion principal:
+
+backend/app/infraestructura
+
+Responsabilidad:
+
+Contiene la implementacion tecnica para hablar con servicios externos, sobre
+todo PostgreSQL/Supabase.
+
+Subcarpetas importantes:
+
+- backend/app/infraestructura/repositorios
+  Implementaciones reales de los contratos definidos en dominio.
+
+- backend/app/infraestructura/database/db.py
+  Crea y administra el pool de conexiones PostgreSQL con psycopg_pool.
+
+- backend/app/infraestructura/supabase/client.py
+  Cliente de Supabase.
+
+- backend/app/infraestructura/servicios
+  Servicios tecnicos concretos, por ejemplo servicio OMS conectado a datos.
+
+Repositorios concretos:
+
+- RepositorioPacientePostgres
+- RepositorioPerfilPostgres
+- RepositorioReglaPostgres
+- RepositorioIngredientePostgres
+- RepositorioNutricionPostgres
+- RepositorioClinicoPostgres
+- RepositorioRecetaPostgres
+- RepositorioSeguimientoPostgres
+- RepositorioComposicionPostgres
+
+Interaccion:
+
+Los casos de uso piden datos mediante repositorios.
+Los repositorios ejecutan SQL o usan clientes externos.
+La infraestructura devuelve datos a la aplicacion.
+
+Esta capa si conoce detalles como:
+
+- DATABASE_URL
+- Pool de conexiones
+- Esquemas de base de datos
+- SQL
+- Cliente Supabase
+
+
+2.5 CAPA CORE / CONFIGURACION TRANSVERSAL
+-----------------------------------------
+
+Ubicacion:
+
+backend/app/core
+
+Responsabilidad:
+
+Agrupa configuracion y servicios transversales usados por varias capas.
+
+Archivos relevantes:
+
+- config.py
+  Lee variables de entorno como DATABASE_URL, SUPABASE_URL,
+  SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, CORS_ORIGINS y configuracion
+  del pool.
+
+- security.py
+  Funciones de seguridad.
+
+- auth_onboarding.py
+  Logica de onboarding/autenticacion.
+
+- db.py y supabase_client.py
+  Accesos compartidos o compatibilidad con clientes.
+
+Esta capa es transversal. No es una capa de negocio, pero da soporte al resto
+del sistema.
+
+
+3. INYECCION DE DEPENDENCIAS EN BACKEND
+---------------------------------------
+
+Archivo clave:
+
+backend/app/api/v1/dependencias.py
+
+Funcion:
+
+Construye los casos de uso con sus repositorios concretos.
+
+Ejemplo conceptual:
+
+Endpoint HTTP
+  -> pide obtener_caso_uso_gestionar_pacientes()
+  -> se crea CasoUsoGestionarPacientes
+  -> recibe RepositorioPacientePostgres
+  -> el caso de uso puede operar sin crear directamente la conexion SQL
+
+Esto permite mantener separadas las responsabilidades:
+
+- La API sabe que caso de uso necesita.
+- El caso de uso sabe que repositorio necesita.
+- El repositorio sabe como acceder a PostgreSQL.
+
+
+4. FRONTEND FLUTTER POR MODULOS Y ROLES
+---------------------------------------
+
+Ubicacion principal:
+
+programatesis/frontend/flutter_app/lib
+
+El frontend tambien esta organizado por capas practicas:
+
+4.1 Capa de entrada de la app
+
+Archivos:
+
+- main.dart
+- main_web.dart
+- main_tutor_mobile.dart
+- bootstrap.dart
+- app.dart
+
+Responsabilidad:
+
+- Inicializar Flutter.
+- Inicializar Supabase.
+- Configurar Riverpod.
+- Resolver sesion del usuario.
+- Decidir si mostrar login, cambio de password o la interfaz por rol.
+
+Flujo:
+
+bootstrap.dart inicializa Supabase y localizacion es_EC.
+app.dart observa la sesion con Riverpod.
+Si no hay sesion, muestra LoginPage.
+Si hay sesion, resuelve el rol.
+Segun el rol, muestra RoleShell.
+
+
+4.2 Capa de presentacion por rol
+
+Ubicacion:
+
+frontend/flutter_app/lib/features
+
+Roles/modulos principales:
+
+- features/admin
+  Gestion de equipo medico y cuentas de tutores.
+
+- features/medico
+  Gestion de pacientes, controles, catalogo de condiciones, reglas medicas,
+  diagnostico OMS y evolucion.
+
+- features/nutricionista
+  Ingredientes, recetas, etiquetas, plan nutricional, configuracion de menu,
+  condiciones y reglas nutricionales.
+
+- features/tutor
+  Mi paciente, perfil, calendario, recetas, compras, gustos, plan diario,
+  consumo, reemplazos y calificaciones.
+
+- features/perfil
+  Perfil comun de usuario.
+
+- features/shared
+  Pantallas compartidas como gestion, registro y expediente de pacientes.
+
+
+4.3 Registro de modulos por rol
+
+Archivo:
+
+frontend/flutter_app/lib/features/roles/role_module_registry.dart
+
+Responsabilidad:
+
+Define que modulos ve cada rol.
+
+Ejemplos:
+
+- Admin:
+  Equipo Medico, Cuentas Tutores, Mi Perfil.
+
+- Medico:
+  Gestion de Pacientes, Catalogo de Condiciones, Reglas Clinicas, Mi Perfil.
+
+- Nutricionista:
+  Ingredientes, Etiquetas, Recetas, Plan Nutricional, Menu y Horarios,
+  Condiciones, Reglas Nutricionales, Mi Perfil.
+
+- Tutor:
+  Mi Paciente, Mi Perfil.
+
+Ademas usa imports diferidos, lo que permite cargar modulos bajo demanda y no
+traer toda la aplicacion de golpe.
+
+
+4.4 Capa de estado
+
+Ubicacion:
+
+frontend/flutter_app/lib/core/state
+
+Tecnologia:
+
+Riverpod.
+
+Responsabilidad:
+
+Mantener estado de sesion, rol, red, paciente seleccionado, notificaciones y
+datos especificos de modulos.
+
+Archivos relevantes:
+
+- app_providers.dart
+- providers/auth_providers.dart
+- providers/network_providers.dart
+- providers/patient_providers.dart
+- notification_provider.dart
+
+Interaccion:
+
+Las pantallas leen providers.
+Los providers consumen repositorios o clientes HTTP.
+Cuando cambia la sesion o los datos, Riverpod actualiza la UI.
+
+
+4.5 Capa de comunicacion
+
+Ubicacion:
+
+frontend/flutter_app/lib/core/network
+
+Archivo:
+
+api_client.dart
+
+Responsabilidad:
+
+Construir el cliente Dio con:
+
+- baseUrl desde AppConfig.fastApiBaseUrl
+- headers JSON
+- timeouts
+
+Complemento:
+
+network_providers.dart agrega interceptores a Dio para:
+
+- adjuntar Authorization: Bearer <token>
+- refrescar sesion cuando el token vence
+- manejar errores 401, 403, 422 y 500
+- convertir errores HTTP en excepciones de la app
+
+El frontend tambien usa supabase_flutter para:
+
+- autenticacion
+- sesion
+- lectura puntual de usuario/rol cuando hace falta
+- realtime si corresponde
+
+
+5. BASE DE DATOS Y SUPABASE
+---------------------------
+
+Ubicacion de migraciones:
+
+programatesis/supabase/sql
+
+Responsabilidad:
+
+Define y evoluciona la estructura de PostgreSQL en Supabase.
+
+Esquemas funcionales identificados en la documentacion:
+
+- usuarios
+  Usuarios, roles, pacientes, tutores y relaciones.
+
+- clinico
+  Diagnosticos, alergias, controles clinicos, restricciones y evolucion.
+
+- nutricion
+  Ingredientes, recetas, composicion, etiquetas, grupos alimentarios y momentos
+  de comida.
+
+- interaccion
+  Planes nutricionales, items del plan, preferencias, evaluaciones y
+  seguimiento.
+
+- heuristico
+  Motor de reglas, condiciones, acciones y objetivos.
+
+- referencia
+  Datos OMS, z-scores, percentiles e indicadores antropometricos.
+
+- seguridad
+  Auditoria y errores.
+
+Interaccion con backend:
+
+Los repositorios de infraestructura consultan estos esquemas mediante SQL.
+Los casos de uso no deberian depender de nombres de tablas directamente.
+
+
+6. SUPABASE EDGE FUNCTIONS
+--------------------------
+
+Ubicacion:
+
+programatesis/supabase/functions
+
+Funciones encontradas:
+
+- plan-inteligente
+  Genera planes nutricionales automaticos.
+
+- reemplazo-equivalente
+  Busca ingredientes o recetas equivalentes para sustitucion.
+
+- recomendacion-puntual
+  Recomienda recetas puntuales segun paciente y momento de comida.
+
+Rol arquitectonico:
+
+Son una capa serverless auxiliar. No reemplazan al backend FastAPI, pero pueden
+resolver procesos especificos cerca de Supabase.
+
+
+7. FLUJO COMPLETO DE UNA PETICION
+---------------------------------
+
+Ejemplo general:
+
+1. El usuario entra a Flutter.
+2. Supabase autentica la sesion.
+3. Riverpod obtiene o calcula el rol del usuario.
+4. RoleShell muestra los modulos permitidos para ese rol.
+5. El usuario ejecuta una accion, por ejemplo listar pacientes.
+6. La pantalla llama a un provider o repositorio frontend.
+7. Dio envia una peticion HTTP a FastAPI con Authorization Bearer.
+8. FastAPI recibe la peticion en un endpoint de la capa API.
+9. El endpoint valida permisos y llama a un caso de uso.
+10. El caso de uso coordina la logica del proceso.
+11. Si necesita reglas o calculos, usa servicios de dominio.
+12. Si necesita datos, usa repositorios.
+13. El repositorio consulta PostgreSQL/Supabase.
+14. Los datos vuelven al caso de uso.
+15. La API convierte el resultado a JSON.
+16. Flutter recibe la respuesta.
+17. Riverpod actualiza el estado.
+18. La pantalla se redibuja con los datos actualizados.
+
+
+8. EJEMPLO CONCRETO: GESTION DE PACIENTES
+-----------------------------------------
+
+Frontend:
+
+features/medico/presentation/supervision_pacientes_page.dart
+features/shared/widgets/gestion_pacientes_page.dart
+
+Backend:
+
+api/v1/endpoints/roles/puntos_entrada_medico.py
+aplicacion/clinica/gestionar_pacientes.py
+domain/repositorios/interfaces.py
+infraestructura/repositorios/repositorio_paciente.py
+
+Flujo:
+
+Medico en Flutter
+  -> modulo Gestion de Pacientes
+  -> peticion HTTP con token
+  -> endpoint medico en FastAPI
+  -> CasoUsoGestionarPacientes
+  -> IRepositorioPaciente
+  -> RepositorioPacientePostgres
+  -> esquema usuarios/clinico en PostgreSQL
+  -> respuesta JSON
+  -> UI actualizada
+
+
+9. EJEMPLO CONCRETO: PLAN NUTRICIONAL
+-------------------------------------
+
+Frontend:
+
+features/nutricionista/modules/plan_nutricional
+features/tutor/presentation/plan_diario_page.dart
+
+Backend:
+
+aplicacion/nutricion/generar_plan_automatico.py
+domain/servicios/servicio_planificador.py
+domain/servicios/servicio_heuristico.py
+infraestructura/repositorios/repositorio_receta.py
+infraestructura/repositorios/repositorio_seguimiento.py
+infraestructura/repositorios/repositorio_paciente.py
+infraestructura/repositorios/repositorio_composicion.py
+
+Flujo:
+
+Tutor o nutricionista solicita plan
+  -> API recibe parametros
+  -> caso de uso obtiene paciente, recetas y condiciones
+  -> dominio aplica reglas/restricciones
+  -> planificador arma propuesta
+  -> repositorio guarda o consulta el plan
+  -> API responde
+  -> Flutter muestra plan diario o plan manual
+
+
+10. COMO SE RELACIONAN LAS CAPAS
+--------------------------------
+
+Regla principal de dependencias:
+
+Presentacion puede depender de Aplicacion.
+Aplicacion puede depender de Dominio.
+Infraestructura implementa contratos del Dominio.
+Dominio no debe depender de Presentacion ni de Infraestructura.
+
+Diagrama:
+
+Frontend Flutter
+    |
+    v
+Backend - Capa API / Presentacion
+    |
+    v
+Backend - Capa Aplicacion / Casos de uso
+    |
+    v
+Backend - Capa Dominio / Modelos, reglas, servicios, interfaces
+    ^
+    |
+Backend - Capa Infraestructura / Repositorios, DB, Supabase
+    |
+    v
+Supabase PostgreSQL
+
+Lectura del diagrama:
+
+- La API inicia el flujo.
+- La aplicacion coordina.
+- El dominio define reglas y contratos.
+- La infraestructura cumple esos contratos y accede a datos.
+
+
+11. PATRONES IDENTIFICADOS
+--------------------------
+
+- Arquitectura por capas:
+  Separacion entre API, casos de uso, dominio e infraestructura.
+
+- Arquitectura hexagonal pragmatica:
+  El dominio define contratos y la infraestructura se conecta como adaptador.
+
+- Repository Pattern:
+  Los repositorios encapsulan el acceso a PostgreSQL/Supabase.
+
+- Dependency Injection:
+  dependencias.py construye casos de uso con repositorios concretos.
+
+- DTO Pattern:
+  dtos separa datos de API de modelos internos.
+
+- Provider Pattern:
+  Riverpod administra estado en Flutter.
+
+- Module Registry:
+  role_module_registry.dart define modulos disponibles segun rol.
+
+- Deferred Loading:
+  Flutter carga modulos diferidos para mejorar arranque y rendimiento.
+
+
+12. RESUMEN FINAL
+-----------------
+
+La arquitectura de ReumaNutri esta correctamente separada en capas:
+
+- Flutter se encarga de la experiencia visual, navegacion por rol, estado y
+  comunicacion con la API.
+
+- FastAPI actua como puerta de entrada HTTP y distribuye las peticiones hacia
+  los casos de uso.
+
+- La capa de aplicacion coordina los procesos clinicos y nutricionales.
+
+- La capa de dominio contiene las reglas, modelos, servicios y contratos mas
+  importantes del negocio.
+
+- La capa de infraestructura conecta el sistema con PostgreSQL/Supabase.
+
+- Supabase centraliza base de datos, autenticacion y funciones serverless.
+
+La interaccion entre capas mantiene una separacion clara: las pantallas no
+deben conocer SQL, los endpoints no deben contener logica clinica pesada, los
+casos de uso no deben abrir conexiones manualmente, y el dominio no debe
+depender de FastAPI ni de Supabase.
+

@@ -1,4 +1,4 @@
-import "dart:async";
+﻿import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -99,8 +99,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
           label: Text("NUEVO MIEMBRO",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
@@ -123,28 +123,28 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'TOTAL PERSONAL',
-            valor: '${state.totalItems}',
-            icon: Icons.people_alt_rounded,
+            titulo: 'ADMINISTRADORES',
+            valor: '${state.roleCounts[1] ?? 0}',
+            icon: Icons.admin_panel_settings_rounded,
+            colorValor: AppTema.azulOscuro,
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: NutriResumenCard(
+            titulo: 'MEDICOS',
+            valor: '${state.roleCounts[2] ?? 0}',
+            icon: Icons.medical_services_rounded,
             colorValor: AppTema.azulPrincipal,
           ),
         ),
         const SizedBox(width: 20),
-        const Expanded(
+        Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO SERVICIO',
-            valor: 'ESTABLE',
-            icon: Icons.verified_user_rounded,
+            titulo: 'NUTRIOLOGOS',
+            valor: '${state.roleCounts[3] ?? 0}',
+            icon: Icons.restaurant_menu_rounded,
             colorValor: AppTema.verdeSalud,
-          ),
-        ),
-        const SizedBox(width: 20),
-        const Expanded(
-          child: NutriResumenCard(
-            titulo: 'CONTROL ACCESOS',
-            valor: 'ACTIVO',
-            icon: Icons.shield_outlined,
-            colorValor: AppTema.azulOscuro,
           ),
         ),
       ],
@@ -171,12 +171,13 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                 controller: _searchController,
                 onChanged: (v) {
                   _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 350), () {
                     ref.read(adminUsersProvider.notifier).setSearchQuery(v);
                   });
                 },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: "Buscar por nombre de profesional...",
                   prefixIcon: const Icon(Icons.search,
@@ -225,8 +226,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
   }
 
-  Widget _buildRolesFilter(
-      AsyncValue<List<Map<String, dynamic>>> rolesAsync, AdminUsersState state) {
+  Widget _buildRolesFilter(AsyncValue<List<Map<String, dynamic>>> rolesAsync,
+      AdminUsersState state) {
     return rolesAsync.maybeWhen(
       data: (roles) => Row(
         children: [
@@ -448,13 +449,19 @@ class _AdminUsersDataSource extends DataTableSource {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
               const SizedBox(width: 8),
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
               const SizedBox(width: 8),
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
             ],
           ),
         )),
@@ -472,7 +479,8 @@ class _AdminUsersDataSource extends DataTableSource {
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
           child: Row(
             children: [
-              NutriAvatar(nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
+              NutriAvatar(
+                  nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -664,73 +672,233 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     final rolesAsync = ref.watch(rolesStaffProvider);
     final isEdit = widget.user != null;
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro del Equipo",
-          style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Container(
+        width: 356,
+        constraints: const BoxConstraints(maxWidth: 356),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5EAF2)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Stack(
           children: [
-            _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
-            const SizedBox(height: 16),
-            _input(_emailCtrl, "Correo electrónico", Icons.email_outlined),
-            const SizedBox(height: 16),
-            _input(_cedulaCtrl, "Cédula", Icons.perm_identity_rounded),
-            const SizedBox(height: 16),
-            if (!isEdit) ...[
-              _input(_passCtrl, "Contraseña temporal", Icons.lock_outline,
-                  obscure: true),
-              const SizedBox(height: 16),
-            ],
-            rolesAsync.when(
-              data: (roles) => DropdownButtonFormField<int>(
-                value: _idRol,
-                decoration: _inputDecor("Rol asignado", Icons.work_outline),
-                items: roles
-                    .map((r) => DropdownMenuItem<int>(
-                          value: r["id"],
-                          child: Text(r["nombre"].toString().toUpperCase(),
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _idRol = v),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+                color: const Color(0xFF64748B),
+                iconSize: 22,
+                tooltip: "Cerrar",
+                splashRadius: 20,
               ),
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text("Error al cargar roles"),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 2),
+                Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person_add_alt_1_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  isEdit
+                      ? "Editar Miembro\ndel Equipo"
+                      : "Nuevo Miembro\ndel Equipo",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 22,
+                    height: 1.08,
+                    fontWeight: FontWeight.w900,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isEdit
+                      ? "Actualiza los datos de acceso y perfil profesional."
+                      : "Crea una cuenta para que el nuevo\nmiembro se una al equipo.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF8A97AD),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
+                const SizedBox(height: 12),
+                _input(_emailCtrl, "Correo electrónico", Icons.mail_outline),
+                const SizedBox(height: 12),
+                _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
+                const SizedBox(height: 12),
+                if (!isEdit) ...[
+                  _input(
+                    _passCtrl,
+                    "Contraseña temporal",
+                    Icons.lock_outline_rounded,
+                    obscure: true,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                rolesAsync.when(
+                  data: (roles) => DropdownButtonFormField<int>(
+                    initialValue: _idRol,
+                    isExpanded: true,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    decoration:
+                        _inputDecor("Rol asignado", Icons.work_outline_rounded),
+                    dropdownColor: Colors.white,
+                    items: roles
+                        .map((r) => DropdownMenuItem<int>(
+                              value: r["id"],
+                              child: Text(
+                                r["nombre"].toString().toUpperCase(),
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTema.azulOscuro,
+                                ),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _idRol = v),
+                  ),
+                  loading: () => const SizedBox(
+                    height: 48,
+                    child: Center(child: LinearProgressIndicator()),
+                  ),
+                  error: (_, __) => Text(
+                    "Error al cargar roles",
+                    style: GoogleFonts.inter(color: Colors.redAccent),
+                  ),
+                ),
+                const SizedBox(height: 44),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _saving ? null : () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTema.azulPrincipal,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 14),
+                        textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      child: const Text("Cancelar"),
+                    ),
+                    const SizedBox(width: 18),
+                    SizedBox(
+                      width: 128,
+                      height: 46,
+                      child: FilledButton(
+                        onPressed: _saving ? null : _save,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTema.azulPrincipal,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        child: Text(_saving ? "Guardando..." : "Guardar"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("CANCELAR",
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold, color: Colors.grey))),
-        FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? "GUARDANDO..." : "GUARDAR")),
-      ],
     );
   }
 
-  Widget _input(TextEditingController c, String h, IconData i,
-          {bool obscure = false}) =>
-      TextField(
-          controller: c,
-          obscureText: obscure,
-          decoration: _inputDecor(h, i));
+  Widget _input(
+    TextEditingController controller,
+    String hint,
+    IconData icon, {
+    bool obscure = false,
+  }) {
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppTema.azulOscuro,
+        ),
+        decoration: _inputDecor(hint, icon),
+      ),
+    );
+  }
 
-  InputDecoration _inputDecor(String h, IconData i) => InputDecoration(
-      labelText: h,
-      prefixIcon: Icon(i, size: 20),
-      filled: true,
-      fillColor: AppTema.grisLienzo,
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none));
+  InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF98A2B3),
+        ),
+        prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE1E7F0), width: 1.4),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide:
+              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+      );
 
   Future<void> _save() async {
     if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _idRol == null) {
@@ -761,8 +929,9 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       widget.onSuccess();
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NutriSnack.show(context, "Error al guardar: $e", isError: true);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
