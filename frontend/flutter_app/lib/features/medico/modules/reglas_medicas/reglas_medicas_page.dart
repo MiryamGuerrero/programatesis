@@ -75,7 +75,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Motor de Reglas Clínicas",
+            Text("Motor de reglas clínicas",
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -98,7 +98,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA REGLA",
+          label: Text("Nueva regla",
               style:
                   GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -121,7 +121,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'REGLAS MÉDICAS',
+            titulo: 'Reglas médicas',
             valor: '${state.totalItems}',
             icon: Icons.gavel_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -130,8 +130,8 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO MOTOR',
-            valor: 'ACTIVO',
+            titulo: 'Estado del motor',
+            valor: 'Activo',
             icon: Icons.bolt_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -221,11 +221,11 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("ACCIÓN", width: totalWidth * 0.15),
-              _col("OBJETIVO", width: totalWidth * 0.20),
-              _col("APLICA A (DIAGNÓSTICOS)", width: totalWidth * 0.35),
-              _col("TIPO", width: totalWidth * 0.15),
-              _col("ACCIONES", width: totalWidth * 0.15, center: true),
+              _col("Acción", width: totalWidth * 0.15),
+              _col("Objetivo", width: totalWidth * 0.20),
+              _col("Aplica a diagnósticos", width: totalWidth * 0.35),
+              _col("Tipo", width: totalWidth * 0.15),
+              _col("Acciones", width: totalWidth * 0.15, center: true),
             ],
             source: _MedicalRulesDataSource(
               rules: state.rules,
@@ -293,17 +293,17 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("¿Eliminar Regla Médica?"),
+        title: const Text("¿Eliminar regla médica?"),
         content:
             const Text("Esta acción eliminará la lógica del motor experto."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text("ELIMINAR"),
+            child: const Text("Eliminar"),
           ),
         ],
       ),
@@ -389,7 +389,7 @@ class _MedicalRulesDataSource extends DataTableSource {
     final r = rules[localIndex];
 
     final nombresCondiciones =
-        (r["condiciones_nombres"] ?? "SIN DIAGNÓSTICOS").toString();
+        (r["condiciones_nombres"] ?? "Sin diagnósticos").toString();
 
     return DataRow(cells: [
       DataCell(SizedBox(
@@ -469,10 +469,15 @@ class _MedicalRulesDataSource extends DataTableSource {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label,
+      child: Text(_sentenceCase(label),
           style: GoogleFonts.montserrat(
               fontSize: 10, fontWeight: FontWeight.w800, color: tx)),
     );
+  }
+
+  String _sentenceCase(String value) {
+    final text = value.trim().toLowerCase();
+    return text.isEmpty ? text : '${text[0].toUpperCase()}${text.substring(1)}';
   }
 
   Widget _tipoBadge(bool isEstricta) {
@@ -483,7 +488,7 @@ class _MedicalRulesDataSource extends DataTableSource {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isEstricta ? "ESTRICTA" : "RECOMENDACIÓN",
+        isEstricta ? "Estricta" : "Recomendación",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 9),
       ),
@@ -558,7 +563,7 @@ class _NutritionalRuleFormDialogState
         child: Row(children: [
           const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
           const SizedBox(width: 12),
-          Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA",
+          Text(isEdit ? "Editar regla clínica" : "Nueva regla clínica",
               style: GoogleFonts.montserrat(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -571,15 +576,15 @@ class _NutritionalRuleFormDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildFieldSection("OBJETIVO", [
+              _buildFieldSection("Objetivo", [
                 DropdownButtonFormField<int>(
                   initialValue: _idObjetivo,
                   decoration:
-                      _modalDecor("Tipo de Objetivo*", Icons.track_changes),
+                      _modalDecor("Tipo de objetivo*", Icons.track_changes),
                   items: (widget.formData["objetivos"] ?? [])
                       .map((o) => DropdownMenuItem<int>(
                           value: o["id"],
-                          child: Text(o["nombre"].toString().toUpperCase(),
+                          child: Text(o["nombre"].toString(),
                               style: GoogleFonts.montserrat(
                                   fontSize: 12, fontWeight: FontWeight.w600))))
                       .toList(),
@@ -593,7 +598,7 @@ class _NutritionalRuleFormDialogState
                   DropdownButtonFormField<int>(
                     initialValue: _idTarget,
                     decoration:
-                        _modalDecor("Seleccionar Item*", Icons.ads_click),
+                        _modalDecor("Seleccionar elemento*", Icons.ads_click),
                     items: targetList
                         .map((t) => DropdownMenuItem<int>(
                             value: t["id"],
@@ -608,29 +613,29 @@ class _NutritionalRuleFormDialogState
                 ],
               ]),
               const SizedBox(height: 16),
-              _buildFieldSection("ACCIÓN", [
+              _buildFieldSection("Acción", [
                 DropdownButtonFormField<int>(
                   initialValue: _idAccion,
                   decoration:
-                      _modalDecor("Acción Sugerida*", Icons.lightbulb_outline),
+                      _modalDecor("Acción sugerida*", Icons.lightbulb_outline),
                   items: (widget.formData["acciones"] ?? [])
                       .map((a) => DropdownMenuItem<int>(
                           value: a["id"],
-                          child: Text(a["nombre"].toString().toUpperCase(),
+                          child: Text(a["nombre"].toString(),
                               style: GoogleFonts.montserrat(
                                   fontSize: 12, fontWeight: FontWeight.w600))))
                       .toList(),
                   onChanged: (v) => setState(() => _idAccion = v),
                 ),
                 SwitchListTile(
-                    title: Text("Restricción Estricta",
+                    title: Text("Restricción estricta",
                         style: GoogleFonts.montserrat(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     value: _esEstricta,
                     onChanged: (v) => setState(() => _esEstricta = v)),
               ]),
               const SizedBox(height: 16),
-              _buildFieldSection("APLICABILIDAD (DIAGNÓSTICO)", [
+              _buildFieldSection("Aplicabilidad del diagnóstico", [
                 Container(
                   height: 120,
                   decoration: BoxDecoration(
@@ -671,12 +676,12 @@ class _NutritionalRuleFormDialogState
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("CANCELAR",
+            child: Text("Cancelar",
                 style: GoogleFonts.montserrat(
                     fontWeight: FontWeight.bold, color: Colors.grey))),
         FilledButton(
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? "..." : "GUARDAR REGLA",
+            child: Text(_saving ? "..." : "Guardar regla",
                 style: GoogleFonts.montserrat(fontWeight: FontWeight.bold))),
       ],
     );

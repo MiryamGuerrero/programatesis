@@ -510,7 +510,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       }
       if (mounted)
         NutriSnack.show(context,
-            "OK Se han actualizado los campos de Peso, Talla y Evaluación correctamente",
+            "Se han actualizado los campos de peso, talla y evaluación correctamente",
             ref: ref);
 
       ref.invalidate(medicoPatientsProvider);
@@ -605,7 +605,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("EXPEDIENTE MAESTRO INTEGRAL",
+                      Text("Expediente maestro integral",
                           style: GoogleFonts.montserrat(
                               fontWeight: FontWeight.w900, fontSize: 20)),
                       Text(
@@ -627,61 +627,61 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                       children: [
                         Expanded(
                             child:
-                                _buildExpSection("1. IDENTIDAD DEL PACIENTE", [
-                          _expItem("Nombres Completos", p['nombre_completo']),
+                                _buildExpSection("1. Identidad del paciente", [
+                           _expItem("Nombres completos", p['nombre_completo']),
                           _expItem("Cédula / ID", p['cedula']),
                           _expItem(
-                              "Fecha de Nacimiento", p['fecha_nacimiento']),
-                          _expItem("Sexo Biológico", p['sexo_nombre']),
+                              "Fecha de nacimiento", p['fecha_nacimiento']),
+                           _expItem("Sexo biológico", p['sexo_nombre']),
                           const SizedBox(height: 16),
-                          const Text("LOCALIZACIÓN",
+                          const Text("Localización",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                          _expItem("Cantón de Residencia", p['canton_nombre']),
+                           _expItem("Cantón de residencia", p['canton_nombre']),
                           _expItem("Parroquia", p['parroquia_nombre']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
-                            child: _buildExpSection("2. REPRESENTANTE LEGAL", [
-                          _expItem("Nombre Completo", t['nombre_completo']),
-                          _expItem("Cédula del Tutor", t['cedula']),
+                            child: _buildExpSection("2. Representante legal", [
+                           _expItem("Nombre completo", t['nombre_completo']),
+                           _expItem("Cédula del tutor", t['cedula']),
                           _expItem(
                               "Relación / Parentesco", t['parentesco_nombre'],
                               isBold: true),
                           const SizedBox(height: 16),
-                          const Text("DATOS DE CONTACTO",
+                          const Text("Datos de contacto",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                          _expItem("Correo Electrónico", t['email']),
+                           _expItem("Correo electrónico", t['email']),
                           _expItem("Teléfono / Móvil", t['telefono']),
-                          _expItem("Dirección Domiciliaria", t['direccion']),
+                           _expItem("Dirección domiciliaria", t['direccion']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
                             child:
-                                _buildExpSection("3. ESTADO CLÍNICO ACTUAL", [
-                          _expItem("Enfermedad Autoinmune",
+                                _buildExpSection("3. Estado clínico actual", [
+                           _expItem("Enfermedad autoinmune",
                               d['condicion_nombre'] ?? "No registrada",
                               isHighlight: true),
-                          _expItem("Estado Nutricional (OMS)",
+                           _expItem("Estado nutricional (OMS)",
                               c['estado_nutricional'],
                               isBold: true),
-                          _expItem("Relación Peso / Talla / IMC",
+                           _expItem("Relación peso / talla / IMC",
                               "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm / ${c['imc_calculado'] ?? '-'}"),
-                          _expItem("Actividad Clínica",
+                           _expItem("Actividad clínica",
                               "Dolor ${c['puntos_dolor'] ?? '-'} | Inflamación ${c['escala_inflamacion'] ?? '-'} | Fatiga ${c['nivel_fatiga'] ?? '-'} | Rigidez ${c['minutos_rigidez'] ?? '-'} min"),
-                          _expItem("Estado de Enfermedad",
+                           _expItem("Estado de enfermedad",
                               c['estado_enfermedad'] ?? "Seguimiento"),
                           const SizedBox(height: 16),
-                          const Text("SEGURIDAD ALIMENTARIA",
+                          const Text("Seguridad alimentaria",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
@@ -689,13 +689,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
                           _expItem(
-                              "Intolerancia a Lactosa",
+                              "Intolerancia a lactosa",
                               esIntolerante
-                                  ? "SÍ (RESTRICCIÓN ACTIVA)"
-                                  : "NO DETECTADA",
+                                  ? "Sí (restricción activa)"
+                                  : "No detectada",
                               isAlert: esIntolerante),
                           _expItem(
-                              "Alergias a Subgrupos",
+                              "Alergias a subgrupos",
                               (al['subgrupos'] as List? ?? [])
                                       .map((e) => e['nombre'])
                                       .join(", ")
@@ -705,7 +705,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                                       .map((e) => e['nombre'])
                                       .join(", ")),
                           _expItem(
-                              "Alergias a Ingredientes",
+                              "Alergias a ingredientes",
                               (al['ingredientes'] as List? ?? [])
                                       .map((e) => e['nombre'])
                                       .join(", ")
@@ -715,7 +715,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                                       .map((e) => e['nombre'])
                                       .join(", ")),
                           _expItem(
-                              "Restricciones Médicas",
+                              "Restricciones médicas",
                               (_expediente!['restricciones_alimentarias_detalle']
                                               as List? ??
                                           [])
@@ -729,18 +729,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                                       .map((r) => r['nombre'])
                                       .join(", ")),
                           const SizedBox(height: 16),
-                          const Text("PRÓXIMOS EVENTOS",
+                          const Text("Próximos eventos",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                          _expItem("Último Registro", c['fecha_control']),
-                          _expItem("Cita Programada", c['fecha_proxima_cita'],
+                           _expItem("Último registro", c['fecha_control']),
+                           _expItem("Cita programada", c['fecha_proxima_cita'],
                               isHighlight: true),
                           _expItem(
-                              "Controles Registrados",
+                              "Controles registrados",
                               (_expediente!['historial_controles'] as List? ??
                                       [])
                                   .length
@@ -756,7 +756,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                       child: FilledButton.icon(
                           onPressed: () => Navigator.pop(ctx),
                           icon: const Icon(Icons.check_circle_outline),
-                          label: const Text("CERRAR EXPEDIENTE MAESTRO"),
+                          label: const Text("Cerrar expediente maestro"),
                           style: FilledButton.styleFrom(
                               backgroundColor: greenBrand,
                               shape: RoundedRectangleBorder(
@@ -803,7 +803,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.2)),
             const SizedBox(height: 4),
-            Text(v?.toString() ?? "NO REGISTRADO",
+            Text(v?.toString() ?? "No registrado",
                 style: GoogleFonts.montserrat(
                   fontSize: 13,
                   fontWeight:
@@ -855,7 +855,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             const CircularProgressIndicator(color: greenBrand, strokeWidth: 4),
             const SizedBox(height: 24),
             Text(
-              "CARGANDO CONTROL MENSUAL...",
+              "Cargando control mensual...",
               style: GoogleFonts.montserrat(
                   color: const Color(0xFF0F172A),
                   fontSize: 14,
@@ -892,7 +892,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("Seguimiento Clínico del Paciente",
+              Text("Seguimiento clínico del paciente",
                   style: GoogleFonts.montserrat(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
@@ -920,8 +920,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           labelStyle: GoogleFonts.montserrat(
               fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
           tabs: const [
-            Tab(text: "REGISTRO CLÍNICO"),
-            Tab(text: "MONITOR DE EVOLUCIÓN")
+            Tab(text: "Registro clínico"),
+            Tab(text: "Monitor de evolución")
           ]));
 
   Widget _buildFormTab({bool isNested = false}) {
@@ -1009,7 +1009,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
         // 1. SIGNOS VITALES Y ANTROPOMETRÍA
         _sectionHeader(
-            "1. SIGNOS VITALES Y ANTROPOMETRÍA", Icons.monitor_weight_outlined),
+            "1. Signos vitales y antropometría", Icons.monitor_weight_outlined),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(24),
@@ -1021,12 +1021,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             Row(children: [
               Expanded(
                   child: _field(
-                      _peso, "Peso Actual (kg)*", Icons.scale_outlined,
+                      _peso, "Peso actual (kg)*", Icons.scale_outlined,
                       onChanged: (_) => _debouncedOMS())),
               const SizedBox(width: 20),
               Expanded(
                   child: _field(
-                      _talla, "Talla Actual (cm)*", Icons.height_rounded,
+                      _talla, "Talla actual (cm)*", Icons.height_rounded,
                       onChanged: (_) => _debouncedOMS())),
             ]),
             const SizedBox(height: 24),
@@ -1037,7 +1037,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
         // 2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA
         _sectionHeader(
-            "2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA", Icons.healing_outlined),
+            "2. Evaluación de actividad reumática", Icons.healing_outlined),
         const SizedBox(height: 24),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -1046,7 +1046,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             children: [
               Expanded(
                 child: EscalaSelector(
-                  titulo: "DOLOR",
+                  titulo: "Dolor",
                   descripcion: "",
                   min: 0,
                   max: 10,
@@ -1082,7 +1082,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               const SizedBox(width: 24),
               Expanded(
                 child: _buildEVACard(
-                  "INFLAMACIÓN",
+                  "Inflamación",
                   _inflamacion,
                   3,
                   (v) => setState(() => _inflamacion = v),
@@ -1104,7 +1104,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           children: [
             Expanded(
               child: _buildEVACard(
-                "FATIGA",
+                "Fatiga",
                 _fatiga,
                 10,
                 (v) => setState(() => _fatiga = v),
@@ -1147,13 +1147,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         const SizedBox(height: 48),
 
         _sectionHeader(
-            "3. SÍNTOMAS AGUDOS TEMPORALES", Icons.event_note_rounded),
+            "3. Síntomas agudos temporales", Icons.event_note_rounded),
         const SizedBox(height: 24),
         _buildSintomasTemporalesGrid(),
         const SizedBox(height: 48),
 
         _sectionHeader(
-            "4. RECOMENDACIÓN DE INGREDIENTES", Icons.thumb_up_alt_outlined),
+            "4. Recomendación de ingredientes", Icons.thumb_up_alt_outlined),
         const SizedBox(height: 24),
         _buildRecomendacionesSelector(),
         const SizedBox(height: 48),
@@ -1164,7 +1164,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 _sectionHeader(
-                    "5. SEGUIMIENTO Y OBSERVACIONES", Icons.event_note_rounded),
+                    "5. Seguimiento y observaciones", Icons.event_note_rounded),
                 const SizedBox(height: 24),
                 Container(
                     decoration: BoxDecoration(
@@ -1174,13 +1174,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     child: ListTile(
                         leading:
                             const Icon(Icons.calendar_month, color: greenBrand),
-                        title: const Text("Próxima Cita*",
+                        title: const Text("Próxima cita*",
                             style: TextStyle(
                                 fontSize: 11, fontWeight: FontWeight.bold)),
                         subtitle: Text(
                             DateFormat('EEEE, dd/MM/yyyy', 'es')
-                                .format(_proximaCita)
-                                .toUpperCase(),
+                                .format(_proximaCita),
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -1197,7 +1196,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               ])),
         ]),
         const SizedBox(height: 24),
-        _field(_notas, "Observaciones Médicas", Icons.edit_note, maxLines: 4),
+        _field(_notas, "Observaciones médicas", Icons.edit_note, maxLines: 4),
         const SizedBox(height: 48),
 
         SizedBox(
@@ -1214,8 +1213,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     : const Icon(Icons.save_rounded),
                 label: Text(
                     _idControlEditando == null
-                        ? "REGISTRAR VALORACIÓN"
-                        : "GUARDAR CAMBIOS",
+                        ? "Registrar valoración"
+                        : "Guardar cambios",
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 16)),
                 style: FilledButton.styleFrom(
@@ -1534,7 +1533,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       children: [
         Expanded(
           child: _datePickerSmall(
-              "INICIO",
+              "Inicio",
               inicio,
               (d) => setState(() {
                     _condicionesTemp[index]['fecha_inicio'] =
@@ -1547,7 +1546,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _dateStaticSmall("FIN", fin),
+          child: _dateStaticSmall("Fin", fin),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -1576,7 +1575,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("DIAGNÓSTICO NUTRICIONAL OMS",
+        Text("Diagnóstico nutricional OMS",
             style: GoogleFonts.montserrat(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
@@ -1622,7 +1621,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                     color: Colors.blueGrey)),
-            Text(value.toUpperCase(),
+            Text(value,
                 style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
@@ -1798,7 +1797,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("¿TIENE BROTE ACTIVO?",
+          Text("¿Tiene brote activo?",
               style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -1834,7 +1833,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         Icon(_brote ? Icons.error_outline : Icons.verified_outlined,
             color: _brote ? Colors.red : greenBrand),
         const SizedBox(width: 16),
-        Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO",
+        Text(_brote ? "Brote activo detectado" : "Sin brote activo",
             style: GoogleFonts.montserrat(
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
@@ -1990,14 +1989,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("CENTRO DE ANÁLISIS CLÍNICA",
+        Text("Centro de análisis clínico",
             style: GoogleFonts.montserrat(
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
                 color: const Color(0xFF0F172A))),
         const SizedBox(height: 8),
         const Text(
-            "Prioridad Reumatológica: Monitoreo de actividad de enfermedad AIJ + Estado nutricional integral.",
+            "Prioridad reumatológica: monitoreo de actividad de enfermedad AIJ + estado nutricional integral.",
             style: TextStyle(color: Colors.blueGrey, fontSize: 13)),
         const SizedBox(height: 28),
         _buildEvolutionDashboard(evo),
@@ -2005,11 +2004,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         _buildFoodIntakeSection(),
         const SizedBox(height: 56),
         _sectionHeader(
-            "LÍNEA DE TIEMPO DE EVENTOS CLÍNICOS", Icons.timeline_rounded),
+            "Línea de tiempo de eventos clínicos", Icons.timeline_rounded),
         const SizedBox(height: 24),
         _buildClinicalTimeline(historial),
         const SizedBox(height: 56),
-        _sectionHeader("REGISTROS CRONOLÓGICOS", Icons.list_alt_rounded),
+        _sectionHeader("Registros cronológicos", Icons.list_alt_rounded),
         const SizedBox(height: 24),
         ListView.separated(
           shrinkWrap: true,
@@ -2123,7 +2122,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                       getTitlesWidget: (v, meta) => v.toInt() >= 0 && v.toInt() < history.length
                           ? Text(DateFormat('dd/MM').format(DateTime.parse(history[v.toInt()]['fecha_control'])), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey))
                           : const Text(""))),
-              leftTitles: AxisTitles(axisNameWidget: const Text("Z-SCORE BMI", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, meta) => Text(v.toStringAsFixed(1), style: TextStyle(fontSize: 10, color: v == 0 ? Colors.green : (v.abs() == 2 ? Colors.orange : (v.abs() == 3 ? Colors.red : Colors.grey)), fontWeight: FontWeight.bold))))),
+              leftTitles: AxisTitles(axisNameWidget: const Text("Z-score BMI", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, meta) => Text(v.toStringAsFixed(1), style: TextStyle(fontSize: 10, color: v == 0 ? Colors.green : (v.abs() == 2 ? Colors.orange : (v.abs() == 3 ? Colors.red : Colors.grey)), fontWeight: FontWeight.bold))))),
           borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade200)),
           lineBarsData: [
             LineChartBarData(
@@ -2185,7 +2184,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     return Row(children: [
       Expanded(
           child: _buildThermometer(
-              label: "PESO ACTUAL",
+              label: "Peso actual",
               actual: pesoActual,
               ideal: pesoIdeal,
               unit: "kg",
@@ -2196,7 +2195,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       const SizedBox(width: 20),
       Expanded(
           child: _buildThermometer(
-              label: "TALLA ACTUAL",
+              label: "Talla actual",
               actual: tallaActual,
               ideal: tallaIdeal,
               unit: "cm",
@@ -2258,7 +2257,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const Text("ACTUAL",
+                  const Text("Actual",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$actual $unit",
                       style: GoogleFonts.montserrat(
@@ -2266,7 +2265,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                           fontWeight: FontWeight.w900,
                           color: color)),
                   const SizedBox(height: 8),
-                  const Text("IDEAL OMS",
+                  const Text("Ideal OMS",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$ideal $unit",
                       style: GoogleFonts.montserrat(
@@ -2311,7 +2310,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               topTitles:
                   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               leftTitles: const AxisTitles(
-                  axisNameWidget: Text("ESCALA 0-10",
+                  axisNameWidget: Text("Escala 0-10",
                       style:
                           TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                   sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
@@ -2369,7 +2368,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               topTitles:
                   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               leftTitles: AxisTitles(
-                  axisNameWidget: const Text("ESCALA 0-3",
+                  axisNameWidget: const Text("Escala 0-3",
                       style:
                           TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                   sideTitles: SideTitles(
@@ -2416,7 +2415,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               topTitles:
                   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               leftTitles: const AxisTitles(
-                  axisNameWidget: Text("CANTIDAD",
+                  axisNameWidget: Text("Cantidad",
                       style:
                           TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                   sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
@@ -2482,7 +2481,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 topTitles:
                     const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 leftTitles: AxisTitles(
-                    axisNameWidget: const Text("VALOR",
+                    axisNameWidget: const Text("Valor",
                         style: TextStyle(
                             fontSize: 10, fontWeight: FontWeight.bold)),
                     sideTitles: SideTitles(showTitles: true, reservedSize: 50)),
@@ -2547,7 +2546,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           conclusion = "OK Bienestar estable (Dolor: $d, Energía: $f).";
           color = Colors.green;
         } else {
-          conclusion = "Alerta Síntomas presentes (Dolor: $d).";
+          conclusion = "Alerta: síntomas presentes (dolor: $d).";
           color = Colors.orange;
         }
         break;
@@ -2592,7 +2591,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      h['estado_nutricional'] ?? "SIN DIAGNÓSTICO",
+                      h['estado_nutricional'] ?? "Sin diagnóstico",
                       style: GoogleFonts.montserrat(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
@@ -2619,7 +2618,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(8)),
-                  child: const Text("BROTE",
+                  child: const Text("Brote",
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 9,
@@ -2654,7 +2653,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   children: [
                     const Icon(Icons.analytics_outlined, color: greenBrand),
                     const SizedBox(width: 12),
-                    Text("RESUMEN DE VALORACIÓN",
+                    Text("Resumen de valoración",
                         style: GoogleFonts.montserrat(
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
@@ -2667,11 +2666,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 ),
                 const Divider(height: 32),
                 _infoModalRow(
-                    "Fecha de Control",
+                    "Fecha de control",
                     DateFormat('dd/MM/yyyy')
                         .format(DateTime.parse(h['fecha_control']))),
                 _infoModalRow(
-                    "Estado Nutricional", h['estado_nutricional'] ?? "Normal",
+                    "Estado nutricional", h['estado_nutricional'] ?? "Normal",
                     isHighlight: true),
                 _infoModalRow("Peso / Talla",
                     "${h['peso_kg'] ?? '-'} kg / ${h['talla_cm'] ?? '-'} cm"),
@@ -2694,7 +2693,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                           _prepararEdicion(h);
                         },
                         icon: const Icon(Icons.edit_note_rounded),
-                        label: const Text("EDITAR VALORACIÓN"),
+                        label: const Text("Editar valoración"),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: greenBrand,
                           side: const BorderSide(color: greenBrand),
@@ -2729,6 +2728,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     color: isHighlight ? greenBrand : const Color(0xFF1E293B)))
           ]));
 
+  String _capitalize(String value) {
+    final text = value.trim();
+    return text.isEmpty ? text : '${text[0].toUpperCase()}${text.substring(1)}';
+  }
+
   Widget _dateBadge(DateTime d) => Container(
       width: 50,
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2739,7 +2743,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         Text(DateFormat('dd').format(d),
             style: const TextStyle(
                 fontWeight: FontWeight.w900, fontSize: 18, color: greenBrand)),
-        Text(DateFormat('MMM').format(d).toUpperCase(),
+        Text(_capitalize(DateFormat('MMM').format(d)),
             style: const TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 9, color: greenBrand))
       ]));
@@ -3601,7 +3605,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               const Icon(Icons.history_toggle_off_rounded,
                   size: 14, color: Color(0xFF0F172A)),
               const SizedBox(width: 8),
-              Text("Top 3 Controles Recientes",
+              Text("Top 3 controles recientes",
                   style: GoogleFonts.montserrat(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -6595,7 +6599,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("RESUMEN DE RIESGO",
+        Text("Resumen de riesgo",
             style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -6623,12 +6627,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("NIVEL DE RIESGO",
+                    Text("Nivel de riesgo",
                         style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: riskColor)),
-                    Text(risk.toUpperCase(),
+                    Text(risk,
                         style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
@@ -7831,7 +7835,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                           border: Border.all(color: const Color(0xFFF1F5F9))),
                       titlesData: FlTitlesData(
                         leftTitles: AxisTitles(
-                            axisNameWidget: const Text("ENERGÍA",
+                            axisNameWidget: const Text("Energía",
                                 style: TextStyle(
                                     fontSize: 8, fontWeight: FontWeight.bold)),
                             sideTitles: SideTitles(
@@ -7839,7 +7843,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                                 reservedSize: 30,
                                 interval: maxY / 5)),
                         bottomTitles: AxisTitles(
-                            axisNameWidget: const Text("DOLOR",
+                            axisNameWidget: const Text("Dolor",
                                 style: TextStyle(
                                     fontSize: 8, fontWeight: FontWeight.bold)),
                             sideTitles: SideTitles(
@@ -8460,7 +8464,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("7. CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS",
+        _sectionHeader("7. Consumo alimentario y aceptación de recetas",
             Icons.restaurant_menu_rounded),
         const SizedBox(height: 12),
         Text(

@@ -453,11 +453,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'descartar'),
-            child: const Text('DESCARTAR'),
+            child: const Text('Descartar'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, 'modificar'),
-            child: const Text('MODIFICAR RECETA'),
+            child: const Text('Modificar receta'),
           ),
         ],
       ),
@@ -499,7 +499,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           onPressed: widget.onBack,
         ),
         title: Text(
-          widget.recetaInicial == null ? 'Nueva Receta' : 'Editar Receta',
+          widget.recetaInicial == null ? 'Nueva receta' : 'Editar receta',
           style: GoogleFonts.montserrat(
               color: AppTema.azulOscuro,
               fontWeight: FontWeight.w800,
@@ -511,7 +511,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             child: OutlinedButton.icon(
               onPressed: _abrirImportadorJson,
               icon: const Icon(Icons.data_object_rounded, size: 18),
-              label: const Text('CÓDIGO JSON'),
+              label: const Text('Código JSON'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTema.azulPrincipal,
                 side: const BorderSide(color: AppTema.azulPrincipal),
@@ -560,7 +560,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTituloSeccion('Información Básica'),
+          _buildTituloSeccion('Información básica'),
           const SizedBox(height: 24),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,10 +585,10 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
               'Descripción detallada (terapéutica)', _ctrlDescLarga, true,
               maxLines: 3),
           const SizedBox(height: 24),
-          _buildMultiSelect('Momentos de Comida', _momentosDisponibles,
+          _buildMultiSelect('Momentos de comida', _momentosDisponibles,
               _momentosSeleccionados),
           const SizedBox(height: 20),
-          _buildMultiSelect('Tipos de Plato', _tiposPlatoDisponibles,
+          _buildMultiSelect('Tipos de plato', _tiposPlatoDisponibles,
               _tiposPlatoSeleccionados),
           const SizedBox(height: 20),
           Row(
@@ -610,12 +610,12 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             children: [
               Expanded(
                   child: _buildInputField(
-                      'Tiempo Prep. (min) *', _ctrlTPrep, false,
+                      'Tiempo de preparación (min) *', _ctrlTPrep, false,
                       isNumber: true)),
               const SizedBox(width: 20),
               Expanded(
                   child: _buildInputField(
-                      'Tiempo Cocción (min)', _ctrlTCoccion, false,
+                      'Tiempo de cocción (min)', _ctrlTCoccion, false,
                       isNumber: true)),
             ],
           ),
@@ -730,14 +730,14 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                     OutlinedButton.icon(
                       onPressed: () => ctrl.text = _jsonEjemplo,
                       icon: const Icon(Icons.description_outlined, size: 18),
-                      label: const Text('USAR ESTRUCTURA'),
+                      label: const Text('Usar estructura'),
                     ),
                     const SizedBox(width: 12),
                     TextButton.icon(
                       onPressed: () => ctrl.clear(),
                       icon: const Icon(Icons.cleaning_services_outlined,
                           size: 18),
-                      label: const Text('LIMPIAR'),
+                      label: const Text('Limpiar'),
                     ),
                   ],
                 ),
@@ -765,11 +765,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('CANCELAR')),
+              child: const Text('Cancelar')),
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, ctrl.text),
             icon: const Icon(Icons.upload_file_rounded),
-            label: const Text('ACEPTAR'),
+            label: const Text('Aceptar'),
           ),
         ],
       ),
@@ -1314,7 +1314,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             ElevatedButton.icon(
               onPressed: _seleccionarImagen,
               icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: Text(tieneImagen ? 'CAMBIAR' : 'SUBIR IMAGEN'),
+              label: Text(tieneImagen ? 'Cambiar' : 'Subir imagen'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTema.azulPrincipal,
                 foregroundColor: Colors.white,
@@ -1330,7 +1330,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                 onPressed: _quitarImagen,
                 icon: const Icon(Icons.delete_outline_rounded,
                     size: 18, color: Colors.redAccent),
-                label: const Text('QUITAR',
+                label: const Text('Quitar',
                     style: TextStyle(color: Colors.redAccent)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.redAccent),
@@ -1377,11 +1377,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildTituloSeccion(
-                  'Gestión de Ingredientes (${_ingredientes.length})'),
+                  'Gestión de ingredientes (${_ingredientes.length})'),
               FilledButton.icon(
                 onPressed: _abrirSelectorIngrediente,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('AGREGAR INGREDIENTE'),
+                label: const Text('Agregar ingrediente'),
                 style: FilledButton.styleFrom(
                     backgroundColor: AppTema.azulPrincipal,
                     padding: const EdgeInsets.symmetric(horizontal: 16)),
@@ -1524,7 +1524,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                       'nota': ''
                     })),
                 icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('AÑADIR PASO'),
+                label: const Text('Añadir paso'),
               ),
             ],
           ),
@@ -1986,14 +1986,14 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
   Widget _buildAccionesFinales() {
     return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-      OutlinedButton(onPressed: widget.onBack, child: const Text('CANCELAR')),
+      OutlinedButton(onPressed: widget.onBack, child: const Text('Cancelar')),
       const SizedBox(width: 16),
       FilledButton.icon(
           onPressed: _guardar,
           icon: const Icon(Icons.save_rounded),
           label: Text(widget.recetaInicial == null
-              ? 'CREAR RECETA'
-              : 'ACTUALIZAR RECETA'))
+              ? 'Crear receta'
+              : 'Actualizar receta'))
     ]);
   }
 

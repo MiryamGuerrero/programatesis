@@ -270,14 +270,14 @@ class _AlergiasCondicionesPageState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ChoiceChip(
-                  label: const Text("SÍ"),
+                  label: const Text("Sí"),
                   selected: _tieneAlergias == true,
                   onSelected: (val) =>
                       setState(() => _tieneAlergias = val ? true : null),
                 ),
                 const SizedBox(width: 12),
                 ChoiceChip(
-                  label: const Text("NO"),
+                  label: const Text("No"),
                   selected: _tieneAlergias == false,
                   onSelected: (val) => setState(() {
                     _tieneAlergias = val ? false : null;
@@ -666,7 +666,7 @@ class _AlergiasCondicionesPageState
                         ? null
                         : _agregarAlergiaGrupo,
                     icon: const Icon(Icons.layers_clear),
-                    label: const Text("Eliminar Subgrupo"),
+                    label: const Text("Eliminar subgrupo"),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -785,7 +785,7 @@ class _AlergiasCondicionesPageState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Alergias y Condiciones",
+            "Alergias y condiciones",
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),

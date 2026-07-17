@@ -74,10 +74,9 @@ class RecetaCard extends StatelessWidget {
                   // Fila 2: Categoría
                   const SizedBox(height: 2),
                   Text(
-                    (momentos.isNotEmpty
-                            ? momentos
-                            : (receta['categoria'] ?? 'General').toString())
-                        .toUpperCase(),
+                    momentos.isNotEmpty
+                        ? momentos
+                        : (receta['categoria'] ?? 'General').toString(),
                     style: GoogleFonts.montserrat(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -120,11 +119,11 @@ class RecetaCard extends StatelessWidget {
                   Row(
                     children: [
                       _buildMacroColumn(
-                          'CALORÍAS', '${receta['calorias_totales'] ?? 0}'),
+                          'Calorías', '${receta['calorias_totales'] ?? 0}'),
                       _buildMacroColumn(
-                          'PROTEÍNAS', '${receta['proteinas_totales'] ?? 0}g'),
+                          'Proteínas', '${receta['proteinas_totales'] ?? 0}g'),
                       _buildMacroColumn(
-                          'CARBOS', '${receta['carbohidratos_totales'] ?? 0}g'),
+                          'Carbos', '${receta['carbohidratos_totales'] ?? 0}g'),
                     ],
                   ),
 
@@ -215,7 +214,7 @@ class RecetaCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    receta['activa'] == true ? 'ACTIVA' : 'INACTIVA',
+                    receta['activa'] == true ? 'Activa' : 'Inactiva',
                     style: GoogleFonts.montserrat(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -283,7 +282,7 @@ class RecetaCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        dificultad.toUpperCase(),
+        dificultad,
         style: GoogleFonts.montserrat(
           fontSize: 9,
           fontWeight: FontWeight.w800,
@@ -378,7 +377,7 @@ class RecetaCard extends StatelessWidget {
                           const Icon(Icons.visibility_rounded, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            'VER',
+                            'Ver',
                             style: GoogleFonts.montserrat(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,

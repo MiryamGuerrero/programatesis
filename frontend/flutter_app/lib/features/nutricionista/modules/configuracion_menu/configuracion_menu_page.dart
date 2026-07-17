@@ -271,7 +271,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       _cacheReglasCompletas.remove(_asInt(_selectedMomento!['id']));
       await _loadRuleForMoment(_selectedMomento!);
       if (mounted && showMessage) {
-        NutriSnack.show(context, 'Menu guardado');
+        NutriSnack.show(context, 'Menú guardado');
       }
     } catch (error) {
       if (mounted) {
@@ -287,7 +287,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     final id = _asInt(momento['id']);
     if (id == null) return;
     final confirmed = await _confirmAction('Eliminar horario',
-        'Se eliminara el horario "${momento['nombre']}" y sus reglas.');
+        'Se eliminará el horario "${momento['nombre']}" y sus reglas.');
     if (!confirmed) return;
 
     final oldMomentos = List<Map<String, dynamic>>.from(_momentos);
@@ -307,7 +307,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     final id = _asInt(rule['id']);
     if (id == null) return;
     final confirmed = await _confirmAction(
-        'Eliminar combinacion', 'Esta accion es irreversible.');
+        'Eliminar combinación', 'Esta acción es irreversible.');
     if (!confirmed) return;
 
     final oldRules = List<Map<String, dynamic>>.from(_reglasInteligentes);
@@ -329,7 +329,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     final id = _asInt(tipo['id']);
     if (id == null) return;
     final confirmed = await _confirmAction(
-        'Eliminar opcion', 'Se eliminara "${tipo['nombre']}" del catalogo.');
+        'Eliminar opción', 'Se eliminará "${tipo['nombre']}" del catálogo.');
     if (!confirmed) return;
 
     final oldTipos = List<Map<String, dynamic>>.from(_tiposPlato);
@@ -378,7 +378,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Menú y Horarios',
+              Text('Menú y horarios',
                   style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -424,7 +424,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       const SizedBox(width: 16),
       Expanded(
           child: NutriResumenCard(
-              titulo: 'Reglas Totales',
+              titulo: 'Reglas totales',
               valor: '$_totalReglasGlobal',
               icon: Icons.auto_awesome_rounded,
               colorValor: AppTema.azulOscuro)),
@@ -447,7 +447,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               OutlinedButton.icon(
                 onPressed: () => _openDishTypeDialog(),
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('NUEVO TIPO'),
+                label: const Text('Nuevo tipo'),
               ),
             ],
           ),
@@ -584,7 +584,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         padding: const EdgeInsets.all(40),
         alignment: Alignment.center,
         child: const Text(
-            'Selecciona un horario en la izquierda para ver su configuracion clínica.'),
+            'Selecciona un horario en la izquierda para ver su configuración clínica.'),
       );
     }
 
@@ -603,7 +603,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
               FilledButton.icon(
                 onPressed: _saving ? null : _saveRule,
                 icon: const Icon(Icons.save_rounded, size: 18),
-                label: const Text('GUARDAR CAMBIOS'),
+                label: const Text('Guardar cambios'),
                 style: FilledButton.styleFrom(
                     backgroundColor: AppTema.azulPrincipal),
               ),
@@ -631,7 +631,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('COMBINACIONES CLÍNICAS',
+            Text('Combinaciones clínicas',
                 style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
@@ -647,7 +647,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
                 FilledButton.icon(
                     onPressed: _openCreateCombinationDialog,
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('NUEVA'),
+                    label: const Text('Nueva'),
                     style: FilledButton.styleFrom(
                         backgroundColor: AppTema.verdeSalud)),
               ],
@@ -689,7 +689,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
       child: const Column(children: [
         Icon(Icons.auto_awesome_rounded, size: 40, color: Colors.grey),
         SizedBox(height: 12),
-        Text('No hay combinaciones clinicas registradas para este momento.',
+        Text('No hay combinaciones clínicas registradas para este momento.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
       ]),
@@ -880,10 +880,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("CONFIRMAR")),
+              child: const Text("Confirmar")),
         ],
       ),
     );
@@ -899,7 +899,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(momento == null ? 'Nuevo Horario' : 'Editar Horario'),
+        title: Text(momento == null ? 'Nuevo horario' : 'Editar horario'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -909,7 +909,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(onPressed: () async {
             final dio = ref.read(dioProvider);
             final payload = {
@@ -927,7 +927,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             }
             Navigator.pop(ctx);
             _loadAll();
-          }, child: const Text('GUARDAR')),
+          }, child: const Text('Guardar')),
         ],
       )
     );
@@ -938,10 +938,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tipo == null ? 'Nuevo Tipo' : 'Editar Tipo'),
+        title: Text(tipo == null ? 'Nuevo tipo' : 'Editar tipo'),
         content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Nombre')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(onPressed: () async {
             final dio = ref.read(dioProvider);
             if (tipo == null) {
@@ -951,7 +951,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             }
             Navigator.pop(ctx);
             _loadAll();
-          }, child: const Text('GUARDAR')),
+          }, child: const Text('Guardar')),
         ],
       )
     );
@@ -966,10 +966,10 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Importar Combinaciones (JSON)'),
+        title: const Text('Importar combinaciones (JSON)'),
         content: TextField(controller: ctrl, maxLines: 10, decoration: const InputDecoration(hintText: '{"combinaciones": [...]}')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(onPressed: () async {
             if (_selectedMomento == null) return;
             try {
@@ -983,7 +983,7 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
             } catch(e) {
               NutriSnack.show(context, "Error JSON: $e", isError: true);
             }
-          }, child: const Text('IMPORTAR')),
+          }, child: const Text('Importar')),
         ],
       )
     );
@@ -993,9 +993,9 @@ class _ConfiguracionMenuPageState extends ConsumerState<ConfiguracionMenuPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Detalle de Combinación'),
+        title: const Text('Detalle de combinación'),
         content: SingleChildScrollView(child: SelectableText(const JsonEncoder.withIndent('  ').convert(rule))),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CERRAR'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
       )
     );
   }

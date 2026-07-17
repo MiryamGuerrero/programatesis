@@ -22,6 +22,6 @@ class FormEditarControlClinicoPaciente extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-        child: Text("Formulario de Control Clínico (En desarrollo)"));
+        child: Text("Formulario de control clínico (en desarrollo)"));
   }
 }

@@ -172,7 +172,7 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          "Consulta y Evolución",
+          "Consulta y evolución",
           style: Theme.of(context)
               .textTheme
               .titleLarge
@@ -245,11 +245,11 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
                   label: "Controles",
                   value: resumen["total_controles"]?.toString() ?? "0"),
               _MetricCard(
-                label: "Alergias Ingredientes",
+                label: "Alergias ingredientes",
                 value: resumen["total_alergias_ingrediente"]?.toString() ?? "0",
               ),
               _MetricCard(
-                label: "Alergias Grupos",
+                label: "Alergias grupos",
                 value: resumen["total_alergias_grupo"]?.toString() ?? "0",
               ),
               _MetricCard(
@@ -259,7 +259,7 @@ class _ConsultaEvolucionPageState extends ConsumerState<ConsultaEvolucionPage> {
                     : "${_fmtNum(resumen["adherencia_pct"])}%",
               ),
               _MetricCard(
-                label: "Dolor Promedio",
+                label: "Dolor promedio",
                 value: _fmtNum(resumen["dolor_promedio"]),
               ),
             ],

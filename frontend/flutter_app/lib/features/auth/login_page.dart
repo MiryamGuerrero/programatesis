@@ -216,7 +216,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          "Portal Profesional de Salud",
+          "Portal profesional de salud",
           style: GoogleFonts.lato(
               fontSize: AppTextSizes.headline(context.screenWidth) * 0.7,
               color: _grisTexto,
@@ -249,11 +249,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           runSpacing: AppSpacing.md,
           children: [
             _buildFeatureCard(context, Icons.analytics_outlined,
-                "Evaluación Especializada", _verde),
+                "Evaluación especializada", _verde),
             _buildFeatureCard(context, Icons.monitor_heart_outlined,
-                "Seguimiento Clínico", _azul),
+                "Seguimiento clínico", _azul),
             _buildFeatureCard(
-                context, Icons.security_outlined, "Acceso Autorizado", _verde),
+                context, Icons.security_outlined, "Acceso autorizado", _verde),
           ],
         ),
       ],
@@ -366,7 +366,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       color: _azulOscuro,
                       letterSpacing: -0.5)),
               const SizedBox(height: 6),
-              Text("Acceso al Portal Profesional",
+              Text("Acceso al portal profesional",
                   style: GoogleFonts.lato(
                       fontSize: AppTextSizes.body(context.screenWidth),
                       color: _grisTexto)),
@@ -408,14 +408,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
               _buildField(
                   context: context,
                   controller: _emailController,
-                  label: "CORREO ELECTRÓNICO",
+                  label: "Correo electrónico",
                   hint: "usuario@nutrireuma.com",
                   icon: Icons.mail_outline),
               const SizedBox(height: AppSpacing.lg),
               _buildField(
                   context: context,
                   controller: _passwordController,
-                  label: "CONTRASEÑA",
+                  label: "Contraseña",
                   hint: "",
                   icon: Icons.lock_outline,
                   isPass: true),
@@ -435,7 +435,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           ),
                         )
                       : Text(
-                          "INGRESAR",
+                          "Ingresar",
                           style: GoogleFonts.montserrat(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,

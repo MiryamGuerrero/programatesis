@@ -37,6 +37,12 @@ class PlanManualPage extends ConsumerStatefulWidget {
 
 class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   static const Color greenBrand = Color(0xFF2E7D32);
+
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
+  }
+
   Map<String, dynamic>? _selectedPatient;
   Map<String, dynamic>? _patientProfile;
   Map<String, dynamic>? _planVigente;
@@ -316,7 +322,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                      "Selecciona ingredientes seguros para potenciar este plan (Nutricionista):"),
+                      "Selecciona ingredientes seguros para potenciar este plan (nutricionista):"),
                   const SizedBox(height: 8),
                   Expanded(
                     child: seguros.isEmpty
@@ -331,8 +337,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               "No hay ingredientes seguros disponibles para recomendar en este momento.\n\n"
                               "Posibles causas:\n"
                               "- Alergias/restricciones del paciente demasiado amplias.\n"
-                              "- No existen ingredientes activos compatibles en el catalogo.\n"
-                              "- Faltan datos clinicos actualizados para filtrar correctamente.",
+                              "- No existen ingredientes activos compatibles en el catálogo.\n"
+                              "- Faltan datos clínicos actualizados para filtrar correctamente.",
                               style: TextStyle(fontSize: 12),
                             ),
                           )
@@ -495,7 +501,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Diagnostico: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "No registrado"}",
+                        "Diagnóstico: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "No registrado"}",
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 10),
@@ -525,7 +531,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
-                            labelText: "Condición nutricional - Peso"),
+                            labelText: "Condición nutricional - peso"),
                         items: condicionesPeso
                             .map((c) => DropdownMenuItem<int>(
                                   value: (c["id"] as num).toInt(),
@@ -544,7 +550,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
-                            labelText: "Condición nutricional - Talla"),
+                            labelText: "Condición nutricional - talla"),
                         items: condicionesTalla
                             .map((c) => DropdownMenuItem<int>(
                                   value: (c["id"] as num).toInt(),
@@ -976,7 +982,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               "Diagnóstico: $diagnostico"),
                           const SizedBox(width: 16),
                           _buildInfoItem(Icons.monitor_weight_outlined,
-                              "Estado Nutricional: $condicionNutri"),
+                              "Estado nutricional: $condicionNutri"),
                         ],
                       ),
                     ],
@@ -1169,7 +1175,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Historial de Planes Nutricionales",
+                Text("Historial de planes nutricionales",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
@@ -1299,7 +1305,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                   fontSize: 16,
                                   color: Color(0xFF1E293B))),
                           const SizedBox(width: 12),
-                          if (isVigente) _buildBadge("VIGENTE", greenBrand),
+                          if (isVigente) _buildBadge("Vigente", greenBrand),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -1342,7 +1348,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2))
-                                : const Text("Ver Detalle"),
+                                : const Text("Ver detalle"),
                           ),
                         ),
                       ],
@@ -1494,7 +1500,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Diseño de Plan Nutricional",
+                  "Diseño de plan nutricional",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -1516,14 +1522,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
           const SizedBox(width: 16),
           _buildActionButton(
-            label: "Ajustar Configuración",
+            label: "Ajustar configuración",
             icon: Icons.tune_rounded,
             onPressed: _showConfigModal,
             color: Colors.blueGrey.shade700,
           ),
           const SizedBox(width: 12),
           _buildActionButton(
-            label: "Finalizar Plan",
+            label: "Finalizar plan",
             icon: Icons.check_circle_rounded,
             onPressed: canFinalize ? () => _savePlan() : () {},
             color: canFinalize ? greenBrand : Colors.grey,
@@ -1648,9 +1654,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       child: Column(
                         children: [
                           Text(
-                              DateFormat('EEE', 'es_EC')
-                                  .format(day.date)
-                                  .toUpperCase(),
+                              _capitalize(DateFormat('EEE', 'es_EC')
+                                  .format(day.date)),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 10,
@@ -1777,7 +1782,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 Icon(_getMomentIcon(s.momentId),
                     size: 14, color: hasRecipe ? colorSlot : Colors.orange),
                 const SizedBox(width: 8),
-                Text(s.mealType.toUpperCase(),
+                Text(_capitalize(s.mealType),
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
@@ -1996,7 +2001,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildModalSectionTitle("Periodo de Vigencia"),
+                    _buildModalSectionTitle("Periodo de vigencia"),
                     DropdownButtonFormField<String>(
                       value: _durationType,
                       decoration: InputDecoration(
@@ -2027,7 +2032,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    _buildModalSectionTitle("Resumen de Fechas"),
+                    _buildModalSectionTitle("Resumen de fechas"),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -2170,7 +2175,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                            "⚠️ RESTRICCIÓN DE SEGURIDAD CLÍNICA",
+                                            "⚠️ Restricción de seguridad clínica",
                                             style:
                                                 TextStyle(fontWeight: FontWeight.bold)),
                                         Text(
@@ -2179,7 +2184,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                         const Text(
                                             "• Edite un plan existente para ampliarlo."),
                                         const Text(
-                                            "• Cree un plan de menor duración (Día/Semana)."),
+                                            "• Cree un plan de menor duración (día/semana)."),
                                         const Text(
                                             "• Elimine planes futuros para liberar el calendario."),
                                       ],
@@ -2396,7 +2401,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              "GENERANDO PLAN AUTOMÁTICO",
+              "Generando plan automático",
               style: GoogleFonts.montserrat(
                 color: Colors.white,
                 fontSize: 18,
@@ -2695,7 +2700,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("EXPEDIENTE MAESTRO INTEGRAL",
+                      Text("Expediente maestro integral",
                           style: GoogleFonts.montserrat(
                               fontWeight: FontWeight.w900, fontSize: 20)),
                       Text(
@@ -2717,59 +2722,59 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       children: [
                         Expanded(
                             child:
-                                _buildExpSection("1. IDENTIDAD DEL PACIENTE", [
-                          _expItem("Nombres Completos", p['nombre_completo']),
+                                _buildExpSection("1. Identidad del paciente", [
+                          _expItem("Nombres completos", p['nombre_completo']),
                           _expItem("Cédula / ID", p['cedula']),
                           _expItem(
-                              "Fecha de Nacimiento", p['fecha_nacimiento']),
-                          _expItem("Sexo Biológico", p['sexo_nombre']),
+                              "Fecha de nacimiento", p['fecha_nacimiento']),
+                          _expItem("Sexo biológico", p['sexo_nombre']),
                           const SizedBox(height: 16),
-                          const Text("LOCALIZACIÓN",
+                          const Text("Localización",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                          _expItem("Cantón de Residencia", p['canton_nombre']),
+                          _expItem("Cantón de residencia", p['canton_nombre']),
                           _expItem("Parroquia", p['parroquia_nombre']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
-                            child: _buildExpSection("2. REPRESENTANTE LEGAL", [
-                          _expItem("Nombre del Tutor", t['nombre_completo']),
-                          _expItem("Cédula del Tutor", t['cedula']),
+                            child: _buildExpSection("2. Representante legal", [
+                          _expItem("Nombre del tutor", t['nombre_completo']),
+                          _expItem("Cédula del tutor", t['cedula']),
                           _expItem("Parentesco", t['parentesco_nombre']),
                           const SizedBox(height: 16),
-                          const Text("CONTACTO",
+                          const Text("Contacto",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                          _expItem("Correo Electrónico", t['email']),
+                          _expItem("Correo electrónico", t['email']),
                           _expItem("Teléfono / Móvil", t['telefono']),
-                          _expItem("Dirección de Domicilio", t['direccion']),
+                          _expItem("Dirección de domicilio", t['direccion']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
                             child:
-                                _buildExpSection("3. ESTADO CLÍNICO ACTUAL", [
-                          _expItem("Diagnóstico Principal",
+                                _buildExpSection("3. Estado clínico actual", [
+                          _expItem("Diagnóstico principal",
                               d['condicion_nombre'] ?? "AIJ"),
-                          _expItem("Estado Nutricional (OMS)",
+                          _expItem("Estado nutricional (OMS)",
                               c['estado_nutricional'],
                               isBold: true),
                           _expItem("Peso / Talla",
                               "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm"),
-                          _expItem("Inflamación Actual",
+                          _expItem("Inflamación actual",
                               "${c['escala_inflamacion'] ?? 0}/3"),
-                          _expItem("Brote Activo",
-                              (c['en_brote'] == true) ? "SÍ (ACTIVO)" : "NO",
+                          _expItem("Brote activo",
+                              (c['en_brote'] == true) ? "Sí (activo)" : "No",
                               isAlert: c['en_brote'] == true),
                           const SizedBox(height: 16),
-                          const Text("SEGUIMIENTO",
+                          const Text("Seguimiento",
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
@@ -2777,8 +2782,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
                           _expItem(
-                              "Fecha de Último Control", c['fecha_control']),
-                          _expItem("Próxima Cita Programada",
+                              "Fecha de último control", c['fecha_control']),
+                          _expItem("Próxima cita programada",
                               c['fecha_proxima_cita']),
                         ])),
                       ],
@@ -2791,7 +2796,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       child: FilledButton.icon(
                           onPressed: () => Navigator.pop(ctx),
                           icon: const Icon(Icons.check_circle_outline),
-                          label: const Text("ENTENDIDO"),
+                          label: const Text("Entendido"),
                           style: FilledButton.styleFrom(
                               backgroundColor: greenBrand,
                               shape: RoundedRectangleBorder(
@@ -2838,7 +2843,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.2)),
             const SizedBox(height: 4),
-            Text(v?.toString() ?? "NO REGISTRADO",
+            Text(v?.toString() ?? "No registrado",
                 style: GoogleFonts.montserrat(
                   fontSize: 13,
                   fontWeight:
@@ -3007,7 +3012,7 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
             child: Row(
               children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text("Seleccionar Receta Segura",
+                  const Text("Seleccionar receta segura",
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

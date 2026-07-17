@@ -17,7 +17,7 @@ class DebugAuthPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Debug: Auth & Roles"),
+        title: const Text("Diagnóstico de autenticación y roles"),
         backgroundColor: Colors.red[100],
       ),
       body: SingleChildScrollView(
@@ -38,8 +38,8 @@ class DebugAuthPage extends ConsumerWidget {
                     children: [
                       const Text("✅ Sesión activa"),
                       const SizedBox(height: 8),
-                      _KeyValue("User ID", session.user.id),
-                      _KeyValue("Email", session.user.email ?? "N/A"),
+                      _KeyValue("ID de usuario", session.user.id),
+                      _KeyValue("Correo electrónico", session.user.email ?? "N/A"),
                       _KeyValue("Proveedor",
                           session.user.appMetadata["provider"] ?? "N/A"),
                       _KeyValue(
@@ -48,13 +48,13 @@ class DebugAuthPage extends ConsumerWidget {
                           "Expira", session.expiresAt?.toString() ?? "N/A"),
                       const SizedBox(height: 8),
                       const Text(
-                        "📋 App Metadata (del JWT):",
+                        "📋 Metadatos de aplicación (JWT):",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       ..._buildMetadataList(session.user.appMetadata),
                       const SizedBox(height: 8),
                       const Text(
-                        "📋 User Metadata (del JWT):",
+                        "📋 Metadatos de usuario (JWT):",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       ..._buildMetadataList(session.user.userMetadata ?? {}),
@@ -70,11 +70,11 @@ class DebugAuthPage extends ConsumerWidget {
 
             // Sección: Rol
             _Section(
-              title: "2. Resolución de Rol",
+              title: "2. Resolución de rol",
               child: roleAsync.when(
                 data: (role) {
                   final roleLabel = {
-                        AppRole.admin: "👨‍💼 Admin",
+                        AppRole.admin: "👨‍💼 Administrador",
                         AppRole.medico: "🩺 Médico",
                         AppRole.nutricionista: "🥗 Nutricionista",
                         AppRole.tutor: "👨‍👧 Tutor",
@@ -91,14 +91,14 @@ class DebugAuthPage extends ConsumerWidget {
                       const Text(
                           "Este rol se obtuvo de (en orden de prioridad):"),
                       const Text(
-                          "1. Backend /auth-context (timeout: 6 segundos)"),
+                          "1. Backend /auth-context (tiempo límite: 6 segundos)"),
                       const Text("2. JWT app_metadata.role"),
                       const Text("3. Tabla usuarios.usuario"),
-                      const Text("4. Fallback: 'tutor'"),
+                      const Text("4. Alternativa: 'tutor'"),
                     ],
                   );
                 },
-                loading: () => const Text("⏳ Resolviendo rol (max 6s)..."),
+                loading: () => const Text("⏳ Resolviendo rol (máximo 6 s)..."),
                 error: (err, _) => Text("❌ Error al resolver rol: $err"),
               ),
             ),
@@ -107,7 +107,7 @@ class DebugAuthPage extends ConsumerWidget {
 
             // Sección: Errores de Autenticación
             _Section(
-              title: "3. Errores de Autenticación",
+              title: "3. Errores de autenticación",
               child: authError == null
                   ? const Text("✅ Sin errores")
                   : Text("❌ Error: $authError",

@@ -115,7 +115,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                     const CircularProgressIndicator(color: Colors.white),
                     const SizedBox(height: 20),
                     Text(
-                      "ELIMINANDO...",
+                      "Eliminando...",
                       style: GoogleFonts.montserrat(
                         color: Colors.white,
                         fontSize: 18,
@@ -140,7 +140,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Recetario Terapéutico",
+              "Recetario terapéutico",
               style: GoogleFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
@@ -170,7 +170,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA RECETA",
+          label: Text("Nueva receta",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -194,7 +194,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: "TOTAL RECETAS",
+            titulo: "Total recetas",
             valor: "${state.totalItems}",
             icon: Icons.menu_book_rounded,
           ),
@@ -202,7 +202,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: "FILTRADAS",
+            titulo: "Filtradas",
             valor: "${state.totalItems}",
             colorValor: AppTema.verdeSalud,
             icon: Icons.filter_list_rounded,
@@ -211,7 +211,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: "ACTIVAS / INACT.",
+            titulo: "Activas / inact.",
             valor: "${state.activos} / ${state.inactivos}",
             colorValor: AppTema.azulOscuro,
             icon: Icons.check_circle_outline,
@@ -261,7 +261,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
           const SizedBox(width: 16),
           Expanded(
             child: _buildFilterDropdown(
-              label: "MOMENTO",
+              label: "Momento",
               value: state.momentoSeleccionado,
               items: state.momentosComida,
               onChanged: (value) =>
@@ -271,7 +271,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
           const SizedBox(width: 12),
           Expanded(
             child: _buildFilterDropdown(
-              label: "TIPO PLATO",
+          label: "Tipo de plato",
               value: state.tipoPlatoSeleccionado,
               items: state.tiposPlato,
               onChanged: (value) => ref
@@ -297,7 +297,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -352,7 +352,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             DropdownMenuItem<int?>(
               value: null,
               child: Text(
-                label == "MOMENTO" ? "TODOS LOS MOMENTOS" : "TODO EL MENÚ",
+                label == "Momento" ? "Todos los momentos" : "Todo el menú",
                 style: GoogleFonts.montserrat(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -364,7 +364,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               return DropdownMenuItem<int?>(
                 value: id,
                 child: Text(
-                  item["nombre"]?.toString().toUpperCase() ?? "SIN NOMBRE",
+                  item["nombre"]?.toString() ?? "Sin nombre",
                   style: GoogleFonts.montserrat(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,

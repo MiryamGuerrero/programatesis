@@ -86,7 +86,7 @@ class _CatalogoCondicionesPageState
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Catálogo de Condiciones Médicas",
+            Text("Catálogo de condiciones médicas",
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -109,7 +109,7 @@ class _CatalogoCondicionesPageState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA CONDICIÓN",
+          label: Text("Nueva condición",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -132,7 +132,7 @@ class _CatalogoCondicionesPageState
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'TOTAL REGISTROS',
+            titulo: 'Total de registros',
             valor: '${state.totalItems}',
             icon: Icons.folder_shared_outlined,
             colorValor: AppTema.azulPrincipal,
@@ -141,8 +141,8 @@ class _CatalogoCondicionesPageState
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO BASE',
-            valor: 'ESTÁNDAR OMS',
+            titulo: 'Estado de la base',
+            valor: 'Estándar OMS',
             icon: Icons.verified_user_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -227,7 +227,7 @@ class _CatalogoCondicionesPageState
               children: [
                 Icon(Icons.auto_graph_rounded, size: 18),
                 SizedBox(width: 8),
-                Text("PATOLOGÍAS CRÓNICAS"),
+                Text("Patologías crónicas"),
               ],
             ),
           ),
@@ -237,7 +237,7 @@ class _CatalogoCondicionesPageState
               children: [
                 Icon(Icons.history_toggle_off_rounded, size: 18),
                 SizedBox(width: 8),
-                Text("EVENTOS TEMPORALES"),
+                Text("Eventos temporales"),
               ],
             ),
           ),
@@ -268,9 +268,9 @@ class _CatalogoCondicionesPageState
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("DIAGNÓSTICO", width: totalWidth * 0.50),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.35, center: true),
+              _col("Diagnóstico", width: totalWidth * 0.50),
+              _col("Estado", width: totalWidth * 0.15, center: true),
+              _col("Acciones", width: totalWidth * 0.35, center: true),
             ],
             source: _MedicalConditionsDataSource(
               items: state.conditions,
@@ -336,12 +336,12 @@ class _CatalogoCondicionesPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("CANCELAR"),
+            child: const Text("Cancelar"),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text("ELIMINAR"),
+            child: const Text("Eliminar"),
           ),
         ],
       ),
@@ -522,7 +522,7 @@ class _StatusBadge extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isActive ? "ACTIVO" : "INACTIVO",
+        isActive ? "Activo" : "Inactivo",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 10),
       ),
@@ -624,10 +624,10 @@ class _DetalleCondicionModal extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(condicion["nombre"]?.toString().toUpperCase() ?? "CONDICIÓN",
+                      Text(condicion["nombre"]?.toString() ?? "Condición",
                           style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
                       const SizedBox(height: 4),
-                      Text(isCronica ? "PATOLOGÍA CRÓNICA" : "EVENTO TEMPORAL",
+                      Text(isCronica ? "Patología crónica" : "Evento temporal",
                           style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: mainColor)),
                     ],
                   ),
@@ -646,7 +646,7 @@ class _DetalleCondicionModal extends StatelessWidget {
               height: 48,
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("CERRAR VISTA"),
+                child: const Text("Cerrar vista"),
               ),
             ),
           ],
@@ -696,33 +696,33 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(isEdit ? "Modificar Registro" : "Nueva Condición Médica",
+              Text(isEdit ? "Modificar registro" : "Nueva condición médica",
                   style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: AppTema.azulOscuro)),
               const SizedBox(height: 24),
-              _sectionTitle("CLASIFICACIÓN"),
+              _sectionTitle("Clasificación"),
               Row(
                 children: [
-                  _typeOption(1, "CRÓNICA", Icons.auto_graph_rounded, "Patología base"),
+                  _typeOption(1, "Crónica", Icons.auto_graph_rounded, "Patología base"),
                   const SizedBox(width: 12),
-                  _typeOption(2, "TEMPORAL", Icons.history_toggle_off_rounded, "Evento agudo"),
+                  _typeOption(2, "Temporal", Icons.history_toggle_off_rounded, "Evento agudo"),
                 ],
               ),
               const SizedBox(height: 24),
-              _sectionTitle("INFORMACIÓN GENERAL"),
+              _sectionTitle("Información general"),
               _minimalInput(_nombreCtrl, "Nombre del diagnóstico", Icons.badge_outlined),
               const SizedBox(height: 24),
-              _sectionTitle("DETALLES CLÍNICOS"),
+              _sectionTitle("Detalles clínicos"),
               _minimalInput(_descCtrl, "Descripción técnica...", Icons.text_snippet_outlined, lines: 3),
               const SizedBox(height: 32),
               Row(
                 children: [
-                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR"))),
+                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar"))),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: FilledButton(
                       onPressed: _saving ? null : _save,
-                      child: Text(_saving ? "GUARDANDO..." : "GUARDAR REGISTRO"),
+                      child: Text(_saving ? "Guardando..." : "Guardar registro"),
                     ),
                   ),
                 ],

@@ -79,8 +79,8 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
                 children: [
                   Text(
                     widget.etiquetaInicial == null
-                        ? 'Nueva Etiqueta'
-                        : 'Editar Etiqueta',
+                        ? 'Nueva etiqueta'
+                        : 'Editar etiqueta',
                     style: GoogleFonts.quicksand(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -95,12 +95,12 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
               ),
               const SizedBox(height: 24),
               _buildSectionHeader(
-                  'Información de la Etiqueta', Icons.label_important_rounded),
+                  'Información de la etiqueta', Icons.label_important_rounded),
               const SizedBox(height: 24),
               _buildTextField(
-                label: 'Nombre Visible',
+                label: 'Nombre visible',
                 controller: _ctrlNombre,
-                hint: 'Ej: Alto en Proteína',
+              hint: 'Ej.: alto en proteína',
                 icon: Icons.title_rounded,
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
@@ -127,7 +127,7 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
         Icon(icon, color: AppTema.azulPrincipal, size: 24),
         const SizedBox(width: 12),
         Text(
-          title.toUpperCase(),
+          title,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -190,7 +190,7 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
       children: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('CANCELAR'),
+          child: const Text('Cancelar'),
         ),
         const SizedBox(width: 16),
         if (_loading)
@@ -206,8 +206,8 @@ class _EtiquetaFormDialogState extends ConsumerState<EtiquetaFormDialog> {
                   borderRadius: BorderRadius.circular(12)),
             ),
             child: Text(widget.etiquetaInicial == null
-                ? 'CREAR ETIQUETA'
-                : 'GUARDAR CAMBIOS'),
+                ? 'Crear etiqueta'
+                : 'Guardar cambios'),
           ),
       ],
     );

@@ -72,7 +72,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Gestión de Cuentas: Tutores",
+            Text("Gestión de cuentas de tutores",
                 style: GoogleFonts.montserrat(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -95,7 +95,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-          label: Text("INVITAR TUTOR",
+          label: Text("Invitar tutor",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -118,7 +118,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'REPRESENTANTES REGISTRADOS',
+            titulo: 'Representantes registrados',
             valor: '${state.totalItems}',
             icon: Icons.family_restroom_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -127,8 +127,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO SERVICIO',
-            valor: 'ACTIVO',
+            titulo: 'Estado del servicio',
+            valor: 'Activo',
             icon: Icons.verified_user_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -186,7 +186,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -233,10 +233,10 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("REPRESENTANTE", width: totalWidth * 0.40),
-              _col("IDENTIFICACIÓN", width: totalWidth * 0.20),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+              _col("Representante", width: totalWidth * 0.40),
+              _col("Identificación", width: totalWidth * 0.20),
+              _col("Estado", width: totalWidth * 0.15, center: true),
+              _col("Acciones", width: totalWidth * 0.25, center: true),
             ],
             source: _AdminTutorsDataSource(
               items: state.users,
@@ -280,17 +280,17 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Eliminar Tutor"),
+        title: const Text("Eliminar tutor"),
         content: Text(
             "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción es irreversible."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );
@@ -318,7 +318,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         builder: (context, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text("Invitar Nuevo Tutor",
+          title: Text("Invitar nuevo tutor",
               style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
           content: SizedBox(
             width: 400,
@@ -329,7 +329,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                 const SizedBox(height: 16),
                 _input(emailCtrl, "Correo electrónico", Icons.email_outlined),
                 const SizedBox(height: 16),
-                _input(cedulaCtrl, "Cédula (Opcional)",
+                _input(cedulaCtrl, "Cédula (opcional)",
                     Icons.perm_identity_rounded),
                 const SizedBox(height: 16),
                 TextField(
@@ -352,7 +352,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("CANCELAR")),
+                child: const Text("Cancelar")),
             FilledButton(
               onPressed: () async {
                 if (emailCtrl.text.isEmpty || nombreCtrl.text.isEmpty) return;
@@ -372,7 +372,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                     NutriSnack.show(context, "Error: $e", isError: true);
                 }
               },
-              child: const Text("INVITAR"),
+              child: const Text("Invitar"),
             ),
           ],
         ),
@@ -561,7 +561,7 @@ class _StatusBadge extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isActive ? "ACTIVO" : "INACTIVO",
+        isActive ? "Activo" : "Inactivo",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 10),
       ),

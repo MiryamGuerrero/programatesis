@@ -153,7 +153,7 @@ class _CondicionesNutricionalesPageState
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Catálogo de Condiciones",
+            Text("Catálogo de condiciones",
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -176,7 +176,7 @@ class _CondicionesNutricionalesPageState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA CONDICIÓN",
+          label: Text("Nueva condición",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -199,7 +199,7 @@ class _CondicionesNutricionalesPageState
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'CONDICIONES PESO (BMI)',
+            titulo: 'Condiciones peso (BMI)',
             valor: _tabController.index == 0 ? '$_total' : '-',
             icon: Icons.monitor_weight_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -208,7 +208,7 @@ class _CondicionesNutricionalesPageState
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-            titulo: 'CONDICIONES TALLA (HFA)',
+            titulo: 'Condiciones talla (HFA)',
             valor: _tabController.index == 1 ? '$_total' : '-',
             icon: Icons.height_rounded,
             colorValor: AppTema.verdeSalud,
@@ -297,7 +297,7 @@ class _CondicionesNutricionalesPageState
               children: [
                 Icon(Icons.monitor_weight_outlined, size: 18),
                 SizedBox(width: 8),
-                Text("CONDICIONES PARA PESO"),
+                Text("Condiciones para peso"),
               ],
             ),
           ),
@@ -307,7 +307,7 @@ class _CondicionesNutricionalesPageState
               children: [
                 Icon(Icons.height_outlined, size: 18),
                 SizedBox(width: 8),
-                Text("CONDICIONES PARA TALLA"),
+                Text("Condiciones para talla"),
               ],
             ),
           ),
@@ -337,9 +337,9 @@ class _CondicionesNutricionalesPageState
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("IDENTIDAD", width: totalWidth * 0.50),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+              _col("Identidad", width: totalWidth * 0.50),
+              _col("Estado", width: totalWidth * 0.15, center: true),
+              _col("Acciones", width: totalWidth * 0.25, center: true),
             ],
             source: _CondicionesDataSource(
               items: _condiciones,
@@ -404,13 +404,13 @@ class _CondicionesNutricionalesPageState
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text("CANCELAR",
+              child: Text("Cancelar",
                   style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold, color: Colors.grey))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );
@@ -578,7 +578,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              condicion["nombre"].toString().toUpperCase(),
+                              condicion["nombre"].toString(),
                               style: GoogleFonts.inter(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -601,10 +601,10 @@ class _DetalleCondicionModal extends StatelessWidget {
                               isPeso
                                   ? Icons.monitor_weight_outlined
                                   : Icons.height_outlined,
-                              isPeso ? "CONDICIÓN PARA PESO" : "CONDICIÓN PARA TALLA",
+                              isPeso ? "Condición para peso" : "Condición para talla",
                               mainColor),
                           const SizedBox(width: 10),
-                          _badge(Icons.circle, "ACTIVA", AppTema.verdeSalud,
+                          _badge(Icons.circle, "Activa", AppTema.verdeSalud,
                               isDot: true),
                         ],
                       ),
@@ -629,7 +629,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                               color: AppTema.azulOscuro.withValues(alpha: 0.7)),
                           const SizedBox(width: 8),
                           Text(
-                            "DESCRIPCIÓN TÉCNICA",
+                            "Descripción técnica",
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -679,7 +679,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "ASPECTOS RELACIONADOS",
+                        "Aspectos relacionados",
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -721,7 +721,7 @@ class _DetalleCondicionModal extends StatelessWidget {
                   icon: Icon(Icons.folder_open_rounded,
                       size: 18, color: mainColor),
                   label: Text(
-                    "CERRAR FICHA",
+                    "Cerrar ficha",
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
                       color: mainColor,
@@ -858,7 +858,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  isEdit ? "Modificar Registro" : "Nueva Condición Nutricional",
+                  isEdit ? "Modificar registro" : "Nueva condición nutricional",
                   style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -871,22 +871,22 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                       color: Colors.blueGrey,
                       fontWeight: FontWeight.w500)),
               const SizedBox(height: 24),
-              _sectionTitle("CLASIFICACIÓN"),
+              _sectionTitle("Clasificación"),
               Row(
                 children: [
-                  _typeOption(1, "PESO", Icons.monitor_weight_rounded,
+                  _typeOption(1, "Peso", Icons.monitor_weight_rounded,
                       "Condición para peso"),
                   const SizedBox(width: 12),
                   _typeOption(
-                      2, "TALLA", Icons.height_rounded, "Condición para talla"),
+                      2, "Talla", Icons.height_rounded, "Condición para talla"),
                 ],
               ),
               const SizedBox(height: 24),
-              _sectionTitle("INFORMACIÓN GENERAL"),
+              _sectionTitle("Información general"),
               _minimalInput(
                   _nombreCtrl, "Nombre oficial", Icons.badge_outlined),
               const SizedBox(height: 24),
-              _sectionTitle("DETALLE CLÍNICO"),
+              _sectionTitle("Detalle clínico"),
               _minimalInput(
                   _descCtrl,
                   "Descripción o criterios nutricionales...",
@@ -909,7 +909,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Estado de Disponibilidad",
+                          Text("Estado de disponibilidad",
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -936,7 +936,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text("CANCELAR",
+                      child: Text("Cancelar",
                           style: GoogleFonts.inter(
                               fontWeight: FontWeight.w800,
                               color: Colors.grey,
@@ -957,7 +957,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                           elevation: 0,
                         ),
                         child: Text(
-                            _saving ? "PROCESANDO..." : "GUARDAR REGISTRO",
+                            _saving ? "Procesando..." : "Guardar registro",
                             style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,

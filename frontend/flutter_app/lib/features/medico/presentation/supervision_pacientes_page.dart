@@ -211,7 +211,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         const Expanded(
           child: _KPICard(
             title: "Control clínico",
-            value: "ACTIVO",
+            value: "Activo",
             color: Color(0xFF10B981),
             imagePath: "assets/images/kpi_joint.webp",
             isLargeValue: true,
@@ -311,11 +311,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("PACIENTE", width: totalWidth * 0.30),
-              _col("CÉDULA", width: totalWidth * 0.15),
-              _col("ENFERMEDAD", width: totalWidth * 0.20),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.20, center: true),
+              _col("Paciente", width: totalWidth * 0.30),
+              _col("Cédula", width: totalWidth * 0.15),
+              _col("Enfermedad", width: totalWidth * 0.20),
+              _col("Estado", width: totalWidth * 0.15, center: true),
+              _col("Acciones", width: totalWidth * 0.20, center: true),
             ],
             source: _MedicalPatientsDataSource(
               items: state.patients,

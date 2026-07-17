@@ -123,7 +123,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Mi Perfil",
+                Text("Mi perfil",
                     style: GoogleFonts.montserrat(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -208,7 +208,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
               decoration: BoxDecoration(
                   color: AppTema.verdeSalud.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20)),
-              child: Text(role.toUpperCase(),
+              child: Text(role,
                   style: GoogleFonts.montserrat(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -241,7 +241,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle("Datos Personales"),
+          _sectionTitle("Datos personales"),
           const SizedBox(height: 20),
           Row(children: [
             Expanded(
@@ -283,11 +283,11 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             Expanded(
                 child: _buildTextField(
                     controller: _emailController,
-                    label: "Email",
+                    label: "Correo electrónico",
                     icon: Icons.alternate_email))
           ]),
           const SizedBox(height: 32),
-          _sectionTitle("Contacto y Ubicación"),
+          _sectionTitle("Contacto y ubicación"),
           const SizedBox(height: 20),
           _buildTextField(
               controller: _direccionController,
@@ -312,7 +312,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.save_as_rounded),
-            label: Text("GUARDAR CAMBIOS",
+            label: Text("Guardar cambios",
                 style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -320,7 +320,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     );
   }
 
-  Widget _sectionTitle(String title) => Text(title.toUpperCase(),
+  Widget _sectionTitle(String title) => Text(title,
       style: GoogleFonts.montserrat(
           fontSize: 12,
           fontWeight: FontWeight.w800,

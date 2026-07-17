@@ -97,7 +97,7 @@ class _DeferredModuleWidgetState extends State<DeferredModuleWidget> {
 List<RoleModule> modulesForRole(AppRole role) {
   final perfilItem = RoleModule(
     key: "perfil",
-    title: "Mi Perfil",
+    title: "Mi perfil",
     icon: Icons.account_circle_outlined,
     builder: () => DeferredModuleWidget(
       loader: common_perfil.loadLibrary,
@@ -110,7 +110,7 @@ List<RoleModule> modulesForRole(AppRole role) {
       return [
         RoleModule(
           key: "personal",
-          title: "Equipo Médico",
+          title: "Equipo médico",
           icon: Icons.assignment_ind_rounded,
           builder: () => DeferredModuleWidget(
             loader: admin_users.loadLibrary,
@@ -119,7 +119,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "tutores",
-          title: "Cuentas Tutores",
+          title: "Cuentas de tutores",
           icon: Icons.supervised_user_circle_rounded,
           builder: () => DeferredModuleWidget(
             loader: admin_tutors.loadLibrary,
@@ -133,7 +133,7 @@ List<RoleModule> modulesForRole(AppRole role) {
       return [
         RoleModule(
           key: "pacientes",
-          title: "Gestión de Pacientes",
+          title: "Gestión de pacientes",
           icon: Icons.people_outline_rounded,
           builder: () => DeferredModuleWidget(
             loader: medico_pacientes.loadLibrary,
@@ -142,7 +142,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "condiciones",
-          title: "Catálogo de Condiciones",
+          title: "Catálogo de condiciones",
           icon: Icons.table_chart_outlined,
           builder: () => DeferredModuleWidget(
             loader: medico_condiciones.loadLibrary,
@@ -151,7 +151,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "reglas",
-          title: "Reglas Clínicas",
+          title: "Reglas clínicas",
           icon: Icons.rule_folder_outlined,
           builder: () => DeferredModuleWidget(
             loader: medico_reglas.loadLibrary,
@@ -165,7 +165,7 @@ List<RoleModule> modulesForRole(AppRole role) {
       return [
         RoleModule(
           key: "inicio",
-          title: "Mi Paciente",
+          title: "Mi paciente",
           icon: Icons.dashboard_rounded,
           builder: () => DeferredModuleWidget(
             loader: tutor_inicio.loadLibrary,
@@ -174,7 +174,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "perfil",
-          title: "Mi Perfil",
+          title: "Mi perfil",
           icon: Icons.account_circle_outlined,
           builder: () => DeferredModuleWidget(
             loader: tutor_perfil.loadLibrary,
@@ -214,7 +214,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "plan_manual",
-          title: "Plan Nutricional",
+          title: "Plan nutricional",
           icon: Icons.calendar_month_rounded,
           builder: () => DeferredModuleWidget(
             loader: nutri_plan.loadLibrary,
@@ -223,7 +223,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "configuracion_menu",
-          title: "Menú y Horarios",
+          title: "Menú y horarios",
           icon: Icons.schedule_rounded,
           builder: () => DeferredModuleWidget(
             loader: nutri_config.loadLibrary,
@@ -241,7 +241,7 @@ List<RoleModule> modulesForRole(AppRole role) {
         ),
         RoleModule(
           key: "reglas_nutri",
-          title: "Reglas Nutricionales",
+          title: "Reglas nutricionales",
           icon: Icons.rule_rounded,
           builder: () => DeferredModuleWidget(
             loader: nutri_reglas.loadLibrary,
@@ -254,4 +254,3 @@ List<RoleModule> modulesForRole(AppRole role) {
 }
 
 int defaultModuleIndexForRole(AppRole role) => 0;
-

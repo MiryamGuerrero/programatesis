@@ -498,19 +498,19 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _fixedSection(
-                          "DATOS GENERALES DEL PACIENTE",
+                          "Datos generales del paciente",
                           Icons.badge_outlined,
                           _buildFixedPatientFields(),
                         ),
                         const SizedBox(height: 24),
                         _fixedSection(
-                          "ENFERMEDAD PRINCIPAL",
+                          "Enfermedad principal",
                           Icons.add_box_outlined,
                           _buildFixedDiseaseFields(),
                         ),
                         const SizedBox(height: 24),
                         _fixedSection(
-                          "ALERGIAS E INTOLERANCIAS",
+                          "Alergias e intolerancias",
                           Icons.warning_amber_rounded,
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,7 +532,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                           child: FilledButton.icon(
                             onPressed: _confirmAndFinishFixedOnly,
                             icon: const Icon(Icons.save_alt_rounded),
-                            label: const Text("ACTUALIZAR DATOS CLÍNICOS"),
+                            label: const Text("Actualizar datos clínicos"),
                             style: FilledButton.styleFrom(
                               backgroundColor: greenBrand,
                               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -580,7 +580,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       children: [
         _field(
           _pacCedula,
-          "Cédula del Paciente*",
+          "Cédula del paciente*",
           Icons.assignment_ind_outlined,
           hint: "Ingrese los 10 dígitos",
           keyboardType: TextInputType.number,
@@ -621,7 +621,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           ),
         const SizedBox(height: 24),
         _field(
-            _pacNombre, "Nombres y Apellidos Completos*", Icons.person_outline,
+            _pacNombre, "Nombres y apellidos completos*", Icons.person_outline,
             hint: "Ingrese los nombres y apellidos completos"),
         const SizedBox(height: 24),
         Row(children: [
@@ -662,7 +662,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           const SizedBox(width: 20),
           Expanded(
               child: _dropdown(
-                  "Sexo Biológico*",
+                  "Sexo biológico*",
                   _sexos,
                   _pacSexo,
                   (v) => setState(() {
@@ -675,7 +675,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         Row(children: [
           Expanded(
               child:
-                  _dropdown("Cantón de Residencia", _cantones, _pacCanton, (v) {
+                  _dropdown("Cantón de residencia", _cantones, _pacCanton, (v) {
             setState(() {
               _pacCanton = v;
               _updateParroquiasFiltradas();
@@ -683,7 +683,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           }, hint: "Seleccione un cantón")),
           const SizedBox(width: 20),
           Expanded(
-              child: _dropdown("Parroquia de Residencia", _parroquiasFiltradas,
+              child: _dropdown("Parroquia de residencia", _parroquiasFiltradas,
                   _pacParroquia, (v) => setState(() => _pacParroquia = v),
                   hint: "Seleccione una parroquia")),
         ]),
@@ -692,7 +692,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Widget _buildFixedDiseaseFields() {
-    return _dropdown("Patología / Enfermedad Base*", _patologias,
+    return _dropdown("Patología/enfermedad base*", _patologias,
         _idPatologiaBase, (v) => setState(() => _idPatologiaBase = v),
         hint: "Seleccione...");
   }
@@ -709,10 +709,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           Expanded(
               child: Text(
             _idPacienteEditando == null
-                ? "Registro Integral Pediátrico"
+                ? "Registro integral pediátrico"
                 : widget.fixedOnly
-                    ? "DATOS CLÍNICOS BASE: ${_pacNombre.text.toUpperCase()}"
-                    : "EXPEDIENTE: ${_pacNombre.text.toUpperCase()}",
+                    ? "Datos clínicos base: ${_pacNombre.text}"
+                    : "Expediente: ${_pacNombre.text}",
             style: GoogleFonts.inter(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
@@ -735,9 +735,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         Text(
             widget.fixedOnly
                 ? (_showSuccess
-                    ? "DATOS CLÍNICOS ACTUALIZADOS"
-                    : "ACTUALIZANDO DATOS CLÍNICOS...")
-                : (_showSuccess ? "GUARDADO" : "SINCRONIZANDO..."),
+                    ? "Datos clínicos actualizados"
+                    : "Actualizando datos clínicos...")
+                : (_showSuccess ? "Guardado" : "Sincronizando..."),
             style: GoogleFonts.inter(
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))
       ])));
@@ -1061,11 +1061,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: greenBrand),
-              child: const Text("SÍ, ACTUALIZAR")),
+              child: const Text("Sí, actualizar")),
         ],
       ),
     );
@@ -1201,7 +1201,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     const Icon(Icons.vpn_key_rounded,
                         color: greenBrand, size: 48),
                     const SizedBox(height: 16),
-                    Text("CREDENCIALES DEL TUTOR",
+                    Text("Credenciales del tutor",
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900, fontSize: 18))
                   ]),
@@ -1219,10 +1219,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                             border: Border.all(
                                 color: greenBrand.withOpacity(0.15))),
                         child: Column(children: [
-                          _credItem("USUARIO (EMAIL)", _tutEmail.text,
+                          _credItem("Usuario (correo electrónico)", _tutEmail.text,
                               Icons.alternate_email),
                           const Divider(height: 32),
-                          _credItem("CLAVE TEMPORAL", _generatedPassword,
+                          _credItem("Clave temporal", _generatedPassword,
                               Icons.lock_outline),
                         ])),
                   ]),
@@ -1242,7 +1242,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                               ? Icons.check_circle_rounded
                               : Icons.copy_rounded,
                           size: 18),
-                      label: Text(_credencialesCopiadas ? "COPIADO" : "COPIAR"),
+                      label: Text(_credencialesCopiadas ? "Copiado" : "Copiar"),
                     ),
                     FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
@@ -1250,7 +1250,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                             backgroundColor: greenBrand,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 40, vertical: 16)),
-                        child: const Text("ACEPTAR Y REGISTRAR")),
+                        child: const Text("Aceptar y registrar")),
                   ],
                 ),
               ));
@@ -1396,7 +1396,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       isActive: _currentStep >= 0,
       state: _currentStep > 0 ? StepState.complete : StepState.editing,
       title: Text(
-          widget.fixedOnly ? "REFERENCIA DEL TUTOR" : "REPRESENTANTE LEGAL",
+          widget.fixedOnly ? "Referencia del tutor" : "Representante legal",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1408,7 +1408,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               Expanded(
                   child: _field(
                 _tutCedula,
-                "Cédula del Tutor*",
+                "Cédula del tutor*",
                 Icons.assignment_ind_outlined,
                 hint: "Ingrese la cédula del tutor",
                 keyboardType: TextInputType.number,
@@ -1504,13 +1504,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 ),
               ),
             const SizedBox(height: 24),
-            _field(_tutNombre, "Nombre y Apellidos*", Icons.person_outline,
+            _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
                 hint: "Ingrese los nombres y apellidos completos"),
             const SizedBox(height: 24),
             Row(children: [
               Expanded(
                   child: _field(
-                      _tutEmail, "Email de Usuario*", Icons.alternate_email,
+                      _tutEmail, "Correo electrónico del usuario*", Icons.alternate_email,
                       helper: "Este será su nombre de acceso.",
                       hint: "usuario@ejemplo.com")),
               const SizedBox(width: 20),
@@ -1524,7 +1524,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               Expanded(
                   child: _field(
                 _tutTelefono,
-                "Teléfono Móvil*",
+                "Teléfono móvil*",
                 Icons.phone_android_outlined,
                 hint: "09XXXXXXXX",
                 keyboardType: TextInputType.number,
@@ -1536,8 +1536,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               const SizedBox(width: 20),
               Expanded(
                   child: _field(
-                      _tutDireccion, "Dirección del Hogar", Icons.map_outlined,
-                      hint: "Av. Principal y Calle Secundaria")),
+                      _tutDireccion, "Dirección del hogar", Icons.map_outlined,
+                      hint: "Av. principal y calle secundaria")),
             ]),
           ],
         ),
@@ -1550,8 +1550,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           : StepState.editing,
       title: Text(
           widget.fixedOnly
-              ? "REFERENCIA DEL PACIENTE"
-              : "IDENTIDAD DEL PACIENTE",
+              ? "Referencia del paciente"
+              : "Identidad del paciente",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1561,7 +1561,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             const SizedBox(height: 8),
             _field(
               _pacCedula,
-              "Cédula del Paciente*",
+              "Cédula del paciente*",
               Icons.assignment_ind_outlined,
               hint: "Ingrese los 10 dígitos",
               keyboardType: TextInputType.number,
@@ -1602,7 +1602,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 ),
               ),
             const SizedBox(height: 24),
-            _field(_pacNombre, "Nombres y Apellidos Completos*",
+            _field(_pacNombre, "Nombres y apellidos completos*",
                 Icons.person_outline,
                 hint: "Ingrese los nombres y apellidos completos"),
             const SizedBox(height: 24),
@@ -1645,7 +1645,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               const SizedBox(width: 20),
               Expanded(
                   child: _dropdown(
-                      "Sexo Biológico*",
+                      "Sexo biológico*",
                       _sexos,
                       _pacSexo,
                       (v) => setState(() {
@@ -1658,7 +1658,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             Row(children: [
               Expanded(
                   child: _dropdown(
-                      "Cantón de Residencia", _cantones, _pacCanton, (v) {
+                      "Cantón de residencia", _cantones, _pacCanton, (v) {
                 setState(() {
                   _pacCanton = v;
                   _updateParroquiasFiltradas();
@@ -1667,7 +1667,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               const SizedBox(width: 20),
               Expanded(
                   child: _dropdown(
-                      "Parroquia de Residencia",
+                      "Parroquia de residencia",
                       _parroquiasFiltradas,
                       _pacParroquia,
                       (v) => setState(() => _pacParroquia = v),
@@ -1682,8 +1682,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       state: StepState.editing,
       title: Text(
           widget.fixedOnly
-              ? "DATOS CLÍNICOS BASE"
-              : "PROTOCOLO DE EVALUACIÓN CLÍNICA",
+              ? "Datos clínicos base"
+              : "Protocolo de evaluación clínica",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1697,12 +1697,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 border: Border.all(color: const Color(0xFFE2E8F0))),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionHeader("ENFERMEDAD PRINCIPAL", Icons.add_box_outlined),
+              _sectionHeader("Enfermedad principal", Icons.add_box_outlined),
               const SizedBox(height: 24),
               Row(children: [
                 Expanded(
                     child: _dropdown(
-                        "Patología / Enfermedad Base*",
+                        "Patología/enfermedad base*",
                         _patologias,
                         _idPatologiaBase,
                         (v) => setState(() => _idPatologiaBase = v),
@@ -1710,7 +1710,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 const SizedBox(width: 24),
                 Expanded(
                     child: _dropdown(
-                        "Estado de la Enfermedad*",
+                        "Estado de la enfermedad*",
                         _estadosClinicos
                             .asMap()
                             .entries
@@ -1735,14 +1735,14 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionHeader(
-                  "ACTIVIDAD DE LA ENFERMEDAD", Icons.analytics_outlined),
+                  "Actividad de la enfermedad", Icons.analytics_outlined),
               const SizedBox(height: 20),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                       child: EscalaSelector(
-                          titulo: "DOLOR",
+                          titulo: "Dolor",
                           descripcion: "Escala EVA dolor",
                           min: 0,
                           max: 10,
@@ -1776,7 +1776,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                               style: TextStyle(fontSize: 26)))),
                   const SizedBox(width: 24),
                   Expanded(
-                      child: _buildEVACard("INFLAMACIÓN", _inflamacion, 3,
+                      child: _buildEVACard("Inflamación", _inflamacion, 3,
                           (v) => setState(() => _inflamacion = v),
                           icon: Icons.verified_user_outlined,
                           dynamicIcons: const [
@@ -1798,7 +1798,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                      child: _buildEVACard("ENERGÍA", _fatiga, 10,
+                      child: _buildEVACard("Energía", _fatiga, 10,
                           (v) => setState(() => _fatiga = v),
                           icon: Icons.battery_full_rounded,
                           dynamicIcons: const [
@@ -1854,7 +1854,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionHeader(
-                  "ALERGIAS E INTOLERANCIAS", Icons.warning_amber_rounded),
+                  "Alergias e intolerancias", Icons.warning_amber_rounded),
               const SizedBox(height: 8),
               Text(
                   "Registra restricciones alimentarias y alergias relevantes del paciente.",
@@ -1878,17 +1878,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionHeader("IDENTIFICAR CONDICIÓN NUTRICIONAL",
+                    _sectionHeader("Identificar condición nutricional",
                         Icons.scale_outlined),
                     const SizedBox(height: 20),
                     Row(children: [
                       Expanded(
-                          child: _field(_clinPeso, "Peso Inicial (kg)*",
+                          child: _field(_clinPeso, "Peso inicial (kg)*",
                               Icons.monitor_weight_outlined,
                               onChanged: (_) => _debouncedOMS())),
                       const SizedBox(width: 20),
                       Expanded(
-                          child: _field(_clinTalla, "Talla Inicial (cm)*",
+                          child: _field(_clinTalla, "Talla inicial (cm)*",
                               Icons.height_outlined,
                               onChanged: (_) => _debouncedOMS())),
                     ]),
@@ -1907,7 +1907,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _sectionHeader(
-                        "CONDICIONES TEMPORALES", Icons.event_note_rounded),
+                        "Condiciones temporales", Icons.event_note_rounded),
                     const SizedBox(height: 16),
                     _buildSintomasTemporalesSelector(),
                   ]),
@@ -1923,7 +1923,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _sectionHeader(
-                        "INGREDIENTES RECOMENDADOS", Icons.recommend_rounded),
+                        "Ingredientes recomendados", Icons.recommend_rounded),
                     const SizedBox(height: 12),
                     Text(
                         "Opcional. El doctor puede recomendar ingredientes con búsqueda inteligente.",
@@ -1937,7 +1937,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ),
           ],
           const SizedBox(height: 24),
-          _field(_clinNotas, "Observaciones Médicas Iniciales",
+          _field(_clinNotas, "Observaciones médicas iniciales",
               Icons.edit_note_rounded,
               maxLines: 4),
         ]),
@@ -2117,7 +2117,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("MINUTOS DE RIGIDEZ",
+                Text("Minutos de rigidez",
                     style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -2189,7 +2189,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_brote ? "BROTE ACTIVO DETECTADO" : "SIN BROTE ACTIVO",
+                Text(_brote ? "Brote activo detectado" : "Sin brote activo",
                     style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -3269,7 +3269,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           Row(children: [
             Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
             const SizedBox(width: 12),
-            Text("DIAGNÓSTICO NUTRICIONAL OMS",
+            Text("Diagnóstico nutricional OMS",
                 style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -3622,11 +3622,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     Text(
                         _currentStep == (widget.fixedOnly ? 1 : 2)
                             ? (_idPacienteEditando == null
-                                ? "REGISTRAR PACIENTE"
+                                ? "Registrar paciente"
                                 : widget.fixedOnly
-                                    ? "ACTUALIZAR DATOS CLÍNICOS"
-                                    : "GUARDAR CAMBIOS")
-                            : "SIGUIENTE PASO",
+                                    ? "Actualizar datos clínicos"
+                                    : "Guardar cambios")
+                            : "Siguiente paso",
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w800)),
                     if (_currentStep < (widget.fixedOnly ? 1 : 2)) ...[
@@ -3646,7 +3646,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16))),
-                  child: const Text("REGRESAR",
+                  child: const Text("Regresar",
                       style: TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w800))))
         ]

@@ -132,7 +132,7 @@ class _SelectorIngredienteDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Añadir Ingredientes',
+        Text('Añadir ingredientes',
             style: GoogleFonts.inter(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -236,7 +236,7 @@ class _SelectorIngredienteDialogState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Configurar Cantidad',
+                Text('Configurar cantidad',
                     style: GoogleFonts.montserrat(
                         fontWeight: FontWeight.w700,
                         color: AppTema.azulOscuro)),
@@ -262,7 +262,7 @@ class _SelectorIngredienteDialogState
                 ),
                 const SizedBox(height: 12),
                 _buildConfigInput(
-                    'Peso Técnico en Gramos (g)', _ctrlGramos, true),
+                    'Peso técnico en gramos (g)', _ctrlGramos, true),
                 const SizedBox(height: 12),
                 _buildConfigInput('Observaciones', _ctrlObservaciones, false,
                     maxLines: 2),
@@ -273,7 +273,7 @@ class _SelectorIngredienteDialogState
                   child: FilledButton.icon(
                     onPressed: _confirmarIngredienteIndividual,
                     icon: const Icon(Icons.check_circle_outline_rounded),
-                    label: const Text('AGREGAR A LA LISTA'),
+                    label: const Text('Agregar a la lista'),
                     style: FilledButton.styleFrom(
                         backgroundColor: AppTema.azulPrincipal,
                         shape: RoundedRectangleBorder(
@@ -389,7 +389,7 @@ class _SelectorIngredienteDialogState
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text('CONFIRMAR SELECCIÓN',
+            child: const Text('Confirmar selección',
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ),

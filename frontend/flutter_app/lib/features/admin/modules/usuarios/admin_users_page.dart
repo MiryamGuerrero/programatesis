@@ -75,7 +75,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Gestión de Equipo Médico",
+            Text("Gestión del equipo médico",
                 style: GoogleFonts.montserrat(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -98,7 +98,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-          label: Text("NUEVO MIEMBRO",
+          label: Text("Nuevo miembro",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -123,7 +123,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'TOTAL PERSONAL',
+            titulo: 'Total de personal',
             valor: '${state.totalItems}',
             icon: Icons.people_alt_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -132,8 +132,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO SERVICIO',
-            valor: 'ESTABLE',
+            titulo: 'Estado del servicio',
+            valor: 'Estable',
             icon: Icons.verified_user_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -141,8 +141,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'CONTROL ACCESOS',
-            valor: 'ACTIVO',
+            titulo: 'Control de accesos',
+            valor: 'Activo',
             icon: Icons.shield_outlined,
             colorValor: AppTema.azulOscuro,
           ),
@@ -200,7 +200,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -230,20 +230,20 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     return rolesAsync.maybeWhen(
       data: (roles) => Row(
         children: [
-          Text("FILTRAR POR ROL:",
+          Text("Filtrar por rol:",
               style: GoogleFonts.montserrat(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.blueGrey,
                   letterSpacing: 1)),
           const SizedBox(width: 16),
-          _filterChip("TODOS", state.selectedRolIds.isEmpty,
+          _filterChip("Todos", state.selectedRolIds.isEmpty,
               () => ref.read(adminUsersProvider.notifier).clearFilters()),
           const SizedBox(width: 12),
           ...roles.map((r) => Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: _filterChip(
-                    r["nombre"].toString().toUpperCase(),
+                    r["nombre"].toString(),
                     state.selectedRolIds.contains(r["id"]),
                     () => ref
                         .read(adminUsersProvider.notifier)
@@ -299,10 +299,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
             columns: [
-              _col("PROFESIONAL", width: totalWidth * 0.35),
-              _col("ROL / CARGO", width: totalWidth * 0.25),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+              _col("Profesional", width: totalWidth * 0.35),
+              _col("Rol/cargo", width: totalWidth * 0.25),
+              _col("Estado", width: totalWidth * 0.15, center: true),
+              _col("Acciones", width: totalWidth * 0.25, center: true),
             ],
             source: _AdminUsersDataSource(
               items: state.users,
@@ -347,17 +347,17 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Eliminar Acceso"),
+        title: const Text("Eliminar acceso"),
         content: Text(
             "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción revocará todos los accesos al sistema."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );
@@ -498,7 +498,7 @@ class _AdminUsersDataSource extends DataTableSource {
         width: totalWidth * 0.25,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(u["rol_nombre"]?.toString().toUpperCase() ?? "STAFF",
+          child: Text(u["rol_nombre"]?.toString() ?? "Personal",
               style: GoogleFonts.montserrat(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -562,7 +562,7 @@ class _StatusBadge extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isActive ? "ACTIVO" : "INACTIVO",
+        isActive ? "Activo" : "Inactivo",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 10),
       ),
@@ -666,7 +666,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: Text(isEdit ? "Editar Miembro" : "Nuevo Miembro del Equipo",
+      title: Text(isEdit ? "Editar miembro" : "Nuevo miembro del equipo",
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
       content: SingleChildScrollView(
         child: Column(
@@ -690,7 +690,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 items: roles
                     .map((r) => DropdownMenuItem<int>(
                           value: r["id"],
-                          child: Text(r["nombre"].toString().toUpperCase(),
+                          child: Text(r["nombre"].toString(),
                               style: GoogleFonts.inter(
                                   fontSize: 13, fontWeight: FontWeight.w600)),
                         ))
@@ -706,12 +706,12 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("CANCELAR",
+            child: Text("Cancelar",
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.bold, color: Colors.grey))),
         FilledButton(
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? "GUARDANDO..." : "GUARDAR")),
+            child: Text(_saving ? "Guardando..." : "Guardar")),
       ],
     );
   }

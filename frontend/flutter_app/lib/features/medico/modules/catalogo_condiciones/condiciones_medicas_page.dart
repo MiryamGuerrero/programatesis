@@ -47,7 +47,7 @@ class _CondicionesMedicasPageState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Eliminar Condición"),
+        title: const Text("Eliminar condición"),
         content: const Text(
             "Si la condición ha sido asignada a pacientes, solo se desactivará. ¿Continuar?"),
         actions: [
@@ -110,7 +110,7 @@ class _CondicionesMedicasPageState
                       Icon(Icons.medical_information_outlined,
                           color: Colors.indigo.shade800, size: 28),
                       const SizedBox(width: 12),
-                      const Text("Catálogo de Condiciones Médicas",
+                      const Text("Catálogo de condiciones médicas",
                           style: TextStyle(
                               fontSize: 22, fontWeight: FontWeight.bold)),
                     ],
@@ -118,13 +118,13 @@ class _CondicionesMedicasPageState
                   FilledButton.icon(
                     onPressed: () => _showForm(),
                     icon: const Icon(Icons.add_circle_outline),
-                    label: const Text("Nueva Condición Médica"),
+                    label: const Text("Nueva condición médica"),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               const Text(
-                  "Gestione las condiciones Clínicas y Temporales que los médicos pueden diagnosticar.",
+                  "Gestione las condiciones clínicas y temporales que los médicos pueden diagnosticar.",
                   style: TextStyle(color: Colors.black54)),
             ],
           ),
@@ -266,8 +266,8 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
     return Consumer(
       builder: (context, ref, child) => AlertDialog(
         title: Text(widget.initialCondition != null
-            ? "Editar Condición"
-            : "Nueva Condición Médica"),
+            ? "Editar condición"
+            : "Nueva condición médica"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -281,7 +281,7 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
               DropdownButtonFormField<int>(
                 initialValue: _idTipo,
                 decoration:
-                    const InputDecoration(labelText: "Tipo de Condición"),
+                    const InputDecoration(labelText: "Tipo de condición"),
                 items: const [
                   DropdownMenuItem(
                       value: 1, child: Text("Clínica (Permanente)")),
@@ -299,7 +299,7 @@ class _ConditionFormDialogState extends State<_ConditionFormDialog> {
               ),
               if (widget.initialCondition != null)
                 SwitchListTile(
-                  title: const Text("Condición Activa"),
+                  title: const Text("Condición activa"),
                   value: _activa,
                   onChanged: (v) => setState(() => _activa = v),
                 ),
