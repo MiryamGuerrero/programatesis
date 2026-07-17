@@ -448,15 +448,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       child: ing.isEmpty
           ? const Center(child: Text('No hay ingredientes registrados.'))
           : SingleChildScrollView(
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(4),
-                  2: FlexColumnWidth(2),
-                  3: FlexColumnWidth(2),
-                  4: FlexColumnWidth(2),
-                  5: FlexColumnWidth(4),
-                },
+              child: Column(
                 children: [
                   _buildTableHeader([
                     '#',
@@ -468,14 +460,15 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                   ]),
                   ...ing.asMap().entries.map((entry) {
                     final i = entry.value;
+                    final index = entry.key;
                     return _buildTableRow([
-                      (entry.key + 1).toString(),
+                      (index + 1).toString(),
                       i['nombre']?.toString() ?? '-',
                       i['cantidad']?.toString() ?? '-',
                       i['unidad']?.toString() ?? '-',
                       '${i['gramos'] ?? 0}g',
                       i['observaciones']?.toString() ?? '-',
-                    ]);
+                    ], index);
                   }),
                 ],
               ),
@@ -483,36 +476,58 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
     );
   }
 
-  TableRow _buildTableHeader(List<String> cells) {
-    return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
-      children: cells
-          .map((c) => Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(_textoLimpio(c),
-                    style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
-                        color: Colors.blueGrey)),
-              ))
-          .toList(),
+  Widget _buildTableHeader(List<String> cells) {
+    return Container(
+      color: AppTema.azulPrincipal,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(flex: 1, child: _headerCell(cells[0])),
+          Expanded(flex: 4, child: _headerCell(cells[1])),
+          Expanded(flex: 2, child: _headerCell(cells[2])),
+          Expanded(flex: 2, child: _headerCell(cells[3])),
+          Expanded(flex: 2, child: _headerCell(cells[4])),
+          Expanded(flex: 4, child: _headerCell(cells[5])),
+        ],
+      ),
     );
   }
 
-  TableRow _buildTableRow(List<String> cells) {
-    return TableRow(
-      children: cells
-          .map((c) => Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(_textoLimpio(c),
-                    style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        color: AppTema.azulOscuro,
-                        fontWeight: FontWeight.w500)),
-              ))
-          .toList(),
+  Widget _headerCell(String t) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(_textoLimpio(t),
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: Colors.white)),
+      );
+
+  Widget _buildTableRow(List<String> cells, int index) {
+    final bool isEven = index % 2 == 0;
+    return Container(
+      color: isEven ? Colors.white : const Color(0xFFF1F5F9),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(flex: 1, child: _rowCell(cells[0])),
+          Expanded(flex: 4, child: _rowCell(cells[1])),
+          Expanded(flex: 2, child: _rowCell(cells[2])),
+          Expanded(flex: 2, child: _rowCell(cells[3])),
+          Expanded(flex: 2, child: _rowCell(cells[4])),
+          Expanded(flex: 4, child: _rowCell(cells[5])),
+        ],
+      ),
     );
   }
+
+  Widget _rowCell(String t) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(_textoLimpio(t),
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF1E293B),
+                fontWeight: FontWeight.w600)),
+      );
 
   Widget _buildPreparacion(Map<String, dynamic> r) {
     final List<dynamic> pasos = r['preparacion'] ?? [];
@@ -711,30 +726,42 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       children: [
         if (rows.isNotEmpty) ...[
           Text(_textoLimpio(title),
+<<<<<<< HEAD
               style: GoogleFonts.montserrat(
+=======
+              style: GoogleFonts.inter(
+>>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.blueGrey,
                   letterSpacing: 1)),
           const SizedBox(height: 12),
-          ...rows.map((row) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_textoLimpio(row['nombre'] ?? 'Nutriente'),
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blueGrey.shade600)),
-                    Text('${row['valor']} ${_textoLimpio(row['unidad'])}',
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTema.azulOscuro)),
-                  ],
-                ),
-              )),
+          ...rows.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            final bool isEven = index % 2 == 0;
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              decoration: BoxDecoration(
+                color: isEven ? Colors.white : const Color(0xFFF1F5F9),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_textoLimpio(row['nombre'] ?? 'Nutriente'),
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey.shade600)),
+                  Text('${row['valor']} ${_textoLimpio(row['unidad'])}',
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTema.azulOscuro)),
+                ],
+              ),
+            );
+          }),
         ]
       ],
     );
