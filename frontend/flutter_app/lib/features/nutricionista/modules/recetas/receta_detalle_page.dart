@@ -726,11 +726,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       children: [
         if (rows.isNotEmpty) ...[
           Text(_textoLimpio(title),
-<<<<<<< HEAD
               style: GoogleFonts.montserrat(
-=======
-              style: GoogleFonts.inter(
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.blueGrey,

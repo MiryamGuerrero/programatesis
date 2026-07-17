@@ -1,4 +1,4 @@
-﻿import "dart:async";
+import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
@@ -98,15 +98,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-<<<<<<< HEAD
           label: Text("Nuevo miembro",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
-=======
-          label: Text("NUEVO MIEMBRO",
-              style:
-                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
         ),
       ],
     );
@@ -129,11 +123,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-<<<<<<< HEAD
-            titulo: 'Total de personal',
-            valor: '${state.totalItems}',
-            icon: Icons.people_alt_rounded,
-=======
             titulo: 'ADMINISTRADORES',
             valor: '${state.roleCounts[1] ?? 0}',
             icon: Icons.admin_panel_settings_rounded,
@@ -146,37 +135,18 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             titulo: 'MEDICOS',
             valor: '${state.roleCounts[2] ?? 0}',
             icon: Icons.medical_services_rounded,
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
             colorValor: AppTema.azulPrincipal,
           ),
         ),
         const SizedBox(width: 20),
         Expanded(
           child: NutriResumenCard(
-<<<<<<< HEAD
-            titulo: 'Estado del servicio',
-            valor: 'Estable',
-            icon: Icons.verified_user_rounded,
-            colorValor: AppTema.verdeSalud,
-          ),
-        ),
-        const SizedBox(width: 20),
-        const Expanded(
-          child: NutriResumenCard(
-            titulo: 'Control de accesos',
-            valor: 'Activo',
-            icon: Icons.shield_outlined,
-            colorValor: AppTema.azulOscuro,
-          ),
-        ),
-=======
             titulo: 'NUTRIOLOGOS',
             valor: '${state.roleCounts[3] ?? 0}',
             icon: Icons.restaurant_menu_rounded,
             colorValor: AppTema.verdeSalud,
           ),
         ),
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
       ],
     );
   }
@@ -702,40 +672,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     final rolesAsync = ref.watch(rolesStaffProvider);
     final isEdit = widget.user != null;
 
-<<<<<<< HEAD
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: Text(isEdit ? "Editar miembro" : "Nuevo miembro del equipo",
-          style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
-            const SizedBox(height: 16),
-            _input(_emailCtrl, "Correo electrónico", Icons.email_outlined),
-            const SizedBox(height: 16),
-            _input(_cedulaCtrl, "Cédula", Icons.perm_identity_rounded),
-            const SizedBox(height: 16),
-            if (!isEdit) ...[
-              _input(_passCtrl, "Contraseña temporal", Icons.lock_outline,
-                  obscure: true),
-              const SizedBox(height: 16),
-            ],
-            rolesAsync.when(
-              data: (roles) => DropdownButtonFormField<int>(
-                value: _idRol,
-                decoration: _inputDecor("Rol asignado", Icons.work_outline),
-                items: roles
-                    .map((r) => DropdownMenuItem<int>(
-                          value: r["id"],
-                          child: Text(r["nombre"].toString(),
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _idRol = v),
-=======
     return Dialog(
       elevation: 0,
       backgroundColor: Colors.transparent,
@@ -768,7 +704,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 iconSize: 22,
                 tooltip: "Cerrar",
                 splashRadius: 20,
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
               ),
             ),
             Column(
@@ -910,19 +845,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           ],
         ),
       ),
-<<<<<<< HEAD
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancelar",
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold, color: Colors.grey))),
-        FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? "Guardando..." : "Guardar")),
-      ],
-=======
->>>>>>> ee478003e0250f56131e75a4a5b7f15cfe2ecbee
     );
   }
 
