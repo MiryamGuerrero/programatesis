@@ -76,12 +76,53 @@ class RepositorioReglaPostgres(IRepositorioRegla):
             return reglas
 
     def listar_reglas_detalladas(
-        self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10, offset: int = 0, include_total: bool = False
+        self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10, offset: int = 0,
+        include_total: bool = False, origen_regla: str = None,
+        q: str = None, id_condicion: int = None, id_accion: int = None,
+        id_tipo_objetivo: int = None, id_objetivo: int = None
     ) -> dict | List[dict]:
         with db_cursor() as cur:
-            # 1. Base WHERE clause
-            where_sql = "where c.id_tipo_condicion = ANY(%s)"
-            
+            # 1. Base WHERE clause: construcción dinámica de filtros
+            where_parts = ["c.id_tipo_condicion = ANY(%s)"]
+            params = [tipos_condicion]
+
+            if origen_regla:
+                where_parts.append("upper(coalesce(r.origen_regla, 'CLINICA')) = %s")
+                params.append(origen_regla.upper())
+
+            if id_condicion is not None:
+                where_parts.append("cr.id_condicion = %s")
+                params.append(id_condicion)
+
+            if id_accion is not None:
+                where_parts.append("r.id_accion = %s")
+                params.append(id_accion)
+
+            if id_tipo_objetivo is not None:
+                where_parts.append("r.id_tipo_objetivo = %s")
+                params.append(id_tipo_objetivo)
+                if id_objetivo is not None:
+                    if id_tipo_objetivo == 1:
+                        where_parts.append("r.id_ingrediente = %s")
+                    elif id_tipo_objetivo == 2:
+                        where_parts.append("r.id_grupo_alimentario = %s")
+                    elif id_tipo_objetivo == 3:
+                        where_parts.append("r.id_etiqueta = %s")
+                    elif id_tipo_objetivo == 4:
+                        where_parts.append("r.id_subgrupo_alimentario = %s")
+                    params.append(id_objetivo)
+
+            if q:
+                like = f"%{q.lower()}%"
+                where_parts.append(
+                    "(lower(i.nombre) like %s or lower(g.nombre) like %s or "
+                    "lower(s.nombre) like %s or lower(e.nombre_visible) like %s or "
+                    "lower(r.mensaje_error) like %s)"
+                )
+                params.extend([like, like, like, like, like])
+
+            where_sql = "where " + " and ".join(where_parts)
+
             # 2. Total count if requested
             total = 0
             if include_total:
@@ -91,7 +132,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     join heuristico.condicion_regla cr on cr.id_regla = r.id
                     join heuristico.condicion c on c.id = cr.id_condicion
                     {where_sql}
-                """, (tipos_condicion,))
+                """, tuple(params))
                 total = cur.fetchone()[0]
 
             # 3. Main query
@@ -99,7 +140,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 select 
                     r.id, r.id_accion, r.id_tipo_objetivo,
                     r.id_ingrediente, r.id_grupo_alimentario, r.id_subgrupo_alimentario, r.id_etiqueta,
-                    r.mensaje_error, r.es_estricta,
+                    r.mensaje_error, r.es_estricta, r.origen_regla,
                     a.nombre as accion_nombre, a.nombre as accion_codigo,
                     t.nombre as objetivo_nombre, 
                     CASE 
@@ -112,7 +153,8 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     i.nombre as ingrediente_nombre, g.nombre as grupo_nombre, 
                     s.nombre as subgrupo_nombre, e.nombre_visible as etiqueta_nombre,
                     array_agg(DISTINCT cr.id_condicion) as id_condiciones,
-                    array_agg(DISTINCT tc.nombre) as tipos_condicion
+                    array_agg(DISTINCT tc.nombre) as tipos_condicion,
+                    string_agg(DISTINCT c.nombre, ', ') as condiciones_nombres
                 from heuristico.regla r
                 join heuristico.catalogo_accion a on a.id = r.id_accion
                 join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
@@ -124,12 +166,12 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
                 left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
                 {where_sql}
-                group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible
+                group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible, r.origen_regla
                 order by r.id desc
                 limit %s offset %s
             """
             try:
-                cur.execute(sql, (tipos_condicion, limite, offset))
+                cur.execute(sql, tuple(params) + (limite, offset))
                 columnas = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
                 items = [dict(zip(columnas, row)) for row in rows]
@@ -218,6 +260,28 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     cur.execute("insert into heuristico.condicion_regla (id_regla, id_condicion) values (%s, %s)", (id_regla, id_cond))
             
             return True
+
+    def obtener_estadisticas_medicas(self) -> dict:
+        with db_cursor() as cur:
+            sql = """
+                select
+                    count(distinct r.id) as total,
+                    count(distinct case when r.es_estricta = true then r.id end) as estrictas,
+                    count(distinct case when upper(coalesce(r.origen_regla, 'CLINICA')) = 'CLINICA' then r.id end) as clinicas,
+                    count(distinct case when upper(r.origen_regla) = 'TEMPORAL' then r.id end) as temporales
+                from heuristico.regla r
+                join heuristico.condicion_regla cr on cr.id_regla = r.id
+                join heuristico.condicion c on c.id = cr.id_condicion
+                where c.id_tipo_condicion in (1, 2)
+            """
+            cur.execute(sql)
+            res = cur.fetchone()
+            return {
+                "total": res[0] or 0,
+                "estrictas": res[1] or 0,
+                "clinicas": res[2] or 0,
+                "temporales": res[3] or 0
+            }
 
     def _mapear_fila_a_regla(self, fila: tuple) -> Regla:
         # Fila: id, id_condicion, origen, accion_nombre, objetivo_nombre, id_ing, id_grp, id_sub, id_etq, id_rec, msg

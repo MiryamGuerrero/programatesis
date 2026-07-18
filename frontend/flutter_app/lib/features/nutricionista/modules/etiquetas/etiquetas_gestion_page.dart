@@ -237,42 +237,94 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
   }
 
   Widget _buildTableContainer(List<dynamic> filtered) {
-    return NutriTableContainer(
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          cardTheme: const CardThemeData(
-              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+    if (!_loading && filtered.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        child: PaginatedDataTable(
-          header: null,
-          rowsPerPage: 10,
-          showFirstLastButtons: true,
-          availableRowsPerPage: const [10],
-          headingRowColor: WidgetStateProperty.all(AppTema.pastelCeleste),
-          columns: [
-            _col("ETIQUETA VISIBLE"),
-            _col("CÓDIGO INTERNO"),
-            _col("TIPO"),
-            _col("ACCIONES"),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron etiquetas",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
           ],
-          source: _EtiquetasDataSource(
-            items: filtered,
-            isLoading: _loading,
-            onRename: (id, name) => _rename(id, name),
-            onDelete: (id, name) => _delete(id, name),
-            context: context,
+        ),
+      );
+    }
+
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = filtered.isEmpty ? 5 : min(10, filtered.length);
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: currentRowsPerPage,
+            showFirstLastButtons: true,
+            availableRowsPerPage: [currentRowsPerPage],
+            dividerThickness: 0.0,
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+            columns: [
+              _col("ETIQUETA VISIBLE", width: usableWidth * 0.30),
+              _col("CÓDIGO INTERNO", width: usableWidth * 0.25),
+              _col("TIPO", width: usableWidth * 0.20),
+              _col("ACCIONES", width: usableWidth * 0.25),
+            ],
+            source: _EtiquetasDataSource(
+              items: filtered,
+              isLoading: _loading,
+              onRename: (id, name) => _rename(id, name),
+              onDelete: (id, name) => _delete(id, name),
+              totalWidth: usableWidth,
+              context: context,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
     );
   }
-
-  DataColumn _col(String l) => DataColumn(
-      label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulPrincipal)));
 }
 
 class _EtiquetasDataSource extends DataTableSource {
@@ -280,6 +332,7 @@ class _EtiquetasDataSource extends DataTableSource {
   final bool isLoading;
   final Function(int, String) onRename;
   final Function(int, String) onDelete;
+  final double totalWidth;
   final BuildContext context;
 
   _EtiquetasDataSource({
@@ -287,76 +340,135 @@ class _EtiquetasDataSource extends DataTableSource {
     required this.isLoading,
     required this.onRename,
     required this.onDelete,
+    required this.totalWidth,
     required this.context,
   });
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
-        DataCell(Row(
-          children: [
-            NutriShimmer(width: 32, height: 32, borderRadius: BorderRadius.circular(16)),
-            const SizedBox(width: 12),
-            NutriShimmer(width: 120, height: 12),
-          ],
-        )),
-        DataCell(NutriShimmer(width: 80, height: 10)),
-        DataCell(NutriShimmer(width: 70, height: 20)),
-        DataCell(Row(
-          children: [
-            NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
-            const SizedBox(width: 8),
-            NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
-          ],
-        )),
-      ]);
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
+          DataCell(SizedBox(
+            width: totalWidth * 0.30,
+            child: Row(
+              children: [
+                NutriShimmer(width: 32, height: 32, borderRadius: BorderRadius.circular(16)),
+                const SizedBox(width: 12),
+                const Expanded(child: NutriShimmer(width: 120, height: 12)),
+              ],
+            ),
+          )),
+          DataCell(SizedBox(
+              width: totalWidth * 0.25,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 80, height: 10),
+              ))),
+          DataCell(SizedBox(
+              width: totalWidth * 0.20,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 70, height: 20),
+              ))),
+          DataCell(SizedBox(
+            width: totalWidth * 0.25,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 8),
+                NutriShimmer(width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              ],
+            ),
+          )),
+        ],
+      );
     }
 
     if (index >= items.length) return null;
     final e = items[index];
 
-    return DataRow(cells: [
-      DataCell(Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue)
-                    .withOpacity(0.1),
-                shape: BoxShape.circle),
-            child: Text((e['nombre_visible']?.toString() ?? "E")[0].toUpperCase(),
-                style: TextStyle(
-                    color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.30,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: (e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue)
+                          .withValues(alpha: 0.1),
+                      shape: BoxShape.circle),
+                  child: Text((e['nombre_visible']?.toString() ?? "E")[0].toUpperCase(),
+                      style: TextStyle(
+                          color: e['tipo'] == 'RESTRICCION' ? Colors.red : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(e['nombre_visible']?.toString() ?? "Etiqueta",
+                      softWrap: true,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppTema.azulPrincipal)),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 12),
-          Text(e['nombre_visible']?.toString() ?? "Etiqueta",
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppTema.azulPrincipal)),
-        ],
-      )),
-      DataCell(Text(e['nombre']?.toString() ?? "N/A",
-          style: GoogleFonts.lato(fontSize: 11))),
-      DataCell(NutriBadge(
-          label: e['tipo'].toString(),
-          type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info')),
-      DataCell(Row(
-        children: [
-          IconButton(
-              icon: const Icon(Icons.edit_note_rounded,
-                  size: 20, color: AppTema.azulPrincipal),
-              onPressed: () => onRename(e['id'], e['nombre_visible'])),
-          IconButton(
-              icon: const Icon(Icons.delete_outline_rounded,
-                  size: 20, color: Colors.redAccent),
-              onPressed: () => onDelete(e['id'], e['nombre_visible'])),
-        ],
-      )),
-    ]);
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(e['nombre']?.toString() ?? "N/A",
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.20,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: NutriBadge(
+                  label: e['tipo'].toString(),
+                  type: e['tipo'] == 'RESTRICCION' ? 'danger' : 'info'),
+            ),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _HoverActionButton(
+                    icon: Icons.edit_note_rounded,
+                    label: "Renombrar",
+                    color: AppTema.azulPrincipal,
+                    onTap: () => onRename(e['id'], e['nombre_visible'])),
+                const SizedBox(width: 12),
+                _HoverActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: "Borrar",
+                    color: Colors.redAccent,
+                    onTap: () => onDelete(e['id'], e['nombre_visible'])),
+              ],
+            ),
+          ),
+        )),
+      ],
+    );
   }
 
   @override
@@ -365,4 +477,66 @@ class _EtiquetasDataSource extends DataTableSource {
   int get rowCount => isLoading && items.isEmpty ? 5 : items.length;
   @override
   int get selectedRowCount => 0;
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withValues(alpha: 0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 18),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

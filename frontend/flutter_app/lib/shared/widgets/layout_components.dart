@@ -11,49 +11,87 @@ class NutriResumenCard extends StatelessWidget {
       required this.titulo,
       required this.valor,
       this.colorValor = AppTema.azulPrincipal,
-      this.icon = Icons.analytics_outlined});
+      this.icon = Icons.analytics_outlined,
+      this.subtitle});
   final String titulo;
   final String valor;
   final Color colorValor;
   final IconData icon;
+  final Widget? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4)),
+              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          Text(
-            titulo.toUpperCase(),
-            style: GoogleFonts.montserrat(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF94A3B8),
-                letterSpacing: 0.8),
-            overflow: TextOverflow.visible,
+          // Left accent bar
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 5,
+            child: Container(color: colorValor),
           ),
-          const SizedBox(height: 4),
-          Text(
-            valor,
-            style: GoogleFonts.montserrat(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: colorValor,
-                letterSpacing: -0.5),
-            overflow: TextOverflow.visible,
+          // Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        titulo.toUpperCase(),
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF64748B),
+                            letterSpacing: 1.0),
+                        overflow: TextOverflow.visible,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        valor,
+                        style: GoogleFonts.inter(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: colorValor,
+                            letterSpacing: -1.0),
+                        overflow: TextOverflow.visible,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        subtitle!,
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Icon badge
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorValor.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 24, color: colorValor),
+                ),
+              ],
+            ),
           ),
         ],
       ),

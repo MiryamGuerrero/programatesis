@@ -212,31 +212,67 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   }
 
   Widget _buildTable(AdminUsersState state) {
+    if (!state.isLoading && state.users.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron representantes",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return NutriTableContainer(
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = state.users.isEmpty
+            ? 5
+            : (state.users.length < AdminUsersNotifier.pageSize
+                ? state.users.length
+                : AdminUsersNotifier.pageSize);
+
         return Theme(
           data: Theme.of(context).copyWith(
             cardTheme: const CardThemeData(
                 elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: AdminUsersNotifier.pageSize,
+            rowsPerPage: currentRowsPerPage,
             showFirstLastButtons: true,
-            availableRowsPerPage: const [AdminUsersNotifier.pageSize],
+            availableRowsPerPage: [currentRowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(adminTutorsProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
             horizontalMargin: 10,
+            dividerThickness: 0.0,
             dataRowMinHeight: 70,
             dataRowMaxHeight: double.infinity,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("REPRESENTANTE", width: totalWidth * 0.40),
-              _col("IDENTIFICACIÓN", width: totalWidth * 0.20),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.25, center: true),
+              _col("REPRESENTANTE", width: usableWidth * 0.40),
+              _col("IDENTIFICACIÓN", width: usableWidth * 0.20),
+              _col("ESTADO", width: usableWidth * 0.15, center: true),
+              _col("ACCIONES", width: usableWidth * 0.25, center: true),
             ],
             source: _AdminTutorsDataSource(
               items: state.users,
@@ -247,7 +283,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                   .read(adminTutorsProvider.notifier)
                   .toggleUserStatus(u["id"].toString(), u["activo"] == true),
               onDelete: (u) => _eliminarTutor(u),
-              totalWidth: totalWidth,
+              totalWidth: usableWidth,
               context: context,
             ),
           ),
@@ -265,10 +301,13 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
-            style: GoogleFonts.montserrat(
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: AppTema.azulOscuro),
+                fontSize: 11,
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
@@ -417,8 +456,12 @@ class _AdminTutorsDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
         DataCell(SizedBox(
           width: totalWidth * 0.40,
           child: Row(
@@ -470,7 +513,9 @@ class _AdminTutorsDataSource extends DataTableSource {
     if (localIndex < 0 || localIndex >= items.length) return null;
     final u = items[localIndex];
 
-    return DataRow(cells: [
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
       DataCell(SizedBox(
         width: totalWidth * 0.40,
         child: Padding(
@@ -518,23 +563,26 @@ class _AdminTutorsDataSource extends DataTableSource {
       )),
       DataCell(SizedBox(
         width: totalWidth * 0.25,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _HoverActionButton(
-                icon: u["activo"] == true
-                    ? Icons.block_flipped
-                    : Icons.check_circle_outline,
-                label: u["activo"] == true ? "Baja" : "Alta",
-                color: u["activo"] == true ? Colors.orange : Colors.green,
-                onTap: () => onToggle(u)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.delete_outline_rounded,
-                label: "Borrar",
-                color: Colors.redAccent,
-                onTap: () => onDelete(u)),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _HoverActionButton(
+                  icon: u["activo"] == true
+                      ? Icons.block_flipped
+                      : Icons.check_circle_outline,
+                  label: u["activo"] == true ? "Baja" : "Alta",
+                  color: u["activo"] == true ? Colors.orange : Colors.green,
+                  onTap: () => onToggle(u)),
+              const SizedBox(width: 12),
+              _HoverActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: "Borrar",
+                  color: Colors.redAccent,
+                  onTap: () => onDelete(u)),
+            ],
+          ),
         ),
       )),
     ]);

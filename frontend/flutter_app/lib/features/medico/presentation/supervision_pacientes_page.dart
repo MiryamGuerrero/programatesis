@@ -290,32 +290,76 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 
   Widget _buildPatientsTable(MedicalPatientsState state) {
+    if (!state.isLoading && state.patients.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron pacientes",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Prueba a ajustar la búsqueda o los filtros.",
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.blueGrey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return NutriTableContainer(
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = state.patients.isEmpty
+            ? 5
+            : (state.patients.length < MedicalPatientsNotifier.pageSize
+                ? state.patients.length
+                : MedicalPatientsNotifier.pageSize);
+
         return Theme(
           data: Theme.of(context).copyWith(
             cardTheme: const CardThemeData(
                 elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: MedicalPatientsNotifier.pageSize,
+            rowsPerPage: currentRowsPerPage,
             showFirstLastButtons: true,
-            availableRowsPerPage: const [MedicalPatientsNotifier.pageSize],
+            availableRowsPerPage: [currentRowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(medicalPatientsProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
             horizontalMargin: 10,
+            dividerThickness: 0.0,
             dataRowMinHeight: 70,
             dataRowMaxHeight: double.infinity,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("PACIENTE", width: totalWidth * 0.30),
-              _col("CÉDULA", width: totalWidth * 0.15),
-              _col("ENFERMEDAD", width: totalWidth * 0.20),
-              _col("ESTADO", width: totalWidth * 0.15, center: true),
-              _col("ACCIONES", width: totalWidth * 0.20, center: true),
+              _col("PACIENTE", width: usableWidth * 0.30),
+              _col("CÉDULA", width: usableWidth * 0.15),
+              _col("ENFERMEDAD", width: usableWidth * 0.20),
+              _col("ESTADO", width: usableWidth * 0.15, center: true),
+              _col("ACCIONES", width: usableWidth * 0.20, center: true),
             ],
             source: _MedicalPatientsDataSource(
               items: state.patients,
@@ -329,7 +373,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                 ref.read(medicoNavProvider.notifier).setView(MedicoView.fixedEdit, patient: p);
               },
               onArchive: (p) => _confirmarArchivarPaciente(p),
-              totalWidth: totalWidth,
+              totalWidth: usableWidth,
               context: context,
             ),
           ),
@@ -347,10 +391,13 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
-            style: GoogleFonts.montserrat(
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
                 fontSize: 11,
-                color: AppTema.azulOscuro),
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
@@ -438,8 +485,12 @@ class _MedicalPatientsDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
         DataCell(SizedBox(
           width: totalWidth * 0.30,
           child: Row(
@@ -500,7 +551,9 @@ class _MedicalPatientsDataSource extends DataTableSource {
     if (localIndex < 0 || localIndex >= items.length) return null;
     final p = items[localIndex];
 
-    return DataRow(cells: [
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
       DataCell(SizedBox(
         width: totalWidth * 0.30,
         child: Padding(
@@ -556,27 +609,30 @@ class _MedicalPatientsDataSource extends DataTableSource {
       )),
       DataCell(SizedBox(
         width: totalWidth * 0.20,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _HoverActionButton(
-                icon: Icons.calendar_month_outlined,
-                label: "Control",
-                color: AppTema.azulPrincipal,
-                onTap: () => onControl(p)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.edit_note_rounded,
-                label: "Editar",
-                color: Colors.orange,
-                onTap: () => onEdit(p)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.archive_outlined,
-                label: "Archivar",
-                color: Colors.redAccent,
-                onTap: () => onArchive(p)),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _HoverActionButton(
+                  icon: Icons.calendar_month_outlined,
+                  label: "Control",
+                  color: AppTema.azulPrincipal,
+                  onTap: () => onControl(p)),
+              const SizedBox(width: 12),
+              _HoverActionButton(
+                  icon: Icons.edit_note_rounded,
+                  label: "Editar",
+                  color: Colors.orange,
+                  onTap: () => onEdit(p)),
+              const SizedBox(width: 12),
+              _HoverActionButton(
+                  icon: Icons.archive_outlined,
+                  label: "Archivar",
+                  color: Colors.redAccent,
+                  onTap: () => onArchive(p)),
+            ],
+          ),
         ),
       )),
     ]);
