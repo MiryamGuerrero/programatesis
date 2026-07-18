@@ -68,7 +68,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
     }
 
     if (password.length < 8) {
-      setState(() => _errorMessage = "La contraseña debe tener al menos 8 caracteres.");
+      setState(() =>
+          _errorMessage = "La contraseña debe tener al menos 8 caracteres.");
       return;
     }
 
@@ -87,15 +88,24 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
       if (!mounted) return;
 
       ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.none;
-      setState(() {
-        _successMessage = "Contraseña configurada correctamente. Ya puedes usar tu cuenta.";
-      });
+
+      // Mostrar feedback de exito y cerrar sesión para forzar el reingreso manual
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              "Contraseña configurada correctamente. Por favor, inicia sesión de nuevo."),
+          backgroundColor: AppTema.verdeSalud,
+        ));
+      }
+
+      await Supabase.instance.client.auth.signOut();
     } on AuthException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = "No fue posible actualizar la contraseña. Intenta de nuevo.");
+      setState(() => _errorMessage =
+          "No fue posible actualizar la contraseña. Intenta de nuevo.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -162,7 +172,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
             children: [
               Text("Configuración",
                   style: GoogleFonts.montserrat(
-                      fontSize: AppTextSizes.headline(context.screenWidth) * 0.9,
+                      fontSize:
+                          AppTextSizes.headline(context.screenWidth) * 0.9,
                       fontWeight: FontWeight.w800,
                       color: _azulOscuro,
                       letterSpacing: -0.5)),
@@ -177,11 +188,11 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   height: 3,
                   decoration: BoxDecoration(
                       color: _verde, borderRadius: BorderRadius.circular(2))),
-              
               if (_errorMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -189,7 +200,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
+                      Icon(Icons.error_outline_rounded,
+                          color: Colors.red.shade700, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -204,11 +216,11 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   ),
                 ),
               ],
-
               if (_successMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -216,7 +228,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle_outline_rounded, color: Colors.green.shade700, size: 20),
+                      Icon(Icons.check_circle_outline_rounded,
+                          color: Colors.green.shade700, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -231,7 +244,6 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   ),
                 ),
               ],
-
               const SizedBox(height: AppSpacing.xl),
               _buildField(
                   context: context,
@@ -240,8 +252,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   hint: "Mínimo 8 caracteres",
                   icon: Icons.lock_outline,
                   obscureState: _obscurePassword,
-                  onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword)
-              ),
+                  onToggleObscure: () =>
+                      setState(() => _obscurePassword = !_obscurePassword)),
               const SizedBox(height: AppSpacing.lg),
               _buildField(
                   context: context,
@@ -250,14 +262,15 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                   hint: "Mínimo 8 caracteres",
                   icon: Icons.lock_outline,
                   obscureState: _obscureConfirm,
-                  onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm)
-              ),
+                  onToggleObscure: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm)),
               const SizedBox(height: AppSpacing.xl),
               SizedBox(
                 width: double.infinity,
                 height: AppSizes.buttonHeightLarge,
                 child: FilledButton(
-                  onPressed: _loading || _successMessage != null ? null : _submit,
+                  onPressed:
+                      _loading || _successMessage != null ? null : _submit,
                   child: _loading
                       ? const SizedBox(
                           width: 24,

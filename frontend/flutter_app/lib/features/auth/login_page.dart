@@ -1,3 +1,4 @@
+import '../../shared/widgets/layout_components.dart';
 import "dart:math" as math;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
@@ -446,7 +447,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
               ),
               const SizedBox(height: AppSpacing.md),
               TextButton(
-                onPressed: () {},
+                onPressed: _olvidoContrasena,
                 child: Text(
                   "¿Olvidó su contraseña?",
                   style: GoogleFonts.lato(
@@ -481,6 +482,187 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _olvidoContrasena() async {
+    final emailCtrl = TextEditingController();
+    bool enviando = false;
+
+    await showDialog(
+      context: context,
+      barrierColor: const Color(0xFF0F172A).withOpacity(0.5),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Container(
+            width: 356,
+            constraints: const BoxConstraints(maxWidth: 356),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE5EAF2)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withOpacity(0.10),
+                  blurRadius: 28,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    iconSize: 22,
+                    tooltip: "Cerrar",
+                    splashRadius: 20,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 2),
+                    Center(
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppTema.azulPrincipal.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.mark_email_unread_outlined,
+                          color: AppTema.azulPrincipal,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Recuperar contraseña",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 22,
+                        height: 1.08,
+                        fontWeight: FontWeight.w900,
+                        color: AppTema.azulOscuro,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Ingresa tu correo electrónico y te enviaremos un enlace para configurar tu nueva contraseña.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8A97AD),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: emailCtrl,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTema.azulOscuro,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "Correo electrónico",
+                          hintStyle: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF98A2B3),
+                          ),
+                          prefixIcon: const Icon(Icons.mail_outline,
+                              size: 19, color: Color(0xFF64748B)),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 13),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFE1E7F0), width: 1.4),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: AppTema.azulPrincipal, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      height: 46,
+                      child: FilledButton(
+                        onPressed: enviando
+                            ? null
+                            : () async {
+                                final correo = emailCtrl.text.trim();
+                                if (correo.isEmpty) return;
+                                setDialogState(() => enviando = true);
+                                try {
+                                  await Supabase.instance.client.auth
+                                      .resetPasswordForEmail(
+                                    correo,
+                                    redirectTo: kIsWeb
+                                        ? Uri.base.origin
+                                        : 'reumanutri://auth/set-password',
+                                  );
+                                  if (ctx.mounted) {
+                                    Navigator.pop(ctx);
+                                    NutriSnack.show(context,
+                                        "Se ha enviado un correo con las instrucciones.");
+                                  }
+                                } catch (e) {
+                                  if (ctx.mounted) {
+                                    NutriSnack.show(context,
+                                        "Error: No se pudo enviar el correo.",
+                                        isError: true);
+                                  }
+                                } finally {
+                                  if (ctx.mounted) {
+                                    setDialogState(() => enviando = false);
+                                  }
+                                }
+                              },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTema.azulPrincipal,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        child: Text(enviando ? "Enviando..." : "Enviar enlace"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
