@@ -1,5 +1,6 @@
 from secrets import token_urlsafe
 from typing import Any
+import unicodedata
 
 from app.core.config import get_settings
 from app.infraestructura.supabase.client import get_supabase_admin_client, get_supabase_public_client
@@ -8,9 +9,16 @@ _ROLE_WEB = {"admin", "medico", "nutricionista"}
 _ROLE_MOBILE = {"tutor"}
 
 
+def _clean_role(role_code: str) -> str:
+    r = role_code.strip().lower()
+    cleaned = ''.join(c for c in unicodedata.normalize('NFD', r) if unicodedata.category(c) != 'Mn')
+    if cleaned == "administrador":
+        return "admin"
+    return cleaned
+
 def _resolve_redirect_url(role_code: str) -> str:
     settings = get_settings()
-    role = role_code.strip().lower()
+    role = _clean_role(role_code)
 
     if role in _ROLE_MOBILE:
         target = settings.onboarding_tutor_redirect_url.strip()
@@ -35,7 +43,7 @@ def provision_auth_user_with_password_setup(
     password: str = None,
 ) -> tuple[str, str]:
     normalized_email = email.strip().lower()
-    normalized_role = role_code.strip().lower()
+    normalized_role = _clean_role(role_code)
     redirect_url = _resolve_redirect_url(normalized_role)
 
     admin_client = get_supabase_admin_client()

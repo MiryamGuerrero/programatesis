@@ -14,7 +14,7 @@ class CreateUserRequest(BaseModel):
     email: str
     nombre_completo: str
     id_rol: int = Field(gt=0)
-    password: str
+    password: Optional[str] = None
     username: Optional[str] = None
     cedula: Optional[str] = None
     telefono: Optional[str] = None
@@ -76,6 +76,17 @@ def actualizar_usuario(
     if not exito:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"id": user_id, "updated": True}
+
+@router.delete("/usuarios/{user_id}")
+def eliminar_usuario(
+    user_id: str,
+    _=Depends(require_roles("admin"))
+):
+    repo = RepositorioPerfilPostgres()
+    exito = repo.eliminar_usuario(user_id)
+    if not exito:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado o no se pudo eliminar")
+    return {"id": user_id, "deleted": True}
 
 # --- ENDPOINTS GESTIÓN DE ROLES (ADMIN) ---
 

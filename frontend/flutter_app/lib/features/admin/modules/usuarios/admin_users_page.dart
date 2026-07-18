@@ -652,7 +652,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
   final _emailCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _cedulaCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
   int? _idRol;
   bool _saving = false;
 
@@ -743,7 +742,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 Text(
                   isEdit
                       ? "Actualiza los datos de acceso y perfil profesional."
-                      : "Crea una cuenta para que el nuevo\nmiembro se una al equipo.",
+                      : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 13,
@@ -759,15 +758,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 const SizedBox(height: 12),
                 _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
                 const SizedBox(height: 12),
-                if (!isEdit) ...[
-                  _input(
-                    _passCtrl,
-                    "Contraseña temporal",
-                    Icons.lock_outline_rounded,
-                    obscure: true,
-                  ),
-                  const SizedBox(height: 12),
-                ],
                 rolesAsync.when(
                   data: (roles) => DropdownButtonFormField<int>(
                     initialValue: _idRol,
@@ -922,7 +912,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           email: _emailCtrl.text,
           nombreCompleto: _nombreCtrl.text,
           idRol: _idRol!,
-          password: _passCtrl.text,
           cedula: _cedulaCtrl.text,
         );
       }

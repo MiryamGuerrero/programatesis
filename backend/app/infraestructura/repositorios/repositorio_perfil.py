@@ -157,28 +157,37 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         return {"items": items, "total": total}
 
     def crear_usuario(self, datos: dict) -> str:
+        from ...core.auth_onboarding import provision_auth_user_with_password_setup
+        
         email = datos["email"].lower().strip()
-        password = datos["password"]
         username = (datos.get("username") or email.split("@")[0]).lower().strip()
+        
+        cedula = datos.get("cedula")
+        if cedula == "": cedula = None
+
+        # 1. Pre-validación de constraints para dar un mensaje amigable
+        existente = self.ejecutar_uno(
+            "select email, cedula from usuarios.usuario where email = %s or (cedula = %s and cedula is not null) limit 1",
+            (email, cedula)
+        )
+        if existente:
+            if existente["cedula"] == cedula:
+                raise ValueError(f"La cédula {cedula} ya está registrada.")
+            if existente["email"] == email:
+                raise ValueError(f"El correo {email} ya está registrado.")
         
         res_rol = self.ejecutar_uno("select nombre from usuarios.rol where id = %s", (datos["id_rol"],))
         rol_name = res_rol["nombre"].lower() if res_rol else "tutor"
 
-        admin_client = get_supabase_admin_client()
-        auth_response = admin_client.auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True,
-            "user_metadata": {"full_name": datos["nombre_completo"], "role": rol_name},
-            "app_metadata": {"role": rol_name}
-        })
-        auth_user_id = auth_response.user.id
+        # 2. Crear en Supabase Auth
+        auth_user_id, _ = provision_auth_user_with_password_setup(
+            email=email,
+            nombre_completo=datos["nombre_completo"],
+            role_code=rol_name,
+            password=datos.get("password")
+        )
 
-
-        # Manejo de cédula vacía para evitar UniqueViolation
-        cedula = datos.get("cedula")
-        if cedula == "": cedula = None
-
+        # 3. Intentar insertar en la BD
         sql = """
             insert into usuarios.usuario (email, username, nombre_completo, cedula, id_rol, telefono, direccion, activo, auth_user_id)
             values (%s, %s, %s, %s, %s, %s, %s, true, %s)
@@ -186,7 +195,17 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         """
         params = (email, username, datos["nombre_completo"].strip(), cedula, datos["id_rol"],
                  datos.get("telefono"), datos.get("direccion"), auth_user_id)
-        return str(self.ejecutar_comando(sql, params))
+        
+        try:
+            return str(self.ejecutar_comando(sql, params))
+        except Exception as e:
+            # Rollback: Eliminar al usuario de Supabase Auth si la inserción local falló por cualquier motivo
+            from ...core.auth_onboarding import delete_auth_user
+            try:
+                delete_auth_user(auth_user_id)
+            except Exception:
+                pass
+            raise ValueError(f"No se pudo crear el usuario en la base de datos local: {str(e)}")
 
     def registrar_tutor_solo(self, datos: dict) -> str:
         from ...core.auth_onboarding import provision_auth_user_with_password_setup
@@ -208,6 +227,12 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                 "direccion": datos.get("direccion")
             })
             return str(existente["id"])
+            
+        # Pre-validar cédula si es provista
+        if cedula:
+            existe_cedula = self.ejecutar_uno("select id from usuarios.usuario where cedula = %s limit 1", (cedula,))
+            if existe_cedula:
+                raise ValueError(f"La cédula {cedula} ya está registrada.")
         
         # 1. Provisionar en Supabase Auth y enviar correo de bienvenida/contraseña
         auth_user_id, _ = provision_auth_user_with_password_setup(
@@ -229,7 +254,17 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             email, username, nombre, cedula,
             datos.get("telefono"), datos.get("direccion"), auth_user_id
         )
-        return str(self.ejecutar_comando(sql, params))
+        
+        try:
+            return str(self.ejecutar_comando(sql, params))
+        except Exception as e:
+            # Rollback: Eliminar de Supabase si la BD falla
+            from ...core.auth_onboarding import delete_auth_user
+            try:
+                delete_auth_user(auth_user_id)
+            except Exception:
+                pass
+            raise ValueError(f"No se pudo registrar al tutor en la base de datos local: {str(e)}")
 
     def actualizar_usuario(self, user_id: str, datos: dict) -> bool:
         if not datos: return False
@@ -248,6 +283,29 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         with db_cursor() as cur:
             cur.execute(sql, list(items.values()) + [user_id, user_id])
             return cur.rowcount > 0
+
+    def eliminar_usuario(self, user_id: str) -> bool:
+        from app.infraestructura.database.db import db_cursor
+        from app.infraestructura.supabase.client import get_supabase_admin_client
+        
+        usuario = self.ejecutar_uno("select auth_user_id from usuarios.usuario where id::text = %s", (user_id,))
+        if not usuario:
+            return False
+            
+        auth_id = str(usuario.get("auth_user_id") or "")
+        
+        with db_cursor() as cur:
+            cur.execute("delete from usuarios.usuario where id::text = %s", (user_id,))
+            exito = cur.rowcount > 0
+            
+        if exito and auth_id and auth_id != "None":
+            try:
+                supa = get_supabase_admin_client()
+                supa.auth.admin.delete_user(auth_id)
+            except Exception:
+                pass
+                
+        return exito
 
     def obtener_catalogo_paginado_v2(
         self, esquema: str, tabla: str, limit: int = 10, offset: int = 0, 

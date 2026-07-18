@@ -6,7 +6,7 @@ import "package:flutter_localizations/flutter_localizations.dart";
 
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
-import "features/auth/set_password_page.dart" deferred as set_password;
+import "features/auth/set_password_page.dart";
 import "shared/models/app_role.dart";
 import "shared/widgets/role_shell.dart" deferred as role_shell;
 import "features/roles/role_module_registry.dart"; // Para DeferredModuleWidget
@@ -48,10 +48,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
     final rootPage = authSession.when(
       data: (session) {
         if (authFlowIntent == AuthFlowIntent.setPassword) {
-          return DeferredModuleWidget(
-            loader: set_password.loadLibrary,
-            builder: () => set_password.SetPasswordPage(),
-          );
+          return const SetPasswordPage();
         }
         if (session == null) {
           return const LoginPage();

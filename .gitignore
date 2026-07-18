@@ -61,3 +61,6 @@ lighthouse_report_final.json
 lighthouse_report.json
 optimize_images.ps1
 convert_images_pillow.py
+.agents/
+scratch/
+skills-lock.json

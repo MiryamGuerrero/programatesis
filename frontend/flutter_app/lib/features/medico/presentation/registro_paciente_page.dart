@@ -1188,76 +1188,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Future<void> _finish() async {
-    if (_idPacienteEditando == null && !_tutorExistente) {
-      _credencialesCopiadas = false;
-      final bool? confirm = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => StatefulBuilder(
-                builder: (context, setDialogState) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28)),
-                  title: Column(children: [
-                    const Icon(Icons.vpn_key_rounded,
-                        color: greenBrand, size: 48),
-                    const SizedBox(height: 16),
-                    Text("Credenciales del tutor",
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w900, fontSize: 18))
-                  ]),
-                  content: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Text(
-                        "Se creará una nueva cuenta para el representante legal. Comparta estos datos con el tutor:",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: Colors.blueGrey)),
-                    const SizedBox(height: 24),
-                    Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                            color: greenBrand.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: greenBrand.withOpacity(0.15))),
-                        child: Column(children: [
-                          _credItem("Usuario (correo electrónico)", _tutEmail.text,
-                              Icons.alternate_email),
-                          const Divider(height: 32),
-                          _credItem("Clave temporal", _generatedPassword,
-                              Icons.lock_outline),
-                        ])),
-                  ]),
-                  actions: [
-                    TextButton.icon(
-                      onPressed: () async {
-                        final creds =
-                            "Usuario: ${_tutEmail.text}\nClave: $_generatedPassword";
-                        await Clipboard.setData(ClipboardData(text: creds));
-                        setDialogState(() => _credencialesCopiadas = true);
-                        await Future.delayed(const Duration(seconds: 4));
-                        if (ctx.mounted)
-                          setDialogState(() => _credencialesCopiadas = false);
-                      },
-                      icon: Icon(
-                          _credencialesCopiadas
-                              ? Icons.check_circle_rounded
-                              : Icons.copy_rounded,
-                          size: 18),
-                      label: Text(_credencialesCopiadas ? "Copiado" : "Copiar"),
-                    ),
-                    FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: FilledButton.styleFrom(
-                            backgroundColor: greenBrand,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 40, vertical: 16)),
-                        child: const Text("Aceptar y registrar")),
-                  ],
-                ),
-              ));
-      if (confirm != true) return;
-      if (!mounted) return;
-    }
-
     setState(() => _sending = true);
     try {
       if (_restriccionesAlimentariasCat.isEmpty) {
@@ -1509,8 +1439,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             const SizedBox(height: 24),
             Row(children: [
               Expanded(
-                  child: _field(
-                      _tutEmail, "Correo electrónico del usuario*", Icons.alternate_email,
+                  child: _field(_tutEmail, "Correo electrónico del usuario*",
+                      Icons.alternate_email,
                       helper: "Este será su nombre de acceso.",
                       hint: "usuario@ejemplo.com")),
               const SizedBox(width: 20),
