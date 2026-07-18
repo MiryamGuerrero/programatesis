@@ -64,13 +64,48 @@ def list_ingredients_simple_catalog(
 
 @router.post("/ingredientes")
 def create_ingredient_admin(
-    payload: IngredientCreateRequest,
+    payload: dict,
     caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
     _=Depends(require_roles("admin", "nutricionista")),
 ) -> dict[str, Any]:
     try:
-        id_ingrediente = caso_uso.crear_ingrediente(payload.model_dump())
+        id_ingrediente = caso_uso.crear_ingrediente(payload)
         return {"id": id_ingrediente, "message": "Ingrediente creado con éxito"}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.put("/ingredientes/{id_ingrediente}")
+def update_ingredient_admin(
+    id_ingrediente: int,
+    payload: dict,
+    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    try:
+        exito = caso_uso.actualizar_ingrediente(id_ingrediente, payload)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
+        return {"success": True, "message": "Ingrediente actualizado con éxito"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.delete("/ingredientes/{id_ingrediente}")
+def delete_ingredient_admin(
+    id_ingrediente: int,
+    caso_uso: CasoUsoGestionarIngredientes = Depends(obtener_caso_uso_gestionar_ingredientes),
+    _=Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    try:
+        from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+        repo = RepositorioIngredientePostgres()
+        exito = repo.eliminar_ingrediente(id_ingrediente)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
+        return {"success": True, "message": "Ingrediente eliminado con éxito"}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -160,16 +195,71 @@ def upsert_label_catalog(
     user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
 ) -> dict[str, Any]:
     with db_cursor() as cur:
+        # Check if it already exists by name
+        cur.execute("select id from nutricion.etiqueta_nutricional where nombre_visible ilike %s", (payload.nombre_visible,))
+        row = cur.fetchone()
+        if row:
+            # Update existing
+            id_etiqueta = row[0]
+            cur.execute(
+                """
+                update nutricion.etiqueta_nutricional 
+                set descripcion = %s
+                where id = %s
+                """,
+                (payload.descripcion, id_etiqueta)
+            )
+            return {"id": id_etiqueta}
+        else:
+            # Insert new
+            cur.execute(
+                """
+                insert into nutricion.etiqueta_nutricional (nombre_visible, descripcion) 
+                values (%s, %s)
+                returning id
+                """,
+                (payload.nombre_visible, payload.descripcion),
+            )
+            return {"id": cur.fetchone()[0]}
+
+@router.put("/etiquetas/{id_etiqueta}")
+def update_label_catalog(
+    id_etiqueta: int,
+    payload: LabelCreateRequest,
+    user: UserContext = Depends(require_roles("admin", "nutricionista", "medico")),
+) -> dict[str, Any]:
+    with db_cursor() as cur:
         cur.execute(
             """
-            insert into nutricion.etiqueta_nutricional (nombre_visible, descripcion, updated_at) 
-            values (%s, %s, now())
-            on conflict (nombre_visible) do update set descripcion = excluded.descripcion, updated_at = now()
-            returning id
+            update nutricion.etiqueta_nutricional 
+            set nombre_visible = %s, descripcion = %s
+            where id = %s
             """,
-            (payload.nombre_visible, payload.descripcion),
+            (payload.nombre_visible, payload.descripcion, id_etiqueta),
         )
-        return {"id": cur.fetchone()[0]}
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Etiqueta no encontrada")
+        return {"success": True}
+
+@router.delete("/etiquetas/{id_etiqueta}")
+def delete_label_catalog(
+    id_etiqueta: int,
+    user: UserContext = Depends(require_roles("admin", "nutricionista")),
+) -> dict[str, Any]:
+    with db_cursor() as cur:
+        # Prevent deletion if in use
+        cur.execute("select count(*) from nutricion.ingrediente_etiqueta where id_etiqueta = %s", (id_etiqueta,))
+        if cur.fetchone()[0] > 0:
+            raise HTTPException(status_code=400, detail="La etiqueta está en uso por ingredientes")
+            
+        cur.execute("select count(*) from nutricion.receta_etiqueta where id_etiqueta = %s", (id_etiqueta,))
+        if cur.fetchone()[0] > 0:
+            raise HTTPException(status_code=400, detail="La etiqueta está en uso por recetas")
+
+        cur.execute("delete from nutricion.etiqueta_nutricional where id = %s", (id_etiqueta,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Etiqueta no encontrada")
+        return {"success": True}
 
 # --- ENDPOINTS GESTIÓN DE COMPOSICIÓN (MOMENTOS Y TIPOS) ---
 
@@ -374,10 +464,17 @@ def list_all_menu_combination_rules(
 @router.get("/reglas-menu-combinaciones/por-momento/{mid}")
 def list_menu_combination_rules(
     mid: int,
+    limit: int = Query(default=12, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=True),
     _=Depends(require_roles("admin", "nutricionista")),
 ):
     repo = RepositorioComposicionPostgres()
-    return repo.listar_reglas_menu_combinacion(mid)
+    return repo.listar_reglas_menu_combinacion(
+        mid,
+        limite=limit,
+        offset=offset,
+    )
 
 @router.get("/tipos-factibles/por-momento/{mid}")
 def list_feasible_dish_types_by_moment(

@@ -245,7 +245,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                       color: const Color(0xFF1E293B),
                       fontSize: 13,
                       fontWeight: FontWeight.w700)),
-              Text(nombreRol.toUpperCase(),
+              Text(nombreRol,
                   style: GoogleFonts.montserrat(
                       color: brandGreen,
                       fontSize: 10,
@@ -335,7 +335,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
               padding: const EdgeInsets.all(16.0),
               child: _isMenuExpanded
                   ? Text(
-                      "REUMANUTRI V1.0",
+                      "ReumaNutri v1.0",
                       style: GoogleFonts.montserrat(
                           color: Colors.white24,
                           fontSize: 8,
@@ -389,7 +389,7 @@ class _NotificationBell extends ConsumerWidget {
       itemBuilder: (context) => [
         PopupMenuItem<void>(
           enabled: false,
-          child: Text("NOTIFICACIONES",
+          child: Text("Notificaciones",
               style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w800,
                   fontSize: 11,
@@ -445,7 +445,7 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
                           color: _isHovered ? brandBlue : Colors.white,
                           size: 16),
                       const SizedBox(width: 10),
-                      Text("CERRAR SESIÓN",
+                      Text("Cerrar sesión",
                           style: GoogleFonts.montserrat(
                             color: _isHovered ? brandBlue : Colors.white,
                             fontWeight: FontWeight.w800,

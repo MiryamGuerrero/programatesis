@@ -6,6 +6,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/layout_components.dart';
 import '../../../../shared/widgets/shimmer_components.dart';
 
+String _sentenceCase(Object? value) {
+  final text = value?.toString().trim().replaceAll('_', ' ').toLowerCase() ?? '';
+  return text.isEmpty ? text : '${text[0].toUpperCase()}${text.substring(1)}';
+}
+
 class EtiquetasGestionPage extends ConsumerStatefulWidget {
   const EtiquetasGestionPage({super.key});
   @override
@@ -58,7 +63,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Renombrar Etiqueta',
+        title: Text('Renombrar etiqueta',
             style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
@@ -69,13 +74,13 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCELAR')),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppTema.azulPrincipal,
                 foregroundColor: Colors.white),
-            child: const Text('GUARDAR'),
+            child: const Text('Guardar'),
           ),
         ],
       ),
@@ -100,17 +105,17 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Eliminar Etiqueta?'),
+        title: const Text('¿Eliminar etiqueta?'),
         content: Text(
-            'Esto eliminará "$name" de TODOS los ingredientes vinculados. Esta acción no se puede deshacer.'),
+        'Esto eliminará "$name" de todos los ingredientes vinculados. Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('CANCELAR')),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('SÍ, ELIMINAR'),
+            child: const Text('Sí, eliminar'),
           ),
         ],
       ),
@@ -152,7 +157,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
             _buildStatsRow(filtered.length),
             const SizedBox(height: 32),
             NutriTableToolbar(
-              actionLabel: "Nueva Etiqueta",
+              actionLabel: "Nueva etiqueta",
               onAction: () => NutriSnack.show(
                   context, "Módulo de creación automática mediante reglas"),
               onSearch: (v) => setState(() => _search = v),
@@ -175,7 +180,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Gestión de Etiquetas Nutricionales",
+                Text("Gestión de etiquetas nutricionales",
                     style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -215,20 +220,20 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
       children: [
         Expanded(
             child: NutriResumenCard(
-                titulo: "TOTAL ETIQUETAS",
+                titulo: "Total etiquetas",
                 valor: "${_etiquetas.length}",
                 icon: Icons.label_important_rounded)),
         const SizedBox(width: 20),
         Expanded(
             child: NutriResumenCard(
-                titulo: "FILTRADAS",
+                titulo: "Filtradas",
                 valor: "$visibles",
                 colorValor: AppTema.verdeSalud,
                 icon: Icons.filter_alt_rounded)),
         const SizedBox(width: 20),
         const Expanded(
             child: NutriResumenCard(
-                titulo: "SISTEMA",
+                titulo: "Sistema",
                 valor: "SIA",
                 colorValor: AppTema.azulOscuro,
                 icon: Icons.auto_awesome_rounded)),

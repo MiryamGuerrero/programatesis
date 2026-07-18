@@ -72,7 +72,7 @@ class _IngredienteDetallePageState
           onPressed: widget.onBack,
         ),
         title: Text(
-          "Ficha Técnica del Alimento",
+          "Ficha técnica del alimento",
           style: GoogleFonts.montserrat(
               color: AppTema.azulOscuro,
               fontSize: 18,
@@ -117,7 +117,7 @@ class _IngredienteDetallePageState
                 style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
             FilledButton(
-                onPressed: widget.onBack, child: const Text("REGRESAR")),
+                onPressed: widget.onBack, child: const Text("Regresar")),
           ],
         ),
       );
@@ -183,7 +183,7 @@ class _IngredienteDetallePageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("DISTRIBUCIÓN DE MACROS",
+          Text("Distribución de macros",
               style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -264,9 +264,9 @@ class _IngredienteDetallePageState
       'agua_g': 'Agua (g)',
       'alcohol_g': 'Alcohol (g)',
       'almidon_g': 'Almidón (g)',
-      'azucares_sencillos_g': 'Azúcares Sencillos (g)',
-      'azucares_libres_g': 'Azúcares Libres (g)',
-      'fibra_vegetal_g': 'Fibra Vegetal (g)',
+      'azucares_sencillos_g': 'Azúcares sencillos (g)',
+      'azucares_libres_g': 'Azúcares libres (g)',
+      'fibra_vegetal_g': 'Fibra vegetal (g)',
       'ags_g': 'AG Saturados (g)',
       'agm_g': 'AG Monoinsaturados (g)',
       'agp_g': 'AG Poliinsaturados (g)',
@@ -298,7 +298,7 @@ class _IngredienteDetallePageState
       'cobre_mg': 'Cobre (mg)',
       'selenio_ug': 'Selenio (ug)',
       'omega3_g': 'Omega 3 (g)',
-      'grasas_trans_g': 'Grasas Trans (g)',
+      'grasas_trans_g': 'Grasas trans (g)',
       'polifenoles_mg': 'Polifenoles (mg)',
       'probioticos_billones_ufc': 'Probióticos (B ufc)',
     };
@@ -313,7 +313,7 @@ class _IngredienteDetallePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("OTROS COMPONENTES RELEVANTES",
+        Text("Otros componentes relevantes",
             style: GoogleFonts.montserrat(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -374,7 +374,7 @@ class _IngredienteDetallePageState
         onPressed: _confirmDelete,
         icon: const Icon(Icons.delete_sweep_rounded,
             color: Colors.redAccent, size: 22),
-        label: Text("ELIMINAR ALIMENTO",
+        label: Text("Eliminar alimento",
             style: GoogleFonts.montserrat(
                 color: Colors.redAccent,
                 fontWeight: FontWeight.bold,
@@ -398,11 +398,11 @@ class _IngredienteDetallePageState
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
               child:
-                  const Text("ELIMINAR", style: TextStyle(color: Colors.red))),
+                  const Text("Eliminar", style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -424,7 +424,7 @@ class _IngredienteDetallePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(nombre.toUpperCase(),
+        Text(nombre,
             style: GoogleFonts.montserrat(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
@@ -448,7 +448,7 @@ class _IngredienteDetallePageState
       decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10)),
-      child: Text(label.toUpperCase(),
+      child: Text(label,
           style: GoogleFonts.montserrat(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -468,7 +468,7 @@ class _IngredienteDetallePageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("VALORES NUTRICIONALES (POR 100G)",
+          Text("Valores nutricionales (por 100g)",
               style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -478,13 +478,13 @@ class _IngredienteDetallePageState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNutriItem("ENERGÍA", "${kcal.toStringAsFixed(0)} kcal",
+              _buildNutriItem("Energía", "${kcal.toStringAsFixed(0)} kcal",
                   Icons.bolt_rounded, Colors.orange),
-              _buildNutriItem("PROTEÍNA", "${prot.toStringAsFixed(1)} g",
+              _buildNutriItem("Proteína", "${prot.toStringAsFixed(1)} g",
                   Icons.fitness_center_rounded, Colors.blue),
-              _buildNutriItem("GRASAS", "${gras.toStringAsFixed(1)} g",
+              _buildNutriItem("Grasas", "${gras.toStringAsFixed(1)} g",
                   Icons.water_drop_rounded, Colors.amber),
-              _buildNutriItem("CARBS", "${carb.toStringAsFixed(1)} g",
+              _buildNutriItem("Carbs", "${carb.toStringAsFixed(1)} g",
                   Icons.bakery_dining_rounded, Colors.green),
             ],
           ),

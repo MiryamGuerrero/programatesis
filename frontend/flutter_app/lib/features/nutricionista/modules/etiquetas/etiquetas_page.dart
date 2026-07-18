@@ -102,18 +102,18 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Eliminar Etiqueta'),
+        title: const Text('Eliminar etiqueta'),
         content: Text(
             '¿Deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de ingredientes y recetas.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('CANCELAR'),
+            child: const Text('Cancelar'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('ELIMINAR'),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
@@ -176,7 +176,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Catálogo de Etiquetas",
+            Text("Catálogo de etiquetas",
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -199,7 +199,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA ETIQUETA",
+          label: Text("Nueva etiqueta",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -221,7 +221,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'TOTAL ETIQUETAS',
+            titulo: 'Total etiquetas',
             valor: '$_total',
             icon: Icons.label_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -230,8 +230,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO MOTOR',
-            valor: 'ACTIVO',
+            titulo: 'Estado motor',
+            valor: 'Activo',
             icon: Icons.bolt_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -291,7 +291,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,

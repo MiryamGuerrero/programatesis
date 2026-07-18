@@ -85,7 +85,7 @@ class PatientDetailModal extends ConsumerWidget {
           const Icon(Icons.badge_rounded, color: Colors.white, size: 28),
           const SizedBox(width: 16),
           Text(
-            "Información del Paciente",
+            "Información del paciente",
             style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 18,
@@ -112,13 +112,13 @@ class PatientDetailModal extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionTitle(
-              Icons.person_outline_rounded, "Datos del Paciente"),
+              Icons.person_outline_rounded, "Datos del paciente"),
           _buildInfoGrid([
             _InfoItem(
-                label: "Nombre Completo", value: paciente['nombre_completo']),
+                label: "Nombre completo", value: paciente['nombre_completo']),
             _InfoItem(label: "Cédula", value: paciente['cedula']),
             _InfoItem(
-                label: "Fecha Nacimiento", value: paciente['fecha_nacimiento']),
+                label: "Fecha de nacimiento", value: paciente['fecha_nacimiento']),
             _InfoItem(label: "Género", value: paciente['sexo_nombre']),
             _InfoItem(
                 label: "Provincia/Cantón",
@@ -131,19 +131,19 @@ class PatientDetailModal extends ConsumerWidget {
           ]),
           const Divider(height: 40),
           _buildSectionTitle(
-              Icons.supervised_user_circle_outlined, "Datos del Tutor a Cargo"),
+              Icons.supervised_user_circle_outlined, "Datos del tutor a cargo"),
           _buildInfoGrid([
             _InfoItem(
-                label: "Nombre del Tutor", value: tutor['nombre_completo']),
+                label: "Nombre del tutor", value: tutor['nombre_completo']),
             _InfoItem(
                 label: "Parentesco",
                 value: tutor['parentesco_nombre'],
                 isHighlight: true),
-            _InfoItem(label: "Cédula Tutor", value: tutor['cedula']),
+            _InfoItem(label: "Cédula del tutor", value: tutor['cedula']),
             _InfoItem(label: "Teléfono", value: tutor['telefono']),
-            _InfoItem(label: "Correo Electrónico", value: tutor['email']),
+            _InfoItem(label: "Correo electrónico", value: tutor['email']),
             _InfoItem(
-                label: "Dirección Domiciliaria", value: tutor['direccion']),
+                label: "Dirección domiciliaria", value: tutor['direccion']),
           ]),
         ],
       ),
@@ -156,7 +156,7 @@ class PatientDetailModal extends ConsumerWidget {
         Icon(icon, size: 20, color: AppTema.azulOscuro),
         const SizedBox(width: 10),
         Text(
-          title.toUpperCase(),
+          title,
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w800,
@@ -225,7 +225,7 @@ class PatientDetailModal extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              "CERRAR",
+              "Cerrar",
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,

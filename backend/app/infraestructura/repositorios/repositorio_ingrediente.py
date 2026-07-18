@@ -320,6 +320,11 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
             cur.execute("delete from nutricion.ingrediente where id = %s", (id_ingrediente,))
             return cur.rowcount > 0
 
+    def cambiar_estado_ingrediente(self, id_ingrediente: int, activo: bool) -> bool:
+        with db_cursor() as cur:
+            cur.execute("UPDATE nutricion.ingrediente SET activo = %s, updated_at = now() WHERE id = %s", (activo, id_ingrediente))
+            return cur.rowcount > 0
+
     def obtener_ingrediente(self, id_ingrediente: int) -> dict | None:
         sql = """
             with etiquetas_agg as (

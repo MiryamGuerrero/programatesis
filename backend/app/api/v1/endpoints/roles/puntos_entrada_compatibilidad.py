@@ -916,6 +916,7 @@ def condiciones_nutricionales_compat(
     offset: int = Query(default=0, ge=0),
     include_total: bool = Query(default=False),
     indicador: str = Query(default=None),
+    q: str = Query(default=None),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_perfil import RepositorioPerfilPostgres
@@ -924,13 +925,15 @@ def condiciones_nutricionales_compat(
     # Filtro de tipos base (Nutricionales = 3)
     filtro_tipos = [3]
     
-    if include_total or limit != 500 or indicador:
+    if include_total or limit != 500 or indicador or q:
         return repo.obtener_catalogo_paginado_v2(
             "heuristico", "condicion", 
             limit=limit, 
             offset=offset, 
             filtro_tipos=filtro_tipos,
-            indicador=indicador
+            indicador=indicador,
+            q=q,
+            include_total=include_total
         )
     return repo.obtener_catalogo("heuristico", "condicion", filtro_tipos=filtro_tipos)
 
@@ -1089,6 +1092,13 @@ def eliminar_receta_completa(id_receta: int):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
     exito = repo.eliminar_receta(id_receta)
+    return {"success": exito}
+
+@router.patch("/crud/ingredientes/{id_ingrediente}/estado")
+def cambiar_estado_ingrediente_compat(id_ingrediente: int, payload: dict):
+    from app.infraestructura.repositorios.repositorio_ingrediente import RepositorioIngredientePostgres
+    repo = RepositorioIngredientePostgres()
+    exito = repo.cambiar_estado_ingrediente(id_ingrediente, payload.get("activa", True))
     return {"success": exito}
 
 @router.patch("/crud/recetas/{id_receta}/estado")

@@ -22,17 +22,25 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   Timer? _searchDebounce;
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _searchDebounce?.cancel();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(medicalRulesProvider.notifier).loadPage();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      ref.read(medicalRulesProvider.notifier).setSearchQuery(value.trim());
     });
   }
 
@@ -766,8 +774,21 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
     );
   }
 
-  void _showForm([Map<String, dynamic>? rule]) {
-    final state = ref.read(medicalRulesProvider);
+  Future<void> _showForm([Map<String, dynamic>? rule]) async {
+    var state = ref.read(medicalRulesProvider);
+    if (state.formData.isEmpty) {
+      await ref.read(medicalRulesProvider.notifier).loadFormData();
+      if (!mounted) return;
+      state = ref.read(medicalRulesProvider);
+      if (state.formData.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No se pudieron cargar los datos del formulario."),
+          ),
+        );
+        return;
+      }
+    }
     showDialog(
       context: context,
       builder: (ctx) => _NutritionalRuleFormDialog(
@@ -783,14 +804,17 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("¿Eliminar Regla Médica?"),
-        content: const Text("Esta acción eliminará la lógica del motor experto."),
+        title: const Text("¿Eliminar regla médica?"),
+        content:
+            const Text("Esta acción eliminará la lógica del motor experto."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text("ELIMINAR"),
+            child: const Text("Eliminar"),
           ),
         ],
       ),
@@ -864,10 +888,14 @@ class _MedicalRulesDataSource extends DataTableSource {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
               const SizedBox(width: 8),
               NutriShimmer(
-                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
             ],
           ),
         )),
@@ -1081,7 +1109,6 @@ class _MedicalRulesDataSource extends DataTableSource {
             fontWeight: FontWeight.w600,
           ),
         ),
-      ],
     );
   }
 
@@ -1166,7 +1193,7 @@ class _NutritionalRuleFormDialogState
         child: Row(children: [
           const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
           const SizedBox(width: 12),
-          Text(isEdit ? "EDITAR REGLA CLÍNICA" : "NUEVA REGLA CLÍNICA",
+          Text(isEdit ? "Editar regla clínica" : "Nueva regla clínica",
               style: GoogleFonts.montserrat(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -1179,15 +1206,15 @@ class _NutritionalRuleFormDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildFieldSection("OBJETIVO", [
-                  DropdownButtonFormField<int>(
-                    value: _idObjetivo,
+              _buildFieldSection("Objetivo", [
+                DropdownButtonFormField<int>(
+                  initialValue: _idObjetivo,
                   decoration:
-                      _modalDecor("Tipo de Objetivo*", Icons.track_changes),
+                      _modalDecor("Tipo de objetivo*", Icons.track_changes),
                   items: (widget.formData["objetivos"] ?? [])
                       .map((o) => DropdownMenuItem<int>(
                           value: o["id"],
-                          child: Text(o["nombre"].toString().toUpperCase(),
+                          child: Text(o["nombre"].toString(),
                               style: GoogleFonts.montserrat(
                                   fontSize: 12, fontWeight: FontWeight.w600))))
                       .toList(),
@@ -1198,10 +1225,10 @@ class _NutritionalRuleFormDialogState
                 ),
                 if (_idObjetivo != null) ...[
                   const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      value: _idTarget,
+                  DropdownButtonFormField<int>(
+                    initialValue: _idTarget,
                     decoration:
-                        _modalDecor("Seleccionar Item*", Icons.ads_click),
+                        _modalDecor("Seleccionar elemento*", Icons.ads_click),
                     items: targetList
                         .map((t) => DropdownMenuItem<int>(
                             value: t["id"],
@@ -1216,15 +1243,15 @@ class _NutritionalRuleFormDialogState
                 ],
               ]),
               const SizedBox(height: 16),
-              _buildFieldSection("ACCIÓN", [
+              _buildFieldSection("Acción", [
                 DropdownButtonFormField<int>(
-                  value: _idAccion,
+                  initialValue: _idAccion,
                   decoration:
-                      _modalDecor("Acción Sugerida*", Icons.lightbulb_outline),
+                      _modalDecor("Acción sugerida*", Icons.lightbulb_outline),
                   items: (widget.formData["acciones"] ?? [])
                       .map((a) => DropdownMenuItem<int>(
                           value: a["id"],
-                          child: Text(a["nombre"].toString().toUpperCase(),
+                          child: Text(a["nombre"].toString(),
                               style: GoogleFonts.montserrat(
                                   fontSize: 12, fontWeight: FontWeight.w600))))
                       .toList(),
@@ -1248,7 +1275,7 @@ class _NutritionalRuleFormDialogState
                     onChanged: forceStrict ? null : (v) => setState(() => _esEstricta = v)),
               ]),
               const SizedBox(height: 16),
-              _buildFieldSection("APLICABILIDAD (DIAGNÓSTICO)", [
+              _buildFieldSection("Aplicabilidad del diagnóstico", [
                 Container(
                   height: 120,
                   decoration: BoxDecoration(
@@ -1289,11 +1316,12 @@ class _NutritionalRuleFormDialogState
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("CANCELAR",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.grey))),
+            child: Text("Cancelar",
+                style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.bold, color: Colors.grey))),
         FilledButton(
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? "..." : "GUARDAR REGLA",
+            child: Text(_saving ? "..." : "Guardar regla",
                 style: GoogleFonts.montserrat(fontWeight: FontWeight.bold))),
       ],
     );
@@ -1353,9 +1381,9 @@ class _NutritionalRuleFormDialogState
         "id_subgrupo_alimentario": _idObjetivo == 4 ? _idTarget : null
       };
       if (widget.initialRule != null) {
-        await ref.read(dioProvider).put(
-            "reglas-medicas/${widget.initialRule!['id']}",
-            data: payload);
+        await ref
+            .read(dioProvider)
+            .put("reglas-medicas/${widget.initialRule!['id']}", data: payload);
       } else {
         await ref.read(dioProvider).post("reglas-medicas", data: payload);
       }

@@ -75,7 +75,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Gestión de Equipo Médico",
+            Text("Gestión del equipo médico",
                 style: GoogleFonts.montserrat(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -98,9 +98,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-          label: Text("NUEVO MIEMBRO",
-              style:
-                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
+          label: Text("Nuevo miembro",
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
@@ -201,7 +201,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -231,20 +231,20 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     return rolesAsync.maybeWhen(
       data: (roles) => Row(
         children: [
-          Text("FILTRAR POR ROL:",
+          Text("Filtrar por rol:",
               style: GoogleFonts.montserrat(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.blueGrey,
                   letterSpacing: 1)),
           const SizedBox(width: 16),
-          _filterChip("TODOS", state.selectedRolIds.isEmpty,
+          _filterChip("Todos", state.selectedRolIds.isEmpty,
               () => ref.read(adminUsersProvider.notifier).clearFilters()),
           const SizedBox(width: 12),
           ...roles.map((r) => Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: _filterChip(
-                    r["nombre"].toString().toUpperCase(),
+                    r["nombre"].toString(),
                     state.selectedRolIds.contains(r["id"]),
                     () => ref
                         .read(adminUsersProvider.notifier)
@@ -387,17 +387,17 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Eliminar Acceso"),
+        title: const Text("Eliminar acceso"),
         content: Text(
             "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción revocará todos los accesos al sistema."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );
@@ -551,7 +551,7 @@ class _AdminUsersDataSource extends DataTableSource {
         width: totalWidth * 0.25,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(u["rol_nombre"]?.toString().toUpperCase() ?? "STAFF",
+          child: Text(u["rol_nombre"]?.toString() ?? "Personal",
               style: GoogleFonts.montserrat(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -618,7 +618,7 @@ class _StatusBadge extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isActive ? "ACTIVO" : "INACTIVO",
+        isActive ? "Activo" : "Inactivo",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 10),
       ),
@@ -700,7 +700,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
   final _emailCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _cedulaCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
   int? _idRol;
   bool _saving = false;
 
@@ -791,7 +790,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 Text(
                   isEdit
                       ? "Actualiza los datos de acceso y perfil profesional."
-                      : "Crea una cuenta para que el nuevo\nmiembro se una al equipo.",
+                      : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 13,
@@ -807,15 +806,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 const SizedBox(height: 12),
                 _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
                 const SizedBox(height: 12),
-                if (!isEdit) ...[
-                  _input(
-                    _passCtrl,
-                    "Contraseña temporal",
-                    Icons.lock_outline_rounded,
-                    obscure: true,
-                  ),
-                  const SizedBox(height: 12),
-                ],
                 rolesAsync.when(
                   data: (roles) => DropdownButtonFormField<int>(
                     initialValue: _idRol,
@@ -970,7 +960,6 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           email: _emailCtrl.text,
           nombreCompleto: _nombreCtrl.text,
           idRol: _idRol!,
-          password: _passCtrl.text,
           cedula: _cedulaCtrl.text,
         );
       }

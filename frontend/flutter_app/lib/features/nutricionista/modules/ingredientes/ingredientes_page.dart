@@ -232,7 +232,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Catálogo de Alimentos",
+            Text("Catálogo de alimentos",
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -255,7 +255,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("NUEVA ALIMENTO",
+          label: Text("Nuevo alimento",
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800, fontSize: 13)),
         ),
@@ -279,20 +279,20 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       children: [
         Expanded(
             child: NutriResumenCard(
-                titulo: "TOTAL ALIMENTOS",
+                titulo: "Total alimentos",
                 valor: "$_total",
                 icon: Icons.restaurant_menu_rounded)),
         const SizedBox(width: 20),
         Expanded(
             child: NutriResumenCard(
-                titulo: "GRUPOS",
+                titulo: "Grupos",
                 valor: "${_groups.length}",
                 colorValor: AppTema.verdeSalud,
                 icon: Icons.category_rounded)),
         const SizedBox(width: 20),
         Expanded(
             child: NutriResumenCard(
-                titulo: "SUBGRUPOS",
+                titulo: "Subgrupos",
                 valor: "${_subgroups.length}",
                 colorValor: AppTema.azulOscuro,
                 icon: Icons.layers_rounded)),
@@ -333,9 +333,9 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             ),
           ),
           const SizedBox(width: 16),
-          _buildFilterDropdown("GRUPO", _groups, _groupId, _onGroupChanged),
+          _buildFilterDropdown("Grupo", _groups, _groupId, _onGroupChanged),
           const SizedBox(width: 12),
-          _buildFilterDropdown("SUBGRUPO", _subgroupsFiltrados, _subgroupId,
+          _buildFilterDropdown("Subgrupo", _subgroupsFiltrados, _subgroupId,
               (v) {
             setState(() {
               _subgroupId = v;
@@ -356,7 +356,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -400,13 +400,13 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           items: [
             DropdownMenuItem(
                 value: null,
-                child: Text("TODOS LOS ${label}S",
+                child: Text("Todos los ${label.toLowerCase()}s",
                     style: GoogleFonts.montserrat(
                         fontSize: 10, fontWeight: FontWeight.w700))),
             ...items.map((e) => DropdownMenuItem(
                 value: e['id'],
                 child: Text(
-                    e['nombre']?.toString().toUpperCase() ?? "INGREDIENTE",
+                    e['nombre']?.toString() ?? "Ingrediente",
                     style: GoogleFonts.montserrat(
                         fontSize: 10, fontWeight: FontWeight.w600)))),
           ],
@@ -449,11 +449,11 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );

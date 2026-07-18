@@ -131,6 +131,12 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                     from heuristico.regla r
                     join heuristico.condicion_regla cr on cr.id_regla = r.id
                     join heuristico.condicion c on c.id = cr.id_condicion
+                    join heuristico.catalogo_accion a on a.id = r.id_accion
+                    join heuristico.catalogo_objetivo_regla t on t.id = r.id_tipo_objetivo
+                    left join nutricion.ingrediente i on i.id = r.id_ingrediente
+                    left join nutricion.grupo_alimentario g on g.id = r.id_grupo_alimentario
+                    left join nutricion.subgrupo_alimentario s on s.id = r.id_subgrupo_alimentario
+                    left join nutricion.etiqueta_nutricional e on e.id = r.id_etiqueta
                     {where_sql}
                 """, tuple(params))
                 total = cur.fetchone()[0]
@@ -168,7 +174,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 {where_sql}
                 group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible, r.origen_regla
                 order by r.id desc
-                limit %s offset %s
+                limit %(limite)s offset %(offset)s
             """
             try:
                 cur.execute(sql, tuple(params) + (limite, offset))

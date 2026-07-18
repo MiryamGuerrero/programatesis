@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from app.domain.servicios.servicio_oms import ServicioOMS as ServicioOMSBase
@@ -6,28 +7,78 @@ from app.infraestructura.database.db import db_cursor
 
 class ServicioOMS(ServicioOMSBase):
     @staticmethod
-    def _clasificar_por_regla(indicador: str, z_score: float, edad_meses: int) -> Dict[str, Any]:
-        grupo = "talla" if indicador in {"LHFA", "HFA"} else ("peso_alerta" if indicador == "WFA" else "peso")
+    @lru_cache(maxsize=1)
+    def _todas_referencias() -> tuple[tuple[Any, ...], ...]:
+        """Carga las referencias OMS una sola vez por proceso.
+
+        Las referencias OMS son datos estaticos. Mantenerlas en memoria evita una
+        consulta remota por indicador para cada control historico del paciente.
+        """
         with db_cursor() as cur:
             cur.execute(
                 """
-                select diagnostico, condicion_id, grupo_diagnostico
-                from referencia.oms_clasificacion_zscore
-                where ref_code = %s
-                  and edad_meses_min <= %s
-                  and edad_meses_max >= %s
-                  and grupo_diagnostico = %s
-                  and (z_min is null or case when incluye_min then %s >= z_min else %s > z_min end)
-                  and (z_max is null or case when incluye_max then %s <= z_max else %s < z_max end)
-                limit 1
-                """,
-                (indicador, edad_meses, edad_meses, grupo, z_score, z_score, z_score, z_score),
+                select id, ref_code, sexo, edad_meses::float, edad_dias,
+                       medida_cm::float, l::float, m::float, s::float, sd0::float
+                from referencia.oms_referencia_zscore
+                order by id
+                """
             )
-            row = cur.fetchone()
+            return tuple(cur.fetchall())
 
-        if not row:
-            return {"diagnostico": "Sin clasificacion disponible", "id_condicion": None, "grupo": grupo}
-        return {"diagnostico": row[0], "id_condicion": row[1], "grupo": row[2]}
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _todas_reglas_clasificacion() -> tuple[tuple[Any, ...], ...]:
+        with db_cursor() as cur:
+            cur.execute(
+                """
+                select ref_code, diagnostico, condicion_id, grupo_diagnostico,
+                       edad_meses_min, edad_meses_max,
+                       z_min::float, z_max::float, incluye_min, incluye_max
+                from referencia.oms_clasificacion_zscore
+                order by ref_code, grupo_diagnostico, edad_meses_min,
+                         edad_meses_max, z_min nulls first,
+                         z_max nulls last
+                """
+            )
+            return tuple(cur.fetchall())
+
+    @staticmethod
+    @lru_cache(maxsize=16)
+    def _referencias(indicador: str, sexo: str) -> tuple[tuple[Any, ...], ...]:
+        return tuple(
+            row
+            for row in ServicioOMS._todas_referencias()
+            if row[1] == indicador and row[2] == sexo
+        )
+
+    @staticmethod
+    @lru_cache(maxsize=24)
+    def _reglas_clasificacion(
+        indicador: str, grupo: str
+    ) -> tuple[tuple[Any, ...], ...]:
+        return tuple(
+            row[1:]
+            for row in ServicioOMS._todas_reglas_clasificacion()
+            if row[0] == indicador and row[3] == grupo
+        )
+
+    @staticmethod
+    def _clasificar_por_regla(indicador: str, z_score: float, edad_meses: int) -> Dict[str, Any]:
+        grupo = "talla" if indicador in {"LHFA", "HFA"} else ("peso_alerta" if indicador == "WFA" else "peso")
+        for row in ServicioOMS._reglas_clasificacion(indicador, grupo):
+            diagnostico, condicion_id, grupo_regla, edad_min, edad_max, z_min, z_max, incluye_min, incluye_max = row
+            if not (edad_min <= edad_meses <= edad_max):
+                continue
+            cumple_min = z_min is None or (z_score >= z_min if incluye_min else z_score > z_min)
+            cumple_max = z_max is None or (z_score <= z_max if incluye_max else z_score < z_max)
+            if cumple_min and cumple_max:
+                return {
+                    "diagnostico": diagnostico,
+                    "id_condicion": condicion_id,
+                    "grupo": grupo_regla,
+                }
+
+        return {"diagnostico": "Sin clasificacion disponible", "id_condicion": None, "grupo": grupo}
 
     @staticmethod
     def _rango_referencia(indicador: str, sexo: str, campo: str) -> tuple[Optional[float], Optional[float]]:
@@ -36,19 +87,13 @@ class ServicioOMS(ServicioOMSBase):
         if campo not in columnas_permitidas:
             raise ValueError(f"Campo no permitido para referencia OMS: {campo}")
 
-        with db_cursor() as cur:
-            # Aunque psycopg no permite parametros para nombres de columnas, 
-            # la validacion previa asegura que solo se usen identificadores seguros.
-            cur.execute(
-                f"""
-                select min({campo})::float, max({campo})::float
-                from referencia.oms_referencia_zscore
-                where ref_code = %s and sexo = %s and {campo} is not null
-                """,
-                (indicador, sexo),
-            )
-            row = cur.fetchone()
-        return (row[0], row[1]) if row else (None, None)
+        indice = {"edad_meses": 3, "edad_dias": 4, "medida_cm": 5}[campo]
+        valores = [
+            float(row[indice])
+            for row in ServicioOMS._referencias(indicador, sexo)
+            if row[indice] is not None
+        ]
+        return (min(valores), max(valores)) if valores else (None, None)
 
     @classmethod
     def obtener_referencia(
@@ -60,35 +105,24 @@ class ServicioOMS(ServicioOMSBase):
         edad_dias: int,
         medida_cm: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
-        params: tuple[Any, ...]
         if indicador in {"WFL", "WFH"}:
             if medida_cm is None:
                 raise ValueError(f"{indicador} requiere longitud/talla en cm")
-            order_expr = "abs(medida_cm - %s)"
-            where_expr = "medida_cm is not null"
-            params = (medida_cm, indicador, sexo)
+            indice = 5
+            objetivo = float(medida_cm)
         elif indicador == "LHFA":
-            order_expr = "abs(edad_dias - %s)"
-            where_expr = "edad_dias is not null"
-            params = (edad_dias, indicador, sexo)
+            indice = 4
+            objetivo = float(edad_dias)
         else:
-            order_expr = "abs(edad_meses - %s)"
-            where_expr = "edad_meses is not null"
-            params = (edad_meses, indicador, sexo)
+            indice = 3
+            objetivo = float(edad_meses)
 
-        with db_cursor() as cur:
-            cur.execute(
-                f"""
-                select id, ref_code, sexo, edad_meses::float, edad_dias, medida_cm::float,
-                       l::float, m::float, s::float, sd0::float, {order_expr}::float as distancia
-                from referencia.oms_referencia_zscore
-                where ref_code = %s and sexo = %s and {where_expr}
-                order by distancia asc
-                limit 1
-                """,
-                params,
-            )
-            row = cur.fetchone()
+        candidatas = (
+            row
+            for row in cls._referencias(indicador, sexo)
+            if row[indice] is not None
+        )
+        row = min(candidatas, key=lambda item: abs(float(item[indice]) - objetivo), default=None)
 
         if not row:
             return None
@@ -103,5 +137,5 @@ class ServicioOMS(ServicioOMSBase):
             "m": row[7],
             "s": row[8],
             "sd0": row[9],
-            "distancia": row[10],
+            "distancia": abs(float(row[indice]) - objetivo),
         }

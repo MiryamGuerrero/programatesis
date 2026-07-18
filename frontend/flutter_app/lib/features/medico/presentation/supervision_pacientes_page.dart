@@ -211,7 +211,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         const Expanded(
           child: _KPICard(
             title: "Control clínico",
-            value: "ACTIVO",
+            value: "Activo",
             color: Color(0xFF10B981),
             imagePath: "assets/images/kpi_joint.webp",
             isLargeValue: true,

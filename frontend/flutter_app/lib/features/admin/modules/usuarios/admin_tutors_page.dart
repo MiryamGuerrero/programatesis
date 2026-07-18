@@ -72,7 +72,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Gestión de Cuentas: Tutores",
+            Text("Gestión de cuentas de tutores",
                 style: GoogleFonts.montserrat(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -87,7 +87,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
           ],
         ),
         FilledButton.icon(
-          onPressed: () => _dialogoInvitacion(),
+          onPressed: () => _dialogoTutor(null),
           style: FilledButton.styleFrom(
             backgroundColor: AppTema.verdeSalud,
             shape:
@@ -95,9 +95,9 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
           icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-          label: Text("INVITAR TUTOR",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
+          label: Text("Invitar tutor",
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
         ),
       ],
     );
@@ -118,7 +118,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       children: [
         Expanded(
           child: NutriResumenCard(
-            titulo: 'REPRESENTANTES REGISTRADOS',
+            titulo: 'Representantes registrados',
             valor: '${state.totalItems}',
             icon: Icons.family_restroom_rounded,
             colorValor: AppTema.azulPrincipal,
@@ -127,8 +127,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         const SizedBox(width: 20),
         const Expanded(
           child: NutriResumenCard(
-            titulo: 'ESTADO SERVICIO',
-            valor: 'ACTIVO',
+            titulo: 'Estado del servicio',
+            valor: 'Activo',
             icon: Icons.verified_user_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -157,12 +157,13 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                 controller: _searchController,
                 onChanged: (v) {
                   _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 350), () {
                     ref.read(adminTutorsProvider.notifier).setSearchQuery(v);
                   });
                 },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: "Buscar por nombre o correo de representante...",
                   prefixIcon: const Icon(Icons.search,
@@ -186,7 +187,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               ),
               icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
               label: Text(
-                "LIMPIAR",
+                "Limpiar",
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -282,6 +283,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               onToggle: (u) => ref
                   .read(adminTutorsProvider.notifier)
                   .toggleUserStatus(u["id"].toString(), u["activo"] == true),
+              onEdit: (u) => _dialogoTutor(u),
               onDelete: (u) => _eliminarTutor(u),
               totalWidth: usableWidth,
               context: context,
@@ -319,17 +321,17 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Eliminar Tutor"),
+        title: const Text("Eliminar tutor"),
         content: Text(
             "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción es irreversible."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
+              child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("ELIMINAR")),
+              child: const Text("Eliminar")),
         ],
       ),
     );
@@ -344,84 +346,19 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
     }
   }
 
-  void _dialogoInvitacion() {
-    final nombreCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    final cedulaCtrl = TextEditingController();
-    bool obscurePass = true;
-
+  void _dialogoTutor(Map<String, dynamic>? user) {
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text("Invitar Nuevo Tutor",
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w900)),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _input(nombreCtrl, "Nombre completo", Icons.person_outline),
-                const SizedBox(height: 16),
-                _input(emailCtrl, "Correo electrónico", Icons.email_outlined),
-                const SizedBox(height: 16),
-                _input(cedulaCtrl, "Cédula (Opcional)",
-                    Icons.perm_identity_rounded),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: obscurePass,
-                  decoration: _inputDecor("Contraseña temporal", Icons.lock_outline)
-                      .copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(obscurePass
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      onPressed: () =>
-                          setDialogState(() => obscurePass = !obscurePass),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("CANCELAR")),
-            FilledButton(
-              onPressed: () async {
-                if (emailCtrl.text.isEmpty || nombreCtrl.text.isEmpty) return;
-                try {
-                  final repo = ref.read(supabaseCrudRepositoryProvider);
-                  await repo.createUser(
-                    email: emailCtrl.text.trim(),
-                    nombreCompleto: nombreCtrl.text.trim(),
-                    idRol: 4, // Rol Tutor
-                    password: passCtrl.text,
-                    cedula: cedulaCtrl.text,
-                  );
-                  ref.read(adminTutorsProvider.notifier).loadPage();
-                  if (context.mounted) Navigator.pop(context);
-                } catch (e) {
-                  if (context.mounted)
-                    NutriSnack.show(context, "Error: $e", isError: true);
-                }
-              },
-              child: const Text("INVITAR"),
-            ),
-          ],
-        ),
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
+      builder: (_) => _FormularioTutor(
+        user: user,
+        onSuccess: () => ref.read(adminTutorsProvider.notifier).loadPage(),
       ),
     );
   }
 
-  Widget _input(TextEditingController c, String h, IconData i) => TextField(
-      controller: c,
-      decoration: _inputDecor(h, i));
+  Widget _input(TextEditingController c, String h, IconData i) =>
+      TextField(controller: c, decoration: _inputDecor(h, i));
 
   InputDecoration _inputDecor(String h, IconData i) => InputDecoration(
       labelText: h,
@@ -439,6 +376,7 @@ class _AdminTutorsDataSource extends DataTableSource {
   final int offset;
   final bool isLoading;
   final Function(Map<String, dynamic>) onToggle;
+  final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onDelete;
   final double totalWidth;
   final BuildContext context;
@@ -449,6 +387,7 @@ class _AdminTutorsDataSource extends DataTableSource {
     required this.offset,
     required this.isLoading,
     required this.onToggle,
+    required this.onEdit,
     required this.onDelete,
     required this.totalWidth,
     required this.context,
@@ -522,7 +461,8 @@ class _AdminTutorsDataSource extends DataTableSource {
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
           child: Row(
             children: [
-              NutriAvatar(nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
+              NutriAvatar(
+                  nombreCompleto: u["nombre_completo"] ?? "?", radio: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -569,6 +509,12 @@ class _AdminTutorsDataSource extends DataTableSource {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _HoverActionButton(
+                  icon: Icons.edit_note_rounded,
+                  label: "Editar",
+                  color: AppTema.azulPrincipal,
+                  onTap: () => onEdit(u)),
+              const SizedBox(width: 12),
+              _HoverActionButton(
                   icon: u["activo"] == true
                       ? Icons.block_flipped
                       : Icons.check_circle_outline,
@@ -609,7 +555,7 @@ class _StatusBadge extends StatelessWidget {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
       child: Text(
-        isActive ? "ACTIVO" : "INACTIVO",
+        isActive ? "Activo" : "Inactivo",
         style: GoogleFonts.montserrat(
             color: color, fontWeight: FontWeight.w800, fontSize: 10),
       ),
@@ -676,5 +622,254 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
         ),
       ),
     );
+  }
+}
+
+class _FormularioTutor extends ConsumerStatefulWidget {
+  final Map<String, dynamic>? user;
+  final VoidCallback onSuccess;
+  const _FormularioTutor({this.user, required this.onSuccess});
+  @override
+  ConsumerState<_FormularioTutor> createState() => _FormularioTutorState();
+}
+
+class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
+  final _emailCtrl = TextEditingController();
+  final _nombreCtrl = TextEditingController();
+  final _cedulaCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.user != null) {
+      _emailCtrl.text = widget.user!["email"] ?? "";
+      _nombreCtrl.text = widget.user!["nombre_completo"] ?? "";
+      _cedulaCtrl.text = widget.user!["cedula"] ?? "";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.user != null;
+
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Container(
+        width: 356,
+        constraints: const BoxConstraints(maxWidth: 356),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5EAF2)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withOpacity(0.10),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+                color: const Color(0xFF64748B),
+                iconSize: 22,
+                tooltip: "Cerrar",
+                splashRadius: 20,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 2),
+                Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person_add_alt_1_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  isEdit ? "Editar Tutor" : "Nuevo Tutor",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 22,
+                    height: 1.08,
+                    fontWeight: FontWeight.w900,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isEdit
+                      ? "Actualiza los datos del representante."
+                      : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF8A97AD),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
+                const SizedBox(height: 12),
+                _input(_emailCtrl, "Correo electrónico", Icons.mail_outline),
+                const SizedBox(height: 12),
+                _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
+                const SizedBox(height: 44),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _saving ? null : () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTema.azulPrincipal,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 14),
+                        textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      child: const Text("Cancelar"),
+                    ),
+                    const SizedBox(width: 18),
+                    SizedBox(
+                      width: 128,
+                      height: 46,
+                      child: FilledButton(
+                        onPressed: _saving ? null : _save,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTema.azulPrincipal,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        child: Text(_saving ? "Guardando..." : "Guardar"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _input(
+    TextEditingController controller,
+    String hint,
+    IconData icon, {
+    bool obscure = false,
+  }) {
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppTema.azulOscuro,
+        ),
+        decoration: _inputDecor(hint, icon),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF98A2B3),
+        ),
+        prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE1E7F0), width: 1.4),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide:
+              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+      );
+
+  Future<void> _save() async {
+    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
+      NutriSnack.show(context, "Por favor complete los campos obligatorios",
+          isError: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      if (widget.user != null) {
+        await repo.updateUser(
+          userId: widget.user!["id"].toString(),
+          nombreCompleto: _nombreCtrl.text,
+          email: _emailCtrl.text,
+          cedula: _cedulaCtrl.text,
+          idRol: 4, // Rol Tutor Fijo
+        );
+      } else {
+        await repo.createUser(
+          email: _emailCtrl.text,
+          nombreCompleto: _nombreCtrl.text,
+          idRol: 4, // Rol Tutor Fijo
+          cedula: _cedulaCtrl.text,
+        );
+      }
+      widget.onSuccess();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(context, "Error al guardar: $e", isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

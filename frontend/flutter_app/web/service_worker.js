@@ -7,8 +7,7 @@ const OFFLINE_URLS = [
   'assets/AssetManifest.json',
   'assets/FontManifest.json',
   'assets/NOTICES',
-  'assets/images/logo 1.webp',
-  'assets/images/nutri_clinic_hero.webp'
+  'assets/images/logo 1.webp'
 ];
 
 self.addEventListener('install', event => {

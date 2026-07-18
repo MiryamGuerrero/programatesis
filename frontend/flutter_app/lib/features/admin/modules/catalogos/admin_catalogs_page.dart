@@ -100,7 +100,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Configuración de Catálogos",
+        Text("Configuración de catálogos",
             style: GoogleFonts.montserrat(
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
@@ -128,7 +128,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
             child: DropdownButtonFormField<String>(
               initialValue: "$_schema.$_table",
               decoration: InputDecoration(
-                labelText: "Seleccionar Catálogo",
+                labelText: "Seleccionar catálogo",
                 labelStyle: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -145,7 +145,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
                 for (final item in _catalogs)
                   DropdownMenuItem(
                     value: "${item.$1}.${item.$2}",
-                    child: Text("${item.$1}.${item.$2}".toUpperCase(),
+                    child: Text("${item.$1}.${item.$2}",
                         style: GoogleFonts.montserrat(
                             fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
@@ -179,7 +179,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(_loading ? "CARGANDO..." : "RECARGAR",
+              label: Text(_loading ? "Cargando..." : "Recargar",
                   style: GoogleFonts.montserrat(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,

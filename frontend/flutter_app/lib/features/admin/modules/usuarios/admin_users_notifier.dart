@@ -40,7 +40,6 @@ class AdminUsersState {
       searchQuery: searchQuery ?? this.searchQuery,
       selectedRolIds: selectedRolIds ?? this.selectedRolIds,
       totalItems: totalItems ?? this.totalItems,
-      offset: offset ?? this.offset,
       roleCounts: roleCounts ?? this.roleCounts,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
@@ -52,27 +51,29 @@ class AdminUsersState {
 class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
   AdminUsersNotifier(
     this._ref, {
-    Set<int> allowedRolIds = const {},
-  })  : _allowedRolIds = allowedRolIds,
-        super(const AdminUsersState());
+    this.allowedRolIds = const {},
+    Set<int> initialSelectedRolIds = const {},
+  }) : super(AdminUsersState(selectedRolIds: initialSelectedRolIds));
 
   final Ref _ref;
-  final Set<int> _allowedRolIds;
+  final Set<int> allowedRolIds;
   static const int pageSize = 5;
 
   List<int> get _effectiveRolIds {
-    if (state.selectedRolIds.isNotEmpty) {
-      return state.selectedRolIds.toList();
-    }
-    return _allowedRolIds.toList();
+    if (state.selectedRolIds.isEmpty) return allowedRolIds.toList();
+    if (allowedRolIds.isEmpty) return state.selectedRolIds.toList();
+    final scopedSelection = state.selectedRolIds
+        .where((rolId) => allowedRolIds.contains(rolId))
+        .toList();
+    return scopedSelection.isEmpty ? allowedRolIds.toList() : scopedSelection;
   }
 
   Future<Map<int, int>> _loadRoleCounts() async {
-    if (_allowedRolIds.isEmpty) return const {};
+    if (allowedRolIds.isEmpty) return const {};
 
     final repo = _ref.read(supabaseCrudRepositoryProvider);
     final entries = await Future.wait(
-      _allowedRolIds.map((roleId) async {
+      allowedRolIds.map((roleId) async {
         final result = await repo.fetchUsersPage(
           query: state.searchQuery,
           rolIds: [roleId],
@@ -88,8 +89,9 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
 
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
-    state = state.copyWith(isLoading: true, offset: nextOffset, clearErrorMessage: true);
-    
+    state = state.copyWith(
+        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
       final results = await Future.wait([
@@ -103,7 +105,6 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       ]);
       final result = results[0] as ({List<Map<String, dynamic>> items, int total});
       final roleCounts = results[1] as Map<int, int>;
-      
       state = state.copyWith(
         isLoading: false,
         users: result.items,
@@ -149,38 +150,47 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       }
       return u;
     }).toList();
-    
+
     state = state.copyWith(users: nextUsers);
-    
+
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
       await repo.updateUser(userId: userId, activo: !currentStatus);
     } catch (e) {
-      state = state.copyWith(users: oldUsers, errorMessage: "Error al actualizar estado");
+      state = state.copyWith(
+          users: oldUsers, errorMessage: "Error al actualizar estado");
     }
   }
 
   Future<void> deleteUser(String userId) async {
     final oldUsers = List<Map<String, dynamic>>.from(state.users);
     final nextUsers = oldUsers.where((u) => u["id"] != userId).toList();
-    
+
     state = state.copyWith(users: nextUsers, totalItems: state.totalItems - 1);
-    
+
     try {
       final dio = _ref.read(dioProvider);
       await dio.delete("usuarios/$userId");
     } catch (e) {
-      state = state.copyWith(users: oldUsers, totalItems: state.totalItems + 1, errorMessage: "Error al eliminar usuario");
+      state = state.copyWith(
+          users: oldUsers,
+          totalItems: state.totalItems + 1,
+          errorMessage: "Error al eliminar usuario");
     }
   }
 }
 
-// Proveedor para Equipo Médico (Excluye Tutor si no se selecciona)
-final adminUsersProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  return AdminUsersNotifier(ref, allowedRolIds: {1, 2, 3});
+final adminUsersProvider =
+    StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
+  return AdminUsersNotifier(ref, allowedRolIds: const {1, 2, 3});
 });
 
 // Proveedor para Tutores (Filtra por id_rol = 4 por defecto)
-final adminTutorsProvider = StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
-  return AdminUsersNotifier(ref, allowedRolIds: {4});
+final adminTutorsProvider =
+    StateNotifierProvider<AdminUsersNotifier, AdminUsersState>((ref) {
+  return AdminUsersNotifier(
+    ref,
+    allowedRolIds: const {4},
+    initialSelectedRolIds: const {4},
+  );
 });

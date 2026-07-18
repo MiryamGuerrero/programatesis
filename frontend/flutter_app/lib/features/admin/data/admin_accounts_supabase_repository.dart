@@ -25,7 +25,7 @@ class AdminAccountsSupabaseRepository {
   Options _authorizedOptions() {
     final token = _client.auth.currentSession?.accessToken;
     if (token == null || token.isEmpty) {
-      throw Exception("Sesion expirada. Inicia sesion nuevamente.");
+      throw Exception("Sesión expirada. Inicia sesión nuevamente.");
     }
 
     return Options(
@@ -49,10 +49,10 @@ class AdminAccountsSupabaseRepository {
     final statusCode = error.response?.statusCode;
 
     if (statusCode == 401) {
-      return Exception("Sesion expirada. Inicia sesion nuevamente.");
+      return Exception("Sesión expirada. Inicia sesión nuevamente.");
     }
     if (statusCode == 403) {
-      return Exception("No tienes permisos de administrador para esta accion.");
+      return Exception("No tienes permisos de administrador para esta acción.");
     }
 
     final payload = error.response?.data;
@@ -143,7 +143,7 @@ class AdminAccountsSupabaseRepository {
         raw.contains("unique constraint");
     if (isDuplicate) {
       if (raw.contains("cedula")) {
-        return Exception("La cedula ya existe.");
+        return Exception("La cédula ya existe.");
       }
       if (raw.contains("email")) {
         return Exception("El correo ya existe.");
@@ -160,7 +160,7 @@ class AdminAccountsSupabaseRepository {
         raw.contains("row-level security") ||
         raw.contains("insufficient_privilege");
     if (denied) {
-      return Exception("No tienes permisos de administrador para esta accion.");
+      return Exception("No tienes permisos de administrador para esta acción.");
     }
 
     if (error.message.trim().isNotEmpty) {

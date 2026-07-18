@@ -45,17 +45,17 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
   bool _initializing = false;
 
   final List<String> _secciones = [
-    "MACRONUTRIENTES Y GENERAL",
-    "AZÚCARES Y ALMIDÓN",
-    "DETALLE DE GRASAS",
-    "VITAMINAS",
-    "MINERALES",
-    "OTROS"
+    "Macronutrientes y general",
+    "Azúcares y almidón",
+    "Detalle de grasas",
+    "Vitaminas",
+    "Minerales",
+    "Otros"
   ];
-  String _seccionActual = "MACRONUTRIENTES Y GENERAL";
+  String _seccionActual = "Macronutrientes y general";
 
   final Map<String, List<Map<String, dynamic>>> _camposPorSeccion = {
-    "MACRONUTRIENTES Y GENERAL": [
+    "Macronutrientes y general": [
       {
         "label": "Energía (kcal)",
         "key": "energia_kcal",
@@ -68,7 +68,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         "icon": Icons.fitness_center_rounded
       },
       {
-        "label": "Grasas Totales (g)",
+        "label": "Grasas totales (g)",
         "key": "grasa_total_g",
         "icon": Icons.water_drop_rounded
       },
@@ -83,20 +83,20 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         "icon": Icons.grass_rounded
       },
     ],
-    "AZÚCARES Y ALMIDÓN": [
+    "Azúcares y almidón": [
       {
-        "label": "Azúcares Sencillos (g)",
+        "label": "Azúcares sencillos (g)",
         "key": "azucares_sencillos_g",
         "icon": Icons.icecream_rounded
       },
       {
-        "label": "Azúcares Libres (g)",
+        "label": "Azúcares libres (g)",
         "key": "azucares_libres_g",
         "icon": Icons.warning_amber_rounded
       },
       {"label": "Almidón (g)", "key": "almidon_g", "icon": Icons.grain_rounded},
     ],
-    "DETALLE DE GRASAS": [
+    "Detalle de grasas": [
       {"label": "AGS (g)", "key": "ags_g", "icon": Icons.opacity},
       {"label": "AGM (g)", "key": "agm_g", "icon": Icons.opacity},
       {"label": "AGP (g)", "key": "agp_g", "icon": Icons.opacity},
@@ -111,18 +111,18 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         "icon": Icons.set_meal_rounded
       },
       {
-        "label": "Tipo Omega 3",
+        "label": "Tipo omega 3",
         "key": "tipo_omega3",
         "icon": Icons.label_important_outline_rounded,
         "isNum": false
       },
       {
-        "label": "Grasas Trans (g)",
+        "label": "Grasas trans (g)",
         "key": "grasas_trans_g",
         "icon": Icons.block_flipped
       },
     ],
-    "VITAMINAS": [
+    "Vitaminas": [
       {
         "label": "Vit A (ug)",
         "key": "vitamina_a_eq_retinol_ug",
@@ -185,7 +185,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         "icon": Icons.vibration_rounded
       },
     ],
-    "MINERALES": [
+    "Minerales": [
       {
         "label": "Calcio (mg)",
         "key": "calcio_mg",
@@ -226,7 +226,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
         "icon": Icons.diamond_rounded
       },
     ],
-    "OTROS": [
+    "Otros": [
       {
         "label": "Alcohol (g)",
         "key": "alcohol_g",
@@ -400,7 +400,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
           onPressed: widget.onBack,
         ),
         title: Text(
-          esNuevo ? "Nuevo Ingrediente" : "Editar Ingrediente",
+          esNuevo ? "Nuevo ingrediente" : "Editar ingrediente",
           style: GoogleFonts.montserrat(
               color: AppTema.azulOscuro,
               fontSize: 18,
@@ -420,7 +420,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.save_rounded, size: 20),
-                label: const Text("GUARDAR"),
+                label: const Text("Guardar"),
                 style: FilledButton.styleFrom(
                     backgroundColor: AppTema.azulPrincipal),
               ),
@@ -453,16 +453,16 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle("DATOS BÁSICOS"),
+              _buildSectionTitle("Datos básicos"),
               const SizedBox(height: 24),
               _buildField(
-                  "Nombre del Alimento", _nombreCtrl, Icons.restaurant_rounded),
+                  "Nombre del alimento", _nombreCtrl, Icons.restaurant_rounded),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                       child: _buildDropdown(
-                          "Grupo Alimentario", _grupos, _idGrupo, (v) {
+                          "Grupo alimentario", _grupos, _idGrupo, (v) {
                     setState(() {
                       _idGrupo = v;
                       _idSubgrupo = null;
@@ -471,7 +471,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                   })),
                   const SizedBox(width: 24),
                   Expanded(
-                      child: _buildDropdown("Subgrupo Alimentario",
+                      child: _buildDropdown("Subgrupo alimentario",
                           _subgroupsFiltrados, _idSubgrupo, (v) {
                     setState(() {
                       _idSubgrupo = v;
@@ -483,7 +483,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               Row(
                 children: [
                   Expanded(
-                      child: _buildField("Factor Parte Comestible (0-1)",
+                      child: _buildField("Factor parte comestible (0-1)",
                           _factorCtrl, Icons.pie_chart_rounded,
                           isNum: true)),
                   const SizedBox(width: 24),
@@ -495,7 +495,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               const SizedBox(height: 40),
               const Divider(),
               const SizedBox(height: 20),
-              _buildSectionTitle("COMPOSICIÓN NUTRICIONAL"),
+              _buildSectionTitle("Composición nutricional"),
               const SizedBox(height: 16),
               Text("Seleccione la sección de nutrientes que desea completar:",
                   style: GoogleFonts.lato(
@@ -519,7 +519,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("ETIQUETAS NUTRICIONALES",
+        Text("Etiquetas nutricionales",
             style: GoogleFonts.montserrat(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -590,39 +590,43 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
                 // Lista de sugerencias (se muestra debajo si hay búsqueda)
                 if (_tagSearchCtrl.text.isNotEmpty &&
                     _etiquetasFiltradas.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10)
-                      ],
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _etiquetasFiltradas.length,
-                      itemBuilder: (context, index) {
-                        final etq = _etiquetasFiltradas[index];
-                        return ListTile(
-                          title: Text(etq['nombre_visible'] ?? '',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w500)),
-                          trailing: const Icon(Icons.add_circle_outline_rounded,
-                              size: 18, color: AppTema.azulPrincipal),
-                          onTap: () {
-                            setState(() {
-                              _etiquetasSeleccionadas.add(etq['id']);
-                              _tagSearchCtrl.clear();
-                              _etiquetasFiltradas = _etiquetasCatalog;
-                            });
-                          },
-                        );
-                      },
+                  Material(
+                    color: Colors.transparent,
+                    elevation: 10,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _etiquetasFiltradas.length,
+                        itemBuilder: (context, index) {
+                          final etq = _etiquetasFiltradas[index];
+                          return Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              title: Text(etq['nombre_visible'] ?? '',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w500)),
+                              trailing: const Icon(Icons.add_circle_outline_rounded,
+                                  size: 18, color: AppTema.azulPrincipal),
+                              onTap: () {
+                                setState(() {
+                                  _etiquetasSeleccionadas.add(etq['id']);
+                                  _tagSearchCtrl.clear();
+                                  _etiquetasFiltradas = _etiquetasCatalog;
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
               ],
@@ -713,7 +717,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
               items: items
                   .map((e) => DropdownMenuItem<int?>(
                         value: e['id'],
-                        child: Text(e['nombre'].toString().toUpperCase(),
+                        child: Text(e['nombre'].toString(),
                             style: GoogleFonts.lato(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
                       ))
@@ -786,7 +790,7 @@ class _IngredienteFormPageState extends ConsumerState<IngredienteFormPage> {
     if (!_formKey.currentState!.validate()) return;
     if (_idGrupo == null || _idSubgrupo == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Debe seleccionar Grupo y Subgrupo"),
+          content: Text("Debe seleccionar grupo y subgrupo"),
           backgroundColor: Colors.orange));
       return;
     }

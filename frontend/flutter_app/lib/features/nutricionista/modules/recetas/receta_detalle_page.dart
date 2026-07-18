@@ -104,7 +104,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
           onPressed: widget.onBack,
         ),
         title: Text(
-          _textoLimpio(r['nombre'] ?? 'Detalle de Receta'),
+          _textoLimpio(r['nombre'] ?? 'Detalle de receta'),
           style: GoogleFonts.montserrat(
             color: AppTema.azulOscuro,
             fontWeight: FontWeight.w800,
@@ -225,7 +225,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                     _buildCompactStat(Icons.people_outline_rounded,
                         '${r['porciones'] ?? 0}', 'Porciones'),
                     _buildCompactStat(Icons.access_time_rounded, '$tTotal min',
-                        'Tiempo Total'),
+                        'Tiempo total'),
                   ],
                 ),
                 const Divider(height: 24, color: Color(0xFFF1F5F9)),
@@ -236,7 +236,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                     _buildCompactStat(
                         Icons.local_fire_department_rounded,
                         '${r['calorias_por_porcion'] ?? 0} kcal',
-                        'Cal / Porción'),
+                        'Calorías por porción'),
                   ],
                 ),
                 const Divider(height: 24, color: Color(0xFFF1F5F9)),
@@ -249,7 +249,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                             'No definido',
                         'Momento'),
                     _buildCompactStat(Icons.info_outline_rounded,
-                        r['activa'] == true ? 'ACTIVA' : 'INACTIVA', 'Estado'),
+                        r['activa'] == true ? 'Activa' : 'Inactiva', 'Estado'),
                   ],
                 ),
               ],
@@ -367,7 +367,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       labelStyle:
           GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
       tabs: const [
-        Tab(text: 'Información Nutricional'),
+        Tab(text: 'Información nutricional'),
         Tab(text: 'Ingredientes'),
         Tab(text: 'Preparación'),
         Tab(text: 'Etiquetas'),
@@ -393,7 +393,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                   const SizedBox(height: 24),
                   _buildInfoItem('Dificultad', r['dificultad']),
                   const SizedBox(height: 24),
-                  _buildInfoItem('Tiempo Preparación',
+                  _buildInfoItem('Tiempo preparación',
                       '${r['tiempo_preparacion_min'] ?? r['tiempo_preparacion'] ?? 0} min'),
                 ],
               )),
@@ -404,11 +404,11 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
                 children: [
                   _buildInfoItem('Porciones', r['porciones']),
                   const SizedBox(height: 24),
-                  _buildInfoItem('Tiempo Cocción',
+                  _buildInfoItem('Tiempo cocción',
                       '${r['tiempo_coccion_min'] ?? r['tiempo_coccion'] ?? 0} min'),
                   const SizedBox(height: 24),
                   _buildInfoItem(
-                      'Estado', r['activa'] == true ? 'ACTIVA' : 'INACTIVA'),
+                      'Estado', r['activa'] == true ? 'Activa' : 'Inactiva'),
                 ],
               )),
             ],
@@ -416,7 +416,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
           const SizedBox(height: 32),
           const Divider(),
           const SizedBox(height: 24),
-          _buildInfoItem('Peso Total Estimado', '${r['peso_total'] ?? 0} g'),
+          _buildInfoItem('Peso total estimado', '${r['peso_total'] ?? 0} g'),
         ],
       ),
     );
@@ -609,7 +609,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Comparativa de Macronutrientes',
+          Text('Comparativa de macronutrientes',
               style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
@@ -617,7 +617,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
           const SizedBox(height: 24),
           _buildBarChart(r),
           const SizedBox(height: 48),
-          Text('Desglose Detallado',
+          Text('Desglose detallado',
               style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
@@ -726,7 +726,7 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
       children: [
         if (rows.isNotEmpty) ...[
           Text(_textoLimpio(title),
-              style: GoogleFonts.inter(
+              style: GoogleFonts.montserrat(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.blueGrey,
