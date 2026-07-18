@@ -491,7 +491,6 @@ def registrar_tutor_solo(
 
 @router.get("/reglas-medicas")
 def listar_reglas_medicas(
-    q: Optional[str] = Query(default=None),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     include_total: bool = Query(False),
@@ -531,7 +530,7 @@ def obtener_form_data_reglas(
             select jsonb_build_object(
                 'condiciones', coalesce((
                     select jsonb_agg(
-                        jsonb_build_object('id', id, 'nombre', nombre)
+                        jsonb_build_object('id', id, 'nombre', nombre, 'id_tipo_condicion', id_tipo_condicion)
                         order by nombre
                     )
                     from heuristico.condicion

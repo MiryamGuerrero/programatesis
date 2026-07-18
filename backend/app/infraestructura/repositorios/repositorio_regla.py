@@ -174,7 +174,7 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 {where_sql}
                 group by r.id, a.nombre, t.nombre, t.id, i.nombre, g.nombre, s.nombre, e.nombre_visible, r.origen_regla
                 order by r.id desc
-                limit %(limite)s offset %(offset)s
+                limit %s offset %s
             """
             try:
                 cur.execute(sql, tuple(params) + (limite, offset))

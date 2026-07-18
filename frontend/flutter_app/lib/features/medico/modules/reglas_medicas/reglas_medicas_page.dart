@@ -1109,6 +1109,7 @@ class _MedicalRulesDataSource extends DataTableSource {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ],
     );
   }
 
