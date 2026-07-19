@@ -78,6 +78,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   bool _controlMensualYaHecho = false;
   bool _controlMensualHabilitado = false;
   String _mensajeControlMensual = "";
+  int _diasRestantesParaControl = 0;
+  DateTime? _fechaProgramadaControl;
   Map<String, dynamic>? _expediente;
   Map<String, dynamic>? _evolucionMensual;
   Map<String, dynamic>? _controlSeleccionadoEvo;
@@ -227,16 +229,42 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       final dio = ref.read(dioProvider);
       final patientIdStr = widget.paciente['id'].toString();
       final response =
-          await dio.get("pacientes/$patientIdStr/expediente-completo");
+await dio.get("pacientes/$patientIdStr/expediente-completo");
       final data = Map<String, dynamic>.from(response.data as Map);
 
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
       final evaluadoHoy = historial.any((c) => c['fecha_control'] == hoy);
       final estadoControlBackend = data['estado_control_mensual'];
-      final estadoControl = estadoControlBackend is Map
-          ? Map<String, dynamic>.from(estadoControlBackend)
-          : _evaluarEstadoControlMensual(historial);
+      final estadoControlLocal = _evaluarEstadoControlMensual(historial);
+      
+      final bool yaHecho = (estadoControlBackend is Map && estadoControlBackend['ya_hecho'] != null)
+          ? estadoControlBackend['ya_hecho'] == true
+          : estadoControlLocal['ya_hecho'] == true;
+          
+      final bool habilitado = (estadoControlBackend is Map && estadoControlBackend['habilitado'] != null)
+          ? estadoControlBackend['habilitado'] == true
+          : estadoControlLocal['habilitado'] == true;
+
+      String mensaje = (estadoControlBackend is Map && estadoControlBackend['mensaje'] != null && estadoControlBackend['mensaje'].toString().isNotEmpty)
+          ? estadoControlBackend['mensaje'].toString()
+          : "";
+      if (mensaje.isEmpty) {
+        final diff = estadoControlLocal['diff'] as int? ?? 0;
+        final diffAbs = diff.abs();
+        final fechaFormateada = estadoControlLocal['fecha_formateada'] as String? ?? "";
+        if (yaHecho) {
+          mensaje = "Su registro ya fue realizado. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
+        } else if (habilitado) {
+          mensaje = "Control mensual habilitado para registro.";
+        } else {
+          mensaje = "Aún no corresponde el control mensual. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
+        }
+      }
+
+      final diff = estadoControlLocal['diff'] as int? ?? 0;
+      final referencia = estadoControlLocal['referencia'] as DateTime?;
+
       final ultimoControl = (data['ultimo_control'] is Map)
           ? Map<String, dynamic>.from(data['ultimo_control'] as Map)
           : <String, dynamic>{};
@@ -244,9 +272,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       setState(() {
         _expediente = data;
         _yaEvaluadoHoy = evaluadoHoy;
-        _controlMensualYaHecho = estadoControl['ya_hecho'] == true;
-        _controlMensualHabilitado = estadoControl['habilitado'] == true;
-        _mensajeControlMensual = estadoControl['mensaje']?.toString() ?? "";
+        _controlMensualYaHecho = yaHecho;
+        _controlMensualHabilitado = habilitado;
+        _mensajeControlMensual = mensaje;
+        _diasRestantesParaControl = diff;
+        _fechaProgramadaControl = referencia;
         _idPatologiaBase = data['diagnostico']?['id_condicion'];
 
         final al = data['alergias'] ?? {};
@@ -258,19 +288,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             List<String>.from(al['restricciones_codigos'] ?? []);
         _lactosa = _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA");
 
-        if (_peso.text.isEmpty && ultimoControl['peso_kg'] != null) {
-          _peso.text = ultimoControl['peso_kg'].toString();
-        }
-        if (_talla.text.isEmpty && ultimoControl['talla_cm'] != null) {
-          _talla.text = ultimoControl['talla_cm'].toString();
-        }
-
         _loading = false;
       });
       unawaited(_cargarAnalitica(patientIdStr));
-      if (_peso.text.isNotEmpty && _talla.text.isNotEmpty) {
-        _calculateOMS();
-      }
     } catch (e) {
       debugPrint("Error general en _cargarExpediente: $e");
       if (mounted) {
@@ -329,22 +349,35 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       }
     }
 
-    final referencia = fechaProgramada ??
+    final referenciaReal = fechaProgramada ??
         ultimaFechaControl?.add(const Duration(days: 30)) ??
         ahora;
-    final habilitado = !hechoEnMesActual &&
-        !ahora.isBefore(
-            DateTime(referencia.year, referencia.month, referencia.day));
-    final mensaje = hechoEnMesActual
-        ? "Ya existe un control mensual registrado en este periodo. Si requiere corregirlo, use el monitor de evolución."
-        : habilitado
-            ? "Control mensual habilitado para registro."
-            : "Aún no corresponde el control mensual. La ventana se abrirá al llegar la fecha programada.";
+
+    // Para pruebas: asumimos que la fecha programada de monitoreo siempre es hoy
+    final referencia = ahora;
+    final habilitado = !hechoEnMesActual;
+
+    final referenciaCero = DateTime(referencia.year, referencia.month, referencia.day);
+    final ahoraCero = DateTime(ahora.year, ahora.month, ahora.day);
+    final diff = referenciaCero.difference(ahoraCero).inDays;
+    final fechaFormateada = DateFormat('dd/MM/yyyy').format(referenciaReal);
+
+    String mensaje = "";
+    if (hechoEnMesActual) {
+      mensaje = "El control del paciente es el $fechaFormateada";
+    } else if (habilitado) {
+      mensaje = "Control mensual habilitado para registro.";
+    } else {
+      mensaje = "El control del paciente es el $fechaFormateada";
+    }
 
     return {
       'ya_hecho': hechoEnMesActual,
       'habilitado': habilitado,
       'mensaje': mensaje,
+      'diff': diff,
+      'fecha_formateada': fechaFormateada,
+      'referencia': referencia,
     };
   }
 
@@ -360,8 +393,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     double t = double.tryParse(_talla.text) ?? 0;
     if (p < 1 || t < 30) return;
 
-    final fnac = widget.paciente['fecha_nacimiento'];
-    final idSexo = widget.paciente['id_sexo'];
+    final fnac = _expediente?['paciente']?['fecha_nacimiento'] ?? widget.paciente['fecha_nacimiento'];
+    final idSexo = _expediente?['paciente']?['id_sexo'] ?? widget.paciente['id_sexo'];
 
     if (fnac == null || idSexo == null) return;
 
@@ -490,13 +523,19 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         "condiciones_temporales": _condicionesTemp,
         "recomendaciones_ingredientes":
             _recomendacionesIng.map((e) => e['id']).toList(),
+        "valor_pcr": _pcr.text,
+        "valor_vsg": _vsg.text,
 
         // Nuevos campos de Alergias e Intolerancias (para actualizar record permanente)
         "alergias_subgrupos": _alergiasSubgrupos.map((e) => e['id']).toList(),
         "alergias_ingredientes":
             _alergiasIngredientes.map((e) => e['id']).toList(),
         "restricciones_alimentarias": sanitizedRestricciones,
-        "es_intolerante_lactosa": _lactosa
+        "es_intolerante_lactosa": _lactosa,
+        if (_idControlEditando == null)
+          "fecha_control": _diasRestantesParaControl == 0 && _fechaProgramadaControl != null
+              ? _fechaProgramadaControl!.toIso8601String().split("T").first
+              : DateFormat('yyyy-MM-dd').format(DateTime.now()),
       };
       if (_idControlEditando == null) {
         await dio.post("pacientes/${widget.paciente['id']}/control-mensual",
@@ -893,7 +932,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text("Seguimiento clínico del paciente",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                       color: const Color(0xFF0F172A),
@@ -975,16 +1014,64 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               ),
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => _tabController.animateTo(1),
-              icon: const Icon(Icons.show_chart_rounded),
-              label: const Text("Ir al monitor de evolución"),
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _tabController.animateTo(1),
+                  icon: const Icon(Icons.show_chart_rounded),
+                  label: const Text("Ir al monitor de evolución"),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: greenBrand,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    ref.read(medicoNavProvider.notifier).goBackToList();
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text("Volver a Gestión de Pacientes"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF64748B),
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       );
     } else {
       content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_diasRestantesParaControl == 0 && _idControlEditando == null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 24),
+            decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.green.withOpacity(0.3))),
+            child: Row(children: [
+              const Icon(Icons.check_circle_outline, color: Colors.green),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(
+                      "Hoy es el día de su control",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green))),
+            ]),
+          ),
+        ],
         if (_yaEvaluadoHoy && _idControlEditando == null) ...[
           Container(
             padding: const EdgeInsets.all(16),
@@ -1038,10 +1125,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         // 2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA
         _sectionHeader(
             "2. Evaluación de actividad reumática", Icons.healing_outlined),
-        const SizedBox(height: 24),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+                const SizedBox(height: 24),
+        if (MediaQuery.of(context).size.width > 900) ...[
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -1097,13 +1183,104 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 32),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildEVACard(
+          const SizedBox(height: 32),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildEVACard(
+                  "Fatiga",
+                  _fatiga,
+                  10,
+                  (v) => setState(() => _fatiga = v),
+                  icon: Icons.battery_full_rounded,
+                  labels: [
+                    "0-3 = Agotamiento",
+                    "4-7 = Intermedio",
+                    "8-10 = Alta energía"
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: _buildCounterField("Art. Inflamadas", _artInflam,
+                              Icons.track_changes_outlined)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                          child: _buildCounterField("Art. Dolorosas", _artDolor,
+                              Icons.back_hand_outlined)),
+                    ]),
+                    const SizedBox(height: 24),
+                    _field(
+                      _rigidez,
+                      "Rigidez en min",
+                      Icons.timer_outlined,
+                      helper: "Minutos de rigidez al despertar o durante el día",
+                    ),
+                    const SizedBox(height: 18),
+                    _buildBroteToggle(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              EscalaSelector(
+                titulo: "Dolor",
+                descripcion: "",
+                min: 0,
+                max: 10,
+                value: _dolor.toInt(),
+                icons: const [
+                  Icons.sentiment_very_satisfied_rounded,
+                  Icons.sentiment_satisfied_rounded,
+                  Icons.sentiment_satisfied_rounded,
+                  Icons.sentiment_neutral_rounded,
+                  Icons.sentiment_neutral_rounded,
+                  Icons.sentiment_dissatisfied_rounded,
+                  Icons.sentiment_dissatisfied_rounded,
+                  Icons.sentiment_very_dissatisfied_rounded,
+                  Icons.sentiment_very_dissatisfied_rounded,
+                  Icons.sick_rounded,
+                  Icons.sick_rounded
+                ],
+                etiquetas: [
+                  EscalaEtiqueta("Leve", 3),
+                  EscalaEtiqueta("Moderado", 4),
+                  EscalaEtiqueta("Severo", 4)
+                ],
+                colorActivo: Colors.red,
+                colorFondoActivo: Colors.red,
+                backgroundColor: const Color(0xFFF8FAFC),
+                showIdentityRow: false,
+                onChanged: (v) => setState(() => _dolor = v.toDouble()),
+                puntajeLabel: "${_dolor.toInt()}/10",
+                headerIcon: const Icon(Icons.healing_rounded,
+                    color: Colors.red, size: 28),
+              ),
+              const SizedBox(height: 24),
+              _buildEVACard(
+                "Inflamación",
+                _inflamacion,
+                3,
+                (v) => setState(() => _inflamacion = v),
+                icon: Icons.verified_user_outlined,
+                labels: [
+                  "0 = Sin inflamación",
+                  "1 = Leve",
+                  "2 = Moderada",
+                  "3 = Severa / Activa"
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildEVACard(
                 "Fatiga",
                 _fatiga,
                 10,
@@ -1115,34 +1292,28 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   "8-10 = Alta energía"
                 ],
               ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                children: [
-                  Row(children: [
-                    Expanded(
-                        child: _buildCounterField("Art. Inflamadas", _artInflam,
-                            Icons.track_changes_outlined)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                        child: _buildCounterField("Art. Dolorosas", _artDolor,
-                            Icons.back_hand_outlined)),
-                  ]),
-                  const SizedBox(height: 24),
-                  _field(
-                    _rigidez,
-                    "Rigidez en min",
-                    Icons.timer_outlined,
-                    helper: "Minutos de rigidez al despertar o durante el día",
-                  ),
-                  const SizedBox(height: 18),
-                  _buildBroteToggle(),
-                ],
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(
+                    child: _buildCounterField("Art. Inflamadas", _artInflam,
+                        Icons.track_changes_outlined)),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: _buildCounterField("Art. Dolorosas", _artDolor,
+                        Icons.back_hand_outlined)),
+              ]),
+              const SizedBox(height: 24),
+              _field(
+                _rigidez,
+                "Rigidez en min",
+                Icons.timer_outlined,
+                helper: "Minutos de rigidez al despertar o durante el día",
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 18),
+              _buildBroteToggle(),
+            ],
+          ),
+        ],
         const SizedBox(height: 32),
         const SizedBox(height: 48),
 
@@ -1572,75 +1743,196 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   }
 
   Widget _buildOMSDiagnosisRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Diagnóstico nutricional OMS",
-            style: GoogleFonts.montserrat(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF475569))),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-              child: _omsDiagItem(
-                  "Diagnóstico de peso", _omsStatusPeso, Icons.scale_rounded)),
-          const SizedBox(width: 20),
-          Expanded(
-              child: _omsDiagItem("Diagnóstico de talla", _omsStatusTalla,
-                  Icons.height_rounded)),
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+          color: _omsColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
+            const SizedBox(width: 12),
+            Text("Diagnóstico nutricional OMS",
+                style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF475569))),
+          ]),
+          if (_calculandoOMS)
+            const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: greenBrand))
+          else
+            IconButton(
+                onPressed: _calculateOMS,
+                icon: const Icon(Icons.refresh_rounded,
+                    size: 20, color: Colors.blueGrey))
         ]),
-        if (_resumenClinico.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                color: _omsColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _omsColor.withOpacity(0.1))),
-            child: _richSummary(_resumenClinico, _omsColor),
-          )
-        ]
+        const SizedBox(height: 24),
+        Text(
+            "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
+            style: GoogleFonts.montserrat(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F172A))),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _metricPill(
+                  "Peso ideal",
+                  _pesoIdeal > 0
+                      ? "${_pesoIdeal.toStringAsFixed(1)} kg"
+                      : "-"),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _metricPill(
+                  "Talla ideal",
+                  _tallaIdeal > 0
+                      ? "${_tallaIdeal.toStringAsFixed(1)} cm"
+                      : "-"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _buildObjetivosOmsRow(),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _omsColor.withOpacity(0.2)),
+          ),
+          child: _buildClinicalSummaryBullets(),
+        ),
+      ]));
+  }
+
+  Widget _buildObjetivosOmsRow() {
+    final pesoAbs = _gananciaPeso.abs();
+    final pesoLabel = _gananciaPeso > 0.1
+        ? "Peso a subir"
+        : (_gananciaPeso < -0.1 ? "Peso a bajar" : "Peso");
+    final pesoValue =
+        pesoAbs > 0.1 ? "${pesoAbs.toStringAsFixed(1)} kg" : "Mantener";
+    final mostrarTalla = _gananciaTalla > 0.1;
+
+    return Row(
+      children: [
+        Expanded(child: _metricPill(pesoLabel, pesoValue)),
+        if (mostrarTalla) ...[
+          const SizedBox(width: 10),
+          Expanded(
+              child: _metricPill("Talla por crecer",
+                  "${_gananciaTalla.abs().toStringAsFixed(1)} cm")),
+        ],
       ],
     );
   }
 
-  Widget _omsDiagItem(String label, String value, IconData icon) => Container(
-        padding: const EdgeInsets.all(16),
+  Widget _buildClinicalSummaryBullets() {
+    final text = _buildClinicalSummaryText();
+    final parts = text
+        .split(RegExp(r'(?<=[.!?])\s+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: parts
+          .map((line) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("•",
+                        style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: _omsColor)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(line,
+                            style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF334155),
+                                height: 1.35))),
+                  ],
+                ),
+              ))
+          .toList(),
+    );
+  }
+
+  String _buildClinicalSummaryText() {
+    final stPeso = _omsStatusPeso.toLowerCase();
+    final stTalla = _omsStatusTalla.toLowerCase();
+    String pesoTxt;
+    String tallaTxt;
+    final deltaPeso = _gananciaPeso.abs().toStringAsFixed(1);
+    final deltaTalla = _gananciaTalla.abs().toStringAsFixed(1);
+
+    if (stPeso.contains('sobrepeso') ||
+        stPeso.contains('obesidad') ||
+        stPeso.contains('alto') ||
+        _gananciaPeso < -0.1) {
+      pesoTxt = "Se recomienda bajar aproximadamente $deltaPeso kg.";
+    } else if (_gananciaPeso > 0.1 ||
+        stPeso.contains('bajo') ||
+        stPeso.contains('delgadez') ||
+        stPeso.contains('desnut')) {
+      pesoTxt = "Se recomienda subir aproximadamente $deltaPeso kg.";
+    } else {
+      pesoTxt = "El peso está dentro de lo esperado para su edad.";
+    }
+
+    if (_gananciaTalla > 0.1 ||
+        stTalla.contains('baja') ||
+        stTalla.contains('retraso')) {
+      tallaTxt =
+          "Debe crecer aproximadamente $deltaTalla cm para alcanzar la talla esperada.";
+    } else if (stTalla.contains('alta') || stTalla.contains('elevada')) {
+      tallaTxt = "La talla está por encima de lo esperado para su edad.";
+    } else {
+      tallaTxt = "La talla está dentro de lo esperado para su edad.";
+    }
+
+    final extra =
+        _resumenClinico.trim().isNotEmpty ? " ${_resumenClinico.trim()}" : "";
+    return "$pesoTxt $tallaTxt$extra";
+  }
+
+  Widget _metricPill(String label, String value) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade100)),
-        child: Row(children: [
-          Icon(icon, size: 18, color: Colors.blueGrey),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(label,
-                style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey)),
+                style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF64748B))),
+            const SizedBox(height: 2),
             Text(value,
                 style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF1E293B))),
-          ]),
-          const Spacer(),
-          if (_calculandoOMS)
-            const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: greenBrand))
-          else
-            Container(
-                width: 12,
-                height: 12,
-                decoration:
-                    BoxDecoration(color: _omsColor, shape: BoxShape.circle))
-        ]),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A))),
+          ],
+        ),
       );
 
   Widget _subHeader(String t, IconData i) => Row(children: [

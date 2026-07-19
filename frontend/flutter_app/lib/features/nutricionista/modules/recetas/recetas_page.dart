@@ -133,46 +133,25 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Recetario terapéutico",
-              style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulPrincipal,
-                letterSpacing: -0.5,
-              ),
-            ),
-            Text(
-              "Administración de preparaciones y composición nutricional por plato.",
-              style: GoogleFonts.inter(
-                color: Colors.blueGrey,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => setState(() {
-            _isEditing = true;
-            _recetaParaEditar = null;
-          }),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        Text(
+          "Recetario terapéutico",
+          style: GoogleFonts.inter(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: AppTema.azulPrincipal,
+            letterSpacing: -0.5,
           ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("Nueva receta",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
+        ),
+        Text(
+          "Administración de preparaciones y composición nutricional por plato.",
+          style: GoogleFonts.inter(
+            color: Colors.blueGrey,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -222,103 +201,144 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   }
 
   Widget _buildToolbar(RecetasState state) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                      ref.read(recetasProvider.notifier).setQuery(v);
+                    });
+                  },
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por nombre, momento o tipo de plato...",
+                    hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 20, color: Colors.grey),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
               height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
+              child: FilledButton.icon(
+                onPressed: () => setState(() {
+                  _isEditing = true;
+                  _recetaParaEditar = null;
+                }),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                label: Text("Nueva receta",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800, fontSize: 13)),
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-                    ref.read(recetasProvider.notifier).setQuery(v);
-                  });
-                },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por nombre, momento o tipo de plato...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildFilterDropdown(
+                  label: "Momento",
+                  value: state.momentoSeleccionado,
+                  items: state.momentosComida,
+                  onChanged: (value) =>
+                      ref.read(recetasProvider.notifier).setMomentoSeleccionado(value),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildFilterDropdown(
-              label: "Momento",
-              value: state.momentoSeleccionado,
-              items: state.momentosComida,
-              onChanged: (value) =>
-                  ref.read(recetasProvider.notifier).setMomentoSeleccionado(value),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildFilterDropdown(
-          label: "Tipo de plato",
-              value: state.tipoPlatoSeleccionado,
-              items: state.tiposPlato,
-              onChanged: (value) => ref
-                  .read(recetasProvider.notifier)
-                  .setTipoPlatoSeleccionado(value),
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: state.filtrosActivos
-                  ? () {
-                      _searchController.clear();
-                      ref.read(recetasProvider.notifier).clearFilters();
-                    }
-                  : null,
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: Colors.grey.shade200),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-              ),
-              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-              label: Text(
-                "Limpiar",
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFilterDropdown(
+                  label: "Tipo de plato",
+                  value: state.tipoPlatoSeleccionado,
+                  items: state.tiposPlato,
+                  onChanged: (value) => ref
+                      .read(recetasProvider.notifier)
+                      .setTipoPlatoSeleccionado(value),
                 ),
               ),
-            ),
+              const SizedBox(width: 16),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: state.filtrosActivos
+                      ? () {
+                          _searchController.clear();
+                          ref.read(recetasProvider.notifier).clearFilters();
+                        }
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24)),
+                    side: BorderSide(color: Colors.grey.shade200),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                  ),
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+                  label: Text(
+                    "Limpiar",
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded,
+                    size: 22, color: AppTema.azulPrincipal),
+                onPressed: () => ref.read(recetasProvider.notifier).loadRecetas(reload: true),
+                tooltip: "Actualizar recetario",
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () => ref.read(recetasProvider.notifier).loadRecetas(reload: true),
-            tooltip: "Actualizar recetario",
-            style: IconButton.styleFrom(
-              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -344,7 +364,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
             label,
             style: GoogleFonts.montserrat(
               color: Colors.grey.shade600,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -354,7 +374,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
               child: Text(
                 label == "Momento" ? "Todos los momentos" : "Todo el menú",
                 style: GoogleFonts.montserrat(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -366,7 +386,7 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 child: Text(
                   item["nombre"]?.toString() ?? "Sin nombre",
                   style: GoogleFonts.montserrat(
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,

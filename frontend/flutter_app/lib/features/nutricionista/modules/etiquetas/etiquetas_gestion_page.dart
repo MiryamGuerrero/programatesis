@@ -505,41 +505,42 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.transparent,
-        splashColor: widget.color.withValues(alpha: 0.2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.2)
-                    : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 18),
-              const SizedBox(height: 4),
-              Text(widget.label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                      height: 1.0)),
-            ],
-          ),
+    return InkWell(
+      onHover: (hovered) {
+        setState(() {
+          _isHovered = hovered;
+        });
+      },
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(12),
+      hoverColor: Colors.transparent,
+      splashColor: widget.color.withValues(alpha: 0.2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? widget.color.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: _isHovered
+                  ? widget.color.withValues(alpha: 0.2)
+                  : Colors.transparent),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 18),
+            const SizedBox(height: 4),
+            Text(widget.label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: widget.color,
+                    height: 1.0)),
+          ],
         ),
       ),
     );

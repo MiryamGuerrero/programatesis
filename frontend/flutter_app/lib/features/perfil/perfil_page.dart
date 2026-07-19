@@ -124,13 +124,13 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Mi perfil",
-                    style: GoogleFonts.montserrat(
-                        fontSize: 26,
+                    style: GoogleFonts.inter(
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: AppTema.azulPrincipal,
                         letterSpacing: -0.5)),
                 Text("Gestiona tu información personal y profesional.",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         color: Colors.blueGrey,
                         fontSize: 13,
                         fontWeight: FontWeight.w500)),

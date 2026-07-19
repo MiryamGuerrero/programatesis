@@ -1,5 +1,4 @@
 import "dart:async";
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -31,8 +30,6 @@ class _CondicionesNutricionalesPageState
   String _searchQuery = "";
   Timer? _searchDebounce;
 
-  bool get _filtrosActivos => _searchQuery.isNotEmpty;
-
   @override
   void initState() {
     super.initState();
@@ -54,15 +51,6 @@ class _CondicionesNutricionalesPageState
     _tabController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
-  }
-
-  void _limpiarFiltros() {
-    _searchController.clear();
-    setState(() {
-      _searchQuery = "";
-      _offset = 0;
-    });
-    _fetchData(offset: 0, updateStats: true);
   }
 
   Future<void> _fetchData({int? offset, bool updateStats = false}) async {
@@ -113,15 +101,6 @@ class _CondicionesNutricionalesPageState
     }
   }
 
-  String _truncateDescription(String? desc) {
-    if (desc == null || desc.isEmpty) return "-";
-    int dotIndex = desc.indexOf('.');
-    if (dotIndex != -1) {
-      return desc.substring(0, dotIndex + 1);
-    }
-    return desc;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,39 +126,21 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Catálogo de condiciones",
-                style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulPrincipal,
-                    letterSpacing: -0.5)),
-            Text(
-                "Diccionario maestro de diagnósticos y eventos de salud para el sistema.",
-                style: GoogleFonts.inter(
-                    color: Colors.blueGrey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _abrirFormulario(),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("Nueva condición",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
-        ),
+        Text("Catálogo de Condiciones",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Repositorio de diagnósticos clínicos y estados nutricionales.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -219,60 +180,73 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre de condición...",
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                    if (mounted) {
-                      setState(() => _searchQuery = v);
-                      _fetchData(offset: 0, updateStats: true);
-                    }
-                  });
-                },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por nombre de condición...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  if (mounted) {
+                    setState(() => _searchQuery = v);
+                    _fetchData(offset: 0, updateStats: true);
+                  }
+                });
+              },
             ),
           ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () => _fetchData(updateStats: true),
-            tooltip: "Actualizar catálogo",
-            style: IconButton.styleFrom(
-              backgroundColor:
-                  AppTema.azulPrincipal.withValues(alpha: 0.05),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _abrirFormulario(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
             ),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+            label: Text("Nueva condición",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800, fontSize: 13)),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded,
+              size: 22, color: AppTema.azulPrincipal),
+          onPressed: () => _fetchData(updateStats: true),
+          tooltip: "Actualizar catálogo",
+          style: IconButton.styleFrom(
+            backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -407,7 +381,7 @@ class _CondicionesNutricionalesPageState
             maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.white,
                 letterSpacing: 0.5),
           ),
@@ -554,7 +528,7 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
               Text(widget.label,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                      fontSize: 8,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: widget.color,
                       height: 1.0)),
@@ -1235,7 +1209,7 @@ class _CondicionesDataSource extends DataTableSource {
                     children: [
                       Text(c["nombre"]?.toString() ?? "Condición",
                           style: GoogleFonts.inter(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF1E293B))),
                       Text(c["descripcion"]?.toString() ?? "-",

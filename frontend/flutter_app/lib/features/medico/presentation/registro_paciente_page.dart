@@ -321,7 +321,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     double p = double.tryParse(_clinPeso.text) ?? 0;
     double t = double.tryParse(_clinTalla.text) ?? 0;
     if (p > 1 && t > 30 && _pacFechaNac != null && _pacSexo != null) {
-      setState(() => _calculandoOMS = true);
+      setState(() { _calculandoOMS = true; _omsError = null; });
       try {
         double asDouble(dynamic value, {double fallback = 0}) {
           if (value is num) return value.toDouble();
@@ -363,8 +363,14 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _calculandoOMS = false;
           });
         }
-      } catch (_) {
-        if (mounted) setState(() => _calculandoOMS = false);
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _calculandoOMS = false;
+            _omsError = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+            _omsColor = Colors.red;
+          });
+        }
       }
     }
   }
@@ -376,6 +382,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   double _gananciaTalla = 0;
   String _estadoPeso = "mantener";
   bool _calculandoOMS = false;
+  String? _omsError;
   Color _omsColor = Colors.grey;
   double _pesoMediana = 0;
   double _tallaMediana = 0;
@@ -707,13 +714,13 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   ref.read(medicoNavProvider.notifier).goBackToList()),
           const SizedBox(width: 24),
           Expanded(
-              child: Text(
+              child:               Text(
             _idPacienteEditando == null
                 ? "Registro integral pediátrico"
                 : widget.fixedOnly
                     ? "Datos clínicos base: ${_pacNombre.text}"
                     : "Expediente: ${_pacNombre.text}",
-            style: GoogleFonts.inter(
+            style: GoogleFonts.montserrat(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A)),
@@ -3217,6 +3224,27 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 icon: const Icon(Icons.refresh_rounded,
                     size: 20, color: Colors.blueGrey))
         ]),
+        if (_omsError != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(children: [
+              Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade600),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_omsError!,
+                    style: GoogleFonts.inter(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: Colors.red.shade700)),
+              ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 24),
         Text(
             "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",

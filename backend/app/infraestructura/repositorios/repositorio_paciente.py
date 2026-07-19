@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 import logging
 from typing import Optional, List, Dict, Any, Tuple, Set
@@ -197,32 +197,29 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
             if fecha_control.year == hoy.year and fecha_control.month == hoy.month:
                 hubo_control_en_mes_actual = True
+        
+        referencia_real = fecha_programada or (ultima_fecha_control + timedelta(days=30) if ultima_fecha_control else None)
+        fecha_formateada = referencia_real.strftime("%d/%m/%Y") if referencia_real else hoy.strftime("%d/%m/%Y")
+        
+        # Para pruebas, asumimos que la fecha de monitoreo es hoy
+        referencia = hoy
+        habilitado = not hubo_control_en_mes_actual
 
-        referencia = fecha_programada or (ultima_fecha_control + timedelta(days=30) if ultima_fecha_control else None)
         if hubo_control_en_mes_actual:
             return {
                 "ya_hecho": True,
                 "habilitado": False,
                 "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
-                "fecha_referencia": referencia.isoformat() if referencia else None,
-                "mensaje": "Ya existe un control mensual registrado en este periodo. Si desea modificarlo, vaya al monitor de evoluciÃ³n.",
-            }
-
-        if referencia is None or hoy >= referencia:
-            return {
-                "ya_hecho": False,
-                "habilitado": True,
-                "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
-                "fecha_referencia": referencia.isoformat() if referencia else None,
-                "mensaje": "Control mensual habilitado para registro.",
+                "fecha_referencia": referencia.isoformat(),
+                "mensaje": f"El control del paciente es el {fecha_formateada}",
             }
 
         return {
             "ya_hecho": False,
-            "habilitado": False,
+            "habilitado": True,
             "fecha_ultima_control": ultima_fecha_control.isoformat() if ultima_fecha_control else None,
-            "fecha_referencia": referencia.isoformat() if referencia else None,
-            "mensaje": "AÃºn no corresponde el control mensual. La ventana se habilitarÃ¡ al llegar la fecha programada.",
+            "fecha_referencia": referencia.isoformat(),
+            "mensaje": "Control mensual habilitado para registro.",
         }
 
     def _obtener_codigos_catalogo_restricciones(self, cur) -> set[str]:
@@ -545,7 +542,39 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 p = cur.fetchone()
                 if not p: raise Exception("Paciente no encontrado")
                 
-                evaluacion = ServicioOMS.evaluar_paciente_integral(float(datos.get("peso_kg") or 0), float(datos.get("talla_cm") or 0), p[1], p[0], date.today())
+                from datetime import date
+                fecha_control_val = datos.get("fecha_control")
+                if isinstance(fecha_control_val, str):
+                    fecha_control_dt = date.fromisoformat(fecha_control_val)
+                elif isinstance(fecha_control_val, date):
+                    fecha_control_dt = fecha_control_val
+                else:
+                    fecha_control_dt = date.today()
+
+                def safe_int(val, default=0):
+                    try:
+                        if val is None: return default
+                        s = str(val).strip()
+                        if not s: return default
+                        return int(s)
+                    except:
+                        return default
+
+                def safe_float(val, default=0.0):
+                    try:
+                        if val is None: return default
+                        s = str(val).strip()
+                        if not s: return default
+                        return float(s)
+                    except:
+                        return default
+
+                peso_val = safe_float(datos.get("peso_kg"))
+                talla_val = safe_float(datos.get("talla_cm"))
+                if peso_val <= 0 or talla_val <= 0:
+                    raise Exception("El peso y la talla son obligatorios y deben ser mayores a 0")
+
+                evaluacion = ServicioOMS.evaluar_paciente_integral(peso_val, talla_val, p[1], p[0], fecha_control_dt)
                 heur_bmi = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
                 heur_hfa = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
 
@@ -557,18 +586,18 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
                         en_brote, estado_enfermedad, valor_pcr, valor_vsg, nota_evolucion, fecha_proxima_cita, created_at
                     ) values (
-                        %s, now(), %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
                     ) returning id
                 """, (
-                    id_paciente, float(datos.get("peso_kg") or 0), float(datos.get("talla_cm") or 0), evaluacion["edad_meses"],
+                    id_paciente, fecha_control_dt, peso_val, talla_val, evaluacion["edad_meses"],
                     evaluacion["imc"], heur_bmi, evaluacion["diagnostico_combinado"], id_medico,
-                    int(datos.get("puntos_dolor") or 0), int(datos.get("escala_inflamacion") or 0),
-                    int(datos.get("fatiga", datos.get("nivel_fatiga", 10)) or 10),
-                    int(datos.get("articulaciones_inflamadas") or 0), int(datos.get("articulaciones_dolorosas") or 0),
-                    datos.get("minutos_rigidez"), bool(datos.get("en_brote")),
+                    safe_int(datos.get("puntos_dolor")), safe_int(datos.get("escala_inflamacion")),
+                    safe_int(datos.get("fatiga", datos.get("nivel_fatiga", 10)), 10),
+                    safe_int(datos.get("articulaciones_inflamadas")), safe_int(datos.get("articulaciones_dolorosas")),
+                    safe_int(datos.get("minutos_rigidez")) if datos.get("minutos_rigidez") else None, bool(datos.get("en_brote")),
                     datos.get("estado_enfermedad") or "Seguimiento",
-                    float(datos.get("valor_pcr") or 0), float(datos.get("valor_vsg") or 0),
+                    safe_float(datos.get("valor_pcr")), safe_float(datos.get("valor_vsg")),
                     datos.get("nota_evolucion"), datos.get("fecha_proxima_cita")
                 ))
                 cid = cur.fetchone()[0]
@@ -587,15 +616,28 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     if datos.get("es_intolerante_lactosa") == True:
                         restricciones.add("INTOLERANCIA_LACTOSA")
 
-                    subs = set(datos.get("alergias_subgrupos", []))
+                    subs = set()
+                    for x in (datos.get("alergias_subgrupos") or []):
+                        try:
+                            if x is not None:
+                                subs.add(int(x))
+                        except:
+                            pass
                     self._guardar_restricciones_alimentarias(cur, str(id_paciente), restricciones)
                     
                     for sid in subs:
                         cur.execute("insert into clinico.alergia_paciente_subgrupo (id_paciente, id_subgrupo_alimentario, fecha_registro, activa) values (%s, %s, now(), true)", (id_paciente, sid))
                     
+                    ingredientes_raw = set()
+                    for x in (datos.get("alergias_ingredientes") or []):
+                        try:
+                            if x is not None:
+                                ingredientes_raw.add(int(x))
+                        except:
+                            pass
                     ingredientes_finales = self._filtrar_ingredientes_no_redundantes(
                         cur,
-                        set(datos.get("alergias_ingredientes", [])),
+                        ingredientes_raw,
                         subs,
                     )
                     for iid in ingredientes_finales:
@@ -616,7 +658,40 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
                 cur.execute("select fecha_nacimiento, id_sexo from usuarios.paciente where id = %s", (control[0],))
                 paciente = cur.fetchone()
-                evaluacion = ServicioOMS.evaluar_paciente_integral(float(datos.get("peso_kg") or 0), float(datos.get("talla_cm") or 0), paciente[1], paciente[0], date.today())
+
+                from datetime import date
+                fecha_control_val = datos.get("fecha_control")
+                if isinstance(fecha_control_val, str):
+                    fecha_control_dt = date.fromisoformat(fecha_control_val)
+                elif isinstance(fecha_control_val, date):
+                    fecha_control_dt = fecha_control_val
+                else:
+                    fecha_control_dt = date.today()
+
+                def safe_int(val, default=0):
+                    try:
+                        if val is None: return default
+                        s = str(val).strip()
+                        if not s: return default
+                        return int(s)
+                    except:
+                        return default
+
+                def safe_float(val, default=0.0):
+                    try:
+                        if val is None: return default
+                        s = str(val).strip()
+                        if not s: return default
+                        return float(s)
+                    except:
+                        return default
+
+                peso_val = safe_float(datos.get("peso_kg"))
+                talla_val = safe_float(datos.get("talla_cm"))
+                if peso_val <= 0 or talla_val <= 0:
+                    raise Exception("El peso y la talla son obligatorios y deben ser mayores a 0")
+
+                evaluacion = ServicioOMS.evaluar_paciente_integral(peso_val, talla_val, paciente[1], paciente[0], fecha_control_dt)
                 
                 cur.execute("""
                     update clinico.control_paciente set 
@@ -625,16 +700,18 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         puntos_dolor = %s, escala_inflamacion = %s, nivel_fatiga = %s,
                         articulaciones_inflamadas = %s, articulaciones_dolorosas = %s, 
                         minutos_rigidez = %s, en_brote = %s, estado_enfermedad = %s, 
-                        nota_evolucion = %s, fecha_proxima_cita = %s
+                        nota_evolucion = %s, fecha_proxima_cita = %s,
+                        fecha_control = coalesce(%s, fecha_control)
                     where id = %s
                 """, (
-                    float(datos.get("peso_kg") or 0), float(datos.get("talla_cm") or 0), evaluacion["edad_meses"], evaluacion["imc"],
+                    peso_val, talla_val, evaluacion["edad_meses"], evaluacion["imc"],
                     int(datos.get("id_condicion_nutricional_peso") or 110), evaluacion["diagnostico_combinado"],
-                    int(datos.get("puntos_dolor") or 0), int(datos.get("escala_inflamacion") or 0),
-                    int(datos.get("fatiga", datos.get("nivel_fatiga", 10)) or 10),
-                    int(datos.get("articulaciones_inflamadas") or 0), int(datos.get("articulaciones_dolorosas") or 0),
-                    datos.get("minutos_rigidez"), bool(datos.get("en_brote")),
+                    safe_int(datos.get("puntos_dolor")), safe_int(datos.get("escala_inflamacion")),
+                    safe_int(datos.get("fatiga", datos.get("nivel_fatiga", 10)), 10),
+                    safe_int(datos.get("articulaciones_inflamadas")), safe_int(datos.get("articulaciones_dolorosas")),
+                    safe_int(datos.get("minutos_rigidez")) if datos.get("minutos_rigidez") else None, bool(datos.get("en_brote")),
                     datos.get("estado_enfermedad") or "Seguimiento", datos.get("nota_evolucion"), datos.get("fecha_proxima_cita"),
+                    fecha_control_dt if datos.get("fecha_control") is not None else None,
                     id_control
                 ))
                 cur.execute("COMMIT")

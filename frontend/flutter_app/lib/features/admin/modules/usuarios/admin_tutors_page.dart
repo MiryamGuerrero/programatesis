@@ -66,39 +66,21 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Gestión de cuentas de tutores",
-                style: GoogleFonts.montserrat(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulPrincipal,
-                    letterSpacing: -0.5)),
-            Text(
-                "Supervisión de accesos para representantes y padres de familia.",
-                style: GoogleFonts.montserrat(
-                    color: Colors.blueGrey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _dialogoTutor(null),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-          icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-          label: Text("Invitar tutor",
-              style:
-                  GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
-        ),
+        Text("Gestión de cuentas de tutores",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Supervisión de accesos para representantes y padres de familia.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -138,77 +120,92 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   }
 
   Widget _buildToolbar(AdminUsersState state) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce =
-                      Timer(const Duration(milliseconds: 350), () {
-                    ref.read(adminTutorsProvider.notifier).setSearchQuery(v);
-                  });
-                },
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por nombre o correo de representante...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
             height: 48,
-            child: OutlinedButton.icon(
-              onPressed: state.activeFilters ? _limpiarFiltros : null,
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: Colors.grey.shade200),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre o correo de representante...",
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-              label: Text(
-                "Limpiar",
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce =
+                    Timer(const Duration(milliseconds: 350), () {
+                  ref.read(adminTutorsProvider.notifier).setSearchQuery(v);
+                });
+              },
             ),
           ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () => ref.read(adminTutorsProvider.notifier).loadPage(),
-            tooltip: "Actualizar lista",
-            style: IconButton.styleFrom(
-              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _dialogoTutor(null),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+            label: Text("Invitar tutor",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800, fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: state.activeFilters ? _limpiarFiltros : null,
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              side: BorderSide(color: Colors.grey.shade200),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+            icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+            label: Text(
+              "Limpiar",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded,
+              size: 22, color: AppTema.azulPrincipal),
+          onPressed: () => ref.read(adminTutorsProvider.notifier).loadPage(),
+          tooltip: "Actualizar lista",
+          style: IconButton.styleFrom(
+            backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -307,7 +304,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.white,
                 letterSpacing: 0.5),
           ),
@@ -472,11 +469,11 @@ class _AdminTutorsDataSource extends DataTableSource {
                     Text(u["nombre_completo"] ?? "Sin nombre",
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w800,
-                            fontSize: 14,
+                            fontSize: 12,
                             color: AppTema.azulOscuro)),
                     Text(u["email"] ?? "",
                         style: GoogleFonts.inter(
-                            fontSize: 12, color: Colors.blueGrey)),
+                            fontSize: 11, color: Colors.blueGrey)),
                   ],
                 ),
               ),
@@ -489,7 +486,7 @@ class _AdminTutorsDataSource extends DataTableSource {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(u["cedula"]?.toString() ?? "N/A",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTema.azulPrincipal)),
@@ -584,41 +581,42 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.transparent,
-        splashColor: widget.color.withValues(alpha: 0.2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.2)
-                    : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 20),
-              const SizedBox(height: 4),
-              Text(widget.label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                      height: 1.0)),
-            ],
-          ),
+    return InkWell(
+      onHover: (hovered) {
+        setState(() {
+          _isHovered = hovered;
+        });
+      },
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(12),
+      hoverColor: Colors.transparent,
+      splashColor: widget.color.withValues(alpha: 0.2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? widget.color.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: _isHovered
+                  ? widget.color.withValues(alpha: 0.2)
+                  : Colors.transparent),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 20),
+            const SizedBox(height: 4),
+            Text(widget.label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: widget.color,
+                    height: 1.0)),
+          ],
         ),
       ),
     );

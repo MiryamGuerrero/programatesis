@@ -76,39 +76,21 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Gestión de reglas nutricionales",
-                style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulPrincipal,
-                    letterSpacing: -0.5)),
-            Text(
-                "Configuración de lógica experta basada en etiquetas y condiciones nutricionales.",
-                style: GoogleFonts.inter(
-                    color: Colors.blueGrey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _showForm(),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("Nueva regla",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
-        ),
+        Text("Gestión de reglas nutricionales",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Configuración de lógica experta basada en etiquetas y condiciones nutricionales.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -176,102 +158,141 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
   }
 
   Widget _buildToolbar(ReglasNutricionalesState state) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por alimento o ingrediente objetivo...",
+                    hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 20, color: Colors.grey),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onChanged: (v) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce =
+                        Timer(const Duration(milliseconds: 350), () {
+                      ref
+                          .read(reglasNutricionalesProvider.notifier)
+                          .setSearchQuery(v);
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
               height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
+              child: FilledButton.icon(
+                onPressed: () => _showForm(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                label: Text("Nueva regla",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800, fontSize: 13)),
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                    ref
-                        .read(reglasNutricionalesProvider.notifier)
-                        .setSearchQuery(v);
-                  });
-                },
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por alimento o ingrediente objetivo...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSimpleFilterDropdown(
+                  label: "Condición",
+                  value: state.filtroCondicion,
+                  items: (state.formData["condiciones"] ?? []),
+                  onChanged: (v) => ref
+                      .read(reglasNutricionalesProvider.notifier)
+                      .setFiltroCondicion(v),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildSimpleFilterDropdown(
-              label: "Condición",
-              value: state.filtroCondicion,
-              items: (state.formData["condiciones"] ?? []),
-              onChanged: (v) => ref
-                  .read(reglasNutricionalesProvider.notifier)
-                  .setFiltroCondicion(v),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildSimpleFilterDropdown(
-              label: "Acción",
-              value: state.filtroAccion,
-              items: (state.formData["acciones"] ?? []),
-              onChanged: (v) => ref
-                  .read(reglasNutricionalesProvider.notifier)
-                  .setFiltroAccion(v),
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: state.activeFilters ? _limpiarFiltros : null,
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: Colors.grey.shade200),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-              ),
-              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-              label: Text(
-                "Limpiar",
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildSimpleFilterDropdown(
+                  label: "Acción",
+                  value: state.filtroAccion,
+                  items: (state.formData["acciones"] ?? []),
+                  onChanged: (v) => ref
+                      .read(reglasNutricionalesProvider.notifier)
+                      .setFiltroAccion(v),
                 ),
               ),
-            ),
+              const SizedBox(width: 16),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: state.activeFilters ? _limpiarFiltros : null,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24)),
+                    side: BorderSide(color: Colors.grey.shade200),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                  ),
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+                  label: Text(
+                    "Limpiar",
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded,
+                    size: 22, color: AppTema.azulPrincipal),
+                onPressed: () =>
+                    ref.read(reglasNutricionalesProvider.notifier).loadData(),
+                tooltip: "Actualizar motor",
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () =>
-                ref.read(reglasNutricionalesProvider.notifier).loadData(),
-            tooltip: "Actualizar motor",
-            style: IconButton.styleFrom(
-              backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -297,7 +318,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
             label,
             style: GoogleFonts.montserrat(
               color: Colors.grey.shade600,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -307,7 +328,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
               child: Text(
                 label == "Condición" ? "Todas las condiciones" : "Todas las acciones",
                 style: GoogleFonts.montserrat(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -318,7 +339,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
                 child: Text(
                   item["nombre"]?.toString() ?? "Sin nombre",
                   style: GoogleFonts.montserrat(
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -347,22 +368,28 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
                     letterSpacing: 1)),
             const SizedBox(width: 16),
             _filterChip("Todos", state.selectedObjetivos.isEmpty,
-                () => ref.read(reglasNutricionalesProvider.notifier).clearObjetivos()),
+                () => ref.read(reglasNutricionalesProvider.notifier).clearObjetivos(),
+                icon: Icons.select_all_rounded),
             const SizedBox(width: 12),
             ...tipos.map((t) {
               String labelText = "";
+              IconData chipIcon = Icons.category_rounded;
               switch (t) {
                 case "INGREDIENTE":
                   labelText = "Ingrediente";
+                  chipIcon = Icons.eco_outlined;
                   break;
                 case "GRUPO":
                   labelText = "Grupo";
+                  chipIcon = Icons.group_outlined;
                   break;
                 case "SUBGRUPO":
                   labelText = "Subgrupo";
+                  chipIcon = Icons.layers_outlined;
                   break;
                 case "ETIQUETA":
                   labelText = "Etiqueta";
+                  chipIcon = Icons.label_outline_rounded;
                   break;
                 default:
                   labelText = t;
@@ -374,7 +401,8 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
                     state.selectedObjetivos.contains(t),
                     () => ref
                         .read(reglasNutricionalesProvider.notifier)
-                        .toggleObjetivo(t)),
+                        .toggleObjetivo(t),
+                    icon: chipIcon),
               );
             }),
           ],
@@ -383,24 +411,33 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
     );
   }
 
-  Widget _filterChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _filterChip(String label, bool isSelected, VoidCallback onTap, {IconData? icon}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppTema.azulPrincipal : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
               color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
         ),
-        child: Text(label,
-            style: GoogleFonts.montserrat(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : Colors.grey.shade600)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: isSelected ? Colors.white : Colors.grey.shade600),
+              const SizedBox(width: 6),
+            ],
+            Text(label,
+                style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? Colors.white : Colors.grey.shade600)),
+          ],
+        ),
       ),
     );
   }
@@ -500,7 +537,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
             maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.white,
                 letterSpacing: 0.5),
           ),
@@ -650,7 +687,7 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
           child: Text(reglasNutricionalesTargetName(r),
               softWrap: true,
               style: GoogleFonts.inter(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: const Color(0xFF1E293B),
                   fontWeight: FontWeight.w700)),
         ),
@@ -998,41 +1035,42 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.transparent,
-        splashColor: widget.color.withValues(alpha: 0.2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.2)
-                    : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 18),
-              const SizedBox(height: 4),
-              Text(widget.label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                      height: 1.0)),
-            ],
-          ),
+    return InkWell(
+      onHover: (hovered) {
+        setState(() {
+          _isHovered = hovered;
+        });
+      },
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(12),
+      hoverColor: Colors.transparent,
+      splashColor: widget.color.withValues(alpha: 0.2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? widget.color.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: _isHovered
+                  ? widget.color.withValues(alpha: 0.2)
+                  : Colors.transparent),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 18),
+            const SizedBox(height: 4),
+            Text(widget.label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: widget.color,
+                    height: 1.0)),
+          ],
         ),
       ),
     );

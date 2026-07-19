@@ -170,39 +170,21 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Catálogo de etiquetas",
-                style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulPrincipal,
-                    letterSpacing: -0.5)),
-            Text(
-                "Gestión de descriptores nutricionales para automatización de dietas y reglas clínicas.",
-                style: GoogleFonts.inter(
-                    color: Colors.blueGrey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _abrirFormulario(),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("Nueva etiqueta",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
-        ),
+        Text("Catálogo de etiquetas",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Gestión de descriptores nutricionales para automatización de dietas y reglas clínicas.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -241,79 +223,92 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   }
 
   Widget _buildToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _query = v;
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                    _loadEtiquetas(offset: 0, updateStats: true);
-                  });
-                },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por nombre de etiqueta...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
             height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _filtrosActivos ? _limpiarFiltros : null,
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: Colors.grey.shade200),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre de etiqueta...",
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-              label: Text(
-                "Limpiar",
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
+              onChanged: (v) {
+                _query = v;
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  _loadEtiquetas(offset: 0, updateStats: true);
+                });
+              },
             ),
           ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () => _loadEtiquetas(offset: _offset, updateStats: true),
-            tooltip: "Actualizar catálogo",
-            style: IconButton.styleFrom(
-              backgroundColor:
-                  AppTema.azulPrincipal.withValues(alpha: 0.05),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _abrirFormulario(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+            label: Text("Nueva etiqueta",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800, fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: _filtrosActivos ? _limpiarFiltros : null,
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              side: BorderSide(color: Colors.grey.shade200),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+            icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+            label: Text(
+              "Limpiar",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded,
+              size: 22, color: AppTema.azulPrincipal),
+          onPressed: () => _loadEtiquetas(offset: _offset, updateStats: true),
+          tooltip: "Actualizar catálogo",
+          style: IconButton.styleFrom(
+            backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -408,7 +403,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
             maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.white,
                 letterSpacing: 0.5),
           ),
@@ -529,7 +524,7 @@ class _EtiquetasDataSource extends DataTableSource {
                       Text(e['nombre_visible']?.toString() ?? 'Sin nombre',
                           style: GoogleFonts.inter(
                               fontWeight: FontWeight.w800,
-                              fontSize: 13,
+                              fontSize: 12,
                               color: AppTema.azulPrincipal)),
                       if (e['descripcion'] != null)
                         Text(
@@ -627,41 +622,42 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.transparent,
-        splashColor: widget.color.withValues(alpha: 0.2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? widget.color.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.2)
-                    : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 18),
-              const SizedBox(height: 4),
-              Text(widget.label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: widget.color,
-                      height: 1.0)),
-            ],
-          ),
+    return InkWell(
+      onHover: (hovered) {
+        setState(() {
+          _isHovered = hovered;
+        });
+      },
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(12),
+      hoverColor: Colors.transparent,
+      splashColor: widget.color.withValues(alpha: 0.2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? widget.color.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: _isHovered
+                  ? widget.color.withValues(alpha: 0.2)
+                  : Colors.transparent),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 18),
+            const SizedBox(height: 4),
+            Text(widget.label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: widget.color,
+                    height: 1.0)),
+          ],
         ),
       ),
     );

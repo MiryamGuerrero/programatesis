@@ -419,6 +419,15 @@ def registrar_control_mensual(
         id_control = caso_uso.registrar_control_mensual(id_paciente, payload, id_medico=user.user_id)
         return {"id": id_control, "message": "Control mensual registrado"}
     except Exception as exc:
+        import traceback
+        from datetime import datetime
+        try:
+            with open(r"C:\Users\mirya\.gemini\antigravity\brain\ba418634-c7f5-4b41-9f80-d868b237ea53\backend_error.log", "a", encoding="utf-8") as f:
+                f.write(f"\n--- POST ERROR AT {datetime.now()} ---\n")
+                f.write(f"Payload: {payload}\n")
+                traceback.print_exc(file=f)
+        except:
+            pass
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/pacientes/control-mensual/{id_control}")
@@ -432,6 +441,15 @@ def actualizar_control_mensual(
         exito = caso_uso.actualizar_control_mensual(id_control, payload)
         return {"success": exito, "message": "Control actualizado correctamente"}
     except Exception as exc:
+        import traceback
+        from datetime import datetime
+        try:
+            with open(r"C:\Users\mirya\.gemini\antigravity\brain\ba418634-c7f5-4b41-9f80-d868b237ea53\backend_error.log", "a", encoding="utf-8") as f:
+                f.write(f"\n--- PUT ERROR AT {datetime.now()} ---\n")
+                f.write(f"Payload: {payload}\n")
+                traceback.print_exc(file=f)
+        except:
+            pass
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.put("/pacientes/{id_paciente}/expediente-maestro")

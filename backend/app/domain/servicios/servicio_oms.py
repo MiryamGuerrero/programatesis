@@ -305,7 +305,7 @@ class ServicioOMS:
         if edad_dias < 0 or edad_meses < 0:
             raise ValueError("La edad no puede ser negativa")
         if edad_meses > 228:
-            raise ValueError("No hay referencia OMS cargada para mayores de 228 meses")
+            raise ValueError("El paciente tiene más de 19 años. La evaluación OMS pediátrica no aplica para esta edad.")
 
         imc = cls.calcular_imc(peso_kg, talla_cm)
         indicador_peso = cls.seleccionar_indicador_peso(edad_meses)
