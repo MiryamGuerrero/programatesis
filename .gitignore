@@ -64,3 +64,4 @@ convert_images_pillow.py
 .agents/
 scratch/
 skills-lock.json
+debug/fix_file.py

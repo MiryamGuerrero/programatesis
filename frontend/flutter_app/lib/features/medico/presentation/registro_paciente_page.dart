@@ -238,13 +238,19 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _pacParroquia = p['id_parroquia'];
             _updateParroquiasFiltradas(resetSelection: false);
 
-            _tutNombre.text = t['nombre_completo'] ?? "";
-            _tutCedula.text = t['cedula'] ?? "";
-            _tutEmail.text = t['email'] ?? "";
-            _tutTelefono.text = t['telefono'] ?? "";
-            _tutDireccion.text = t['direccion'] ?? "";
-            _tutParentesco = t['id_parentesco'];
-            _tutorExistente = true;
+            if (t.isNotEmpty) {
+              _tutNombre.text = t['nombre_completo'] ?? "";
+              _tutCedula.text = t['cedula'] ?? "";
+              _tutEmail.text = t['email'] ?? "";
+              _tutTelefono.text = t['telefono'] ?? "";
+              _tutDireccion.text = t['direccion'] ?? "";
+              _tutParentesco = t['id_parentesco'];
+              _tutorExistente = true;
+              _tutorNoEncontrado = false;
+            } else {
+              _tutorExistente = false;
+              _tutorNoEncontrado = true;
+            }
 
             _idPatologiaBase = d['id_condicion'];
             _clinNotas.text = d['observaciones'] ?? "";
@@ -498,6 +504,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _fixedSection(
+                          "Representante legal",
+                          Icons.person_outline,
+                          _buildFixedTutorFields(),
+                        ),
+                        const SizedBox(height: 24),
+                        _fixedSection(
                           "Datos generales del paciente",
                           Icons.badge_outlined,
                           _buildFixedPatientFields(),
@@ -571,6 +583,145 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           child,
         ],
       ),
+    );
+  }
+
+  Widget _buildFixedTutorFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(
+              child: _field(
+            _tutCedula,
+            "Cédula del tutor*",
+            Icons.assignment_ind_outlined,
+            hint: "Ingrese la cédula del tutor",
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10)
+            ],
+            onChanged: (v) {
+              final limpia = _soloDigitos(v);
+              if (limpia.length == 10) _buscarTutor(limpia);
+            },
+          )),
+          const SizedBox(width: 12),
+          IconButton.filled(
+              onPressed: () {
+                if (_cedulaValida(_tutCedula))
+                  _buscarTutor(_tutCedula.text);
+                else
+                  NutriSnack.show(context,
+                      "La cédula del tutor debe tener exactamente 10 dígitos.",
+                      isError: true, ref: ref);
+              },
+              icon: const Icon(Icons.search),
+              style: IconButton.styleFrom(
+                  backgroundColor: greenBrand,
+                  padding: const EdgeInsets.all(20),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)))),
+        ]),
+        if (_buscandoTutor)
+          const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator()),
+        if (_tutorNoEncontrado)
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                      color: Colors.orange, shape: BoxShape.circle),
+                  child: const Icon(Icons.priority_high_rounded,
+                      color: Colors.white, size: 14),
+                ),
+                const SizedBox(width: 12),
+                Text("Tutor no registrado. Por favor complete los datos.",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.orange.shade900)),
+              ],
+            ),
+          ),
+        if (_tutorExistente)
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                      color: greenBrand, shape: BoxShape.circle),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 14),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                    "Tutor encontrado. Puede actualizar sus datos si es necesario.",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade900)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+        _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
+            hint: "Ingrese los nombres y apellidos completos"),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: _field(_tutEmail, "Correo electrónico del usuario*",
+                  Icons.alternate_email,
+                  helper: "Este será su nombre de acceso.",
+                  hint: "usuario@ejemplo.com")),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _dropdown("Parentesco*", _parentescos, _tutParentesco,
+                  (v) => setState(() => _tutParentesco = v),
+                  hint: "Seleccione una opción")),
+        ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: _field(
+            _tutTelefono,
+            "Teléfono móvil*",
+            Icons.phone_android_outlined,
+            hint: "09XXXXXXXX",
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10)
+            ],
+          )),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _field(
+                  _tutDireccion, "Dirección del hogar", Icons.map_outlined,
+                  hint: "Av. principal y calle secundaria")),
+        ]),
+      ],
     );
   }
 
@@ -875,7 +1026,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   bool _validateFixedOnly() {
-    if (_pacNombre.text.trim().isEmpty ||
+    if (_tutNombre.text.trim().isEmpty ||
+        !_cedulaValida(_tutCedula) ||
+        _tutEmail.text.trim().isEmpty ||
+        _tutTelefono.text.trim().isEmpty ||
+        _tutParentesco == null ||
+        _pacNombre.text.trim().isEmpty ||
         !_cedulaValida(_pacCedula) ||
         _validandoCedulaPaciente ||
         _mensajeCedulaPaciente != null ||
@@ -883,7 +1039,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _pacFechaNac == null ||
         _idPatologiaBase == null) {
       NutriSnack.show(
-          context, "Complete los datos generales y la patología del paciente.",
+          context, "Complete los datos obligatorios marcados con (*).",
           isError: true, ref: ref);
       return false;
     }
@@ -906,6 +1062,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     final restriccionesList = restricciones.toList()..sort();
 
     return {
+      "tutCedula": _tutCedula.text.trim(),
+      "tutNombre": _tutNombre.text.trim(),
+      "tutEmail": _tutEmail.text.trim(),
+      "tutTelefono": _tutTelefono.text.trim(),
+      "tutParentesco": _tutParentesco,
+      "tutDireccion": _tutDireccion.text.trim(),
       "cedula": _pacCedula.text.trim(),
       "nombre": _pacNombre.text.trim(),
       "fecha_nacimiento":
