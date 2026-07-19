@@ -46,4 +46,6 @@ flutter:
     - assets/images/pacientes.webp
     - assets/images/rule_joint_icon.webp
     - assets/images/rule_temporal_icon.webp
+    - assets/images/clinica.png
+    - assets/images/temporal.png
 

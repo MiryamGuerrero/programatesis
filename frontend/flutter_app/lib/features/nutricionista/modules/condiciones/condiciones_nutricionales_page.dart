@@ -317,29 +317,65 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildMainContent() {
+    if (!_loading && _condiciones.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron condiciones nutricionales",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return NutriTableContainer(
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = _condiciones.isEmpty
+            ? 5
+            : (_condiciones.length < _rowsPerPage
+                ? _condiciones.length
+                : _rowsPerPage);
+
         return Theme(
           data: Theme.of(context).copyWith(
             cardTheme: const CardThemeData(
                 elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: _rowsPerPage,
+            rowsPerPage: currentRowsPerPage,
             showFirstLastButtons: true,
-            availableRowsPerPage: const [_rowsPerPage],
+            availableRowsPerPage: [currentRowsPerPage],
             onPageChanged: (idx) => _fetchData(offset: idx),
-            columnSpacing: 20,
-            horizontalMargin: 20,
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dividerThickness: 0.0,
             dataRowMinHeight: 65,
             dataRowMaxHeight: double.infinity,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("Identidad", width: totalWidth * 0.50),
-              _col("Estado", width: totalWidth * 0.15, center: true),
-              _col("Acciones", width: totalWidth * 0.25, center: true),
+              _col("IDENTIDAD", width: usableWidth * 0.50),
+              _col("ESTADO", width: usableWidth * 0.20, center: true),
+              _col("ACCIONES", width: usableWidth * 0.30, center: true),
             ],
             source: _CondicionesDataSource(
               items: _condiciones,
@@ -349,7 +385,7 @@ class _CondicionesNutricionalesPageState
               onVer: (c) => _verDetalle(c),
               onEdit: (c) => _abrirFormulario(condicion: c),
               onDelete: (c) => _eliminar(c),
-              totalWidth: totalWidth,
+              totalWidth: usableWidth,
               context: context,
             ),
           ),
@@ -364,12 +400,16 @@ class _CondicionesNutricionalesPageState
         width: width,
         child: Container(
           alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: AppTema.azulOscuro),
+                fontSize: 11,
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
@@ -1108,8 +1148,12 @@ class _CondicionesDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
         DataCell(SizedBox(
           width: totalWidth * 0.50,
           child: Row(
@@ -1135,14 +1179,14 @@ class _CondicionesDataSource extends DataTableSource {
           ),
         )),
         DataCell(SizedBox(
-            width: totalWidth * 0.15,
+            width: totalWidth * 0.20,
             child: const Center(
                 child: NutriShimmer(
                     width: 60,
                     height: 20,
                     borderRadius: BorderRadius.all(Radius.circular(10)))))),
         DataCell(SizedBox(
-          width: totalWidth * 0.25,
+          width: totalWidth * 0.30,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1172,68 +1216,73 @@ class _CondicionesDataSource extends DataTableSource {
     final bool isTalla =
         (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";
 
-    return DataRow(cells: [
-      DataCell(SizedBox(
-        width: totalWidth * 0.50,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Row(
-            children: [
-              Icon(isTalla ? Icons.height_rounded : Icons.monitor_weight_rounded,
-                  size: 24, color: AppTema.azulPrincipal.withValues(alpha: 0.7)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c["nombre"]?.toString() ?? "Condición",
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1E293B))),
-                    Text(c["descripcion"]?.toString() ?? "-",
-                        softWrap: true,
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blueGrey)),
-                  ],
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.50,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            child: Row(
+              children: [
+                Icon(isTalla ? Icons.height_rounded : Icons.monitor_weight_rounded,
+                    size: 24, color: AppTema.azulPrincipal.withValues(alpha: 0.7)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(c["nombre"]?.toString() ?? "Condición",
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1E293B))),
+                      Text(c["descripcion"]?.toString() ?? "-",
+                          softWrap: true,
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.blueGrey)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      )),
-      DataCell(SizedBox(
-          width: totalWidth * 0.15,
-          child: Center(child: _StatusBadge(isActive: c['activa'] == true)))),
-      DataCell(SizedBox(
-        width: totalWidth * 0.25,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _HoverActionButton(
-                icon: Icons.visibility_outlined,
-                label: "Ver",
-                color: AppTema.azulPrincipal,
-                onTap: () => onVer(c)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.edit_outlined,
-                label: "Editar",
-                color: Colors.orange,
-                onTap: () => onEdit(c)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.delete_outline_rounded,
-                label: "Borrar",
-                color: Colors.red,
-                onTap: () => onDelete(c)),
-          ],
-        ),
-      )),
-    ]);
+        )),
+        DataCell(SizedBox(
+            width: totalWidth * 0.20,
+            child: Center(child: _StatusBadge(isActive: c['activa'] == true)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.30,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _HoverActionButton(
+                    icon: Icons.visibility_outlined,
+                    label: "Ver",
+                    color: AppTema.azulPrincipal,
+                    onTap: () => onVer(c)),
+                const SizedBox(width: 12),
+                _HoverActionButton(
+                    icon: Icons.edit_outlined,
+                    label: "Editar",
+                    color: Colors.orange,
+                    onTap: () => onEdit(c)),
+                const SizedBox(width: 12),
+                _HoverActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: "Borrar",
+                    color: Colors.red,
+                    onTap: () => onDelete(c)),
+              ],
+            ),
+          ),
+        )),
+      ]);
   }
 
   @override

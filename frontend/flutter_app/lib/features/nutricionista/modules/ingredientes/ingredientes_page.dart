@@ -489,49 +489,106 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   Widget _buildTableContainer() {
-    return NutriTableContainer(
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          cardTheme: const CardThemeData(
-              elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+    if (!_loading && _items.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        child: PaginatedDataTable(
-          header: null,
-          rowsPerPage: _rowsPerPage,
-          availableRowsPerPage: const [_rowsPerPage],
-          onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
-          showFirstLastButtons: true,
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          columns: [
-            _col("Alimento"),
-            _col("Categoría"),
-            _col("Subgrupo"),
-            _col("Activo"),
-            _col("Kcal/100g"),
-            _col("Acciones"),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron alimentos",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
           ],
-          source: _IngredientesDataSource(
-            items: _items,
-            totalRows: _total,
-            offset: _offset,
-            isLoading: _loading,
-            onView: (id) => _showDetail(id),
-            onEdit: (id) => _showForm(id),
-            onDelete: (id) => _eliminar(id),
-            onToggleStatus: (id, val) => _toggleActivo(id, val),
-            context: context,
+        ),
+      );
+    }
+
+    return NutriTableContainer(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = _items.isEmpty
+            ? 5
+            : (_items.length < _rowsPerPage
+                ? _items.length
+                : _rowsPerPage);
+
+        return Theme(
+          data: Theme.of(context).copyWith(
+            cardTheme: const CardThemeData(
+                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
+          ),
+          child: PaginatedDataTable(
+            header: null,
+            rowsPerPage: currentRowsPerPage,
+            availableRowsPerPage: [currentRowsPerPage],
+            onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
+            showFirstLastButtons: true,
+            columnSpacing: 0,
+            horizontalMargin: 10,
+            dividerThickness: 0.0,
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+            columns: [
+              _col("ALIMENTO", width: usableWidth * 0.30),
+              _col("CATEGORÍA", width: usableWidth * 0.15),
+              _col("SUBGRUPO", width: usableWidth * 0.15),
+              _col("ACTIVO", width: usableWidth * 0.15),
+              _col("KCAL/100G", width: usableWidth * 0.12),
+              _col("ACCIONES", width: usableWidth * 0.13),
+            ],
+            source: _IngredientesDataSource(
+              items: _items,
+              totalRows: _total,
+              offset: _offset,
+              isLoading: _loading,
+              onView: (id) => _showDetail(id),
+              onEdit: (id) => _showForm(id),
+              onDelete: (id) => _eliminar(id),
+              onToggleStatus: (id, val) => _toggleActivo(id, val),
+              totalWidth: usableWidth,
+              context: context,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  DataColumn _col(String label, {required double width, bool center = false}) {
+    return DataColumn(
+      label: SizedBox(
+        width: width,
+        child: Container(
+          alignment: center ? Alignment.center : Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
     );
   }
-
-  DataColumn _col(String l) => DataColumn(
-      label: Text(l,
-          style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: AppTema.azulOscuro)));
 }
 
 class _IngredientesDataSource extends DataTableSource {
@@ -543,6 +600,7 @@ class _IngredientesDataSource extends DataTableSource {
   final Function(int) onEdit;
   final Function(int) onDelete;
   final Function(int, bool) onToggleStatus;
+  final double totalWidth;
   final BuildContext context;
 
   _IngredientesDataSource({
@@ -554,6 +612,7 @@ class _IngredientesDataSource extends DataTableSource {
     required this.onEdit,
     required this.onDelete,
     required this.onToggleStatus,
+    required this.totalWidth,
     required this.context,
   });
 
@@ -574,74 +633,158 @@ class _IngredientesDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
-        const DataCell(NutriShimmer(width: 150, height: 10)),
-        const DataCell(NutriShimmer(width: 100, height: 10)),
-        const DataCell(NutriShimmer(width: 80, height: 20)),
-        const DataCell(NutriShimmer(width: 40, height: 10)),
-        const DataCell(NutriShimmer(width: 60, height: 10)),
-        DataCell(Row(
-          children: [
-            NutriShimmer(
-                width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
-            const SizedBox(width: 8),
-            NutriShimmer(
-                width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
-          ],
-        )),
-      ]);
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
+          DataCell(SizedBox(
+              width: totalWidth * 0.30,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 150, height: 10),
+              ))),
+          DataCell(SizedBox(
+              width: totalWidth * 0.15,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 100, height: 10),
+              ))),
+          DataCell(SizedBox(
+              width: totalWidth * 0.15,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 80, height: 20),
+              ))),
+          DataCell(SizedBox(
+              width: totalWidth * 0.15,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 40, height: 10),
+              ))),
+          DataCell(SizedBox(
+              width: totalWidth * 0.12,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: NutriShimmer(width: 60, height: 10),
+              ))),
+          DataCell(SizedBox(
+            width: totalWidth * 0.13,
+            child: Row(
+              children: [
+                NutriShimmer(
+                    width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 8),
+                NutriShimmer(
+                    width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              ],
+            ),
+          )),
+        ],
+      );
     }
 
     final localIndex = index - offset;
     if (localIndex < 0 || localIndex >= items.length) return null;
     final ing = items[localIndex];
-    return DataRow(cells: [
-      DataCell(Text(ing['nombre']?.toString() ?? "Ingrediente",
-          style: GoogleFonts.inter(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: AppTema.azulPrincipal))),
-      DataCell(Text(_capitalize(ing['categoria']?.toString()),
-          style: GoogleFonts.inter(fontSize: 12))),
-      DataCell(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-            color: AppTema.azulPrincipal.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(6)),
-        child: Text(_capitalize(ing['subgrupo']?.toString()),
-            style: GoogleFonts.inter(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppTema.azulPrincipal)),
-      )),
-      DataCell(Switch(
-        value: ing['activo'] ?? true,
-        activeColor: AppTema.verdeSalud,
-        onChanged: (v) => onToggleStatus(ing['id'], v),
-      )),
-      DataCell(Text("${_fmt(ing['energia_kcal'])} kcal",
-          style: GoogleFonts.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-              color: AppTema.verdeSalud))),
-      DataCell(Row(
-        children: [
-          IconButton(
-              icon: const Icon(Icons.visibility_outlined,
-                  size: 20, color: AppTema.azulPrincipal),
-              onPressed: () => onView(ing['id'])),
-          IconButton(
-              icon: const Icon(Icons.edit_note_rounded,
-                  size: 22, color: Colors.blueGrey),
-              onPressed: () => onEdit(ing['id'])),
-          IconButton(
-              icon: const Icon(Icons.delete_outline_rounded,
-                  size: 20, color: Colors.redAccent),
-              onPressed: () => onDelete(ing['id'])),
-        ],
-      )),
-    ]);
+
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.30,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(ing['nombre']?.toString() ?? "Ingrediente",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppTema.azulPrincipal)),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.15,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(_capitalize(ing['categoria']?.toString()),
+                style: GoogleFonts.inter(fontSize: 12)),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.15,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: AppTema.azulPrincipal.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(_capitalize(ing['subgrupo']?.toString()),
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppTema.azulPrincipal)),
+              ),
+            ),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.15,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Switch(
+                value: ing['activo'] ?? true,
+                activeColor: AppTema.verdeSalud,
+                onChanged: (v) => onToggleStatus(ing['id'], v),
+              ),
+            ),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.12,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text("${_fmt(ing['energia_kcal'])} kcal",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: AppTema.verdeSalud)),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.13,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              children: [
+                _HoverActionButton(
+                    icon: Icons.visibility_outlined,
+                    label: "Ver",
+                    color: AppTema.azulPrincipal,
+                    onTap: () => onView(ing['id'])),
+                const SizedBox(width: 8),
+                _HoverActionButton(
+                    icon: Icons.edit_note_rounded,
+                    label: "Editar",
+                    color: Colors.orange,
+                    onTap: () => onEdit(ing['id'])),
+                const SizedBox(width: 8),
+                _HoverActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: "Borrar",
+                    color: Colors.redAccent,
+                    onTap: () => onDelete(ing['id'])),
+              ],
+            ),
+          ),
+        )),
+      ],
+    );
   }
 
   @override
@@ -650,4 +793,66 @@ class _IngredientesDataSource extends DataTableSource {
   int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
   @override
   int get selectedRowCount => 0;
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverActionButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: Colors.transparent,
+        splashColor: widget.color.withValues(alpha: 0.2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: _isHovered
+                    ? widget.color.withValues(alpha: 0.2)
+                    : Colors.transparent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 18),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                      height: 1.0)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

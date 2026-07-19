@@ -491,21 +491,31 @@ def registrar_tutor_solo(
 
 @router.get("/reglas-medicas")
 def listar_reglas_medicas(
-    q: Optional[str] = Query(default=None),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     include_total: bool = Query(False),
+    origen: Optional[str] = Query(None, description="CLINICA | TEMPORAL"),
+    q: Optional[str] = Query(None, description="Búsqueda por objetivo/mensaje"),
+    id_condicion: Optional[int] = Query(None),
+    id_accion: Optional[int] = Query(None),
+    id_tipo_objetivo: Optional[int] = Query(None),
+    id_objetivo: Optional[int] = Query(None),
     _=Depends(require_roles("admin", "medico"))
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
-    # Para el médico, filtramos por tipos: 1 (Clínica) y 2 (Temporal)
+    # Para el médico, filtramos por tipos: 1 (Enfermedad) y 2 (Temporal/Clínica)
     return repo.listar_reglas_detalladas(
         tipos_condicion=[1, 2],
         limite=limit,
         offset=offset,
         include_total=include_total,
-        busqueda=q,
+        origen_regla=origen,
+        q=q,
+        id_condicion=id_condicion,
+        id_accion=id_accion,
+        id_tipo_objetivo=id_tipo_objetivo,
+        id_objetivo=id_objetivo
     )
 
 @router.get("/reglas-medicas/form-data")
@@ -520,7 +530,7 @@ def obtener_form_data_reglas(
             select jsonb_build_object(
                 'condiciones', coalesce((
                     select jsonb_agg(
-                        jsonb_build_object('id', id, 'nombre', nombre)
+                        jsonb_build_object('id', id, 'nombre', nombre, 'id_tipo_condicion', id_tipo_condicion)
                         order by nombre
                     )
                     from heuristico.condicion
@@ -577,6 +587,14 @@ def obtener_form_data_reglas(
             ([1, 2],),
         )
         return cur.fetchone()[0]
+
+@router.get("/reglas-medicas/estadisticas")
+def obtener_estadisticas_reglas_medicas(
+    _=Depends(require_roles("admin", "medico"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    return repo.obtener_estadisticas_medicas()
 
 @router.post("/reglas-medicas")
 def guardar_nueva_regla(

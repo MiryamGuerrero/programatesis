@@ -19,22 +19,13 @@ class CatalogoCondicionesPage extends ConsumerStatefulWidget {
 }
 
 class _CatalogoCondicionesPageState
-    extends ConsumerState<CatalogoCondicionesPage>
-    with SingleTickerProviderStateMixin {
+    extends ConsumerState<CatalogoCondicionesPage> {
   final TextEditingController _searchController = TextEditingController();
-  late TabController _tabController;
   Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (mounted && !_tabController.indexIsChanging) {
-        // Tipo 1: Crónica (Médico), Tipo 2: Temporal
-        ref.read(medicalConditionsProvider.notifier).setTipo(_tabController.index + 1);
-      }
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(medicalConditionsProvider.notifier).setTipo(1);
     });
@@ -43,7 +34,6 @@ class _CatalogoCondicionesPageState
   @override
   void dispose() {
     _searchController.dispose();
-    _tabController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
@@ -70,7 +60,7 @@ class _CatalogoCondicionesPageState
             const SizedBox(height: 32),
             _buildToolbar(state),
             const SizedBox(height: 24),
-            _buildTabs(),
+            _buildTabs(state),
             const SizedBox(height: 24),
             _buildMainContent(state),
           ],
@@ -80,39 +70,21 @@ class _CatalogoCondicionesPageState
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Catálogo de condiciones médicas",
-                style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulPrincipal,
-                    letterSpacing: -0.5)),
-            Text(
-                "Repositorio de diagnósticos clínicos y eventos temporales de salud.",
-                style: GoogleFonts.inter(
-                    color: Colors.blueGrey,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _abrirFormulario(),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTema.verdeSalud,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-          label: Text("Nueva condición",
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w800, fontSize: 13)),
-        ),
+        Text("Catálogo de Condiciones Médicas",
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
+        Text(
+            "Repositorio de diagnósticos clínicos y eventos temporales de salud.",
+            style: GoogleFonts.inter(
+                color: Colors.blueGrey,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -152,53 +124,84 @@ class _CatalogoCondicionesPageState
   }
 
   Widget _buildToolbar(MedicalConditionsState state) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: "Buscar por nombre de diagnóstico o evento...",
+                hintStyle: GoogleFonts.inter(
+                    color: Colors.grey.shade400, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  ref.read(medicalConditionsProvider.notifier).setSearchQuery(v);
+                });
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _abrirFormulario(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
+            label: Text("Nueva condición",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.white)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabs(MedicalConditionsState state) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
+      ),
       child: Row(
         children: [
           Expanded(
-            flex: 2,
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTema.grisLienzo,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                    ref.read(medicalConditionsProvider.notifier).setSearchQuery(v);
-                  });
-                },
-                style:
-                    GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: "Buscar por nombre de diagnóstico...",
-                  prefixIcon: const Icon(Icons.search,
-                      size: 20, color: AppTema.azulPrincipal),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
+            child: _buildTabItem(
+              label: "Condiciones clínicas",
+              isSelected: state.selectedTipo == 1,
+              onTap: () {
+                ref.read(medicalConditionsProvider.notifier).setTipo(1);
+              },
             ),
           ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 22, color: AppTema.azulPrincipal),
-            onPressed: () => ref.read(medicalConditionsProvider.notifier).loadPage(),
-            tooltip: "Actualizar catálogo",
-            style: IconButton.styleFrom(
-              backgroundColor:
-                  AppTema.azulPrincipal.withValues(alpha: 0.05),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+          Expanded(
+            child: _buildTabItem(
+              label: "Síntomas temporales",
+              isSelected: state.selectedTipo == 2,
+              onTap: () {
+                ref.read(medicalConditionsProvider.notifier).setTipo(2);
+              },
             ),
           ),
         ],
@@ -206,71 +209,109 @@ class _CatalogoCondicionesPageState
     );
   }
 
-  Widget _buildTabs() {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: false,
-        indicatorColor: AppTema.azulPrincipal,
-        indicatorWeight: 3,
-        labelColor: AppTema.azulPrincipal,
-        unselectedLabelColor: Colors.blueGrey,
-        labelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
-        tabs: const [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.auto_graph_rounded, size: 18),
-                SizedBox(width: 8),
-                Text("Patologías crónicas"),
-              ],
+  Widget _buildTabItem({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final activeColor = AppTema.verdeSalud;
+    final inactiveColor = Colors.blueGrey;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? activeColor : Colors.transparent,
+              width: 3,
             ),
           ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.history_toggle_off_rounded, size: 18),
-                SizedBox(width: 8),
-                Text("Eventos temporales"),
-              ],
-            ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? activeColor : inactiveColor,
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildMainContent(MedicalConditionsState state) {
+    if (!state.isLoading && state.conditions.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No se encontraron condiciones médicas",
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Prueba a ajustar la búsqueda o los filtros.",
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.blueGrey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return NutriTableContainer(
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final usableWidth = totalWidth - 20;
+        final currentRowsPerPage = state.conditions.isEmpty
+            ? 5
+            : (state.conditions.length < MedicalConditionsNotifier.pageSize
+                ? state.conditions.length
+                : MedicalConditionsNotifier.pageSize);
+
         return Theme(
           data: Theme.of(context).copyWith(
             cardTheme: const CardThemeData(
                 elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+            dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: MedicalConditionsNotifier.pageSize,
+            rowsPerPage: currentRowsPerPage,
             showFirstLastButtons: true,
-            availableRowsPerPage: const [MedicalConditionsNotifier.pageSize],
+            availableRowsPerPage: [currentRowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(medicalConditionsProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
             horizontalMargin: 10,
+            dividerThickness: 0.0,
             dataRowMinHeight: 65,
             dataRowMaxHeight: double.infinity,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("Diagnóstico", width: totalWidth * 0.50),
-              _col("Estado", width: totalWidth * 0.15, center: true),
-              _col("Acciones", width: totalWidth * 0.35, center: true),
+              _col("DIAGNÓSTICO", width: usableWidth * 0.25),
+              _col("DESCRIPCIÓN", width: usableWidth * 0.40),
+              _col("ESTADO", width: usableWidth * 0.15, center: true),
+              _col("ACCIONES", width: usableWidth * 0.20, center: true),
             ],
             source: _MedicalConditionsDataSource(
               items: state.conditions,
@@ -280,7 +321,7 @@ class _CatalogoCondicionesPageState
               onVer: (c) => _verDetalle(c),
               onEdit: (c) => _abrirFormulario(condicion: c),
               onDelete: (c) => _eliminar(c),
-              totalWidth: totalWidth,
+              totalWidth: usableWidth,
               context: context,
             ),
           ),
@@ -298,10 +339,13 @@ class _CatalogoCondicionesPageState
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: AppTema.azulOscuro),
+                fontSize: 11,
+                color: Colors.white,
+                letterSpacing: 0.5),
           ),
         ),
       ),
@@ -385,120 +429,158 @@ class _MedicalConditionsDataSource extends DataTableSource {
 
   @override
   DataRow? getRow(int index) {
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+
     if (isLoading) {
-      return DataRow(cells: [
-        DataCell(SizedBox(
-          width: totalWidth * 0.50,
-          child: Row(
-            children: [
-              const NutriShimmer(
-                  width: 24,
-                  height: 24,
-                  borderRadius: BorderRadius.all(Radius.circular(4))),
-              const SizedBox(width: 12),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const NutriShimmer(width: 150, height: 12),
-                  const SizedBox(height: 4),
-                  NutriShimmer(
-                      width: 200,
-                      height: 10,
+      return DataRow(
+        color: WidgetStateProperty.all(rowColor),
+        cells: [
+          DataCell(SizedBox(
+            width: totalWidth * 0.25,
+            child: Row(
+              children: [
+                const NutriShimmer(
+                    width: 32,
+                    height: 32,
+                    borderRadius: BorderRadius.all(Radius.circular(16))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: NutriShimmer(
+                      width: 100,
+                      height: 12,
                       borderRadius: BorderRadius.circular(4)),
-                ],
-              ),
-            ],
-          ),
-        )),
-        DataCell(SizedBox(
-            width: totalWidth * 0.15,
-            child: const Center(child: NutriShimmer(width: 60, height: 20)))),
-        DataCell(SizedBox(
-          width: totalWidth * 0.35,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              NutriShimmer(
-                  width: 28, height: 28, borderRadius: BorderRadius.circular(14)),
-              const SizedBox(width: 12),
-              NutriShimmer(
-                  width: 28, height: 28, borderRadius: BorderRadius.circular(14)),
-              const SizedBox(width: 12),
-              NutriShimmer(
-                  width: 28, height: 28, borderRadius: BorderRadius.circular(14)),
-            ],
-          ),
-        )),
-      ]);
+                ),
+              ],
+            ),
+          )),
+          DataCell(SizedBox(
+            width: totalWidth * 0.40,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: NutriShimmer(
+                  width: double.infinity,
+                  height: 12,
+                  borderRadius: BorderRadius.circular(4)),
+            ),
+          )),
+          DataCell(SizedBox(
+              width: totalWidth * 0.15,
+              child: const Center(child: NutriShimmer(width: 60, height: 20)))),
+          DataCell(SizedBox(
+            width: totalWidth * 0.20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                NutriShimmer(
+                    width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 8),
+                NutriShimmer(
+                    width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 8),
+                NutriShimmer(
+                    width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              ],
+            ),
+          )),
+        ],
+      );
     }
 
     final localIndex = index - offset;
     if (localIndex < 0 || localIndex >= items.length) return null;
     final c = items[localIndex] as Map<String, dynamic>;
 
-    return DataRow(cells: [
-      DataCell(SizedBox(
-        width: totalWidth * 0.50,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.medical_information_outlined,
-                  size: 24, color: AppTema.azulPrincipal),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c["nombre"]?.toString() ?? "Condición",
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1E293B))),
-                    Text(c["descripcion"]?.toString() ?? "-",
-                        softWrap: true,
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blueGrey)),
-                  ],
+    final int tipoCondicion = c["id_tipo_condicion"] ?? 1;
+    final bool isClinica = tipoCondicion == 1;
+
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.25,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isClinica ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      isClinica
+                          ? "assets/images/clinica.png"
+                          : "assets/images/temporal.png",
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    c["nombre"]?.toString() ?? "Condición",
+                    softWrap: true,
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      )),
-      DataCell(SizedBox(
-          width: totalWidth * 0.15,
-          child: Center(child: _StatusBadge(isActive: c['activa'] == true)))),
-      DataCell(SizedBox(
-        width: totalWidth * 0.35,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _HoverActionButton(
-                icon: Icons.visibility_outlined,
-                label: "Ver",
-                color: AppTema.azulPrincipal,
-                onTap: () => onVer(c)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.edit_outlined,
-                label: "Editar",
-                color: Colors.orange,
-                onTap: () => onEdit(c)),
-            const SizedBox(width: 12),
-            _HoverActionButton(
-                icon: Icons.delete_outline_rounded,
-                label: "Borrar",
-                color: Colors.red,
-                onTap: () => onDelete(c)),
-          ],
-        ),
-      )),
-    ]);
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.40,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
+            child: Text(
+              c["descripcion"]?.toString() ?? "-",
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.blueGrey),
+            ),
+          ),
+        )),
+        DataCell(SizedBox(
+            width: totalWidth * 0.15,
+            child: Center(child: _StatusBadge(isActive: c['activa'] == true)))),
+        DataCell(SizedBox(
+          width: totalWidth * 0.20,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _HoverActionButton(
+                    icon: Icons.visibility_outlined,
+                    label: "Ver",
+                    color: AppTema.azulPrincipal,
+                    onTap: () => onVer(c)),
+                const SizedBox(width: 8),
+                _HoverActionButton(
+                    icon: Icons.edit_outlined,
+                    label: "Editar",
+                    color: AppTema.verdeSalud,
+                    onTap: () => onEdit(c)),
+                const SizedBox(width: 8),
+                _HoverActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: "Eliminar",
+                    color: Colors.redAccent,
+                    onTap: () => onDelete(c)),
+              ],
+            ),
+          ),
+        )),
+      ],
+    );
   }
 
   @override

@@ -43,11 +43,15 @@ class RepositorioMedico {
     );
   }
 
-  Future<({List<Map<String, dynamic>> items, int total})>
-      fetchMedicalRulesPage({
+  Future<({List<Map<String, dynamic>> items, int total})> fetchMedicalRulesPage({
     String query = "",
     int limit = 10,
     int offset = 0,
+    String? origen,
+    int? idCondicion,
+    int? idAccion,
+    int? idTipoObjetivo,
+    int? idObjetivo,
   }) async {
     final response = await _dio.get(
       "reglas-medicas",
@@ -56,6 +60,12 @@ class RepositorioMedico {
         "limit": limit,
         "offset": offset,
         "include_total": true,
+        "q": query,
+        if (origen != null) "origen": origen,
+        if (idCondicion != null) "id_condicion": idCondicion,
+        if (idAccion != null) "id_accion": idAccion,
+        if (idTipoObjetivo != null) "id_tipo_objetivo": idTipoObjetivo,
+        if (idObjetivo != null) "id_objetivo": idObjetivo,
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);

@@ -13,6 +13,14 @@ class MedicalRulesState {
   final int offset;
   final Map<String, List<dynamic>> formData;
   final String? errorMessage;
+  final String? origenFilter;
+  final int? idCondicionFilter;
+  final int? idAccionFilter;
+  final int? idTipoObjetivoFilter;
+  final int? idObjetivoFilter;
+  final int strictRulesCount;
+  final int clinicalRulesCount;
+  final int temporalRulesCount;
 
   const MedicalRulesState({
     this.isLoading = true,
@@ -22,6 +30,14 @@ class MedicalRulesState {
     this.offset = 0,
     this.formData = const {},
     this.errorMessage,
+    this.origenFilter = "CLINICA",
+    this.idCondicionFilter,
+    this.idAccionFilter,
+    this.idTipoObjetivoFilter,
+    this.idObjetivoFilter,
+    this.strictRulesCount = 0,
+    this.clinicalRulesCount = 0,
+    this.temporalRulesCount = 0,
   });
 
   MedicalRulesState copyWith({
@@ -33,6 +49,18 @@ class MedicalRulesState {
     Map<String, List<dynamic>>? formData,
     String? errorMessage,
     bool clearErrorMessage = false,
+    String? origenFilter,
+    int? idCondicionFilter,
+    int? idAccionFilter,
+    int? idTipoObjetivoFilter,
+    int? idObjetivoFilter,
+    int? strictRulesCount,
+    int? clinicalRulesCount,
+    int? temporalRulesCount,
+    bool clearCondicionFilter = false,
+    bool clearAccionFilter = false,
+    bool clearTipoObjetivoFilter = false,
+    bool clearObjetivoFilter = false,
   }) {
     return MedicalRulesState(
       isLoading: isLoading ?? this.isLoading,
@@ -41,8 +69,15 @@ class MedicalRulesState {
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
       formData: formData ?? this.formData,
-      errorMessage:
-          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      origenFilter: origenFilter ?? this.origenFilter,
+      idCondicionFilter: clearCondicionFilter ? null : (idCondicionFilter ?? this.idCondicionFilter),
+      idAccionFilter: clearAccionFilter ? null : (idAccionFilter ?? this.idAccionFilter),
+      idTipoObjetivoFilter: clearTipoObjetivoFilter ? null : (idTipoObjetivoFilter ?? this.idTipoObjetivoFilter),
+      idObjetivoFilter: clearObjetivoFilter ? null : (idObjetivoFilter ?? this.idObjetivoFilter),
+      strictRulesCount: strictRulesCount ?? this.strictRulesCount,
+      clinicalRulesCount: clinicalRulesCount ?? this.clinicalRulesCount,
+      temporalRulesCount: temporalRulesCount ?? this.temporalRulesCount,
     );
   }
 }
@@ -61,17 +96,42 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
 
     try {
       final repo = _ref.read(repositorioMedicoProvider);
+      final dio = _ref.read(dioProvider);
+      
+      // Load form data if empty
+      if (state.formData.isEmpty) {
+        final res = await dio.get("reglas-medicas/form-data");
+        final fData = Map<String, List<dynamic>>.from(
+          (res.data as Map).map((k, v) => MapEntry(k.toString(), List<Map<String, dynamic>>.from(v as List)))
+        );
+        state = state.copyWith(formData: fData);
+      }
+
+      // Fetch statistics
+      final statsRes = await dio.get("reglas-medicas/estadisticas");
+      final stats = statsRes.data as Map<String, dynamic>;
+      final strictCount = stats["estrictas"] as int? ?? 0;
+      final clinicasCount = stats["clinicas"] as int? ?? 0;
+      final temporalesCount = stats["temporales"] as int? ?? 0;
 
       final result = await repo.fetchMedicalRulesPage(
         query: state.searchQuery,
         limit: pageSize,
         offset: nextOffset,
+        origen: state.origenFilter,
+        idCondicion: state.idCondicionFilter,
+        idAccion: state.idAccionFilter,
+        idTipoObjetivo: state.idTipoObjetivoFilter,
+        idObjetivo: state.idObjetivoFilter,
       );
 
       state = state.copyWith(
         isLoading: false,
         rules: result.items,
         totalItems: result.total,
+        strictRulesCount: strictCount,
+        clinicalRulesCount: clinicasCount,
+        temporalRulesCount: temporalesCount,
       );
       unawaited(loadFormData());
     } catch (e) {
@@ -80,6 +140,43 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
         errorMessage: "Error al cargar reglas: $e",
       );
     }
+  }
+
+  void setOrigenFilter(String? origen) {
+    state = state.copyWith(
+      origenFilter: origen, 
+      offset: 0,
+      clearCondicionFilter: true,
+      clearAccionFilter: true,
+      clearTipoObjetivoFilter: true,
+      clearObjetivoFilter: true,
+    );
+    loadPage(offset: 0);
+  }
+
+  void setIdCondicionFilter(int? idCondicion) {
+    state = state.copyWith(idCondicionFilter: idCondicion, offset: 0, clearCondicionFilter: idCondicion == null);
+    loadPage(offset: 0);
+  }
+
+  void setIdAccionFilter(int? idAccion) {
+    state = state.copyWith(idAccionFilter: idAccion, offset: 0, clearAccionFilter: idAccion == null);
+    loadPage(offset: 0);
+  }
+
+  void setIdTipoObjetivoFilter(int? idTipoObjetivo) {
+    state = state.copyWith(
+      idTipoObjetivoFilter: idTipoObjetivo, 
+      offset: 0, 
+      clearTipoObjetivoFilter: idTipoObjetivo == null,
+      clearObjetivoFilter: true,
+    );
+    loadPage(offset: 0);
+  }
+
+  void setIdObjetivoFilter(int? idObjetivo) {
+    state = state.copyWith(idObjetivoFilter: idObjetivo, offset: 0, clearObjetivoFilter: idObjetivo == null);
+    loadPage(offset: 0);
   }
 
   Future<void> loadFormData() {
@@ -119,6 +216,19 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
     state = state.copyWith(searchQuery: query, offset: 0);
     loadPage(offset: 0);
   }
+
+  void clearFilters() {
+    state = state.copyWith(
+      offset: 0,
+      searchQuery: "",
+      clearCondicionFilter: true,
+      clearAccionFilter: true,
+      clearTipoObjetivoFilter: true,
+      clearObjetivoFilter: true,
+    );
+    loadPage(offset: 0);
+  }
+
 
   Future<void> deleteRule(int id) async {
     final oldRules = List<Map<String, dynamic>>.from(state.rules);

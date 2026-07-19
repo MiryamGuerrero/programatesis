@@ -198,68 +198,130 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               padding: EdgeInsets.all(100),
               child: NutriLoading(mensaje: "Sincronizando registros..."))
           : _rows.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(60),
-                  child:
-                      Center(child: Text("No hay registros en este catálogo.")))
-              : Theme(
-                  data: Theme.of(context).copyWith(
-                    cardTheme: const CardThemeData(
-                        elevation: 0,
-                        color: Colors.white,
-                        margin: EdgeInsets.zero),
-                  ),
-                  child: PaginatedDataTable(
-                    header: null,
-                    rowsPerPage: 5,
-                    showFirstLastButtons: true,
-                    headingRowColor:
-                        WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-                    columns: [
-                      DataColumn(
-                          label: Text("ID",
-                              style: GoogleFonts.montserrat(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: AppTema.azulOscuro))),
-                      DataColumn(
-                          label: Text("Contenido del registro (JSON)",
-                              style: GoogleFonts.montserrat(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: AppTema.azulOscuro))),
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.find_in_page_outlined, size: 48, color: Colors.blueGrey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        "No hay registros en este catálogo.",
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTema.azulOscuro,
+                        ),
+                      ),
                     ],
-                    source: _CatalogDataSource(rows: _rows),
                   ),
-                ),
+                )
+              : LayoutBuilder(builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+                  final usableWidth = totalWidth - 20;
+                  final currentRowsPerPage = _rows.isEmpty ? 5 : min(5, _rows.length);
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      cardTheme: const CardThemeData(
+                          elevation: 0,
+                          color: Colors.white,
+                          margin: EdgeInsets.zero),
+                      dividerColor: Colors.transparent,
+                    ),
+                    child: PaginatedDataTable(
+                      header: null,
+                      rowsPerPage: currentRowsPerPage,
+                      showFirstLastButtons: true,
+                      availableRowsPerPage: [currentRowsPerPage],
+                      dividerThickness: 0.0,
+                      columnSpacing: 0,
+                      horizontalMargin: 10,
+                      headingRowColor:
+                          WidgetStateProperty.all(AppTema.azulPrincipal),
+                        columns: [
+                          DataColumn(
+                              label: SizedBox(
+                            width: usableWidth * 0.20,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text("ID",
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5)),
+                            ),
+                          )),
+                          DataColumn(
+                              label: SizedBox(
+                            width: usableWidth * 0.80,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text("CONTENIDO DEL REGISTRO (JSON)",
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5)),
+                            ),
+                          )),
+                        ],
+                      source: _CatalogDataSource(
+                        rows: _rows,
+                        totalWidth: usableWidth,
+                      ),
+                    ),
+                  );
+                }),
     );
   }
 }
 
 class _CatalogDataSource extends DataTableSource {
   final List<Map<String, dynamic>> rows;
+  final double totalWidth;
 
-  _CatalogDataSource({required this.rows});
+  _CatalogDataSource({required this.rows, required this.totalWidth});
 
   @override
   DataRow? getRow(int index) {
     if (index >= rows.length) return null;
     final row = rows[index];
-    return DataRow(cells: [
-      DataCell(Text(row["id"]?.toString() ?? "-",
-          style: GoogleFonts.lato(
-              fontSize: 13,
-              color: const Color(0xFF1E293B),
-              fontWeight: FontWeight.w600))),
-      DataCell(SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Text(row.toString(),
-            style: GoogleFonts.lato(
-                fontSize: 13,
-                color: const Color(0xFF1E293B),
-                fontWeight: FontWeight.w600)),
-      )),
-    ]);
+    final rowColor = index % 2 == 0 ? Colors.white : const Color(0xFFF8FAFC);
+    return DataRow(
+      color: WidgetStateProperty.all(rowColor),
+      cells: [
+        DataCell(SizedBox(
+          width: totalWidth * 0.20,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(row["id"]?.toString() ?? "-",
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF1E293B),
+                    fontWeight: FontWeight.w600)),
+          ),
+        )),
+        DataCell(SizedBox(
+          width: totalWidth * 0.80,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(row.toString(),
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xFF1E293B),
+                      fontWeight: FontWeight.w500)),
+            ),
+          )),
+      ],
+    );
   }
 
   @override
