@@ -15,6 +15,9 @@ Future<void> bootstrapApp(Widget app) async {
       Supabase.initialize(
         url: AppConfig.supabaseUrl,
         anonKey: AppConfig.supabaseAnonKey,
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+        ),
       ),
   ]);
 

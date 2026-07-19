@@ -567,11 +567,27 @@ class _MedicalPatientsDataSource extends DataTableSource {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(p["nombre_completo"] ?? "Sin nombre",
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: AppTema.azulOscuro)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(p["nombre_completo"] ?? "Sin nombre",
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: AppTema.azulOscuro)),
+                        ),
+                        if (p["tiene_tutor"] == false) ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: "Sin tutor asignado",
+                            child: Icon(Icons.person_off_rounded,
+                                size: 14, color: Colors.red.shade400),
+                          )
+                        ]
+                      ],
+                    ),
                     Text("${p["edad_anios"] ?? 0} años",
                         style: GoogleFonts.inter(
                             fontSize: 11, color: Colors.blueGrey)),

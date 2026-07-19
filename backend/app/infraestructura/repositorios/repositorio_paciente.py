@@ -341,7 +341,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     pa.id as plan_activo_id,
                     pa.fecha_inicio as plan_activo_inicio,
                     pa.fecha_fin as plan_activo_fin,
-                    coalesce(va.confirmado, false) as validacion_confirmada
+                    coalesce(va.confirmado, false) as validacion_confirmada,
+                    exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id) as tiene_tutor
                 from usuarios.vista_gestion_pacientes v
                 join usuarios.paciente p on p.id = v.id
                 left join plan_activo pa on pa.id_paciente = v.id
@@ -358,7 +359,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def listar_todos_pacientes(self) -> List[dict]:
         with db_cursor() as cur:
-            sql = "select v.*, p.id_sexo from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
+            sql = "select v.*, p.id_sexo, exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id) as tiene_tutor from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
             cur.execute(sql)
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
