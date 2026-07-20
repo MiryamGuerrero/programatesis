@@ -15,24 +15,36 @@ class ReglasNutricionalesState {
   final List<dynamic> rules;
   final Map<String, List<dynamic>> formData;
   final String searchQuery;
-  final Set<String> selectedObjetivos;
+  final String indicadorFilter; // BMI (Peso) | HFA (Estatura)
   final int? filtroCondicion;
   final int? filtroAccion;
+  final int? filtroTipoObjetivo;
+  final int? filtroObjetivo;
   final String? errorMessage;
   final int totalItems;
   final int offset;
+
+  // Estadísticas del motor
+  final int strictRulesCount;
+  final int pesoRulesCount;
+  final int estaturaRulesCount;
 
   const ReglasNutricionalesState({
     this.isLoading = true,
     this.rules = const [],
     this.formData = const <String, List<dynamic>>{},
     this.searchQuery = "",
-    this.selectedObjetivos = const <String>{},
+    this.indicadorFilter = "BMI",
     this.filtroCondicion,
     this.filtroAccion,
+    this.filtroTipoObjetivo,
+    this.filtroObjetivo,
     this.errorMessage,
     this.totalItems = 0,
     this.offset = 0,
+    this.strictRulesCount = 0,
+    this.pesoRulesCount = 0,
+    this.estaturaRulesCount = 0,
   });
 
   ReglasNutricionalesState copyWith({
@@ -40,44 +52,56 @@ class ReglasNutricionalesState {
     List<dynamic>? rules,
     Map<String, List<dynamic>>? formData,
     String? searchQuery,
-    Set<String>? selectedObjetivos,
+    String? indicadorFilter,
     int? filtroCondicion,
     int? filtroAccion,
+    int? filtroTipoObjetivo,
+    int? filtroObjetivo,
     String? errorMessage,
     bool clearFiltroCondicion = false,
     bool clearFiltroAccion = false,
+    bool clearFiltroTipoObjetivo = false,
+    bool clearFiltroObjetivo = false,
     bool clearErrorMessage = false,
     int? totalItems,
     int? offset,
+    int? strictRulesCount,
+    int? pesoRulesCount,
+    int? estaturaRulesCount,
   }) {
     return ReglasNutricionalesState(
       isLoading: isLoading ?? this.isLoading,
       rules: rules ?? this.rules,
       formData: formData ?? this.formData,
       searchQuery: searchQuery ?? this.searchQuery,
-      selectedObjetivos: selectedObjetivos ?? this.selectedObjetivos,
+      indicadorFilter: indicadorFilter ?? this.indicadorFilter,
       filtroCondicion: clearFiltroCondicion
           ? null
           : (filtroCondicion ?? this.filtroCondicion),
       filtroAccion:
           clearFiltroAccion ? null : (filtroAccion ?? this.filtroAccion),
+      filtroTipoObjetivo: clearFiltroTipoObjetivo
+          ? null
+          : (filtroTipoObjetivo ?? this.filtroTipoObjetivo),
+      filtroObjetivo: clearFiltroObjetivo
+          ? null
+          : (filtroObjetivo ?? this.filtroObjetivo),
       errorMessage:
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
+      strictRulesCount: strictRulesCount ?? this.strictRulesCount,
+      pesoRulesCount: pesoRulesCount ?? this.pesoRulesCount,
+      estaturaRulesCount: estaturaRulesCount ?? this.estaturaRulesCount,
     );
   }
 
-  List<dynamic> get filteredRules => rules;
-
-  int get strictCount =>
-      rules.where((r) => (r as Map<String, dynamic>)["es_estricta"] == true).length;
-
   bool get activeFilters =>
       searchQuery.isNotEmpty ||
-      selectedObjetivos.isNotEmpty ||
       filtroCondicion != null ||
-      filtroAccion != null;
+      filtroAccion != null ||
+      filtroTipoObjetivo != null ||
+      filtroObjetivo != null;
 }
 
 class ReglasNutricionalesNotifier
@@ -92,19 +116,35 @@ class ReglasNutricionalesNotifier
     final nextOffset = offset ?? state.offset;
     state = state.copyWith(isLoading: true, clearErrorMessage: true, offset: nextOffset);
     try {
+      // 1. Cargar Estadísticas
+      final statsRes = await _dio.get("reglas-nutricionales/estadisticas");
+      final stats = Map<String, dynamic>.from(statsRes.data as Map);
+      final strictCount = (stats["estrictas"] as num?)?.toInt() ?? 0;
+      final pesoCount = (stats["peso"] as num?)?.toInt() ?? 0;
+      final estaturaCount = (stats["estatura"] as num?)?.toInt() ?? 0;
+
+      // 2. Cargar listado de reglas filtradas
+      final Map<String, dynamic> queryParams = {
+        "limit": pageSize,
+        "offset": nextOffset,
+        "include_total": true,
+        "indicador": state.indicadorFilter,
+        if (state.searchQuery.isNotEmpty) "q": state.searchQuery,
+        if (state.filtroCondicion != null) "id_condicion": state.filtroCondicion,
+        if (state.filtroAccion != null) "id_accion": state.filtroAccion,
+        if (state.filtroTipoObjetivo != null) "id_tipo_objetivo": state.filtroTipoObjetivo,
+        if (state.filtroObjetivo != null) "id_objetivo": state.filtroObjetivo,
+      };
+
       final List<Future<dynamic>> requests = [
-        _dio.get("reglas-nutricionales", queryParameters: {
-          "limit": pageSize,
-          "offset": nextOffset,
-          "include_total": true,
-        }),
+        _dio.get("reglas-nutricionales", queryParameters: queryParams),
       ];
 
       // Solo cargar catálogos si no existen en memoria
       if (state.formData.isEmpty) {
         requests.add(_dio.get(
           "reglas-nutricionales/form-data",
-          queryParameters: {"compact": true},
+          queryParameters: {"compact": false}, // Necesitamos todos los ingredientes, grupos, etc.
         ));
       }
 
@@ -113,18 +153,40 @@ class ReglasNutricionalesNotifier
 
       state = state.copyWith(
         isLoading: false,
-        rules: rulesResult["items"] as List,
+        rules: rulesResult["items"] as List? ?? [],
         totalItems: rulesResult["total"] ?? 0,
+        strictRulesCount: strictCount,
+        pesoRulesCount: pesoCount,
+        estaturaRulesCount: estaturaCount,
         formData: results.length > 1
-            ? Map<String, List<dynamic>>.from(results[1].data as Map)
+            ? Map<String, List<dynamic>>.from(
+                (results[1].data as Map).map(
+                  (k, v) => MapEntry(
+                    k.toString(),
+                    List<Map<String, dynamic>>.from(v as List),
+                  ),
+                ),
+              )
             : state.formData,
       );
-    } catch (_) {
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Error al sincronizar motor de reglas",
+        errorMessage: "Error al sincronizar motor de reglas: $e",
       );
     }
+  }
+
+  void setIndicadorFilter(String value) {
+    state = state.copyWith(
+      indicadorFilter: value,
+      offset: 0,
+      clearFiltroCondicion: true,
+      clearFiltroAccion: true,
+      clearFiltroTipoObjetivo: true,
+      clearFiltroObjetivo: true,
+    );
+    loadData(offset: 0);
   }
 
   void setSearchQuery(String value) {
@@ -132,54 +194,72 @@ class ReglasNutricionalesNotifier
     loadData(offset: 0);
   }
 
-  void clearObjetivos() {
-    state = state.copyWith(selectedObjetivos: <String>{});
-  }
-
-  void toggleObjetivo(String value) {
-    final next = Set<String>.from(state.selectedObjetivos);
-    if (next.contains(value)) {
-      next.remove(value);
-    } else {
-      next.add(value);
-    }
-    state = state.copyWith(selectedObjetivos: next);
-  }
-
   void setFiltroCondicion(int? value) {
     state = state.copyWith(
-        filtroCondicion: value, clearFiltroCondicion: value == null);
+      filtroCondicion: value,
+      clearFiltroCondicion: value == null,
+      offset: 0,
+    );
+    loadData(offset: 0);
   }
 
   void setFiltroAccion(int? value) {
     state = state.copyWith(
-        filtroAccion: value, clearFiltroAccion: value == null);
+      filtroAccion: value,
+      clearFiltroAccion: value == null,
+      offset: 0,
+    );
+    loadData(offset: 0);
+  }
+
+  void setFiltroTipoObjetivo(int? value) {
+    state = state.copyWith(
+      filtroTipoObjetivo: value,
+      clearFiltroTipoObjetivo: value == null,
+      clearFiltroObjetivo: true,
+      offset: 0,
+    );
+    loadData(offset: 0);
+  }
+
+  void setFiltroObjetivo(int? value) {
+    state = state.copyWith(
+      filtroObjetivo: value,
+      clearFiltroObjetivo: value == null,
+      offset: 0,
+    );
+    loadData(offset: 0);
   }
 
   void clearAllFilters() {
     state = state.copyWith(
       searchQuery: "",
-      selectedObjetivos: <String>{},
       clearFiltroCondicion: true,
       clearFiltroAccion: true,
+      clearFiltroTipoObjetivo: true,
+      clearFiltroObjetivo: true,
+      offset: 0,
     );
+    loadData(offset: 0);
   }
 
   Future<void> deleteRule(int id) async {
-    // 1. Actualización Granular Local
     final oldRules = List<dynamic>.from(state.rules);
     final nextRules = oldRules.where((r) => r["id"] != id).toList();
 
     state = state.copyWith(
-        rules: nextRules, totalItems: state.totalItems - 1);
+      rules: nextRules,
+      totalItems: state.totalItems - 1,
+    );
 
-    // 2. Sincronización con el servidor
     try {
       await _dio.delete("reglas-nutricionales/$id");
+      // Recargar estadísticas tras eliminar
+      loadData();
     } catch (_) {
-      // Revertir en caso de error
-      state = state.copyWith(rules: oldRules, totalItems: state.totalItems + 1);
       state = state.copyWith(
+        rules: oldRules,
+        totalItems: state.totalItems + 1,
         errorMessage: "No se pudo eliminar la regla seleccionada",
       );
     }

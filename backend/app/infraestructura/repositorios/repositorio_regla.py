@@ -79,12 +79,17 @@ class RepositorioReglaPostgres(IRepositorioRegla):
         self, tipos_condicion: List[int] = [1, 2, 3], limite: int = 10, offset: int = 0,
         include_total: bool = False, origen_regla: str = None,
         q: str = None, id_condicion: int = None, id_accion: int = None,
-        id_tipo_objetivo: int = None, id_objetivo: int = None
+        id_tipo_objetivo: int = None, id_objetivo: int = None,
+        indicador: str = None
     ) -> dict | List[dict]:
         with db_cursor() as cur:
             # 1. Base WHERE clause: construcción dinámica de filtros
             where_parts = ["c.id_tipo_condicion = ANY(%s)"]
             params = [tipos_condicion]
+
+            if indicador:
+                where_parts.append("c.indicador_codigo = %s")
+                params.append(indicador)
 
             if origen_regla:
                 where_parts.append("upper(coalesce(r.origen_regla, 'CLINICA')) = %s")
@@ -287,6 +292,28 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                 "estrictas": res[1] or 0,
                 "clinicas": res[2] or 0,
                 "temporales": res[3] or 0
+            }
+
+    def obtener_estadisticas_nutricionales(self) -> dict:
+        with db_cursor() as cur:
+            sql = """
+                select
+                    count(distinct r.id) as total,
+                    count(distinct case when r.es_estricta = true then r.id end) as estrictas,
+                    count(distinct case when upper(coalesce(c.indicador_codigo, '')) = 'BMI' then r.id end) as peso,
+                    count(distinct case when upper(coalesce(c.indicador_codigo, '')) = 'HFA' then r.id end) as estatura
+                from heuristico.regla r
+                join heuristico.condicion_regla cr on cr.id_regla = r.id
+                join heuristico.condicion c on c.id = cr.id_condicion
+                where c.id_tipo_condicion = 3
+            """
+            cur.execute(sql)
+            res = cur.fetchone()
+            return {
+                "total": res[0] or 0,
+                "estrictas": res[1] or 0,
+                "peso": res[2] or 0,
+                "estatura": res[3] or 0
             }
 
     def _mapear_fila_a_regla(self, fila: tuple) -> Regla:

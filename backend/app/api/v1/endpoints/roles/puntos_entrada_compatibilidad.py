@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
+from typing import Optional
 from datetime import date, datetime
 from app.api.deps import require_roles
 from app.core.security import UserContext
@@ -387,16 +388,36 @@ def reglas_nutricionales_compat(
     limit: int = Query(default=10, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     include_total: bool = Query(default=False),
+    indicador: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    id_condicion: Optional[int] = Query(None),
+    id_accion: Optional[int] = Query(None),
+    id_tipo_objetivo: Optional[int] = Query(None),
+    id_objetivo: Optional[int] = Query(None),
     _=Depends(require_roles("admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
     repo = RepositorioReglaPostgres()
-    # Filtramos para que el nutricionista solo vea condiciones Nutricionales (3)
-    if include_total or limit != 500:
-        return repo.listar_reglas_detalladas(
-            tipos_condicion=[3], limite=limit, offset=offset, include_total=include_total
-        )
-    return repo.listar_reglas_detalladas(tipos_condicion=[3])
+    return repo.listar_reglas_detalladas(
+        tipos_condicion=[3],
+        limite=limit,
+        offset=offset,
+        include_total=include_total,
+        q=q,
+        id_condicion=id_condicion,
+        id_accion=id_accion,
+        id_tipo_objetivo=id_tipo_objetivo,
+        id_objetivo=id_objetivo,
+        indicador=indicador
+    )
+
+@router.get("/reglas-nutricionales/estadisticas")
+def obtener_estadisticas_reglas_nutricionales(
+    _=Depends(require_roles("admin", "nutricionista"))
+):
+    from app.infraestructura.repositorios.repositorio_regla import RepositorioReglaPostgres
+    repo = RepositorioReglaPostgres()
+    return repo.obtener_estadisticas_nutricionales()
 
 @router.get("/reglas-nutricionales/form-data")
 @cached(ttl=30)

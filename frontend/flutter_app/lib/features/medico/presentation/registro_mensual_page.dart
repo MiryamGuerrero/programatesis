@@ -933,9 +933,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               Text("Seguimiento clínico del paciente",
                   style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppTema.azulPrincipal,
                       letterSpacing: -0.5)),
               Text(
                   "Módulo para registro mensual y monitoreo de evolución del paciente pediátrico reumatológico.",
@@ -2282,10 +2282,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Centro de análisis clínico",
-            style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
-                color: const Color(0xFF0F172A))),
+            style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
         const SizedBox(height: 8),
         const Text(
             "Prioridad reumatológica: monitoreo de actividad de enfermedad AIJ + estado nutricional integral.",
@@ -6403,7 +6404,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               children: [
                 Text(
                   "Interpretación / Resumen clínico",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF1E293B),

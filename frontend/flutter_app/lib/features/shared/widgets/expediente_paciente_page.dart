@@ -93,10 +93,11 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(pac['nombre_completo'].toString().toUpperCase(),
-                style: GoogleFonts.montserrat(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppTema.azulPrincipal)),
+                style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
             Text("Expediente: ${widget.idPaciente}",
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
