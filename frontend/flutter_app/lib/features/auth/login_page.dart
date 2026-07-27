@@ -10,8 +10,8 @@ import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 
 // Ruta de los logos
-const String kLogoConNombre = "assets/images/logo 1.webp";
-const String kLogoSinNombre = "assets/images/logo sin.webp";
+const String kLogoConNombre = "assets/images/logo_reuma_nutri.png";
+const String kLogoSinNombre = "assets/images/logo_reuma_nutri.png";
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -477,8 +477,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 )
               ],
             ),
-            child: ClipOval(
-                child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
+            child: Image.asset(
+              kLogoSinNombre,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
           ),
         ),
       ],

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reuma-static-v1';
+const CACHE_NAME = 'reuma-static-v2';
 const OFFLINE_URLS = [
   '/',
   'index.html',
@@ -7,7 +7,7 @@ const OFFLINE_URLS = [
   'assets/AssetManifest.json',
   'assets/FontManifest.json',
   'assets/NOTICES',
-  'assets/images/logo 1.webp'
+  'assets/images/logo_reuma_nutri.png'
 ];
 
 self.addEventListener('install', event => {

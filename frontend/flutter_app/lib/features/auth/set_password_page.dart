@@ -9,7 +9,7 @@ import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 import "../../core/state/app_providers.dart";
 
-const String kLogoSinNombre = "assets/images/logo sin.webp";
+const String kLogoSinNombre = "assets/images/logo_reuma_nutri.png";
 
 class SetPasswordPage extends ConsumerStatefulWidget {
   const SetPasswordPage({super.key});
@@ -310,8 +310,11 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
                 )
               ],
             ),
-            child: ClipOval(
-                child: Image.asset(kLogoSinNombre, fit: BoxFit.contain)),
+            child: Image.asset(
+              kLogoSinNombre,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
           ),
         ),
       ],
