@@ -93,16 +93,11 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
       centerTitle: false,
       title: Row(
         children: [
-          // Logo placeholder if image is missing
-          Container(
+          Image.asset(
+            "assets/images/logo_reuma_nutri.png",
             width: 32,
             height: 32,
-            decoration: BoxDecoration(
-              color: brandBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.health_and_safety_outlined,
-                color: brandBlue, size: 20),
+            filterQuality: FilterQuality.high,
           ),
           const SizedBox(width: 12),
           RichText(

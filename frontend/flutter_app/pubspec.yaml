@@ -30,6 +30,25 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/logo_reuma_nutri.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/images/logo_adaptive_foreground.png"
+  web:
+    generate: true
+    image_path: "assets/images/logo_reuma_nutri.png"
+    background_color: "#ffffff"
+    theme_color: "#026eb5"
+  windows:
+    generate: true
+    image_path: "assets/images/logo_reuma_nutri.png"
+    icon_size: 48
 
 flutter:
   uses-material-design: true
@@ -51,4 +70,7 @@ flutter:
     - assets/images/rule_temporal_icon.webp
     - assets/images/clinica.png
     - assets/images/temporal.png
+    - assets/images/logoReumaNutri.svg
+    - assets/images/logo_final.svg
+    - assets/images/logo_reuma_nutri.png
 
