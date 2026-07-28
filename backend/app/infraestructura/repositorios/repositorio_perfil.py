@@ -120,7 +120,8 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                                 rol_ids: Optional[List[int]] = None,
                                 limit: int = 10, 
                                 offset: int = 0,
-                                include_total: bool = False) -> Dict[str, Any]:
+                                include_total: bool = False,
+                                activo: Optional[bool] = None) -> Dict[str, Any]:
         where_clauses = []
         params = []
         
@@ -131,6 +132,10 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         if rol_ids:
             where_clauses.append("u.id_rol = any(%s)")
             params.append(rol_ids)
+
+        if activo is not None:
+            where_clauses.append("u.activo = %s")
+            params.append(activo)
             
         where_str = f"where {' and '.join(where_clauses)}" if where_clauses else ""
         

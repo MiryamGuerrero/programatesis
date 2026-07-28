@@ -3,6 +3,9 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:pdf/pdf.dart";
+import "package:pdf/widgets.dart" as pw;
+import "package:printing/printing.dart";
 
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
@@ -169,6 +172,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             ),
           ),
         ),
+
         const SizedBox(width: 16),
         SizedBox(
           height: 48,
@@ -183,110 +187,595 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
             label: Text("Nuevo miembro",
                 style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w800, fontSize: 13)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: state.activeFilters ? _limpiarFiltros : null,
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-              side: BorderSide(color: Colors.grey.shade200),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
-            icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-            label: Text(
-              "Limpiar",
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded,
-              size: 22, color: AppTema.azulPrincipal),
-          onPressed: () => ref.read(adminUsersProvider.notifier).loadPage(),
-          tooltip: "Actualizar lista",
-          style: IconButton.styleFrom(
-            backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24)),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    letterSpacing: -0.5)),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildRolesFilter(AsyncValue<List<Map<String, dynamic>>> rolesAsync,
-      AdminUsersState state) {
-    return rolesAsync.maybeWhen(
-      data: (roles) => Row(
-        children: [
-          Text("Filtrar por rol:",
-              style: GoogleFonts.montserrat(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.blueGrey,
-                  letterSpacing: 1)),
-          const SizedBox(width: 16),
-          _filterChip("Todos", state.selectedRolIds.isEmpty,
-              () => ref.read(adminUsersProvider.notifier).clearFilters(),
-              icon: Icons.people_rounded),
-          const SizedBox(width: 12),
-          ...roles.map((r) {
-                final nombre = r["nombre"].toString().toLowerCase();
-                IconData chipIcon = Icons.person_rounded;
-                if (nombre.contains("admin")) chipIcon = Icons.admin_panel_settings_rounded;
-                else if (nombre.contains("médico") || nombre.contains("medico")) chipIcon = Icons.medical_services_rounded;
-                else if (nombre.contains("nutricionista")) chipIcon = Icons.restaurant_menu_rounded;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _filterChip(
-                      r["nombre"].toString(),
-                      state.selectedRolIds.contains(r["id"]),
-                      () => ref
-                          .read(adminUsersProvider.notifier)
-                          .toggleRol(r["id"]),
-                      icon: chipIcon),
-                );
-              }),
-        ],
+  Future<void> _exportarPDF(AdminUsersState state) async {
+    final repo = ref.read(supabaseCrudRepositoryProvider);
+    final notifier = ref.read(adminUsersProvider.notifier);
+
+    // Obtener la lista completa correspondiente a los filtros actuales (sin límite de paginación de 5)
+    final listadoCompleto = await repo.fetchUsersPage(
+      query: state.searchQuery,
+      rolIds: notifier.effectiveRolIds,
+      activo: state.selectedActivo,
+      limit: 1000,
+      offset: 0,
+    );
+
+    final users = listadoCompleto.items;
+    
+    // Determinar título del informe y si se debe ocultar la columna Rol
+    String tituloReporte = "REPORTE DE PERSONAL MÉDICO Y STAFF";
+    bool mostrarRol = true;
+    
+    if (state.selectedRolIds.length == 1) {
+      final idRol = state.selectedRolIds.first;
+      mostrarRol = false;
+      if (idRol == 1) {
+        tituloReporte = "REPORTE DE PERSONAL: ADMINISTRADORES";
+      } else if (idRol == 2) {
+        tituloReporte = "REPORTE DE PERSONAL: MÉDICOS";
+      } else if (idRol == 3) {
+        tituloReporte = "REPORTE DE PERSONAL: NUTRICIONISTAS";
+      } else if (idRol == 4) {
+        tituloReporte = "REPORTE DE PERSONAL: TUTORES";
+      }
+    }
+
+    final pdf = pw.Document();
+
+    final fontRegular = await PdfGoogleFonts.interRegular();
+    final fontBold = await PdfGoogleFonts.interBold();
+
+    // Configuración de anchos de columna de forma estética y proporcional
+    final columnWidths = {
+      0: const pw.FlexColumnWidth(3.0),    // Nombre Completo
+      1: const pw.FlexColumnWidth(2.8),    // Correo Electrónico
+      2: const pw.FlexColumnWidth(1.6),    // Cédula
+      if (mostrarRol) 3: const pw.FlexColumnWidth(1.8), // Rol
+      (mostrarRol ? 4 : 3): const pw.FlexColumnWidth(1.3), // Estado
+    };
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Encabezado Corporativo Premium
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        "NutriReuma",
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 26,
+                          color: const PdfColor.fromInt(0xFF0171BB),
+                        ),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        "Portal Profesional de Salud - Centro Clínico",
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 10,
+                          color: PdfColors.grey600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Sello corporativo vectorizado
+                  pw.Container(
+                    width: 50,
+                    height: 50,
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColor.fromInt(0xFFE0F2FE),
+                      shape: pw.BoxShape.circle,
+                    ),
+                    alignment: pw.Alignment.center,
+                    child: pw.Stack(
+                      alignment: pw.Alignment.center,
+                      children: [
+                        pw.Container(
+                          width: 32,
+                          height: 8,
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFFBAE6FD),
+                          ),
+                        ),
+                        pw.Container(
+                          width: 8,
+                          height: 32,
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFFBAE6FD),
+                          ),
+                        ),
+                        pw.Text(
+                          "NR",
+                          style: pw.TextStyle(
+                            font: fontBold,
+                            fontSize: 18,
+                            color: const PdfColor.fromInt(0xFF005686),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 12),
+              // Línea decorativa doble
+              pw.Container(
+                height: 3,
+                color: const PdfColor.fromInt(0xFF0171BB),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Container(
+                height: 1.5,
+                color: const PdfColor.fromInt(0xFF10B981),
+              ),
+              pw.SizedBox(height: 20),
+              
+              // Título del Informe y Metadata
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        tituloReporte,
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 13,
+                          color: const PdfColor.fromInt(0xFF1E293B),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        "Filtros aplicados: "
+                        "${state.selectedRolIds.isEmpty ? 'Todos los roles' : 'Roles específicos'} | "
+                        "${state.selectedActivo == null ? 'Todos los estados' : state.selectedActivo == true ? 'Solo activos' : 'Solo dados de baja'}",
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 8,
+                          color: PdfColors.grey500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.Text(
+                    "Fecha: ${DateTime.now().toLocal().toString().substring(0, 10)}",
+                    style: pw.TextStyle(
+                      font: fontRegular,
+                      fontSize: 9,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 16),
+              
+              // Tabla con bordes limpios sin líneas verticales (Look corporativo moderno)
+              pw.Table(
+                columnWidths: columnWidths,
+                border: const pw.TableBorder(
+                  bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
+                  horizontalInside: pw.BorderSide(color: PdfColor.fromInt(0xFFE2E8F0), width: 0.5),
+                ),
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColor.fromInt(0xFF0171BB),
+                    ),
+                    children: [
+                      _pdfHeaderCell("Nombre Completo", fontBold, textAlign: pw.TextAlign.left, fontSize: 9.5),
+                      _pdfHeaderCell("Correo Electrónico", fontBold, textAlign: pw.TextAlign.left, fontSize: 9.5),
+                      _pdfHeaderCell("Cédula", fontBold, textAlign: pw.TextAlign.center, fontSize: 9.5),
+                      if (mostrarRol) _pdfHeaderCell("Rol", fontBold, textAlign: pw.TextAlign.center, fontSize: 9.5),
+                      _pdfHeaderCell("Estado", fontBold, textAlign: pw.TextAlign.center, fontSize: 9.5),
+                    ],
+                  ),
+                  ...List.generate(users.length, (index) {
+                    final u = users[index];
+                    final rolNombre = (u["rol_nombre"]?.toString() ?? "SIN ROL").toUpperCase();
+                    final isEven = index % 2 == 0;
+                    final isActivo = u["activo"] == true;
+                    return pw.TableRow(
+                      decoration: pw.BoxDecoration(
+                        color: isEven ? const PdfColor.fromInt(0xFFF8FAFC) : PdfColors.white,
+                      ),
+                      children: [
+                        _pdfDataCell(
+                          _splitNameIntoTwoLines(u["nombre_completo"] ?? "Sin nombre"),
+                          fontRegular,
+                          textAlign: pw.TextAlign.left,
+                          fontSize: 8.5,
+                        ),
+                        _pdfDataCell(
+                          u["email"] ?? "Sin correo",
+                          fontRegular,
+                          textAlign: pw.TextAlign.left,
+                          fontSize: 7.5,
+                        ),
+                        _pdfDataCell(
+                          u["cedula"] ?? "Sin cédula",
+                          fontRegular,
+                          textAlign: pw.TextAlign.center,
+                          fontSize: 8,
+                        ),
+                        if (mostrarRol) _pdfDataCell(
+                          rolNombre,
+                          fontBold,
+                          textAlign: pw.TextAlign.center,
+                          fontSize: 8,
+                        ),
+                        _pdfDataCell(
+                          isActivo ? "ACTIVO" : "DADO DE BAJA",
+                          fontBold,
+                          textAlign: pw.TextAlign.center,
+                          fontSize: 8,
+                          textColor: isActivo ? const PdfColor.fromInt(0xFF10B981) : const PdfColor.fromInt(0xFFEF4444),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              pw.Spacer(),
+              // Firma / Pie de página corporativo
+              pw.Divider(color: const PdfColor.fromInt(0xFFE2E8F0)),
+              pw.SizedBox(height: 8),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    "Documento oficial de uso interno. Generado digitalmente.",
+                    style: pw.TextStyle(
+                      font: fontRegular,
+                      fontSize: 8,
+                      color: PdfColors.grey400,
+                    ),
+                  ),
+                  pw.Text(
+                    "Pág. 1 de 1",
+                    style: pw.TextStyle(
+                      font: fontRegular,
+                      fontSize: 8,
+                      color: PdfColors.grey400,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
-      orElse: () => const SizedBox.shrink(),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'reporte_personal_medico.pdf',
     );
   }
 
-  Widget _filterChip(String label, bool isSelected, VoidCallback onTap, {IconData? icon}) {
+  String _splitNameIntoTwoLines(String fullName) {
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 4) {
+      final firstLine = parts.sublist(0, 2).join(" ");
+      final secondLine = parts.sublist(2).join(" ");
+      return "$firstLine\n$secondLine";
+    } else if (parts.length == 3) {
+      return "${parts[0]}\n${parts[1]} ${parts[2]}";
+    } else if (parts.length == 2) {
+      return "${parts[0]}\n${parts[1]}";
+    }
+    return fullName;
+  }
+
+  pw.Widget _pdfHeaderCell(String text, pw.Font font, {
+    pw.TextAlign textAlign = pw.TextAlign.left,
+    double fontSize = 9.5,
+  }) {
+    final align = textAlign == pw.TextAlign.center 
+        ? pw.Alignment.center 
+        : (textAlign == pw.TextAlign.right ? pw.Alignment.centerRight : pw.Alignment.centerLeft);
+        
+    return pw.Container(
+      alignment: align,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: pw.Text(
+        text,
+        textAlign: textAlign,
+        style: pw.TextStyle(font: font, color: PdfColors.white, fontSize: fontSize),
+      ),
+    );
+  }
+
+  pw.Widget _pdfDataCell(String text, pw.Font font, {
+    PdfColor textColor = PdfColors.black,
+    pw.TextAlign textAlign = pw.TextAlign.left,
+    double fontSize = 8,
+  }) {
+    final align = textAlign == pw.TextAlign.center 
+        ? pw.Alignment.center 
+        : (textAlign == pw.TextAlign.right ? pw.Alignment.centerRight : pw.Alignment.centerLeft);
+        
+    return pw.Container(
+      alignment: align,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: pw.Text(
+        text,
+        textAlign: textAlign,
+        style: pw.TextStyle(font: font, color: textColor, fontSize: fontSize),
+      ),
+    );
+  }
+
+  Widget _buildRolesFilter(AsyncValue<List<Map<String, dynamic>>> rolesAsync,
+      AdminUsersState state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5EAF2)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.filter_alt_outlined,
+                color: AppTema.azulPrincipal,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Filtros",
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppTema.azulPrincipal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          rolesAsync.maybeWhen(
+            data: (roles) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Sección 1: Filtrar por rol
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Filtrar por rol",
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                _filterCard(
+                                  "Todos",
+                                  state.selectedRolIds.isEmpty,
+                                  () => ref.read(adminUsersProvider.notifier).clearFilters(),
+                                  icon: Icons.people_rounded,
+                                ),
+                                ...roles.map((r) {
+                                  final nombre = r["nombre"].toString().toLowerCase();
+                                  IconData cardIcon = Icons.person_rounded;
+                                  if (nombre.contains("admin")) {
+                                    cardIcon = Icons.admin_panel_settings_rounded;
+                                  } else if (nombre.contains("médico") || nombre.contains("medico")) {
+                                    cardIcon = Icons.medical_services_rounded;
+                                  } else if (nombre.contains("nutricionista")) {
+                                    cardIcon = Icons.restaurant_menu_rounded;
+                                  }
+                                  
+                                  final isSelected = state.selectedRolIds.contains(r["id"]);
+                                  return _filterCard(
+                                    r["nombre"].toString(),
+                                    isSelected,
+                                    () => ref.read(adminUsersProvider.notifier).toggleRol(r["id"]),
+                                    icon: cardIcon,
+                                  );
+                                }),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Separador vertical
+                      const SizedBox(width: 24),
+                      Container(
+                        width: 1,
+                        height: 90,
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      const SizedBox(width: 24),
+                      
+                      // Sección 2: Filtrar por estado
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Filtrar por estado",
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                _filterCard(
+                                  "Todos",
+                                  state.selectedActivo == null,
+                                  () => ref.read(adminUsersProvider.notifier).setStatusFilter(null),
+                                  icon: Icons.all_inclusive_rounded,
+                                ),
+                                _filterCard(
+                                  "Activos",
+                                  state.selectedActivo == true,
+                                  () => ref.read(adminUsersProvider.notifier).setStatusFilter(true),
+                                  icon: Icons.check_circle_rounded,
+                                ),
+                                _filterCard(
+                                  "Dados de baja",
+                                  state.selectedActivo == false,
+                                  () => ref.read(adminUsersProvider.notifier).setStatusFilter(false),
+                                  icon: Icons.cancel_rounded,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (state.activeFilters) ...[
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            _searchController.clear();
+                            ref.read(adminUsersProvider.notifier).clearFilters();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTema.azulPrincipal,
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            textStyle: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text("Limpiar filtros"),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      OutlinedButton.icon(
+                        onPressed: () => _exportarPDF(state),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTema.azulPrincipal,
+                          side: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          textStyle: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                        label: const Text("Exportar PDF"),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterCard(String label, bool isSelected, VoidCallback onTap, {required IconData icon}) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? AppTema.azulPrincipal : Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppTema.pastelCeleste : Colors.white,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: isSelected ? AppTema.azulPrincipal : Colors.grey.shade300),
+            color: isSelected
+                ? AppTema.azulPrincipal
+                : const Color(0xFFE5EAF2),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTema.azulPrincipal.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null) ...[
-              Icon(icon, size: 14, color: isSelected ? Colors.white : Colors.grey.shade600),
-              const SizedBox(width: 6),
-            ],
-            Text(label,
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : Colors.grey.shade600)),
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? AppTema.azulPrincipal : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AppTema.azulOscuro : const Color(0xFF64748B),
+              ),
+            ),
           ],
         ),
       ),
@@ -740,9 +1229,9 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 356,
-        constraints: const BoxConstraints(maxWidth: 356),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        width: 440,
+        constraints: const BoxConstraints(maxWidth: 440),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -755,80 +1244,94 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
             ),
           ],
         ),
-        child: Stack(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-                color: const Color(0xFF64748B),
-                iconSize: 22,
-                tooltip: "Cerrar",
-                splashRadius: 20,
-              ),
-            ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            Row(
               children: [
-                const SizedBox(height: 2),
-                Center(
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: const BoxDecoration(
-                      color: AppTema.azulPrincipal,
-                      shape: BoxShape.circle,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: AppTema.azulPrincipal,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isEdit ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    isEdit
+                        ? "Editar Miembro del Equipo"
+                        : "Nuevo Miembro del Equipo",
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppTema.azulOscuro,
+                      letterSpacing: -0.5,
                     ),
-                    child: const Icon(
-                      Icons.person_add_alt_1_rounded,
-                      color: Colors.white,
-                      size: 28,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  color: const Color(0xFF64748B),
+                  iconSize: 22,
+                  tooltip: "Cerrar",
+                  splashRadius: 20,
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _input(
+              _nombreCtrl,
+              "Nombre completo",
+              "Ingresar nombre completo",
+              Icons.badge_outlined,
+            ),
+            const SizedBox(height: 16),
+            _input(
+              _emailCtrl,
+              "Correo electrónico",
+              "usuario@nutrireuma.com",
+              Icons.mail_outline,
+            ),
+            const SizedBox(height: 16),
+            _input(
+              _cedulaCtrl,
+              "Cédula",
+              "Número de cédula",
+              Icons.person_outline_rounded,
+            ),
+            const SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    "Rol asignado",
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTema.azulOscuro,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  isEdit
-                      ? "Editar Miembro\ndel Equipo"
-                      : "Nuevo Miembro\ndel Equipo",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 22,
-                    height: 1.08,
-                    fontWeight: FontWeight.w900,
-                    color: AppTema.azulOscuro,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isEdit
-                      ? "Actualiza los datos de acceso y perfil profesional."
-                      : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    height: 1.25,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF8A97AD),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
-                const SizedBox(height: 12),
-                _input(_emailCtrl, "Correo electrónico", Icons.mail_outline),
-                const SizedBox(height: 12),
-                _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
-                const SizedBox(height: 12),
                 rolesAsync.when(
                   data: (roles) => DropdownButtonFormField<int>(
                     initialValue: _idRol,
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
                     decoration:
-                        _inputDecor("Rol asignado", Icons.work_outline_rounded),
+                        _inputDecor("Seleccionar rol", Icons.work_outline_rounded),
                     dropdownColor: Colors.white,
                     items: roles
                         .map((r) => DropdownMenuItem<int>(
@@ -854,45 +1357,80 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                     style: GoogleFonts.inter(color: Colors.redAccent),
                   ),
                 ),
-                const SizedBox(height: 44),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTema.azulPrincipal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 14),
-                        textStyle: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
-                      child: const Text("Cancelar"),
-                    ),
-                    const SizedBox(width: 18),
-                    SizedBox(
-                      width: 128,
-                      height: 46,
-                      child: FilledButton(
-                        onPressed: _saving ? null : _save,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTema.azulPrincipal,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          textStyle: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                        child: Text(_saving ? "Guardando..." : "Guardar"),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTema.pastelCeleste,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTema.azulPrincipal.withValues(alpha: 0.3),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_rounded,
+                    color: AppTema.azulPrincipal,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEdit
+                          ? "Actualiza los datos de acceso y perfil profesional."
+                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        height: 1.3,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTema.azulPrincipal,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    textStyle: GoogleFonts.inter(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  child: const Text("Cancelar"),
+                ),
+                const SizedBox(width: 18),
+                SizedBox(
+                  width: 148,
+                  height: 46,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.azulPrincipal,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    child: Text(_saving ? "Guardando..." : "Guardar"),
+                  ),
                 ),
               ],
             ),
@@ -904,54 +1442,70 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
 
   Widget _input(
     TextEditingController controller,
+    String label,
     String hint,
     IconData icon, {
     bool obscure = false,
   }) {
-    return SizedBox(
-      height: 48,
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppTema.azulOscuro,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTema.azulOscuro,
+            ),
+          ),
         ),
-        decoration: _inputDecor(hint, icon),
-      ),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xFF334155), // _grisFuerte in login
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _inputDecor(hint, icon),
+        ),
+      ],
     );
   }
 
   InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF98A2B3),
+          color: Colors.grey.shade400,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
-        prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
         filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        fillColor: const Color(0xFFF1F5F9),
+        prefixIcon: Icon(icon, size: 20, color: Colors.blueGrey.shade400),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE1E7F0), width: 1.4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide:
-              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       );
 
   Future<void> _save() async {

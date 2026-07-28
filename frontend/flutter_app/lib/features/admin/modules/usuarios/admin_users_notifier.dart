@@ -7,6 +7,7 @@ class AdminUsersState {
   final List<Map<String, dynamic>> users;
   final String searchQuery;
   final Set<int> selectedRolIds;
+  final bool? selectedActivo;
   final int totalItems;
   final int offset;
   final Map<int, int> roleCounts;
@@ -17,6 +18,7 @@ class AdminUsersState {
     this.users = const [],
     this.searchQuery = "",
     this.selectedRolIds = const {},
+    this.selectedActivo,
     this.totalItems = 0,
     this.offset = 0,
     this.roleCounts = const {},
@@ -28,6 +30,8 @@ class AdminUsersState {
     List<Map<String, dynamic>>? users,
     String? searchQuery,
     Set<int>? selectedRolIds,
+    bool? selectedActivo,
+    bool clearActivo = false,
     int? totalItems,
     int? offset,
     Map<int, int>? roleCounts,
@@ -39,13 +43,15 @@ class AdminUsersState {
       users: users ?? this.users,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedRolIds: selectedRolIds ?? this.selectedRolIds,
+      selectedActivo: clearActivo ? null : (selectedActivo ?? this.selectedActivo),
       totalItems: totalItems ?? this.totalItems,
+      offset: offset ?? this.offset,
       roleCounts: roleCounts ?? this.roleCounts,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
-  bool get activeFilters => searchQuery.isNotEmpty || selectedRolIds.isNotEmpty;
+  bool get activeFilters => searchQuery.isNotEmpty || selectedRolIds.isNotEmpty || selectedActivo != null;
 }
 
 class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
@@ -67,6 +73,8 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
         .toList();
     return scopedSelection.isEmpty ? allowedRolIds.toList() : scopedSelection;
   }
+
+  List<int> get effectiveRolIds => _effectiveRolIds;
 
   Future<Map<int, int>> _loadRoleCounts() async {
     if (allowedRolIds.isEmpty) return const {};
@@ -100,6 +108,7 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
           rolIds: _effectiveRolIds,
           limit: pageSize,
           offset: nextOffset,
+          activo: state.selectedActivo,
         ),
         _loadRoleCounts(),
       ]);
@@ -136,8 +145,18 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     loadPage(offset: 0);
   }
 
+  void setStatusFilter(bool? activo) {
+    if (state.selectedActivo == activo) return;
+    if (activo == null) {
+      state = state.copyWith(clearActivo: true, offset: 0);
+    } else {
+      state = state.copyWith(selectedActivo: activo, offset: 0);
+    }
+    loadPage(offset: 0);
+  }
+
   void clearFilters() {
-    state = state.copyWith(searchQuery: "", selectedRolIds: {}, offset: 0);
+    state = state.copyWith(searchQuery: "", selectedRolIds: {}, clearActivo: true, offset: 0);
     loadPage(offset: 0);
   }
 

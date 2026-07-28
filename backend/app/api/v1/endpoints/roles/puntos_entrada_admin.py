@@ -38,17 +38,19 @@ def listar_usuarios(
     limit: int = Query(default=10, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     include_total: bool = Query(default=False),
+    activo: Optional[bool] = Query(default=None),
     caso_uso: CasoUsoGestionarUsuarios = Depends(obtener_caso_uso_gestionar_usuarios),
     _=Depends(require_roles("admin"))
 ) -> dict[str, Any] | List[dict[str, Any]]:
-    if q or rol_ids or limit != 10 or offset != 0 or include_total:
+    if q or rol_ids or limit != 10 or offset != 0 or include_total or (activo is not None):
         repo = RepositorioPerfilPostgres()
         return repo.listar_usuarios_paginado(
             q=q, 
             rol_ids=rol_ids, 
             limit=limit, 
             offset=offset, 
-            include_total=include_total
+            include_total=include_total,
+            activo=activo
         )
     return caso_uso.listar_todos()
 

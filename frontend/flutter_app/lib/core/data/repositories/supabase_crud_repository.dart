@@ -23,6 +23,7 @@ class SupabaseCrudRepository {
     List<int>? rolIds,
     int limit = 10,
     int offset = 0,
+    bool? activo,
   }) async {
     final response = await _dio.get(
       "usuarios",
@@ -32,6 +33,7 @@ class SupabaseCrudRepository {
         "limit": limit,
         "offset": offset,
         "include_total": true,
+        if (activo != null) "activo": activo,
       },
     );
 

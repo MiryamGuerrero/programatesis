@@ -10,8 +10,8 @@ import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 
 // Ruta de los logos
-const String kLogoConNombre = "assets/images/logo 1.webp";
-const String kLogoSinNombre = "assets/images/logo sin.webp";
+const String kLogoConNombre = "assets/images/LOGO.png";
+const String kLogoSinNombre = "assets/images/LOGO.png";
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -113,9 +113,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.responsiveSpacing(AppSpacing.lg),
-                  vertical: context.responsiveSpacing(AppSpacing.xl),
+                padding: EdgeInsets.fromLTRB(
+                  context.responsiveSpacing(AppSpacing.lg),
+                  context.responsiveSpacing(AppSpacing.xxl) + 60.0,
+                  context.responsiveSpacing(AppSpacing.lg),
+                  context.responsiveSpacing(AppSpacing.xxl),
                 ),
                 child: ResponsiveMaxConstraints(
                   maxWidth: 1300,
@@ -138,7 +140,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       : Column(
                           children: [
                             _buildMobileHeader(context),
-                            const SizedBox(height: AppSpacing.xxl),
+                            const SizedBox(height: 140.0),
                             _buildLoginCard(context),
                           ],
                         ),
@@ -202,11 +204,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
       children: [
         RichText(
           text: TextSpan(
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
               fontSize:
                   context.responsiveValue(mobile: 32, tablet: 40, desktop: 48),
               fontWeight: FontWeight.w800,
-              height: 1,
+              height: 1.1,
               letterSpacing: -1.5,
             ),
             children: const [
@@ -215,46 +217,64 @@ class _LoginPageState extends ConsumerState<LoginPage>
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: 12),
         Text(
           "Portal profesional de salud",
-          style: GoogleFonts.lato(
-              fontSize: AppTextSizes.headline(context.screenWidth) * 0.7,
+          style: GoogleFonts.inter(
+              fontSize: 18,
               color: _grisTexto,
               fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: AppSpacing.xl),
-        Container(
-          width: 80,
-          height: 4,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
-            gradient: const LinearGradient(colors: [_azul, _verde]),
-          ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Container(
+              width: 30,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: _azul,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(2),
+                  bottomLeft: Radius.circular(2),
+                ),
+              ),
+            ),
+            Container(
+              width: 30,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: _verde,
+                borderRadius: BorderRadius.only(
+                  topRight: Radius.circular(2),
+                  bottomRight: Radius.circular(2),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 24),
         SizedBox(
           width: 480,
           child: Text(
             "Plataforma avanzada para la evaluación nutricional y seguimiento clínico pediátrico en reumatología.",
-            style: GoogleFonts.lato(
-                fontSize: AppTextSizes.bodyLarge(context.screenWidth),
+            style: GoogleFonts.inter(
+                fontSize: 16,
                 color: _grisTexto,
-                height: 1.4,
+                height: 1.5,
                 fontWeight: FontWeight.w500),
           ),
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        const SizedBox(height: 48),
         Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
+          spacing: 16,
+          runSpacing: 16,
           children: [
-            _buildFeatureCard(context, Icons.analytics_outlined,
+            _buildFeatureCard(context, Icons.insert_chart_outlined_rounded,
                 "Evaluación especializada", _verde),
             _buildFeatureCard(context, Icons.monitor_heart_outlined,
                 "Seguimiento clínico", _azul),
             _buildFeatureCard(
-                context, Icons.security_outlined, "Acceso autorizado", _verde),
+                context, Icons.shield_outlined, "Acceso autorizado", _verde),
           ],
         ),
       ],
@@ -264,47 +284,42 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget _buildFeatureCard(
       BuildContext context, IconData icon, String title, Color accent) {
     return Container(
-      width: context.responsiveValue(mobile: 150, tablet: 160),
-      height: context.responsiveValue(mobile: 150, tablet: 160),
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm + 4, vertical: AppSpacing.md),
+      width: 140,
+      height: 130,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 10)),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: _azulOscuro, size: 32),
-          const SizedBox(height: AppSpacing.sm),
-          Expanded(
-            child: Center(
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                softWrap: true,
-                maxLines: 2,
-                style: GoogleFonts.montserrat(
-                    fontSize: AppTextSizes.caption(context.screenWidth) * 1.05,
-                    fontWeight: FontWeight.w700,
-                    color: _azulOscuro,
-                    height: 1.1),
-              ),
+          Icon(icon, color: _azulOscuro, size: 28),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _azulOscuro,
+                height: 1.2),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(1.5),
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Container(
-              width: 30,
-              height: 3,
-              decoration: BoxDecoration(
-                  color: accent, borderRadius: BorderRadius.circular(2))),
         ],
       ),
     );
@@ -339,44 +354,45 @@ class _LoginPageState extends ConsumerState<LoginPage>
       alignment: Alignment.topCenter,
       children: [
         Container(
-          width: AppSizes.maxFormWidth,
+          width: 440,
+          constraints: const BoxConstraints(maxWidth: 440),
           padding: EdgeInsets.fromLTRB(
-            context.responsiveSpacing(AppSpacing.xl),
-            context.responsiveSpacing(AppSpacing.xxl + 10),
-            context.responsiveSpacing(AppSpacing.xl),
-            context.responsiveSpacing(AppSpacing.xl),
+            28,
+            context.responsiveValue(mobile: 80, tablet: 85, desktop: 90),
+            28,
+            28,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSizes.cardRadius + 8),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20)),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 35,
+                  offset: const Offset(0, 15)),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text("Bienvenido/a",
-                  style: GoogleFonts.montserrat(
-                      fontSize:
-                          AppTextSizes.headline(context.screenWidth) * 0.9,
+                  style: GoogleFonts.inter(
+                      fontSize: 28,
                       fontWeight: FontWeight.w800,
                       color: _azulOscuro,
                       letterSpacing: -0.5)),
               const SizedBox(height: 6),
               Text("Acceso al portal profesional",
-                  style: GoogleFonts.lato(
-                      fontSize: AppTextSizes.body(context.screenWidth),
+                  style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                       color: _grisTexto)),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: 16),
               Container(
-                  width: 40,
+                  width: 24,
                   height: 3,
                   decoration: BoxDecoration(
-                      color: _verde, borderRadius: BorderRadius.circular(2))),
+                      color: _verde, borderRadius: BorderRadius.circular(1.5))),
               if (_errorMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
@@ -395,7 +411,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: GoogleFonts.lato(
+                          style: GoogleFonts.inter(
                               color: Colors.red.shade700,
                               fontSize: 13,
                               fontWeight: FontWeight.w600),
@@ -405,27 +421,34 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                 ),
               ],
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: 28),
               _buildField(
                   context: context,
                   controller: _emailController,
                   label: "Correo electrónico",
                   hint: "usuario@nutrireuma.com",
                   icon: Icons.mail_outline),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 20),
               _buildField(
                   context: context,
                   controller: _passwordController,
                   label: "Contraseña",
-                  hint: "",
+                  hint: "Ingresar su contraseña",
                   icon: Icons.lock_outline,
                   isPass: true),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
-                height: AppSizes.buttonHeightLarge,
+                height: 52,
                 child: FilledButton(
                   onPressed: _loading ? null : _handleLogin,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _azul,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    elevation: 0,
+                  ),
                   child: _loading
                       ? const SizedBox(
                           width: 24,
@@ -437,23 +460,23 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         )
                       : Text(
                           "Ingresar",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
+                            letterSpacing: 0.5,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: 20),
               TextButton(
                 onPressed: _olvidoContrasena,
                 child: Text(
                   "¿Olvidó su contraseña?",
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    color: _azul,
-                    fontWeight: FontWeight.w700,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -461,19 +484,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ),
         ),
         Positioned(
-          top: -55,
+          top: -85,
           child: Container(
-            width: 100,
-            height: 100,
+            width: 150,
+            height: 150,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 25,
+                  offset: const Offset(0, 10),
                 )
               ],
             ),
@@ -681,45 +704,57 @@ class _LoginPageState extends ConsumerState<LoginPage>
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             label,
-            style: GoogleFonts.montserrat(
-              fontSize: 12,
+            style: GoogleFonts.inter(
+              fontSize: 13,
               fontWeight: FontWeight.w700,
               color: _azulOscuro,
-              letterSpacing: 0.5,
             ),
           ),
         ),
         TextField(
           controller: controller,
           obscureText: isPass && _obscurePassword,
-          style: GoogleFonts.lato(
-              fontSize: AppTextSizes.body(context.screenWidth),
+          style: GoogleFonts.inter(
+              fontSize: 14,
               color: _grisFuerte,
               fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.lato(
-              color: _grisTexto.withValues(alpha: 0.4),
-              fontSize: AppTextSizes.body(context.screenWidth),
+            hintStyle: GoogleFonts.inter(
+              color: Colors.grey.shade400,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
-            // Esto hace que el hint desaparezca apenas el usuario hace clic o empieza a escribir
-            floatingLabelBehavior: FloatingLabelBehavior.never,
-            hintFadeDuration: Duration.zero,
-            prefixIcon: Icon(icon, size: 22),
+            filled: true,
+            fillColor: const Color(0xFFF1F5F9),
+            prefixIcon: Icon(icon, size: 20, color: Colors.blueGrey.shade400),
             suffixIcon: isPass
                 ? IconButton(
                     icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 20),
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Colors.blueGrey.shade400,
+                      size: 20,
+                    ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   )
                 : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _azul, width: 1.5),
+            ),
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                horizontal: 16, vertical: 16),
           ),
         ),
       ],
