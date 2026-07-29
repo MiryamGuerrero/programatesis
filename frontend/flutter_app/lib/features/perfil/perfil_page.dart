@@ -114,7 +114,6 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
         _initializeFields(profile);
         final role = profile["rol_nombre"]?.toString() ?? "Usuario";
         final activo = profile["activo"] == true;
-        final userId = profile["id"]?.toString() ?? "-";
 
         return Scaffold(
           backgroundColor: AppTema.grisLienzo,
@@ -138,7 +137,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildAvatarCard(profile, role, activo, userId),
+                    _buildAvatarCard(profile, role, activo),
                     const SizedBox(width: 32),
                     Expanded(child: _buildFormCard()),
                   ],
@@ -157,7 +156,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   }
 
   Widget _buildAvatarCard(
-      Map<String, dynamic> profile, String role, bool activo, String userId) {
+      Map<String, dynamic> profile, String role, bool activo) {
     final displayUsername = _usernameController.text.trim().isNotEmpty
         ? _usernameController.text.trim()
         : (_emailController.text.contains("@")
@@ -222,8 +221,6 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           const SizedBox(height: 12),
           _infoMiniItem(Icons.verified_user_outlined, "Estado",
               activo ? "Activo" : "Inactivo"),
-          const SizedBox(height: 12),
-          _infoMiniItem(Icons.perm_identity_rounded, "ID", userId),
         ],
       ),
     );
