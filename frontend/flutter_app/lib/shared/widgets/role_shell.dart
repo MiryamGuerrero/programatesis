@@ -199,7 +199,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
       child: Row(
         children: [
           Container(
-            width: isWide ? 280 : 200,
+            width: isWide ? 280 : 240,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
@@ -212,8 +212,8 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 const SizedBox(width: 8),
                 Image.asset(
                   "assets/images/logo_reuma_nutri.png",
-                  width: 32,
-                  height: 32,
+                  width: 50,
+                  height: 50,
                   filterQuality: FilterQuality.high,
                 ),
                 const SizedBox(width: 8),
