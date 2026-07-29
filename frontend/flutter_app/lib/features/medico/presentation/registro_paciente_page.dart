@@ -1334,6 +1334,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _showSuccess = true;
         _fixedInitialSnapshot = _buildFixedSnapshot();
       });
+      if (mounted) {
+        NutriSnack.show(context, "Tutor asignado/actualizado correctamente", ref: ref);
+      }
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.invalidate(medicoPatientsProvider);
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
@@ -1442,6 +1445,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       }
 
       setState(() => _showSuccess = true);
+      if (mounted) {
+        NutriSnack.show(
+          context,
+          _idPacienteEditando == null
+              ? "Paciente registrado y tutor asignado correctamente"
+              : "Paciente y tutor actualizados correctamente",
+          ref: ref,
+        );
+      }
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.invalidate(medicoPatientsProvider);
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
