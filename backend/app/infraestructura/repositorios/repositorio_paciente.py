@@ -1083,22 +1083,88 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                       paciente.get("id_canton", 1), paciente.get("id_parroquia"), paciente.get("cedula"), id_paciente))
 
                 # 2. Actualizar Tutor (Relacionado)
-                cur.execute("select id_usuario_tutor from usuarios.tutor_paciente where id_paciente = %s and es_principal = true", (id_paciente,))
+                cur.execute("""
+                    select u.id, u.email, u.cedula 
+                    from usuarios.tutor_paciente tp
+                    join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                    where tp.id_paciente = %s and tp.es_principal = true
+                """, (id_paciente,))
                 t_row = cur.fetchone()
+                
                 if t_row:
-                    tutor_id = t_row[0]
-                    cur.execute("""
-                        update usuarios.usuario set 
-                            nombre_completo = %s, email = %s, cedula = %s, 
-                            telefono = %s, direccion = %s 
-                        where id = %s
-                    """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
-                    if tutor.get("id_parentesco"):
+                    current_tutor_id = t_row[0]
+                    current_email = t_row[1]
+                    current_cedula = t_row[2]
+                    
+                    email_changed = (tutor.get("email") and tutor["email"].strip().lower() != (current_email or "").strip().lower())
+                    cedula_changed = (tutor.get("cedula") and tutor["cedula"].strip() != (current_cedula or "").strip())
+                    
+                    if email_changed or cedula_changed:
                         cur.execute("""
-                            update usuarios.tutor_paciente set 
-                                id_parentesco = %s
-                            where id_paciente = %s and id_usuario_tutor = %s and es_principal = true
-                        """, (tutor["id_parentesco"], id_paciente, tutor_id))
+                            select id from usuarios.usuario 
+                            where (cedula = %s or email = %s) and id_rol = 4 
+                            limit 1
+                        """, (tutor.get("cedula"), tutor.get("email")))
+                        t_existente = cur.fetchone()
+                        
+                        if t_existente:
+                            new_tutor_id = t_existente[0]
+                            cur.execute("""
+                                update usuarios.usuario set 
+                                    nombre_completo = %s, email = %s, cedula = %s, 
+                                    telefono = %s, direccion = %s 
+                                where id = %s
+                            """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), new_tutor_id))
+                        else:
+                            try:
+                                from app.core.auth_onboarding import provision_auth_user_with_password_setup
+                                auth_user_id, _ = provision_auth_user_with_password_setup(
+                                    email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
+                                )
+                                cur.execute("""
+                                    insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
+                                    values (%s, %s, %s, 4, true, %s, %s, %s) returning id
+                                """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                                new_tutor_id = cur.fetchone()[0]
+                            except Exception as auth_err:
+                                if "already been registered" in str(auth_err) or "already exists" in str(auth_err):
+                                    from app.core.supabase_client import get_supabase_admin_client
+                                    admin_client = get_supabase_admin_client()
+                                    res = admin_client.auth.admin.list_users()
+                                    users_list = res if isinstance(res, list) else getattr(res, "users", [])
+                                    auth_user_id = None
+                                    for u in users_list:
+                                        if u.email.strip().lower() == tutor["email"].strip().lower():
+                                            auth_user_id = u.id
+                                            break
+                                    if not auth_user_id:
+                                        raise auth_err
+                                    cur.execute("""
+                                        insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
+                                        values (%s, %s, %s, 4, true, %s, %s, %s) returning id
+                                    """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                                    new_tutor_id = cur.fetchone()[0]
+                                else:
+                                    raise auth_err
+                                    
+                        cur.execute("""
+                            update usuarios.tutor_paciente 
+                            set id_usuario_tutor = %s, id_parentesco = %s
+                            where id_paciente = %s and es_principal = true
+                        """, (new_tutor_id, tutor.get("id_parentesco"), id_paciente))
+                    else:
+                        cur.execute("""
+                            update usuarios.usuario set 
+                                nombre_completo = %s, email = %s, cedula = %s, 
+                                telefono = %s, direccion = %s 
+                            where id = %s
+                        """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), current_tutor_id))
+                        if tutor.get("id_parentesco"):
+                            cur.execute("""
+                                update usuarios.tutor_paciente set 
+                                    id_parentesco = %s
+                                where id_paciente = %s and id_usuario_tutor = %s and es_principal = true
+                            """, (tutor["id_parentesco"], id_paciente, current_tutor_id))
                 else:
                     if tutor and tutor.get("email") and tutor.get("nombre"):
                         from app.core.auth_onboarding import provision_auth_user_with_password_setup
