@@ -1075,6 +1075,45 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                             telefono = %s, direccion = %s 
                         where id = %s
                     """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
+                    if tutor.get("id_parentesco"):
+                        cur.execute("""
+                            update usuarios.tutor_paciente set 
+                                id_parentesco = %s
+                            where id_paciente = %s and id_usuario_tutor = %s and es_principal = true
+                        """, (tutor["id_parentesco"], id_paciente, tutor_id))
+                else:
+                    if tutor and tutor.get("email") and tutor.get("nombre"):
+                        from app.core.auth_onboarding import provision_auth_user_with_password_setup
+                        
+                        cur.execute("""
+                            select id from usuarios.usuario 
+                            where (cedula = %s or email = %s) and id_rol = 4 
+                            limit 1
+                        """, (tutor.get("cedula"), tutor.get("email")))
+                        t_existente = cur.fetchone()
+                        
+                        if t_existente:
+                            tutor_id = t_existente[0]
+                            cur.execute("""
+                                update usuarios.usuario set 
+                                    nombre_completo = %s, email = %s, cedula = %s, 
+                                    telefono = %s, direccion = %s 
+                                where id = %s
+                            """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
+                        else:
+                            auth_user_id, _ = provision_auth_user_with_password_setup(
+                                email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
+                            )
+                            cur.execute("""
+                                insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
+                                values (%s, %s, %s, 4, true, %s, %s, %s) returning id
+                            """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                            tutor_id = cur.fetchone()[0]
+                            
+                        cur.execute("""
+                            insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) 
+                            values (%s, %s, %s, true, true)
+                        """, (tutor_id, id_paciente, tutor.get("id_parentesco")))
 
                 # 3. DiagnÃ³stico Base
                 if salud.get("id_patologia_base"):
