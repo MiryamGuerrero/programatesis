@@ -185,7 +185,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                     (_apellidosController.text.isNotEmpty
                         ? _apellidosController.text[0]
                         : ""),
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: AppTema.azulPrincipal)),
@@ -193,12 +193,12 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           const SizedBox(height: 20),
           Text(displayUsername,
               textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text("${_nombresController.text} ${_apellidosController.text}",
               textAlign: TextAlign.center,
-              style: GoogleFonts.lato(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
@@ -209,7 +209,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                   color: AppTema.verdeSalud.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20)),
               child: Text(role,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: AppTema.verdeSalud))),
@@ -313,7 +313,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                         color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.save_as_rounded),
             label: Text("Guardar cambios",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -321,7 +321,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   }
 
   Widget _sectionTitle(String title) => Text(title,
-      style: GoogleFonts.montserrat(
+      style: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           color: Colors.black87,
@@ -331,12 +331,12 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
         Icon(icon, size: 16, color: Colors.blueGrey),
         const SizedBox(width: 8),
         Text("$label: ",
-            style: GoogleFonts.lato(fontSize: 12, color: Colors.blueGrey)),
+            style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey)),
         Expanded(
             child: Text(value,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.lato(
+                style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87)))
@@ -349,13 +349,13 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
       TextFormField(
           controller: controller,
           maxLines: maxLines,
-          style: GoogleFonts.lato(fontSize: 14),
+          style: GoogleFonts.inter(fontSize: 14),
           decoration: InputDecoration(
               labelText: label,
               prefixIcon: Icon(icon,
                   size: 20, color: AppTema.azulPrincipal.withOpacity(0.6)),
-              labelStyle: const TextStyle(fontSize: 13, color: Colors.black54),
-              floatingLabelStyle: const TextStyle(
+              labelStyle: GoogleFonts.inter(fontSize: 13, color: Colors.black54),
+              floatingLabelStyle: GoogleFonts.inter(
                   color: AppTema.azulPrincipal, fontWeight: FontWeight.bold),
               filled: true,
               fillColor: AppTema.grisLienzo.withOpacity(0.5),
