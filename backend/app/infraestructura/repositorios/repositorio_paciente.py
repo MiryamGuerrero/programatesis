@@ -414,11 +414,29 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 t_row = cur.fetchone()
                 tutor_id = t_row[0] if t_row else None
                 if not tutor_id:
-                    auth_user_id, temp_password = provision_auth_user_with_password_setup(
-                        email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
-                    )
-                    cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion, created_by) values (%s, %s, %s, 4, true, %s, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion"), id_medico_interno))
-                    tutor_id = cur.fetchone()[0]
+                    try:
+                        auth_user_id, temp_password = provision_auth_user_with_password_setup(
+                            email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
+                        )
+                        cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion, created_by) values (%s, %s, %s, 4, true, %s, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion"), id_medico_interno))
+                        tutor_id = cur.fetchone()[0]
+                    except Exception as auth_err:
+                        if "already been registered" in str(auth_err) or "already exists" in str(auth_err):
+                            from app.core.supabase_client import get_supabase_admin_client
+                            admin_client = get_supabase_admin_client()
+                            res = admin_client.auth.admin.list_users()
+                            users_list = res if isinstance(res, list) else getattr(res, "users", [])
+                            auth_user_id = None
+                            for u in users_list:
+                                if u.email.strip().lower() == tutor["email"].strip().lower():
+                                    auth_user_id = u.id
+                                    break
+                            if not auth_user_id:
+                                raise auth_err
+                            cur.execute("insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion, created_by) values (%s, %s, %s, 4, true, %s, %s, %s, %s) returning id", (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion"), id_medico_interno))
+                            tutor_id = cur.fetchone()[0]
+                        else:
+                            raise auth_err
                 else:
                     cur.execute("update usuarios.usuario set nombre_completo = %s, telefono = %s, direccion = %s, updated_by = %s, updated_at = now() where id = %s", (tutor["nombre"], tutor.get("telefono"), tutor.get("direccion"), id_medico_interno, tutor_id))
                 
@@ -1101,14 +1119,35 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                                 where id = %s
                             """, (tutor["nombre"], tutor["email"], tutor["cedula"], tutor.get("telefono"), tutor.get("direccion"), tutor_id))
                         else:
-                            auth_user_id, _ = provision_auth_user_with_password_setup(
-                                email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
-                            )
-                            cur.execute("""
-                                insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
-                                values (%s, %s, %s, 4, true, %s, %s, %s) returning id
-                            """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
-                            tutor_id = cur.fetchone()[0]
+                            try:
+                                auth_user_id, _ = provision_auth_user_with_password_setup(
+                                    email=tutor["email"], nombre_completo=tutor["nombre"], role_code="tutor", password=tutor.get("password")
+                                )
+                                cur.execute("""
+                                    insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
+                                    values (%s, %s, %s, 4, true, %s, %s, %s) returning id
+                                """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                                tutor_id = cur.fetchone()[0]
+                            except Exception as auth_err:
+                                if "already been registered" in str(auth_err) or "already exists" in str(auth_err):
+                                    from app.core.supabase_client import get_supabase_admin_client
+                                    admin_client = get_supabase_admin_client()
+                                    res = admin_client.auth.admin.list_users()
+                                    users_list = res if isinstance(res, list) else getattr(res, "users", [])
+                                    auth_user_id = None
+                                    for u in users_list:
+                                        if u.email.strip().lower() == tutor["email"].strip().lower():
+                                            auth_user_id = u.id
+                                            break
+                                    if not auth_user_id:
+                                        raise auth_err
+                                    cur.execute("""
+                                        insert into usuarios.usuario (nombre_completo, email, cedula, id_rol, activo, auth_user_id, telefono, direccion) 
+                                        values (%s, %s, %s, 4, true, %s, %s, %s) returning id
+                                    """, (tutor["nombre"], tutor["email"], tutor["cedula"], auth_user_id, tutor.get("telefono"), tutor.get("direccion")))
+                                    tutor_id = cur.fetchone()[0]
+                                else:
+                                    raise auth_err
                             
                         cur.execute("""
                             insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) 
@@ -1122,6 +1161,9 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         insert into clinico.diagnostico_paciente 
                         (id_paciente, id_condicion, fecha_diagnostico, es_cronico, esta_activo, observaciones) 
                         values (%s, %s, now(), true, true, %s)
+                        on conflict (id_paciente, id_condicion) do update set
+                            esta_activo = true,
+                            observaciones = excluded.observaciones
                     """, (id_paciente, salud["id_patologia_base"], salud.get("observaciones")))
 
                 # 4. Alergias y restricciones
