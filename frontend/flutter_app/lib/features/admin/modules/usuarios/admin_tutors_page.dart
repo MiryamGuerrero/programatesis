@@ -169,40 +169,9 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
             label: Text("Invitar tutor",
                 style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w800, fontSize: 13)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: state.activeFilters ? _limpiarFiltros : null,
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-              side: BorderSide(color: Colors.grey.shade200),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
-            icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
-            label: Text(
-              "Limpiar",
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded,
-              size: 22, color: AppTema.azulPrincipal),
-          onPressed: () => ref.read(adminTutorsProvider.notifier).loadPage(),
-          tooltip: "Actualizar lista",
-          style: IconButton.styleFrom(
-            backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24)),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    letterSpacing: -0.5)),
           ),
         ),
       ],
@@ -656,124 +625,157 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 356,
-        constraints: const BoxConstraints(maxWidth: 356),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        width: 440,
+        constraints: const BoxConstraints(maxWidth: 440),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE5EAF2)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0F172A).withOpacity(0.10),
+              color: const Color(0xFF0F172A).withValues(alpha: 0.10),
               blurRadius: 28,
               offset: const Offset(0, 16),
             ),
           ],
         ),
-        child: Stack(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-                color: const Color(0xFF64748B),
-                iconSize: 22,
-                tooltip: "Cerrar",
-                splashRadius: 20,
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: AppTema.azulPrincipal,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isEdit ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    isEdit ? "Editar Tutor" : "Nuevo Tutor",
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppTema.azulOscuro,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  color: const Color(0xFF64748B),
+                  iconSize: 22,
+                  tooltip: "Cerrar",
+                  splashRadius: 20,
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _input(
+              _nombreCtrl,
+              "Nombre completo",
+              "Ingresar nombre completo",
+              Icons.badge_outlined,
+            ),
+            const SizedBox(height: 16),
+            _input(
+              _emailCtrl,
+              "Correo electrónico",
+              "usuario@nutrireuma.com",
+              Icons.mail_outline,
+            ),
+            const SizedBox(height: 16),
+            _input(
+              _cedulaCtrl,
+              "Cédula",
+              "Número de cédula",
+              Icons.person_outline_rounded,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTema.pastelCeleste,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTema.azulPrincipal.withValues(alpha: 0.3),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_rounded,
+                    color: AppTema.azulPrincipal,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEdit
+                          ? "Actualiza los datos de acceso y perfil del tutor."
+                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        height: 1.3,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const SizedBox(height: 2),
-                Center(
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: const BoxDecoration(
-                      color: AppTema.azulPrincipal,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person_add_alt_1_rounded,
-                      color: Colors.white,
-                      size: 28,
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTema.azulPrincipal,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    textStyle: GoogleFonts.inter(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
+                  child: const Text("Cancelar"),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  isEdit ? "Editar Tutor" : "Nuevo Tutor",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 22,
-                    height: 1.08,
-                    fontWeight: FontWeight.w900,
-                    color: AppTema.azulOscuro,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isEdit
-                      ? "Actualiza los datos del representante."
-                      : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    height: 1.25,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF8A97AD),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _input(_nombreCtrl, "Nombre completo", Icons.badge_outlined),
-                const SizedBox(height: 12),
-                _input(_emailCtrl, "Correo electrónico", Icons.mail_outline),
-                const SizedBox(height: 12),
-                _input(_cedulaCtrl, "Cédula", Icons.person_outline_rounded),
-                const SizedBox(height: 44),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTema.azulPrincipal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 14),
-                        textStyle: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
+                const SizedBox(width: 18),
+                SizedBox(
+                  width: 148,
+                  height: 46,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.azulPrincipal,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text("Cancelar"),
-                    ),
-                    const SizedBox(width: 18),
-                    SizedBox(
-                      width: 128,
-                      height: 46,
-                      child: FilledButton(
-                        onPressed: _saving ? null : _save,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTema.azulPrincipal,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          textStyle: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                        child: Text(_saving ? "Guardando..." : "Guardar"),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
                       ),
                     ),
-                  ],
+                    child: Text(_saving ? "Guardando..." : "Guardar"),
+                  ),
                 ),
               ],
             ),
@@ -785,54 +787,70 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
 
   Widget _input(
     TextEditingController controller,
+    String label,
     String hint,
     IconData icon, {
     bool obscure = false,
   }) {
-    return SizedBox(
-      height: 48,
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppTema.azulOscuro,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTema.azulOscuro,
+            ),
+          ),
         ),
-        decoration: _inputDecor(hint, icon),
-      ),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xFF334155),
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _inputDecor(hint, icon),
+        ),
+      ],
     );
   }
 
   InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF98A2B3),
+          color: Colors.grey.shade400,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
-        prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
         filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        fillColor: const Color(0xFFF1F5F9),
+        prefixIcon: Icon(icon, size: 20, color: Colors.blueGrey.shade400),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE1E7F0), width: 1.4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide:
-              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       );
 
   Future<void> _save() async {
