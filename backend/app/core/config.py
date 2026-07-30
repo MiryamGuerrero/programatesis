@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         alias="ONBOARDING_WEB_REDIRECT_URL",
     )
     onboarding_tutor_redirect_url: str = Field(
-        default="reumanutri://auth/set-password",
+        default="reumanutri://auth/callback",
         alias="ONBOARDING_TUTOR_REDIRECT_URL",
     )
 

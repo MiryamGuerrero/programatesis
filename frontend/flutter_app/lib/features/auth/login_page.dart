@@ -179,15 +179,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
                 child: Column(
                   children: [
-                    Transform.translate(
-                      offset: const Offset(0, -18),
-                      child: _buildMobileHeader(
-                        context,
-                        emphasized: true,
-                      ),
+                    _buildMobileHeader(
+                      context,
+                      emphasized: true,
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
-                    _buildLoginCard(context),
+                    const SizedBox(height: 60.0),
+                    _buildLoginCard(context, isAndroid: true),
                   ],
                 ),
               ),
@@ -348,7 +345,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildLoginCard(BuildContext context) {
+  Widget _buildLoginCard(BuildContext context, {bool isAndroid = false}) {
+    final double logoSize = isAndroid ? 96.0 : 150.0;
+    final double logoTop = isAndroid ? -48.0 : -85.0;
+    final double cardTopPadding = isAndroid
+        ? 55.0
+        : context.responsiveValue(mobile: 80, tablet: 85, desktop: 90);
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
@@ -358,7 +361,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
           constraints: const BoxConstraints(maxWidth: 440),
           padding: EdgeInsets.fromLTRB(
             28,
-            context.responsiveValue(mobile: 80, tablet: 85, desktop: 90),
+            cardTopPadding,
             28,
             28,
           ),
@@ -484,11 +487,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ),
         ),
         Positioned(
-          top: -85,
+          top: logoTop,
           child: Container(
-            width: 150,
-            height: 150,
-            padding: const EdgeInsets.all(8),
+            width: logoSize,
+            height: logoSize,
+            padding: EdgeInsets.all(isAndroid ? 6 : 8),
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,

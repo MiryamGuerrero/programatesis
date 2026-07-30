@@ -93,12 +93,12 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
 
     return Container(
       color: colorScheme.surface,
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
+          Positioned.fill(
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -189,23 +189,33 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton.icon(
-                onPressed: _isSaving ? null : _guardarCambios,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.check_circle_outline_rounded),
-                label: const Text("Confirmar Preferencias",
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    elevation: 4,
+                    shadowColor: colorScheme.primary.withOpacity(0.4),
+                  ),
+                  onPressed: _isSaving ? null : _guardarCambios,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.check_circle_outline_rounded),
+                  label: const Text("Confirmar Preferencias",
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
               ),
             ),
           ),

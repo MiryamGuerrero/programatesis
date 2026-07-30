@@ -26,8 +26,38 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
   bool _showOnboarding = false;
   bool _checkingOnboarding = true;
 
-  late AnimationController _selectorController;
-  late Animation<double> _selectorAnimation;
+  late final AnimationController _selectorController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    reverseDuration: const Duration(milliseconds: 200),
+  );
+
+  late final Animation<double> _selectorScaleAnimation = Tween<double>(
+    begin: 0.82,
+    end: 1.0,
+  ).animate(CurvedAnimation(
+    parent: _selectorController,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeInCubic,
+  ));
+
+  late final Animation<Offset> _selectorSlideAnimation = Tween<Offset>(
+    begin: const Offset(0.04, -0.06),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(
+    parent: _selectorController,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeInCubic,
+  ));
+
+  late final Animation<double> _selectorFadeAnimation = Tween<double>(
+    begin: 0.0,
+    end: 1.0,
+  ).animate(CurvedAnimation(
+    parent: _selectorController,
+    curve: Curves.easeOut,
+    reverseCurve: Curves.easeIn,
+  ));
 
   final _overlayController = OverlayPortalController();
   final _layerLink = LayerLink();
@@ -35,14 +65,6 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
   @override
   void initState() {
     super.initState();
-    _selectorController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    );
-    _selectorAnimation = CurvedAnimation(
-      parent: _selectorController,
-      curve: Curves.easeOutBack,
-    );
     _checkOnboardingStatus();
   }
 
@@ -286,49 +308,123 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
                       targetAnchor: Alignment.bottomRight,
                       followerAnchor: Alignment.topRight,
                       offset: const Offset(0, 8),
-                      child: ScaleTransition(
-                        scale: _selectorAnimation,
-                        alignment: Alignment.topRight,
-                        child: FadeTransition(
-                          opacity: _selectorController,
-                          child: Card(
-                            elevation: 8,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20)),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: patientsAsync.when(
-                                data: (list) => Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text("CAMBIAR PACIENTE",
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.grey))),
-                                    ...list.map((p) => ListTile(
-                                          leading:
-                                              const Icon(Icons.person_outline),
-                                          title: Text(p["nombre_completo"]!),
-                                          onTap: () {
-                                            ref
-                                                .read(selectedPatientIdProvider
-                                                    .notifier)
-                                                .state = p["id"].toString();
-                                            _toggleSelector();
-                                            _checkOnboardingStatus();
-                                          },
-                                        )),
-                                  ],
+                      child: SlideTransition(
+                        position: _selectorSlideAnimation,
+                        child: ScaleTransition(
+                          scale: _selectorScaleAnimation,
+                          alignment: Alignment.topRight,
+                          child: FadeTransition(
+                            opacity: _selectorFadeAnimation,
+                            child: Card(
+                              elevation: 12,
+                              shadowColor: Colors.black26,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: const BorderSide(
+                                    color: Color(0xFFE2E8F0), width: 1),
+                              ),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                child: patientsAsync.when(
+                                  data: (list) {
+                                    final idPaciente =
+                                        ref.watch(selectedPatientIdProvider);
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              16, 10, 16, 6),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.swap_horiz_rounded,
+                                                  size: 16,
+                                                  color: colorScheme.primary),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "CAMBIAR PACIENTE",
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w800,
+                                                  color:
+                                                      const Color(0xFF64748B),
+                                                  letterSpacing: 0.8,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Divider(
+                                            height: 10,
+                                            thickness: 1,
+                                            color: Color(0xFFF1F5F9)),
+                                        ...list.map((p) {
+                                          final isSelected =
+                                              p["id"].toString() == idPaciente;
+                                          return ListTile(
+                                            dense: true,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 2),
+                                            leading: CircleAvatar(
+                                              radius: 14,
+                                              backgroundColor: isSelected
+                                                  ? colorScheme.primary
+                                                  : const Color(0xFFF1F5F9),
+                                              child: Icon(
+                                                Icons.person_rounded,
+                                                size: 16,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : const Color(0xFF64748B),
+                                              ),
+                                            ),
+                                            title: Text(
+                                              p["nombre_completo"]!,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w500,
+                                                color: isSelected
+                                                    ? colorScheme.primary
+                                                    : AppTema.azulOscuro,
+                                              ),
+                                            ),
+                                            trailing: isSelected
+                                                ? Icon(
+                                                    Icons.check_circle_rounded,
+                                                    color: colorScheme.primary,
+                                                    size: 18)
+                                                : null,
+                                            onTap: () {
+                                              ref
+                                                  .read(
+                                                      selectedPatientIdProvider
+                                                          .notifier)
+                                                  .state = p["id"].toString();
+                                              _toggleSelector();
+                                              _checkOnboardingStatus();
+                                            },
+                                          );
+                                        }),
+                                      ],
+                                    );
+                                  },
+                                  loading: () => const SizedBox(
+                                      height: 100,
+                                      child: Center(
+                                          child: CircularProgressIndicator())),
+                                  error: (err, _) => Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text("Error: $err")),
                                 ),
-                                loading: () => const SizedBox(
-                                    height: 100,
-                                    child: Center(
-                                        child: CircularProgressIndicator())),
-                                error: (err, _) => Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Text("Error: $err")),
                               ),
                             ),
                           ),

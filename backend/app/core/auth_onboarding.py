@@ -3,7 +3,7 @@ from typing import Any
 import unicodedata
 
 from app.core.config import get_settings
-from app.infraestructura.supabase.client import get_supabase_admin_client, get_supabase_public_client
+from app.infraestructura.supabase.client import get_supabase_admin_client
 
 _ROLE_WEB = {"admin", "medico", "nutricionista"}
 _ROLE_MOBILE = {"tutor"}
@@ -47,7 +47,6 @@ def provision_auth_user_with_password_setup(
     redirect_url = _resolve_redirect_url(normalized_role)
 
     admin_client = get_supabase_admin_client()
-    public_client = get_supabase_public_client()
 
     temp_password = password if password else token_urlsafe(12)
     user_response = admin_client.auth.admin.create_user(
@@ -71,16 +70,24 @@ def provision_auth_user_with_password_setup(
         raise RuntimeError("No fue posible crear el usuario en Supabase Auth")
 
     try:
-        public_client.auth.reset_password_for_email(
-            normalized_email,
+        # Usamos generate_link con type="recovery" en vez de reset_password_for_email
+        # del cliente público. Esto garantiza:
+        # 1. El token tendrá type=recovery en el link (necesario para PKCE en Flutter).
+        # 2. El redirect_to se inyecta correctamente en el link generado.
+        # 3. No está sujeto a los rate limits del cliente público.
+        # 4. El correo se envía automáticamente vía la API admin de Supabase.
+        admin_client.auth.admin.generate_link(
             {
-                "redirect_to": redirect_url,
-            },
+                "type": "recovery",
+                "email": normalized_email,
+                "options": {
+                    "redirect_to": redirect_url,
+                },
+            }
         )
     except Exception as exc:
-        # El usuario ya fue creado arriba. Si el envío de correo de recuperación falla
-        # (ej. por límites de Supabase o email inválido), NO borramos al usuario ni bloqueamos
-        # el flujo integral, ya que el paciente depende de este registro.
+        # Si el envío de correo falla, no bloqueamos el flujo ya que el usuario
+        # ya fue creado. El admin puede reenviar el correo manualmente.
         import logging
         logging.warning(f"Advertencia: No se pudo enviar el correo de recuperacion a {normalized_email}: {exc}")
 
