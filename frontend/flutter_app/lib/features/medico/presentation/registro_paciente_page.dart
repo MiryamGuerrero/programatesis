@@ -871,7 +871,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 : widget.fixedOnly
                     ? "Datos clínicos base: ${_pacNombre.text}"
                     : "Expediente: ${_pacNombre.text}",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A)),
