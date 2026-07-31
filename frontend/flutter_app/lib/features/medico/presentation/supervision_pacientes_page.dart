@@ -274,15 +274,15 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             style: FilledButton.styleFrom(
               backgroundColor: AppTema.verdeSalud,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(24)),
               padding: const EdgeInsets.symmetric(horizontal: 24),
             ),
-            icon: const Icon(Icons.add_circle, size: 20, color: Colors.white),
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
             label: Text("Registrar paciente",
                 style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontSize: 13,
-                    color: Colors.white)),
+                    letterSpacing: -0.5)),
           ),
         ),
       ],
