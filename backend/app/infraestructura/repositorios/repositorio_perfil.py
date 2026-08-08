@@ -31,6 +31,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             select u.id, u.email, u.nombre_completo, u.username, r.nombre as rol_nombre,
                    {self.ROL_CODIGO_SQL} as rol_codigo, u.id_rol, u.activo,
                    u.cedula, u.telefono, u.direccion,
+                   ur.titulo_profesional, ur.institucion_titulo,
                    (
                        select string_agg(distinct par.nombre, ', ')
                        from usuarios.tutor_paciente tp
@@ -39,12 +40,28 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                    ) as parentesco
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
+            left join usuarios.usuario_rol ur on ur.id_usuario = u.id and ur.id_rol = u.id_rol
             where u.auth_user_id::text = %s
             limit 1
         """
         datos = self.ejecutar_uno(sql, (auth_id,))
         if not datos:
             return None
+            
+        roles_sql = """
+            select r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
+            from usuarios.usuario_rol ur
+            join usuarios.rol r on r.id = ur.id_rol
+            where ur.id_usuario = %s
+            order by r.id
+        """
+        roles_data = self.ejecutar_consulta(roles_sql, (datos["id"],))
+        roles_list = [{
+            "id": r["id"],
+            "nombre": r["nombre"],
+            "titulo_profesional": r.get("titulo_profesional"),
+            "institucion_titulo": r.get("institucion_titulo")
+        } for r in roles_data] if roles_data else []
             
         return PerfilUsuario(
             id=str(datos["id"]),
@@ -58,7 +75,10 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             cedula=datos.get("cedula"),
             telefono=datos.get("telefono"),
             direccion=datos.get("direccion"),
-            parentesco=datos.get("parentesco")
+            parentesco=datos.get("parentesco"),
+            roles=roles_list,
+            titulo_profesional=datos.get("titulo_profesional"),
+            institucion_titulo=datos.get("institucion_titulo")
         )
 
     def actualizar_datos_perfil(self, auth_id: str, datos: dict) -> bool:
@@ -85,6 +105,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             select u.id, u.email, u.nombre_completo, u.username, u.cedula,
                    r.nombre as rol_nombre, {self.ROL_CODIGO_SQL} as rol_codigo,
                    u.id_rol, u.telefono, u.direccion, u.activo,
+                   ur.titulo_profesional, ur.institucion_titulo,
                    (
                        select string_agg(distinct par.nombre, ', ')
                        from usuarios.tutor_paciente tp
@@ -93,6 +114,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                    ) as parentesco
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
+            left join usuarios.usuario_rol ur on ur.id_usuario = u.id and ur.id_rol = u.id_rol
             where u.auth_user_id::text = %s or u.id::text = %s
             limit 1
         """
@@ -100,6 +122,21 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         if d:
             d["id"] = str(d["id"])
             d["rol"] = str(d.pop("rol_nombre")) # Priorizamos el nombre para el frontend
+            
+            roles_sql = """
+                select r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
+                from usuarios.usuario_rol ur
+                join usuarios.rol r on r.id = ur.id_rol
+                where ur.id_usuario = %s
+                order by r.id
+            """
+            roles_data = self.ejecutar_consulta(roles_sql, (d["id"],))
+            d["roles"] = [{
+                "id": r["id"],
+                "nombre": r["nombre"],
+                "titulo_profesional": r.get("titulo_profesional"),
+                "institucion_titulo": r.get("institucion_titulo")
+            } for r in roles_data] if roles_data else []
         return d
 
     def listar_usuarios(self) -> List[dict]:
@@ -111,9 +148,26 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                 u.id_rol, u.activo, u.telefono, u.direccion
             from usuarios.usuario u
             join usuarios.rol r on r.id = u.id_rol
+            where u.auth_user_id is not null
             order by u.nombre_completo
         """
-        return self.ejecutar_consulta(sql)
+        users = self.ejecutar_consulta(sql)
+        for u in users:
+            roles_sql = """
+                select r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
+                from usuarios.usuario_rol ur
+                join usuarios.rol r on r.id = ur.id_rol
+                where ur.id_usuario = %s
+                order by r.id
+            """
+            roles_data = self.ejecutar_consulta(roles_sql, (u["id"],))
+            u["roles"] = [{
+                "id": r["id"],
+                "nombre": r["nombre"],
+                "titulo_profesional": r.get("titulo_profesional"),
+                "institucion_titulo": r.get("institucion_titulo")
+            } for r in roles_data] if roles_data else []
+        return users
 
     def listar_usuarios_paginado(self, 
                                 q: Optional[str] = None, 
@@ -122,7 +176,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                                 offset: int = 0,
                                 include_total: bool = False,
                                 activo: Optional[bool] = None) -> Dict[str, Any]:
-        where_clauses = []
+        where_clauses = ["u.auth_user_id is not null"]
         params = []
         
         if q:
@@ -130,8 +184,8 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             params.extend([f"%{q}%", f"%{q}%"])
             
         if rol_ids:
-            where_clauses.append("u.id_rol = any(%s)")
-            params.append(rol_ids)
+            where_clauses.append("(u.id_rol = any(%s) or exists (select 1 from usuarios.usuario_rol ur where ur.id_usuario = u.id and ur.id_rol = any(%s)))")
+            params.extend([rol_ids, rol_ids])
 
         if activo is not None:
             where_clauses.append("u.activo = %s")
@@ -158,6 +212,21 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             limit %s offset %s
         """
         items = self.ejecutar_consulta(sql, tuple(params + [limit, offset]))
+        for u in items:
+            roles_sql = """
+                select r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
+                from usuarios.usuario_rol ur
+                join usuarios.rol r on r.id = ur.id_rol
+                where ur.id_usuario = %s
+                order by r.id
+            """
+            roles_data = self.ejecutar_consulta(roles_sql, (u["id"],))
+            u["roles"] = [{
+                "id": r["id"],
+                "nombre": r["nombre"],
+                "titulo_profesional": r.get("titulo_profesional"),
+                "institucion_titulo": r.get("institucion_titulo")
+            } for r in roles_data] if roles_data else []
         
         return {"items": items, "total": total}
 
@@ -172,16 +241,24 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
 
         # 1. Pre-validación de constraints para dar un mensaje amigable
         existente = self.ejecutar_uno(
-            "select email, cedula from usuarios.usuario where email = %s or (cedula = %s and cedula is not null) limit 1",
+            "select email, cedula, nombre_completo from usuarios.usuario where email = %s or (cedula = %s and cedula is not null) limit 1",
             (email, cedula)
         )
         if existente:
             if existente["cedula"] == cedula:
-                raise ValueError(f"La cédula {cedula} ya está registrada.")
+                raise ValueError(f"La cédula {cedula} ya está registrada por el usuario {existente['nombre_completo']}.")
             if existente["email"] == email:
-                raise ValueError(f"El correo {email} ya está registrado.")
+                raise ValueError(f"El correo {email} ya está registrado por el usuario {existente['nombre_completo']}.")
         
-        res_rol = self.ejecutar_uno("select nombre from usuarios.rol where id = %s", (datos["id_rol"],))
+        roles_asignados = datos.get("roles_asignados") or []
+        if not roles_asignados and "id_rol" in datos:
+            roles_asignados = [{"id_rol": datos["id_rol"], "titulo_profesional": None, "institucion_titulo": None}]
+        
+        primary_rol_id = roles_asignados[0]["id_rol"] if roles_asignados else datos.get("id_rol")
+        if not primary_rol_id:
+            raise ValueError("Se requiere al menos un rol asignado.")
+
+        res_rol = self.ejecutar_uno("select nombre from usuarios.rol where id = %s", (primary_rol_id,))
         rol_name = res_rol["nombre"].lower() if res_rol else "tutor"
 
         # 2. Crear en Supabase Auth
@@ -198,11 +275,22 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             values (%s, %s, %s, %s, %s, %s, %s, true, %s)
             returning id
         """
-        params = (email, username, datos["nombre_completo"].strip(), cedula, datos["id_rol"],
+        params = (email, username, datos["nombre_completo"].strip(), cedula, primary_rol_id,
                  datos.get("telefono"), datos.get("direccion"), auth_user_id)
         
         try:
-            return str(self.ejecutar_comando(sql, params))
+            user_id = str(self.ejecutar_comando(sql, params))
+            from app.infraestructura.database.db import db_cursor
+            with db_cursor() as cur:
+                for r in roles_asignados:
+                    cur.execute("""
+                        insert into usuarios.usuario_rol (id_usuario, id_rol, titulo_profesional, institucion_titulo)
+                        values (%s, %s, %s, %s)
+                        on conflict (id_usuario, id_rol) do update
+                        set titulo_profesional = excluded.titulo_profesional,
+                            institucion_titulo = excluded.institucion_titulo
+                    """, (user_id, r["id_rol"], r.get("titulo_profesional"), r.get("institucion_titulo")))
+            return user_id
         except Exception as e:
             # Rollback: Eliminar al usuario de Supabase Auth si la inserción local falló por cualquier motivo
             from ...core.auth_onboarding import delete_auth_user
@@ -273,21 +361,80 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
 
     def actualizar_usuario(self, user_id: str, datos: dict) -> bool:
         if not datos: return False
+        
+        roles_asignados = datos.pop("roles_asignados", None)
+        
         campos_validos = {"nombre_completo", "cedula", "email", "id_rol", "activo", "telefono", "direccion", "username"}
         items = {k: v for k, v in datos.items() if k in campos_validos}
-        if not items: return False
+        
+        if roles_asignados:
+            primary_rol_id = roles_asignados[0]["id_rol"]
+            items["id_rol"] = primary_rol_id
+            
+        if not items and not roles_asignados: return False
         
         # Corrección crítica para Cédula: si viene vacía, poner NULL para evitar conflicto de unicidad
         if "cedula" in items and (items["cedula"] == "" or items["cedula"] is None):
             items["cedula"] = None
 
-        columnas = ", ".join([f"{k} = %s" for k in items.keys()])
-        sql = f"update usuarios.usuario set {columnas}, updated_at = now() where id = %s or auth_user_id::text = %s"
+        # Check if email or cedula belongs to another user
+        email_val = items.get("email")
+        cedula_val = items.get("cedula")
         
+        if email_val or cedula_val:
+            from app.infraestructura.database.db import db_cursor
+            with db_cursor() as cur:
+                # Find internal ID first (if user_id is auth_user_id)
+                cur.execute("select id from usuarios.usuario where id::text = %s or auth_user_id::text = %s", (user_id, user_id))
+                row = cur.fetchone()
+                internal_id = str(row[0]) if row else user_id
+                
+                if email_val:
+                    cur.execute("select id, nombre_completo from usuarios.usuario where email = %s and id::text != %s limit 1", (email_val, internal_id))
+                    dup = cur.fetchone()
+                    if dup:
+                        raise ValueError(f"El correo {email_val} ya está registrado por el usuario {dup[1]}.")
+                if cedula_val:
+                    cur.execute("select id, nombre_completo from usuarios.usuario where cedula = %s and id::text != %s limit 1", (cedula_val, internal_id))
+                    dup = cur.fetchone()
+                    if dup:
+                        raise ValueError(f"La cédula {cedula_val} ya está registrada por el usuario {dup[1]}.")
+
         from app.infraestructura.database.db import db_cursor
+        exito = False
+        
         with db_cursor() as cur:
-            cur.execute(sql, list(items.values()) + [user_id, user_id])
-            return cur.rowcount > 0
+            if items:
+                columnas = ", ".join([f"{k} = %s" for k in items.keys()])
+                sql = f"update usuarios.usuario set {columnas}, updated_at = now() where id = %s or auth_user_id::text = %s"
+                cur.execute(sql, list(items.values()) + [user_id, user_id])
+                exito = cur.rowcount > 0
+                
+            cur.execute("select id from usuarios.usuario where id::text = %s or auth_user_id::text = %s", (user_id, user_id))
+            row = cur.fetchone()
+            if row:
+                internal_user_id = str(row[0])
+            else:
+                internal_user_id = user_id
+                
+            if roles_asignados:
+                assigned_rol_ids = [r["id_rol"] for r in roles_asignados]
+                cur.execute(
+                    "delete from usuarios.usuario_rol where id_usuario = %s and not (id_rol = any(%s))",
+                    (internal_user_id, assigned_rol_ids)
+                )
+                
+                for r in roles_asignados:
+                    cur.execute("""
+                        insert into usuarios.usuario_rol (id_usuario, id_rol, titulo_profesional, institucion_titulo)
+                        values (%s, %s, %s, %s)
+                        on conflict (id_usuario, id_rol) do update
+                        set titulo_profesional = excluded.titulo_profesional,
+                            institucion_titulo = excluded.institucion_titulo
+                    """, (internal_user_id, r["id_rol"], r.get("titulo_profesional"), r.get("institucion_titulo")))
+                exito = True
+                
+        return exito
 
     def eliminar_usuario(self, user_id: str) -> bool:
         from app.infraestructura.database.db import db_cursor
@@ -300,10 +447,19 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         auth_id = str(usuario.get("auth_user_id") or "")
         
         with db_cursor() as cur:
-            cur.execute("delete from usuarios.usuario where id::text = %s", (user_id,))
+            cur.execute("""
+                update usuarios.usuario
+                set activo = false,
+                    auth_user_id = null,
+                    email = left(email, 230) || '_del_' || extract(epoch from now())::bigint,
+                    username = case when username is not null then left(username, 60) || '_del_' || extract(epoch from now())::bigint else null end,
+                    cedula = case when cedula is not null then left(cedula, 9) || 'd' || (extract(epoch from now())::bigint %% 1000000000) else null end,
+                    updated_at = now()
+                where id::text = %s
+            """, (user_id,))
             exito = cur.rowcount > 0
             
-        if exito and auth_id and auth_id != "None":
+        if exito and auth_id and auth_id != "None" and auth_id != "null":
             try:
                 supa = get_supabase_admin_client()
                 supa.auth.admin.delete_user(auth_id)

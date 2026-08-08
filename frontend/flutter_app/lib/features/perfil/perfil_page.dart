@@ -23,7 +23,9 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   final _direccionController = TextEditingController();
 
   bool _initialized = false;
-  bool _saving = false;
+  List<Map<String, dynamic>> _userRoles = [];
+  Map<int, TextEditingController> _tituloCtrls = {};
+  Map<int, TextEditingController> _instCtrls = {};
 
   @override
   void dispose() {
@@ -34,6 +36,8 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     _cedulaController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
+    for (final ctrl in _tituloCtrls.values) ctrl.dispose();
+    for (final ctrl in _instCtrls.values) ctrl.dispose();
     super.dispose();
   }
 
@@ -61,6 +65,12 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     _cedulaController.text = profile["cedula"]?.toString() ?? "";
     _telefonoController.text = profile["telefono"]?.toString() ?? "";
     _direccionController.text = profile["direccion"]?.toString() ?? "";
+    _userRoles = List<Map<String, dynamic>>.from(profile["roles"] ?? []);
+    for (final r in _userRoles) {
+      final int idRol = r["id"];
+      _tituloCtrls[idRol] = TextEditingController(text: r["titulo_profesional"]?.toString() ?? "");
+      _instCtrls[idRol] = TextEditingController(text: r["institucion_titulo"]?.toString() ?? "");
+    }
     _initialized = true;
   }
 
@@ -70,38 +80,42 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
 
-    if (nombres.isEmpty ||
-        apellidos.isEmpty ||
-        username.isEmpty ||
-        email.isEmpty) {
-      NutriSnack.show(context, "Campos obligatorios incompletos",
-          isError: true);
+    if (nombres.isEmpty || apellidos.isEmpty || username.isEmpty || email.isEmpty) {
+      NutriSnack.show(context, "Campos obligatorios incompletos", isError: true);
       return;
     }
 
-    setState(() => _saving = true);
+    final success = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SaveProgressDialog(
+        onSave: () async {
+          final repo = ref.read(supabaseCrudRepositoryProvider);
+          final rolesAsignados = _userRoles.map((r) {
+            final int idRol = r["id"];
+            return {
+              "id_rol": idRol,
+              "titulo_profesional": _tituloCtrls[idRol]?.text.trim(),
+              "institucion_titulo": _instCtrls[idRol]?.text.trim(),
+            };
+          }).toList();
 
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.updateMyProfile(
-        nombreCompleto: "$nombres $apellidos",
-        username: username,
-        email: email,
-        cedula: _cedulaController.text,
-        telefono: _telefonoController.text,
-        direccion: _direccionController.text,
-      );
+          await repo.updateMyProfile(
+            nombreCompleto: "$nombres $apellidos",
+            username: username,
+            email: email,
+            cedula: _cedulaController.text,
+            telefono: _telefonoController.text,
+            direccion: _direccionController.text,
+            rolesAsignados: rolesAsignados.isNotEmpty ? rolesAsignados : null,
+          );
+        },
+      ),
+    );
 
-      if (!mounted) return;
-      ref.invalidate(
-          miPerfilProvider); // Actualizar globalmente el usuario actual
-      ref.invalidate(usersListProvider); // Actualizar la tabla de equipo médico
-      NutriSnack.show(context, "Perfil actualizado correctamente", ref: ref);
-    } catch (error) {
-      if (mounted)
-        NutriSnack.show(context, "Error al guardar cambios", isError: true);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    if (success == true && mounted) {
+      ref.invalidate(miPerfilProvider);
+      ref.invalidate(usersListProvider);
     }
   }
 
@@ -112,7 +126,9 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     return perfilAsync.when(
       data: (profile) {
         _initializeFields(profile);
-        final role = profile["rol_nombre"]?.toString() ?? "Usuario";
+        final String role = (profile["titulo_profesional"]?.toString().isNotEmpty == true)
+            ? profile["titulo_profesional"].toString()
+            : (profile["rol_nombre"]?.toString() ?? "Usuario");
         final activo = profile["activo"] == true;
 
         return Scaffold(
@@ -205,13 +221,32 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                  color: AppTema.verdeSalud.withOpacity(0.1),
+                  color: AppTema.verdeSalud.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20)),
               child: Text(role,
                   style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: AppTema.verdeSalud))),
+          if (profile["institucion_titulo"]?.toString().isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            Text(
+              "Graduado(a) en:",
+              style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              profile["institucion_titulo"].toString(),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulOscuro),
+            ),
+          ],
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
@@ -291,7 +326,71 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
               label: "Dirección",
               icon: Icons.location_on_outlined,
               maxLines: 2),
-          const SizedBox(height: 40),
+          if (_userRoles.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            _sectionTitle("Información Profesional"),
+            const SizedBox(height: 20),
+            ..._userRoles.map((r) {
+              final int idRol = r["id"];
+              final String rolNombre = r["nombre"];
+              
+              IconData roleIcon = Icons.person_rounded;
+              final nombreLC = rolNombre.toLowerCase();
+              if (nombreLC.contains("admin")) roleIcon = Icons.admin_panel_settings_rounded;
+              else if (nombreLC.contains("médico") || nombreLC.contains("medico")) roleIcon = Icons.medical_services_rounded;
+              else if (nombreLC.contains("nutricionista")) roleIcon = Icons.restaurant_menu_rounded;
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTema.grisLienzo.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.black.withOpacity(0.05)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTema.verdeSalud.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(roleIcon, size: 16, color: AppTema.verdeSalud),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(rolNombre.toUpperCase(), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: AppTema.azulOscuro, letterSpacing: 0.5)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(children: [
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _tituloCtrls[idRol]!,
+                          label: "Título Profesional",
+                          icon: Icons.badge_outlined,
+                          fillColor: Colors.white,
+                        )
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _instCtrls[idRol]!,
+                          label: "Institución",
+                          icon: Icons.account_balance_outlined,
+                          fillColor: Colors.white,
+                        )
+                      ),
+                    ]),
+                  ],
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 20),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppTema.azulPrincipal,
@@ -301,14 +400,8 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 0),
-            onPressed: _saving ? null : _saveProfile,
-            icon: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.save_as_rounded),
+            onPressed: _saveProfile,
+            icon: const Icon(Icons.save_as_rounded),
             label: Text("Guardar cambios",
                 style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
@@ -342,7 +435,8 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           {required TextEditingController controller,
           required String label,
           required IconData icon,
-          int maxLines = 1}) =>
+          int maxLines = 1,
+          Color? fillColor}) =>
       TextFormField(
           controller: controller,
           maxLines: maxLines,
@@ -355,7 +449,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
               floatingLabelStyle: GoogleFonts.inter(
                   color: AppTema.azulPrincipal, fontWeight: FontWeight.bold),
               filled: true,
-              fillColor: AppTema.grisLienzo.withOpacity(0.5),
+              fillColor: fillColor ?? AppTema.grisLienzo.withOpacity(0.5),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
@@ -368,4 +462,112 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
                       const BorderSide(color: AppTema.azulPrincipal, width: 1)),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16)));
+}
+
+class _SaveProgressDialog extends StatefulWidget {
+  final Future<void> Function() onSave;
+
+  const _SaveProgressDialog({required this.onSave});
+
+  @override
+  State<_SaveProgressDialog> createState() => _SaveProgressDialogState();
+}
+
+class _SaveProgressDialogState extends State<_SaveProgressDialog> {
+  late String _statusText;
+  bool _isCompleted = false;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusText = "Actualizando su perfil...";
+    _ejecutarGuardado();
+  }
+
+  Future<void> _ejecutarGuardado() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    bool exito = false;
+    try {
+      await widget.onSave();
+      exito = true;
+    } catch (e) {
+      exito = false;
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isCompleted = true;
+        _isSuccess = exito;
+        _statusText = exito ? "Perfil actualizado" : "Error al guardar";
+      });
+      
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) {
+        Navigator.of(context).pop(exito);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!_isCompleted)
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
+                  ),
+                )
+              else if (_isSuccess)
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: AppTema.verdeSalud,
+                  size: 48,
+                )
+              else
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 48,
+                ),
+              const SizedBox(height: 20),
+              Text(
+                _statusText,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulOscuro,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

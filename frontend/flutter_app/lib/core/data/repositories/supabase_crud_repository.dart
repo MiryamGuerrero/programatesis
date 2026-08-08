@@ -53,6 +53,7 @@ class SupabaseCrudRepository {
     required String email,
     required String nombreCompleto,
     required int idRol,
+    List<Map<String, dynamic>>? rolesAsignados,
     String? password,
     String? username,
     String? cedula,
@@ -67,6 +68,7 @@ class SupabaseCrudRepository {
           "username": username.trim(),
         "nombre_completo": nombreCompleto,
         "id_rol": idRol,
+        if (rolesAsignados != null) "roles_asignados": rolesAsignados,
         if (password != null && password.isNotEmpty) "password": password,
         "cedula": cedula,
         "telefono": telefono,
@@ -82,6 +84,7 @@ class SupabaseCrudRepository {
     String? nombreCompleto,
     String? cedula,
     int? idRol,
+    List<Map<String, dynamic>>? rolesAsignados,
     bool? activo,
     String? telefono,
     String? direccion,
@@ -92,6 +95,7 @@ class SupabaseCrudRepository {
     if (nombreCompleto != null) payload["nombre_completo"] = nombreCompleto;
     if (cedula != null) payload["cedula"] = cedula;
     if (idRol != null) payload["id_rol"] = idRol;
+    if (rolesAsignados != null) payload["roles_asignados"] = rolesAsignados;
     if (activo != null) payload["activo"] = activo;
     if (telefono != null) payload["telefono"] = telefono;
     if (direccion != null) payload["direccion"] = direccion;
@@ -103,6 +107,10 @@ class SupabaseCrudRepository {
     return Map<String, dynamic>.from(response.data);
   }
 
+  Future<void> switchActiveRole(int idRol) async {
+    await _dio.post("perfil/cambiar-rol", data: {"id_rol": idRol});
+  }
+
   Future<void> updateMyProfile({
     String? nombreCompleto,
     String? username,
@@ -110,6 +118,7 @@ class SupabaseCrudRepository {
     String? telefono,
     String? direccion,
     String? email,
+    List<Map<String, dynamic>>? rolesAsignados,
   }) async {
     final data = <String, dynamic>{};
     if (nombreCompleto != null) data["nombre_completo"] = nombreCompleto;
@@ -118,6 +127,7 @@ class SupabaseCrudRepository {
     if (telefono != null) data["telefono"] = telefono;
     if (direccion != null) data["direccion"] = direccion;
     if (email != null) data["email"] = email;
+    if (rolesAsignados != null) data["roles_asignados"] = rolesAsignados;
     await _dio.put("perfil/mi-perfil", data: data);
   }
 
@@ -501,5 +511,33 @@ class SupabaseCrudRepository {
       String idPaciente) async {
     final resp = await _dio.get("pacientes/$idPaciente/expediente-completo");
     return Map<String, dynamic>.from(resp.data);
+  }
+
+  Future<({List<Map<String, dynamic>> items, int total})> fetchAuditControls({
+    String? query,
+    bool? activo,
+    bool? enBrote,
+    required int limit,
+    required int offset,
+  }) async {
+    final Map<String, dynamic> qParams = {
+      "limit": limit,
+      "offset": offset,
+    };
+    if (query != null && query.isNotEmpty) {
+      qParams["q"] = query;
+    }
+    if (activo != null) {
+      qParams["activo"] = activo;
+    }
+    if (enBrote != null) {
+      qParams["en_brote"] = enBrote;
+    }
+    final resp = await _dio.get("auditoria/controles", queryParameters: qParams);
+    final data = resp.data as Map;
+    final List itemsRaw = data["items"] as List? ?? [];
+    final List<Map<String, dynamic>> items = itemsRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final int total = data["total"] as int? ?? 0;
+    return (items: items, total: total);
   }
 }

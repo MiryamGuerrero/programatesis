@@ -70,19 +70,11 @@ def provision_auth_user_with_password_setup(
         raise RuntimeError("No fue posible crear el usuario en Supabase Auth")
 
     try:
-        # Usamos generate_link con type="recovery" en vez de reset_password_for_email
-        # del cliente público. Esto garantiza:
-        # 1. El token tendrá type=recovery en el link (necesario para PKCE en Flutter).
-        # 2. El redirect_to se inyecta correctamente en el link generado.
-        # 3. No está sujeto a los rate limits del cliente público.
-        # 4. El correo se envía automáticamente vía la API admin de Supabase.
-        admin_client.auth.admin.generate_link(
+        # Disparamos el flujo SMTP automático de Supabase para enviar el correo de recuperación
+        admin_client.auth.reset_password_for_email(
+            normalized_email,
             {
-                "type": "recovery",
-                "email": normalized_email,
-                "options": {
-                    "redirect_to": redirect_url,
-                },
+                "redirect_to": redirect_url,
             }
         )
     except Exception as exc:

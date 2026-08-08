@@ -113,8 +113,20 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     );
 
     final String nombreRol = perfilAsync.maybeWhen(
-      data: (d) => d["rol_nombre"]?.toString() ?? widget.role.label,
+      data: (d) => (d["titulo_profesional"]?.toString().isNotEmpty == true)
+          ? d["titulo_profesional"].toString()
+          : (d["rol_nombre"]?.toString() ?? widget.role.label),
       orElse: () => widget.role.label,
+    );
+
+    final List<dynamic> userRoles = perfilAsync.maybeWhen(
+      data: (d) => d["roles"] as List<dynamic>? ?? [],
+      orElse: () => [],
+    );
+
+    final int currentRolId = perfilAsync.maybeWhen(
+      data: (d) => d["id_rol"] as int? ?? 0,
+      orElse: () => 0,
     );
 
     final String iniciales = _obtenerIniciales(nombreUsuario);
@@ -124,7 +136,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: Column(
         children: [
-          _buildGlobalHeader(nombreUsuario, nombreRol, iniciales, isWide),
+          _buildGlobalHeader(nombreUsuario, nombreRol, iniciales, isWide, userRoles, currentRolId),
           Expanded(
             child: Row(
               children: [
@@ -187,7 +199,12 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   }
 
   Widget _buildGlobalHeader(
-      String nombre, String nombreRol, String iniciales, bool isWide) {
+      String nombre,
+      String nombreRol,
+      String iniciales,
+      bool isWide,
+      List<dynamic> userRoles,
+      int currentRolId) {
     const Color brandBlue = Color(0xFF0068B7);
     const Color brandGreen = Color(0xFF58A932);
 
@@ -249,11 +266,140 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                       color: const Color(0xFF1E293B),
                       fontSize: 13,
                       fontWeight: FontWeight.w700)),
-              Text(nombreRol,
-                  style: GoogleFonts.montserrat(
-                      color: brandGreen,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800)),
+              if (userRoles.length > 1)
+                PopupMenuButton<int>(
+                  tooltip: "Cambiar de rol",
+                  offset: const Offset(0, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.1), width: 1),
+                  ),
+                  color: Colors.white,
+                  surfaceTintColor: Colors.white,
+                  elevation: 12,
+                  onSelected: (int selectedRolId) async {
+                    if (selectedRolId == currentRolId) return;
+
+                    // Mostrar un diálogo de carga rápido
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) => const Center(
+                        child: CircularProgressIndicator(color: brandBlue),
+                      ),
+                    );
+
+                    try {
+                      final repo = ref.read(supabaseCrudRepositoryProvider);
+                      await repo.switchActiveRole(selectedRolId);
+
+                      // Refrescar sesión de Supabase
+                      final client = ref.read(supabaseClientProvider);
+                      await client.auth.refreshSession();
+
+                      // Invalidar proveedores globales
+                      ref.invalidate(appRoleProvider);
+                      ref.invalidate(miPerfilProvider);
+
+                      if (mounted) {
+                        Navigator.of(context).pop(); // Cerrar diálogo de carga
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        Navigator.of(context).pop(); // Cerrar diálogo de carga
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Error al cambiar de rol: ${e.toString()}",
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  itemBuilder: (context) {
+                    return userRoles.map<PopupMenuEntry<int>>((r) {
+                      final bool isCurrent = r["id"] == currentRolId;
+                      final String roleName = r["nombre"]?.toString() ?? "";
+                      
+                      IconData roleIcon = Icons.badge_outlined;
+                      final lowerName = roleName.toLowerCase();
+                      if (lowerName.contains("admin")) roleIcon = Icons.admin_panel_settings_outlined;
+                      else if (lowerName.contains("médico") || lowerName.contains("medico")) roleIcon = Icons.medical_services_outlined;
+                      else if (lowerName.contains("nutricionista")) roleIcon = Icons.restaurant_menu_outlined;
+                      else if (lowerName.contains("paciente")) roleIcon = Icons.person_outline_rounded;
+
+                      return PopupMenuItem<int>(
+                        value: r["id"] as int,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isCurrent ? brandBlue.withValues(alpha: 0.08) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: isCurrent ? brandBlue.withValues(alpha: 0.1) : Colors.blueGrey.withValues(alpha: 0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  roleIcon,
+                                  size: 16,
+                                  color: isCurrent ? brandBlue : Colors.blueGrey.shade600,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                roleName,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13,
+                                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
+                                  color: isCurrent ? brandBlue : const Color(0xFF1E293B),
+                                ),
+                              ),
+                              if (isCurrent) ...[
+                                const SizedBox(width: 16),
+                                const Icon(Icons.check_circle_rounded, color: brandBlue, size: 18)
+                              ] else ...[
+                                const SizedBox(width: 34),
+                              ]
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(nombreRol,
+                            style: GoogleFonts.montserrat(
+                                color: brandGreen,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.keyboard_arrow_down_rounded,
+                            color: brandGreen, size: 16),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Text(nombreRol,
+                    style: GoogleFonts.montserrat(
+                        color: brandGreen,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800)),
             ],
           ),
           const SizedBox(width: 12),

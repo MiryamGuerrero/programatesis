@@ -870,6 +870,20 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
 
   Widget _buildConsultaItem(Map h) {
     final fecha = DateTime.parse(h['fecha_control']);
+    final String? espNombre = h['especialista_nombre']?.toString();
+    final String? espRol = h['especialista_rol']?.toString();
+    final bool? espActivo = h['especialista_activo'];
+
+    String subStr = "Peso: ${h['peso_kg']}kg | Talla: ${h['talla_cm']}cm | IMC: ${h['imc_calculado'] ?? '-'}\n"
+        "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min\n"
+        "Estado: ${h['estado_nutricional'] ?? 'Sin Diagnóstico'} | Próxima cita: ${h['fecha_proxima_cita'] ?? '-'}";
+
+    if (espNombre != null && espNombre.isNotEmpty) {
+      final rolText = espRol != null ? " ($espRol)" : "";
+      final activeText = espActivo == false ? " - Inactivo" : "";
+      subStr += "\nAtendido por: $espNombre$rolText$activeText";
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -888,11 +902,7 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
                     fontWeight: FontWeight.bold))),
         title: Text(DateFormat('MMMM yyyy', 'es').format(fecha).toUpperCase(),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text(
-          "Peso: ${h['peso_kg']}kg | Talla: ${h['talla_cm']}cm | IMC: ${h['imc_calculado'] ?? '-'}\n"
-          "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min\n"
-          "Estado: ${h['estado_nutricional'] ?? 'Sin Diagnóstico'} | Próxima cita: ${h['fecha_proxima_cita'] ?? '-'}",
-        ),
+        subtitle: Text(subStr),
         trailing: IconButton(
           tooltip: "Editar control",
           icon:
@@ -963,6 +973,11 @@ class _ExpedientePacientePageState extends ConsumerState<ExpedientePacientePage>
               const SizedBox(height: 10),
               _editableField("Actividad Clínica",
                   "Dolor ${h['puntos_dolor'] ?? '-'} | Inflamación ${h['escala_inflamacion'] ?? '-'} | Fatiga ${h['nivel_fatiga'] ?? '-'} | Rigidez ${h['minutos_rigidez'] ?? '-'} min"),
+              if (h['especialista_nombre'] != null && h['especialista_nombre'].toString().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _editableField("Atendido por",
+                    "${h['especialista_nombre']}${h['especialista_rol'] != null ? ' (${h['especialista_rol']})' : ''}${h['especialista_activo'] == false ? ' - Inactivo' : ''}"),
+              ],
               const SizedBox(height: 10),
               _editableField("Próxima Cita", h['fecha_proxima_cita']),
               const SizedBox(height: 10),

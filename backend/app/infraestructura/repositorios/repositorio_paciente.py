@@ -1507,15 +1507,20 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             diagnostico = dict(zip([d[0] for d in cur.description], diag_row)) if diag_row else {}
             
             cur.execute("""
-                select id::text, id_paciente::text, fecha_control::text, peso_kg, talla_cm, imc_calculado, 
-                       estado_nutricional::text, id_condicion_nutricional_resultado,
-                       puntos_dolor, escala_inflamacion, nivel_fatiga, articulaciones_inflamadas, 
-                       articulaciones_dolorosas, minutos_rigidez, en_brote, estado_enfermedad::text, 
-                       valor_pcr, valor_vsg,
-                       nota_evolucion::text, fecha_proxima_cita::text, null::numeric as z_score_bmi
-                from clinico.control_paciente 
-                where id_paciente = %s 
-                order by fecha_control asc
+                select cp.id::text, cp.id_paciente::text, cp.fecha_control::text, cp.peso_kg, cp.talla_cm, cp.imc_calculado, 
+                       cp.estado_nutricional::text, cp.id_condicion_nutricional_resultado,
+                       cp.puntos_dolor, cp.escala_inflamacion, cp.nivel_fatiga, cp.articulaciones_inflamadas, 
+                       cp.articulaciones_dolorosas, cp.minutos_rigidez, cp.en_brote, cp.estado_enfermedad::text, 
+                       cp.valor_pcr, cp.valor_vsg,
+                       cp.nota_evolucion::text, cp.fecha_proxima_cita::text, null::numeric as z_score_bmi,
+                       u.nombre_completo::text as especialista_nombre,
+                       u.activo as especialista_activo,
+                       r.nombre::text as especialista_rol
+                from clinico.control_paciente cp
+                left join usuarios.usuario u on u.id = cp.id_medico
+                left join usuarios.rol r on r.id = u.id_rol
+                where cp.id_paciente = %s 
+                order by cp.fecha_control asc
             """, (id_paciente,))
             historial_cols = [d[0] for d in cur.description]
             historial_controles = [dict(zip(historial_cols, r)) for r in cur.fetchall()]

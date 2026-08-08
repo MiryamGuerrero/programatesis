@@ -1,6 +1,8 @@
 import "dart:async";
 
+import "package:dio/dio.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:pdf/pdf.dart";
@@ -393,7 +395,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                   ),
                   ...List.generate(users.length, (index) {
                     final u = users[index];
-                    final rolNombre = (u["rol_nombre"]?.toString() ?? "SIN ROL").toUpperCase();
+                    final rolesList = u["roles"] as List<dynamic>?;
+                    final rolNombre = (rolesList != null && rolesList.isNotEmpty)
+                        ? rolesList.map((r) => r["nombre"].toString()).join(", ").toUpperCase()
+                        : (u["rol_nombre"]?.toString() ?? "SIN ROL").toUpperCase();
                     final isEven = index % 2 == 0;
                     final isActivo = u["activo"] == true;
                     return pw.TableRow(
@@ -907,11 +912,24 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
 
     if (confirm == true) {
-      await ref
-          .read(adminUsersProvider.notifier)
-          .deleteUser(user["id"].toString());
+      final String rolName = user["rol_nombre"]?.toString() ?? "Personal";
+      final String userName = user["nombre_completo"]?.toString() ?? "Usuario";
+      
       if (mounted) {
-        NutriSnack.show(context, "Profesional eliminado con éxito");
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black.withOpacity(0.55),
+          builder: (ctx) => _DeleteProgressDialog(
+            userName: userName,
+            rolName: rolName,
+            onDelete: () async {
+              return await ref
+                  .read(adminUsersProvider.notifier)
+                  .deleteUser(user["id"].toString());
+            },
+          ),
+        );
       }
     }
   }
@@ -1055,11 +1073,19 @@ class _AdminUsersDataSource extends DataTableSource {
           width: totalWidth * 0.25,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(u["rol_nombre"]?.toString() ?? "Personal",
-                style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTema.azulPrincipal)),
+            child: Builder(
+              builder: (context) {
+                final roles = u["roles"] as List<dynamic>?;
+                final text = (roles != null && roles.isNotEmpty)
+                    ? roles.map((r) => r["nombre"].toString()).join(", ")
+                    : (u["rol_nombre"]?.toString() ?? "Personal");
+                return Text(text,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTema.azulPrincipal));
+              }
+            ),
           ),
         )),
       DataCell(SizedBox(
@@ -1205,8 +1231,25 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
   final _emailCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _cedulaCtrl = TextEditingController();
-  int? _idRol;
+  
+  // Controllers for titles and institutions
+  final _tituloAdminCtrl = TextEditingController();
+  final _instAdminCtrl = TextEditingController();
+  bool _checkedAdmin = false;
+
+  final _tituloMedicoCtrl = TextEditingController();
+  final _instMedicoCtrl = TextEditingController();
+  bool _checkedMedico = false;
+
+  final _tituloNutriCtrl = TextEditingController();
+  final _instNutriCtrl = TextEditingController();
+  bool _checkedNutri = false;
+
   bool _saving = false;
+
+  String? _emailErrorText;
+  String? _cedulaErrorText;
+  String? _generalErrorText;
 
   @override
   void initState() {
@@ -1215,13 +1258,187 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       _emailCtrl.text = widget.user!["email"] ?? "";
       _nombreCtrl.text = widget.user!["nombre_completo"] ?? "";
       _cedulaCtrl.text = widget.user!["cedula"] ?? "";
-      _idRol = widget.user!["id_rol"];
+      
+      final int? activeRolId = widget.user!["id_rol"];
+      final roles = widget.user!["roles"] as List<dynamic>? ?? [];
+      
+      if (roles.isNotEmpty) {
+        for (final r in roles) {
+          final id = r["id"] as int;
+          final String title = r["titulo_profesional"]?.toString() ?? "";
+          final String inst = r["institucion_titulo"]?.toString() ?? "";
+          
+          if (id == 1) {
+            _checkedAdmin = true;
+            _tituloAdminCtrl.text = title;
+            _instAdminCtrl.text = inst;
+          } else if (id == 2) {
+            _checkedMedico = true;
+            _tituloMedicoCtrl.text = title;
+            _instMedicoCtrl.text = inst;
+          } else if (id == 3) {
+            _checkedNutri = true;
+            _tituloNutriCtrl.text = title;
+            _instNutriCtrl.text = inst;
+          }
+        }
+      } else if (activeRolId != null) {
+        if (activeRolId == 1) {
+          _checkedAdmin = true;
+          _tituloAdminCtrl.text = "Administrador del Sistema";
+          _instAdminCtrl.text = "Departamento de Tecnología";
+        } else if (activeRolId == 2) {
+          _checkedMedico = true;
+          _tituloMedicoCtrl.text = "Doctor Reumatólogo";
+          _instMedicoCtrl.text = "Universidad de Especialidades Médicas";
+        } else if (activeRolId == 3) {
+          _checkedNutri = true;
+          _tituloNutriCtrl.text = "Nutricionista Clínico";
+          _instNutriCtrl.text = "Universidad de Nutrición y Salud";
+        }
+      }
+    } else {
+      // Default unchecked, let them check what they need.
+      _checkedMedico = true;
+      _tituloMedicoCtrl.text = "Doctor Reumatólogo";
+      _instMedicoCtrl.text = "Universidad de Especialidades Médicas";
     }
   }
 
   @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _nombreCtrl.dispose();
+    _cedulaCtrl.dispose();
+    _tituloAdminCtrl.dispose();
+    _instAdminCtrl.dispose();
+    _tituloMedicoCtrl.dispose();
+    _instMedicoCtrl.dispose();
+    _tituloNutriCtrl.dispose();
+    _instNutriCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildRoleToggle({
+    required String label,
+    required String description,
+    required bool checked,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: checked ? AppTema.verdeSalud.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: checked ? AppTema.verdeSalud.withValues(alpha: 0.4) : const Color(0xFFE2E8F0),
+          width: checked ? 1.5 : 1.0,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: checked,
+              onChanged: onChanged,
+              activeColor: AppTema.verdeSalud,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: checked ? AppTema.verdeSalud : AppTema.azulOscuro,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blueGrey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inputMini(
+    TextEditingController controller,
+    String label,
+    String hint,
+    IconData icon,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 6, bottom: 4),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppTema.verdeSalud,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 38,
+          child: TextField(
+            controller: controller,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF334155),
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: GoogleFonts.inter(
+                color: AppTema.verdeSalud.withValues(alpha: 0.5),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              filled: true,
+              fillColor: AppTema.verdeSalud.withValues(alpha: 0.04),
+              prefixIcon: Icon(icon, size: 14, color: AppTema.verdeSalud),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppTema.verdeSalud.withValues(alpha: 0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppTema.verdeSalud.withValues(alpha: 0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppTema.verdeSalud, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final rolesAsync = ref.watch(rolesStaffProvider);
     final isEdit = widget.user != null;
 
     return Dialog(
@@ -1229,8 +1446,8 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 440,
-        constraints: const BoxConstraints(maxWidth: 440),
+        width: 780,
+        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 580),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1289,77 +1506,210 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _input(
-              _nombreCtrl,
-              "Nombre completo",
-              "Ingresar nombre completo",
-              Icons.badge_outlined,
-            ),
-            const SizedBox(height: 16),
-            _input(
-              _emailCtrl,
-              "Correo electrónico",
-              "usuario@nutrireuma.com",
-              Icons.mail_outline,
-            ),
-            const SizedBox(height: 16),
-            _input(
-              _cedulaCtrl,
-              "Cédula",
-              "Número de cédula",
-              Icons.person_outline_rounded,
-            ),
-            const SizedBox(height: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 8),
-                  child: Text(
-                    "Rol asignado",
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTema.azulOscuro,
+            const SizedBox(height: 20),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Columna Izquierda: Datos de Acceso
+                  Expanded(
+                    flex: 10,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _input(
+                              _nombreCtrl,
+                              "Nombre completo",
+                              "Ingresar nombre completo",
+                              Icons.badge_outlined,
+                            ),
+                            const SizedBox(height: 16),
+                            _input(
+                              _emailCtrl,
+                              "Correo electrónico",
+                              "usuario@nutrireuma.com",
+                              Icons.mail_outline,
+                              errorText: _emailErrorText,
+                            ),
+                            const SizedBox(height: 16),
+                            _input(
+                              _cedulaCtrl,
+                              "Cédula",
+                              "Número de cédula",
+                              Icons.person_outline_rounded,
+                              keyboardType: TextInputType.number,
+                              errorText: _cedulaErrorText,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                rolesAsync.when(
-                  data: (roles) => DropdownButtonFormField<int>(
-                    initialValue: _idRol,
-                    isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    decoration:
-                        _inputDecor("Seleccionar rol", Icons.work_outline_rounded),
-                    dropdownColor: Colors.white,
-                    items: roles
-                        .map((r) => DropdownMenuItem<int>(
-                              value: r["id"],
+                  
+                  // Divisor vertical sutil
+                  Container(
+                    width: 1.2,
+                    color: const Color(0xFFE2E8F0),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  
+                  // Columna Derecha: Roles y Especialidades
+                  Expanded(
+                    flex: 12,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 12),
                               child: Text(
-                                r["nombre"].toString().toUpperCase(),
+                                "Roles y Títulos Profesionales",
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppTema.azulOscuro,
                                 ),
                               ),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _idRol = v),
+                            ),
+                            
+                            // Administrador checkbox and fields
+                            _buildRoleToggle(
+                              label: "Administrador",
+                              description: "Administra el personal, configura parámetros globales y visualiza auditorías de atención.",
+                              checked: _checkedAdmin,
+                              onChanged: (val) {
+                                setState(() {
+                                  _checkedAdmin = val ?? false;
+                                  if (_checkedAdmin && _tituloAdminCtrl.text.isEmpty) {
+                                    _tituloAdminCtrl.text = "Administrador del Sistema";
+                                  }
+                                  if (_checkedAdmin && _instAdminCtrl.text.isEmpty) {
+                                    _instAdminCtrl.text = "Departamento de Tecnología";
+                                  }
+                                });
+                              },
+                            ),
+                            if (_checkedAdmin) ...[
+                              Container(
+                                margin: const EdgeInsets.only(left: 12.0, bottom: 12.0),
+                                padding: const EdgeInsets.only(left: 16.0, top: 4.0, bottom: 8.0),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: AppTema.verdeSalud.withValues(alpha: 0.5),
+                                      width: 2.0,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _inputMini(_tituloAdminCtrl, "Título Profesional del Administrador", "Ej. Administrador del Sistema", Icons.badge_outlined),
+                                    const SizedBox(height: 8),
+                                    _inputMini(_instAdminCtrl, "Lugar de obtención / Institución", "Ej. Departamento de Tecnología", Icons.account_balance_rounded),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            
+                            // Médico checkbox and fields
+                            _buildRoleToggle(
+                              label: "Médico",
+                              description: "Acceso clínico completo: evaluaciones médicas de pacientes, escalas y control de brotes.",
+                              checked: _checkedMedico,
+                              onChanged: (val) {
+                                setState(() {
+                                  _checkedMedico = val ?? false;
+                                  if (_checkedMedico && _tituloMedicoCtrl.text.isEmpty) {
+                                    _tituloMedicoCtrl.text = "Doctor Reumatólogo";
+                                  }
+                                  if (_checkedMedico && _instMedicoCtrl.text.isEmpty) {
+                                    _instMedicoCtrl.text = "Universidad de Especialidades Médicas";
+                                  }
+                                });
+                              },
+                            ),
+                            if (_checkedMedico) ...[
+                              Container(
+                                margin: const EdgeInsets.only(left: 12.0, bottom: 12.0),
+                                padding: const EdgeInsets.only(left: 16.0, top: 4.0, bottom: 8.0),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: AppTema.verdeSalud.withValues(alpha: 0.5),
+                                      width: 2.0,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _inputMini(_tituloMedicoCtrl, "Título Profesional del Médico", "Ej. Doctor Reumatólogo", Icons.badge_outlined),
+                                    const SizedBox(height: 8),
+                                    _inputMini(_instMedicoCtrl, "Lugar de obtención del título", "Ej. Universidad Central del Ecuador", Icons.account_balance_rounded),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            
+                            // Nutricionista checkbox and fields
+                            _buildRoleToggle(
+                              label: "Nutricionista",
+                              description: "Acceso a planes nutricionales: dietas personalizadas, recetas y restricciones alimentarias.",
+                              checked: _checkedNutri,
+                              onChanged: (val) {
+                                setState(() {
+                                  _checkedNutri = val ?? false;
+                                  if (_checkedNutri && _tituloNutriCtrl.text.isEmpty) {
+                                    _tituloNutriCtrl.text = "Nutricionista Clínico";
+                                  }
+                                  if (_checkedNutri && _instNutriCtrl.text.isEmpty) {
+                                    _instNutriCtrl.text = "Universidad de Nutrición y Salud";
+                                  }
+                                });
+                              },
+                            ),
+                            if (_checkedNutri) ...[
+                              Container(
+                                margin: const EdgeInsets.only(left: 12.0, bottom: 12.0),
+                                padding: const EdgeInsets.only(left: 16.0, top: 4.0, bottom: 8.0),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: AppTema.verdeSalud.withValues(alpha: 0.5),
+                                      width: 2.0,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _inputMini(_tituloNutriCtrl, "Título Profesional del Nutricionista", "Ej. Nutricionista Clínico", Icons.badge_outlined),
+                                    const SizedBox(height: 8),
+                                    _inputMini(_instNutriCtrl, "Lugar de obtención del título", "Ej. Universidad de Nutrición y Salud", Icons.account_balance_rounded),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  loading: () => const SizedBox(
-                    height: 48,
-                    child: Center(child: LinearProgressIndicator()),
-                  ),
-                  error: (_, __) => Text(
-                    "Error al cargar roles",
-                    style: GoogleFonts.inter(color: Colors.redAccent),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -1446,6 +1796,9 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     String hint,
     IconData icon, {
     bool obscure = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? errorText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1464,12 +1817,14 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
         TextField(
           controller: controller,
           obscureText: obscure,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: GoogleFonts.inter(
             fontSize: 14,
-            color: const Color(0xFF334155), // _grisFuerte in login
+            color: const Color(0xFF334155),
             fontWeight: FontWeight.w600,
           ),
-          decoration: _inputDecor(hint, icon),
+          decoration: _inputDecor(hint, icon).copyWith(errorText: errorText),
         ),
       ],
     );
@@ -1505,31 +1860,85 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
+        errorMaxLines: 4,
+        errorStyle: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: Colors.redAccent,
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       );
 
   Future<void> _save() async {
-    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _idRol == null) {
+    setState(() {
+      _emailErrorText = null;
+      _cedulaErrorText = null;
+      _generalErrorText = null;
+    });
+
+    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
       NutriSnack.show(context, "Por favor complete los campos obligatorios",
           isError: true);
       return;
     }
+
+    final String cedulaVal = _cedulaCtrl.text.trim();
+    if (cedulaVal.isNotEmpty) {
+      if (cedulaVal.length != 10) {
+        NutriSnack.show(context, "La cédula debe contener exactamente 10 dígitos numéricos", isError: true);
+        return;
+      }
+    }
+
+    final List<Map<String, dynamic>> rolesAsignados = [];
+    if (_checkedAdmin) {
+      rolesAsignados.add({
+        "id_rol": 1,
+        "titulo_profesional": _tituloAdminCtrl.text.trim(),
+        "institucion_titulo": _instAdminCtrl.text.trim(),
+      });
+    }
+    if (_checkedMedico) {
+      rolesAsignados.add({
+        "id_rol": 2,
+        "titulo_profesional": _tituloMedicoCtrl.text.trim(),
+        "institucion_titulo": _instMedicoCtrl.text.trim(),
+      });
+    }
+    if (_checkedNutri) {
+      rolesAsignados.add({
+        "id_rol": 3,
+        "titulo_profesional": _tituloNutriCtrl.text.trim(),
+        "institucion_titulo": _instNutriCtrl.text.trim(),
+      });
+    }
+
+    if (rolesAsignados.isEmpty) {
+      NutriSnack.show(context, "Debe seleccionar al menos un rol para el usuario",
+          isError: true);
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
+      final int primaryRolId = rolesAsignados.first["id_rol"] as int;
+
       if (widget.user != null) {
         await repo.updateUser(
           userId: widget.user!["id"].toString(),
           nombreCompleto: _nombreCtrl.text,
           email: _emailCtrl.text,
           cedula: _cedulaCtrl.text,
-          idRol: _idRol,
+          idRol: primaryRolId,
+          rolesAsignados: rolesAsignados,
         );
       } else {
         await repo.createUser(
           email: _emailCtrl.text,
           nombreCompleto: _nombreCtrl.text,
-          idRol: _idRol!,
+          idRol: primaryRolId,
+          rolesAsignados: rolesAsignados,
           cedula: _cedulaCtrl.text,
         );
       }
@@ -1537,7 +1946,32 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        NutriSnack.show(context, "Error al guardar: $e", isError: true);
+        String errorMsg = e.toString();
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data.containsKey('detail')) {
+            errorMsg = data['detail'].toString();
+          } else if (data is Map && data.containsKey('message')) {
+            errorMsg = data['message'].toString();
+          } else {
+            errorMsg = e.message ?? errorMsg;
+          }
+        }
+        
+        setState(() {
+          final lower = errorMsg.toLowerCase();
+          if (lower.contains('cédula') || lower.contains('cedula')) {
+             _cedulaErrorText = errorMsg;
+          } else if (lower.contains('correo') || lower.contains('email')) {
+             _emailErrorText = errorMsg;
+          } else {
+             _generalErrorText = errorMsg;
+          }
+        });
+        
+        if (_generalErrorText != null) {
+          NutriSnack.show(context, "Error al guardar: $_generalErrorText", isError: true);
+        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1563,3 +1997,110 @@ final rolesStaffProvider =
     return allowedRoles.any((allowed) => nombre.contains(allowed));
   }).toList();
 });
+
+class _DeleteProgressDialog extends StatefulWidget {
+  final String userName;
+  final String rolName;
+  final Future<bool> Function() onDelete;
+
+  const _DeleteProgressDialog({
+    required this.userName,
+    required this.rolName,
+    required this.onDelete,
+  });
+
+  @override
+  State<_DeleteProgressDialog> createState() => _DeleteProgressDialogState();
+}
+
+class _DeleteProgressDialogState extends State<_DeleteProgressDialog> {
+  late String _statusText;
+  bool _isCompleted = false;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusText = "Eliminando a ${widget.userName} (${widget.rolName})...";
+    _ejecutarEliminacion();
+  }
+
+  Future<void> _ejecutarEliminacion() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final exito = await widget.onDelete();
+    if (mounted) {
+      setState(() {
+        _isCompleted = true;
+        _isSuccess = exito;
+        _statusText = exito ? "Borrado con éxito" : "Error al eliminar";
+      });
+      
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) {
+        Navigator.of(context).pop(exito);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!_isCompleted)
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
+                  ),
+                )
+              else if (_isSuccess)
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: AppTema.verdeSalud,
+                  size: 48,
+                )
+              else
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 48,
+                ),
+              const SizedBox(height: 20),
+              Text(
+                _statusText,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulOscuro,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

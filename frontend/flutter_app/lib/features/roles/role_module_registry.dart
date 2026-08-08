@@ -5,6 +5,7 @@ import "../../shared/models/app_role.dart";
 // Páginas de Administración
 import "../admin/modules/usuarios/admin_users_page.dart" deferred as admin_users;
 import "../admin/modules/usuarios/admin_tutors_page.dart" deferred as admin_tutors;
+import "../admin/modules/usuarios/admin_audit_page.dart" deferred as admin_audit;
 
 // Páginas de Médico
 import "../medico/presentation/supervision_pacientes_page.dart" deferred as medico_pacientes;
@@ -100,7 +101,8 @@ List<RoleModule> modulesForRole(AppRole role) {
     title: "Mi perfil",
     icon: Icons.account_circle_outlined,
     builder: () => DeferredModuleWidget(
-      loader: common_perfil.loadLibrary,
+            key: const ValueKey("perfil"),
+      loader: () => common_perfil.loadLibrary(),
       builder: () => common_perfil.PerfilPage(),
     ),
   );
@@ -113,7 +115,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Equipo médico",
           icon: Icons.assignment_ind_rounded,
           builder: () => DeferredModuleWidget(
-            loader: admin_users.loadLibrary,
+            key: const ValueKey("personal"),
+            loader: () => admin_users.loadLibrary(),
             builder: () => admin_users.AdminUsersPage(),
           ),
         ),
@@ -122,8 +125,19 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Cuentas de tutores",
           icon: Icons.supervised_user_circle_rounded,
           builder: () => DeferredModuleWidget(
-            loader: admin_tutors.loadLibrary,
+            key: const ValueKey("tutores"),
+            loader: () => admin_tutors.loadLibrary(),
             builder: () => admin_tutors.AdminTutorsPage(),
+          ),
+        ),
+        RoleModule(
+          key: "auditoria",
+          title: "Auditoría de atenciones",
+          icon: Icons.analytics_outlined,
+          builder: () => DeferredModuleWidget(
+            key: const ValueKey("auditoria"),
+            loader: () => admin_audit.loadLibrary(),
+            builder: () => admin_audit.AdminAuditPage(),
           ),
         ),
         perfilItem,
@@ -136,7 +150,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Gestión de pacientes",
           icon: Icons.people_outline_rounded,
           builder: () => DeferredModuleWidget(
-            loader: medico_pacientes.loadLibrary,
+            key: const ValueKey("pacientes"),
+            loader: () => medico_pacientes.loadLibrary(),
             builder: () => medico_pacientes.SupervisionPacientesPage(),
           ),
         ),
@@ -145,7 +160,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Catálogo de condiciones",
           icon: Icons.table_chart_outlined,
           builder: () => DeferredModuleWidget(
-            loader: medico_condiciones.loadLibrary,
+            key: const ValueKey("condiciones"),
+            loader: () => medico_condiciones.loadLibrary(),
             builder: () => medico_condiciones.CatalogoCondicionesPage(),
           ),
         ),
@@ -154,7 +170,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Reglas clínicas",
           icon: Icons.rule_folder_outlined,
           builder: () => DeferredModuleWidget(
-            loader: medico_reglas.loadLibrary,
+            key: const ValueKey("reglas"),
+            loader: () => medico_reglas.loadLibrary(),
             builder: () => medico_reglas.ReglasMedicasPage(),
           ),
         ),
@@ -168,7 +185,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Mi paciente",
           icon: Icons.dashboard_rounded,
           builder: () => DeferredModuleWidget(
-            loader: tutor_inicio.loadLibrary,
+            key: const ValueKey("inicio"),
+            loader: () => tutor_inicio.loadLibrary(),
             builder: () => tutor_inicio.MisPacientesPage(),
           ),
         ),
@@ -177,7 +195,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Mi perfil",
           icon: Icons.account_circle_outlined,
           builder: () => DeferredModuleWidget(
-            loader: tutor_perfil.loadLibrary,
+            key: const ValueKey("perfil"),
+            loader: () => tutor_perfil.loadLibrary(),
             builder: () => tutor_perfil.TutorPerfilPage(),
           ),
         ),
@@ -190,7 +209,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Ingredientes",
           icon: Icons.egg_alt_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_ingredientes.loadLibrary,
+            key: const ValueKey("ingredientes"),
+            loader: () => nutri_ingredientes.loadLibrary(),
             builder: () => nutri_ingredientes.IngredientesPage(),
           ),
         ),
@@ -199,7 +219,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Etiquetas",
           icon: Icons.label_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_etiquetas.loadLibrary,
+            key: const ValueKey("etiquetas"),
+            loader: () => nutri_etiquetas.loadLibrary(),
             builder: () => nutri_etiquetas.EtiquetasPage(),
           ),
         ),
@@ -208,7 +229,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Recetas",
           icon: Icons.menu_book_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_recetas.loadLibrary,
+            key: const ValueKey("recetas"),
+            loader: () => nutri_recetas.loadLibrary(),
             builder: () => nutri_recetas.RecetasPage(),
           ),
         ),
@@ -217,7 +239,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Plan nutricional",
           icon: Icons.calendar_month_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_plan.loadLibrary,
+            key: const ValueKey("plan_manual"),
+            loader: () => nutri_plan.loadLibrary(),
             builder: () => nutri_plan.PlanManualPage(),
           ),
         ),
@@ -226,7 +249,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Menú y horarios",
           icon: Icons.schedule_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_config.loadLibrary,
+            key: const ValueKey("configuracion_menu"),
+            loader: () => nutri_config.loadLibrary(),
             builder: () => nutri_config.ConfiguracionMenuPage(),
           ),
         ),
@@ -235,7 +259,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Condiciones",
           icon: Icons.health_and_safety_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_condiciones.loadLibrary,
+            key: const ValueKey("condiciones_nutri"),
+            loader: () => nutri_condiciones.loadLibrary(),
             builder: () => nutri_condiciones.CondicionesNutricionalesPage(),
           ),
         ),
@@ -244,7 +269,8 @@ List<RoleModule> modulesForRole(AppRole role) {
           title: "Reglas nutricionales",
           icon: Icons.rule_rounded,
           builder: () => DeferredModuleWidget(
-            loader: nutri_reglas.loadLibrary,
+            key: const ValueKey("reglas_nutri"),
+            loader: () => nutri_reglas.loadLibrary(),
             builder: () => nutri_reglas.ReglasNutricionalesPage(),
           ),
         ),

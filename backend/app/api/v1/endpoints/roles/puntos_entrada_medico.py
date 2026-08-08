@@ -403,10 +403,22 @@ def obtener_catalogos_registro_paciente(
 @router.get("/pacientes/{id_paciente}/expediente-completo")
 def obtener_expediente_completo(
     id_paciente: str,
-    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
-    _=Depends(require_roles("admin", "medico", "nutricionista", "tutor"))
+    user: UserContext = Depends(require_roles("admin", "medico", "nutricionista", "tutor")),
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes)
 ):
-    return caso_uso.obtener_expediente_completo(id_paciente)
+    expediente = caso_uso.obtener_expediente_completo(id_paciente)
+    if user.role == "tutor" and isinstance(expediente, dict):
+        if "historial_controles" in expediente and isinstance(expediente["historial_controles"], list):
+            for ctrl in expediente["historial_controles"]:
+                if isinstance(ctrl, dict):
+                    ctrl.pop("especialista_nombre", None)
+                    ctrl.pop("especialista_activo", None)
+                    ctrl.pop("especialista_rol", None)
+        if "ultimo_control" in expediente and isinstance(expediente["ultimo_control"], dict):
+            expediente["ultimo_control"].pop("especialista_nombre", None)
+            expediente["ultimo_control"].pop("especialista_activo", None)
+            expediente["ultimo_control"].pop("especialista_rol", None)
+    return expediente
 
 @router.post("/pacientes/{id_paciente}/control-mensual")
 def registrar_control_mensual(

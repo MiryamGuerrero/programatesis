@@ -17,6 +17,9 @@ class PerfilUsuario(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     parentesco: Optional[str] = None
+    roles: Optional[list[dict]] = None
+    titulo_profesional: Optional[str] = None
+    institucion_titulo: Optional[str] = None
 
 
     @computed_field
