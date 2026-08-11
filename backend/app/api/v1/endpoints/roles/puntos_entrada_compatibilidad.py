@@ -619,33 +619,9 @@ def guardar_plan_manual(
     confirmar_control = bool(payload.get("confirmar_control_mensual", False))
     datos_control = payload.get("control_mensual_actual") or {}
     
-    if confirmar_control:
-        from app.infraestructura.database.db import db_cursor
-        from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
-        with db_cursor() as cur_control:
-            cur_control.execute(
-                """
-                select id
-                from clinico.control_paciente
-                where id_paciente = %s
-                order by fecha_control desc, id desc
-                limit 1
-                """,
-                (id_paciente,),
-            )
-            row_control = cur_control.fetchone()
-
-        repo_paciente = RepositorioPacientePostgres()
-        if row_control:
-            repo_paciente.actualizar_control_mensual_especifico(row_control[0], datos_control)
-        else:
-            repo_paciente.registrar_control_mensual(
-                id_paciente=id_paciente,
-                datos=datos_control,
-                id_medico=user.user_id,
-            )
-
     from app.infraestructura.database.db import db_cursor
+    from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
+    
     with db_cursor() as cur:
         # Resolver usuario interno para trazabilidad y FKs de recomendaciones
         id_profesional_interno = None
@@ -675,6 +651,39 @@ def guardar_plan_manual(
             if row_user:
                 id_profesional_interno = row_user[0]
 
+    if confirmar_control:
+        with db_cursor() as cur_control:
+            cur_control.execute(
+                """
+                select id
+                from clinico.control_paciente
+                where id_paciente = %s
+                order by fecha_control desc, id desc
+                limit 1
+                """,
+                (id_paciente,),
+            )
+            row_control = cur_control.fetchone()
+
+        repo_paciente = RepositorioPacientePostgres()
+        is_nutri = any("nutricionista" in r.lower() for r in user.roles)
+        id_medico_val = None if is_nutri else id_profesional_interno
+        id_nutri_val = id_profesional_interno if is_nutri else None
+        
+        if row_control:
+            datos_control["id_medico"] = id_medico_val
+            datos_control["id_nutricionista"] = id_nutri_val
+            repo_paciente.actualizar_control_mensual_especifico(row_control[0], datos_control)
+        else:
+            repo_paciente.registrar_control_mensual(
+                id_paciente=id_paciente,
+                datos=datos_control,
+                id_medico=id_medico_val,
+                id_nutricionista=id_nutri_val,
+            )
+
+    from app.infraestructura.database.db import db_cursor
+    with db_cursor() as cur:
         id_plan = None
         if plan_items:
             # Regla de seguridad nutricional para semáforo amarillo:

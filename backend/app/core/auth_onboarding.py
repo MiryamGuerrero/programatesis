@@ -86,6 +86,25 @@ def provision_auth_user_with_password_setup(
     return str(user_id), temp_password
 
 
+def resend_password_setup_email(email: str, role_code: str) -> None:
+    normalized_email = email.strip().lower()
+    normalized_role = _clean_role(role_code)
+    redirect_url = _resolve_redirect_url(normalized_role)
+
+    admin_client = get_supabase_admin_client()
+
+    try:
+        admin_client.auth.reset_password_for_email(
+            normalized_email,
+            {
+                "redirect_to": redirect_url,
+            }
+        )
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo reenviar el correo a {normalized_email}: {exc}")
+
+
+
 def delete_auth_user(auth_user_id: Any) -> None:
     admin_client = get_supabase_admin_client()
     # Aseguramos que sea string para evitar fallos en la librería GoTrue

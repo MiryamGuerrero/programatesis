@@ -458,36 +458,9 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
     );
   }
 
-  Widget _detailField(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey)),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Text(value,
-              style: GoogleFonts.inter(
-                  fontSize: 13, fontWeight: FontWeight.w600)),
-        ),
-      ],
-    );
-  }
-
   void _mostrarDetalleControl(Map<String, dynamic> ctrl) {
     final dateStr = ctrl['fecha_control'] != null
-        ? DateFormat('dd/MM/yyyy').format(
-            DateTime.parse(ctrl['fecha_control']))
+        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_control']))
         : '-';
 
     final String? name = ctrl['especialista_nombre'];
@@ -499,11 +472,24 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
 
     showDialog(
       context: context,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         child: Container(
-          width: 500,
-          padding: const EdgeInsets.all(24),
+          width: 850,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 32,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -514,90 +500,175 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.assignment_turned_in_outlined,
-                            color: AppTema.azulPrincipal),
-                        const SizedBox(width: 12),
-                        Text(
-                          "Auditoría del Control ($dateStr)",
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTema.pastelCeleste,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.assignment_turned_in_outlined,
+                              color: AppTema.azulPrincipal, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Auditoría del Control",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTema.azulOscuro,
+                                  fontSize: 18),
+                            ),
+                            Text(
+                              "Fecha: $dateStr",
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blueGrey,
+                                  fontSize: 13),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close_rounded, color: Colors.blueGrey),
                       onPressed: () => Navigator.pop(ctx),
+                      splashRadius: 24,
                     ),
                   ],
                 ),
-                const Divider(),
-                const SizedBox(height: 12),
-                _detailField("Paciente", ctrl['paciente_nombre'] ?? '-'),
-                const SizedBox(height: 12),
-                _detailField("Especialista que Atendió", specialistInfo),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 24),
+                
+                // Diseño Horizontal (2 columnas)
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Columna Izquierda (Información General y Evolución)
                     Expanded(
-                      child: _detailField("Peso", "${ctrl['peso_kg'] ?? '-'} kg"),
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _infoTile("Paciente", ctrl['paciente_nombre'] ?? '-', Icons.person_outline),
+                          const SizedBox(height: 12),
+                          _infoTile("Especialista que Atendió", specialistInfo, Icons.medical_services_outlined),
+                          const SizedBox(height: 24),
+                          
+                          Text("Nota de Evolución",
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF64748B))),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.format_quote_rounded, color: Color(0xFFCBD5E1), size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    ctrl['nota_evolucion']?.toString() ?? "Sin observaciones registradas en esta sesión.",
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        height: 1.5,
+                                        color: AppTema.azulOscuro,
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 12),
+                    
+                    const SizedBox(width: 32),
+                    
+                    // Columna Derecha (Métricas Clínicas con Tarjetas Premium)
                     Expanded(
-                      child: _detailField("Talla", "${ctrl['talla_cm'] ?? '-'} cm"),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _detailField("IMC", "${ctrl['imc_calculado'] ?? '-'}"),
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Métricas Clínicas",
+                              style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTema.azulOscuro)),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _metricCard("Peso", "${ctrl['peso_kg'] ?? '-'} kg", Icons.monitor_weight_outlined),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _metricCard("Talla", "${ctrl['talla_cm'] ?? '-'} cm", Icons.height_outlined),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _metricCard("IMC", "${ctrl['imc_calculado'] ?? '-'}", Icons.calculate_outlined),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _metricCard("Puntos de Dolor", "${ctrl['puntos_dolor'] ?? '-'} / 10", Icons.sick_outlined, isAlert: (ctrl['puntos_dolor'] ?? 0) > 6),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _metricCard("Fatiga", "${ctrl['nivel_fatiga'] ?? '-'} / 10", Icons.battery_alert_outlined),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _metricCard("Inflamación", "${ctrl['escala_inflamacion'] ?? '-'} / 3", Icons.local_fire_department_outlined),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _metricCard("Brote Activo", ctrl['en_brote'] == true ? "SÍ" : "NO", Icons.warning_amber_rounded, isHighlight: ctrl['en_brote'] == true),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _detailField("Puntos de Dolor",
-                          "${ctrl['puntos_dolor'] ?? '-'} / 10"),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _detailField("Escala de Inflamación",
-                          "${ctrl['escala_inflamacion'] ?? '-'} / 3"),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _detailField("Nivel de Fatiga",
-                          "${ctrl['nivel_fatiga'] ?? '-'} / 10"),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _detailField("En Brote de Inflamación?",
-                          ctrl['en_brote'] == true ? "SÍ" : "NO"),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _detailField("Nota de Evolución",
-                    ctrl['nota_evolucion']?.toString() ?? "Sin observaciones registradas."),
-                const SizedBox(height: 20),
+                
+                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
+                  height: 52,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTema.azulPrincipal,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     onPressed: () => Navigator.pop(ctx),
                     child: Text(
-                      "Cerrar",
+                      "Cerrar Auditoría",
                       style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold, color: Colors.white),
+                          fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white, letterSpacing: 0.5),
                     ),
                   ),
                 ),
@@ -605,6 +676,122 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _infoTile(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: const Color(0xFF64748B)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF94A3B8))),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTema.azulOscuro)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricCard(String label, String value, IconData icon, {bool isHighlight = false, bool isAlert = false}) {
+    Color bgColor = Colors.white;
+    Color borderColor = const Color(0xFFE2E8F0);
+    Color iconColor = AppTema.azulPrincipal;
+    Color valueColor = AppTema.azulOscuro;
+
+    if (isHighlight) {
+      bgColor = AppTema.verdeSalud.withValues(alpha: 0.08);
+      borderColor = AppTema.verdeSalud.withValues(alpha: 0.3);
+      iconColor = AppTema.verdeSalud;
+      valueColor = AppTema.verdeSalud;
+    } else if (isAlert) {
+      bgColor = Colors.redAccent.withValues(alpha: 0.05);
+      borderColor = Colors.redAccent.withValues(alpha: 0.3);
+      iconColor = Colors.redAccent;
+      valueColor = Colors.redAccent;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF64748B),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: valueColor,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
       ),
     );
   }

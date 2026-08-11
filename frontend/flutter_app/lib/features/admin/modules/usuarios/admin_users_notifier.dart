@@ -199,6 +199,18 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       return false;
     }
   }
+
+  Future<bool> resendInviteEmail(String userId) async {
+    try {
+      final dio = _ref.read(dioProvider);
+      await dio.post("usuarios/$userId/reenviar-invitacion");
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+          errorMessage: "Error al reenviar correo de configuración");
+      return false;
+    }
+  }
 }
 
 final adminUsersProvider =

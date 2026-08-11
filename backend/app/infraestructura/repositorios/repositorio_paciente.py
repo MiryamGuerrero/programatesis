@@ -553,7 +553,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 logging.error(f"Error en registrar_paciente_integral: {str(e)}", exc_info=True)
                 raise Exception(f"Fallo en el registro integral: {str(e)}")
 
-    def registrar_control_mensual(self, id_paciente: str, datos: dict, id_medico: str) -> int:
+    def registrar_control_mensual(self, id_paciente: str, datos: dict, id_medico: str = None, id_nutricionista: str = None) -> int:
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
@@ -600,17 +600,17 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("""
                     insert into clinico.control_paciente (
                         id_paciente, fecha_control, peso_kg, talla_cm, edad_meses, imc_calculado,
-                        id_condicion_nutricional_resultado, estado_nutricional, id_medico,
+                        id_condicion_nutricional_resultado, estado_nutricional, id_medico, id_nutricionista,
                         puntos_dolor, escala_inflamacion, nivel_fatiga,
                         articulaciones_inflamadas, articulaciones_dolorosas, minutos_rigidez,
                         en_brote, estado_enfermedad, valor_pcr, valor_vsg, nota_evolucion, fecha_proxima_cita, created_at
                     ) values (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
                     ) returning id
                 """, (
                     id_paciente, fecha_control_dt, peso_val, talla_val, evaluacion["edad_meses"],
-                    evaluacion["imc"], heur_bmi, evaluacion["diagnostico_combinado"], id_medico,
+                    evaluacion["imc"], heur_bmi, evaluacion["diagnostico_combinado"], id_medico, id_nutricionista,
                     safe_int(datos.get("puntos_dolor")), safe_int(datos.get("escala_inflamacion")),
                     safe_int(datos.get("fatiga", datos.get("nivel_fatiga", 10)), 10),
                     safe_int(datos.get("articulaciones_inflamadas")), safe_int(datos.get("articulaciones_dolorosas")),
@@ -720,7 +720,9 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         articulaciones_inflamadas = %s, articulaciones_dolorosas = %s, 
                         minutos_rigidez = %s, en_brote = %s, estado_enfermedad = %s, 
                         nota_evolucion = %s, fecha_proxima_cita = %s,
-                        fecha_control = coalesce(%s, fecha_control)
+                        fecha_control = coalesce(%s, fecha_control),
+                        id_nutricionista = coalesce(%s, id_nutricionista),
+                        id_medico = coalesce(%s, id_medico)
                     where id = %s
                 """, (
                     peso_val, talla_val, evaluacion["edad_meses"], evaluacion["imc"],
@@ -731,6 +733,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     safe_int(datos.get("minutos_rigidez")) if datos.get("minutos_rigidez") else None, bool(datos.get("en_brote")),
                     datos.get("estado_enfermedad") or "Seguimiento", datos.get("nota_evolucion"), datos.get("fecha_proxima_cita"),
                     fecha_control_dt if datos.get("fecha_control") is not None else None,
+                    datos.get("id_nutricionista"), datos.get("id_medico"),
                     id_control
                 ))
                 cur.execute("COMMIT")
@@ -1423,7 +1426,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             # 3. Ãšltimo Control (Resumen)
             cur.execute("""
                 select id::text, fecha_control::text, peso_kg, talla_cm, estado_nutricional::text, 
-                       id_condicion_nutricional_resultado, escala_inflamacion, en_brote, fecha_proxima_cita::text
+                       id_condicion_nutricional_resultado, escala_inflamacion, en_brote, fecha_proxima_cita::text,
+                       imc_calculado
                 from clinico.control_paciente 
                 where id_paciente = %s 
                 order by fecha_control desc, id desc

@@ -100,6 +100,29 @@ def eliminar_usuario(
         raise HTTPException(status_code=404, detail="Usuario no encontrado o no se pudo eliminar")
     return {"id": user_id, "deleted": True}
 
+@router.post("/usuarios/{user_id}/reenviar-invitacion")
+def reenviar_invitacion_usuario(
+    user_id: str,
+    _=Depends(require_roles("admin"))
+):
+    from app.infraestructura.database.db import db_cursor
+    from app.core.auth_onboarding import resend_password_setup_email
+    
+    with db_cursor() as cur:
+        cur.execute("SELECT email, r.nombre FROM usuarios.usuario u JOIN usuarios.rol r ON r.id = u.id_rol WHERE u.id::text = %s", (user_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            
+        email, rol_nombre = row
+        
+    try:
+        resend_password_setup_email(email, rol_nombre)
+        return {"success": True, "message": "Correo de configuración de contraseña enviado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- ENDPOINTS GESTIÓN DE ROLES (ADMIN) ---
 
 @router.get("/roles")
@@ -187,12 +210,12 @@ def listar_controles_auditoria(
     params = []
     
     if q and isinstance(q, str) and q.strip():
-        where_clauses.append("(p.nombre_completo ilike %s or u.nombre_completo ilike %s)")
-        params.extend([f"%{q}%", f"%{q}%"])
+        where_clauses.append("(p.nombre_completo ilike %s or um.nombre_completo ilike %s or un.nombre_completo ilike %s)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
         
     if activo is not None and isinstance(activo, bool):
-        where_clauses.append("u.activo = %s")
-        params.append(activo)
+        where_clauses.append("(um.activo = %s or un.activo = %s)")
+        params.extend([activo, activo])
         
     if en_brote is not None and isinstance(en_brote, bool):
         where_clauses.append("cp.en_brote = %s")
@@ -205,7 +228,8 @@ def listar_controles_auditoria(
             select count(*)
             from clinico.control_paciente cp
             join usuarios.paciente p on p.id = cp.id_paciente
-            left join usuarios.usuario u on u.id = cp.id_medico
+            left join usuarios.usuario um on um.id = cp.id_medico
+            left join usuarios.usuario un on un.id = cp.id_nutricionista
             {where_str}
         """
         cur.execute(count_sql, tuple(params))
@@ -216,9 +240,19 @@ def listar_controles_auditoria(
                 cp.id::text,
                 cp.fecha_control::text,
                 p.nombre_completo::text as paciente_nombre,
-                u.nombre_completo::text as especialista_nombre,
-                u.activo as especialista_activo,
-                r.nombre::text as especialista_rol,
+                case
+                    when cp.id_medico is not null and cp.id_nutricionista is not null then um.nombre_completo || ' y ' || un.nombre_completo
+                    when cp.id_medico is not null then um.nombre_completo
+                    when cp.id_nutricionista is not null then un.nombre_completo
+                    else 'Nadie'
+                end::text as especialista_nombre,
+                coalesce(um.activo, un.activo, true) as especialista_activo,
+                case
+                    when cp.id_medico is not null and cp.id_nutricionista is not null then 'Médico y Nutricionista'
+                    when cp.id_medico is not null then 'Médico'
+                    when cp.id_nutricionista is not null then 'Nutricionista'
+                    else 'Nadie'
+                end::text as especialista_rol,
                 cp.peso_kg,
                 cp.talla_cm,
                 cp.imc_calculado,
@@ -229,8 +263,8 @@ def listar_controles_auditoria(
                 cp.nota_evolucion::text
             from clinico.control_paciente cp
             join usuarios.paciente p on p.id = cp.id_paciente
-            left join usuarios.usuario u on u.id = cp.id_medico
-            left join usuarios.rol r on r.id = u.id_rol
+            left join usuarios.usuario um on um.id = cp.id_medico
+            left join usuarios.usuario un on un.id = cp.id_nutricionista
             {where_str}
             order by cp.fecha_control desc, cp.id desc
             limit %s offset %s

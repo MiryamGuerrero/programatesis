@@ -139,7 +139,7 @@ class CasoUsoGenerarPlanAutomatico:
             recetas_por_momento_y_tipo[m_id]["general"] = recetas_momento
 
         dias_plan = []
-        
+        historial_recientes = [] # Memoria de recetas usadas para evitar repeticiones
         # 4. Generar items día por día (Procesamiento en memoria ultra-rápido)
         if log_callback: log_callback(f"Generando menús inteligentes para {dias} días...")
         for i in range(dias):
@@ -166,18 +166,91 @@ class CasoUsoGenerarPlanAutomatico:
                 receta_seleccionada = None
                 
                 if combinaciones:
+                    # --- FILTRO HEURÍSTICO INTELIGENTE POR MOMENTO ---
+                    # Evitar que condiciones de peso Normal habiliten comidas hipercalóricas de noche o en snacks
+                    
+                    if m_id == 5: # Merienda (Noche)
+                        # Eliminar totalmente opciones energéticas
+                        combinaciones = [c for c in combinaciones if c.get("rol") != "COMBINACION_ENERGETICA"]
+                        # Priorizar ligeras y suaves
+                        ligeras = [c for c in combinaciones if c.get("rol") in ("COMBINACION_LIGERA", "COMBINACION_SUAVE")]
+                        if ligeras:
+                            combinaciones = ligeras
+                            
+                    elif m_id in (2, 4): # Snacks (Media Mañana y Media Tarde)
+                        # Priorizar combinaciones con pocos platillos (1 o 2)
+                        cortas = [c for c in combinaciones if len(c.get("platillos", [])) <= 2]
+                        if cortas:
+                            combinaciones = cortas
+                            
+                    elif m_id == 3: # Almuerzo
+                        # Priorizar equilibradas o energéticas
+                        fuertes = [c for c in combinaciones if c.get("rol") in ("COMBINACION_EQUILIBRADA", "COMBINACION_ENERGETICA")]
+                        if fuertes:
+                            combinaciones = fuertes
+
                     # Intentar aplicar una combinación nutricional balanceada
                     random.shuffle(combinaciones) 
                     for combinacion in combinaciones:
                         platillos = combinacion["platillos"]
                         todas_disponibles = True
                         temp_comidas = []
+                        tipos_cubiertos = set() # Tracking de tipos ya resueltos
+                        
+                        # Analizar si la combinación YA exige un plato dulce por naturaleza
+                        tipos_dulces = {22, 34, 35, 36, 37, 44, 46} # Pancakes, Postre, Compota, Jugo, Fruta, Yogur, Batido
+                        combinacion_exige_dulce = any(p["id"] in tipos_dulces for p in platillos)
+                        tiene_dulce_accidental = False
+                        
+                        # Tracking de grupos de proteínas fuertes para evitar mezclas raras (ej. Pescado con Pescado, Pollo con Carne)
+                        grupos_proteina_fuertes = {7, 8} # 7: Carnes Y Derivados, 8: Pescados Y Derivados
+                        grupos_proteina_usados = set()
                         
                         for platillo in platillos:
                             tipo_plato_id = platillo["id"]
+                            
+                            # Regla Interna: Si un plato anterior (multipropósito) ya cubrió este tipo de comida, lo saltamos
+                            if tipo_plato_id in tipos_cubiertos:
+                                continue
+                                
                             opciones = recetas_por_momento_y_tipo[m_id].get(tipo_plato_id, [])
+                            
+                            # Heurística Anti-Repetición de Proteína Fuerte
+                            if opciones and grupos_proteina_usados:
+                                # Filtrar recetas que contengan grupos de proteína fuertes (7, 8) para que no haya doble carne/pescado
+                                opciones_filtradas_proteina = [op for op in opciones if not (set(op.get("g_ids") or []) & grupos_proteina_fuertes)]
+                                if opciones_filtradas_proteina:
+                                    opciones = opciones_filtradas_proteina
+                            
+                            # Heurística Anti-Empalago: Si la comida ya es dulce, forzamos opciones saladas para los otros platos
+                            if opciones and (combinacion_exige_dulce or tiene_dulce_accidental) and tipo_plato_id not in tipos_dulces:
+                                palabras_dulces = ["dulce", "miel", "chocolate", "manzana", "fresa", "fruta", "postre", "yogur", "compota", "batido", "jugo", "pancake", "panque", "pera", "platano", "durazno"]
+                                opciones_saladas = [op for op in opciones if not any(w in op["nombre"].lower() for w in palabras_dulces)]
+                                if opciones_saladas:
+                                    opciones = opciones_saladas
+                                    
                             if opciones:
-                                r_elegida = self._seleccionar_receta_con_prioridad(opciones)
+                                r_elegida = self._seleccionar_receta_con_prioridad(opciones, historial_recientes)
+                                
+                                # Registrar si elegimos un plato dulce por accidente (ej. Wrap dulce)
+                                if tipo_plato_id not in tipos_dulces:
+                                    palabras_dulces = ["dulce", "miel", "chocolate", "manzana", "fresa", "fruta", "postre", "yogur", "compota", "batido", "jugo", "pancake", "panque", "pera", "platano", "durazno"]
+                                    if any(w in r_elegida["nombre"].lower() for w in palabras_dulces):
+                                        tiene_dulce_accidental = True
+                                        
+                                historial_recientes.append(r_elegida["id"])
+                                if len(historial_recientes) > 20: # Recuerda las últimas 20 recetas (~4 días)
+                                    historial_recientes.pop(0)
+                                    
+                                # Registrar si la receta usa una proteína fuerte (Carne o Pescado)
+                                g_ids_receta = set(r_elegida.get("g_ids") or [])
+                                grupos_proteina_usados.update(g_ids_receta & grupos_proteina_fuertes)
+
+                                    
+                                # Marcar TODOS los tipos que cubre esta receta para evitar redundancias luego (ej. Arroz)
+                                for t_id in (r_elegida.get("tipos_plato_ids") or []):
+                                    tipos_cubiertos.add(t_id)
+                                    
                                 temp_comidas.append(ItemPlan(
                                     id_receta=r_elegida["id"],
                                     nombre_receta=r_elegida["nombre"],
@@ -187,6 +260,7 @@ class CasoUsoGenerarPlanAutomatico:
                                     imagen_url=r_elegida.get("imagen_url")
                                 ))
                             else:
+                                # Si falta un plato crítico que no fue cubierto, la combinación entera falla
                                 todas_disponibles = False
                                 break
                         
@@ -199,7 +273,10 @@ class CasoUsoGenerarPlanAutomatico:
                 if not receta_seleccionada:
                     opciones_fallback = recetas_por_momento_y_tipo[m_id].get("general", [])
                     if opciones_fallback:
-                        r_elegida = self._seleccionar_receta_con_prioridad(opciones_fallback)
+                        r_elegida = self._seleccionar_receta_con_prioridad(opciones_fallback, historial_recientes)
+                        historial_recientes.append(r_elegida["id"])
+                        if len(historial_recientes) > 20:
+                            historial_recientes.pop(0)
                         comidas_dia.append(ItemPlan(
                             id_receta=r_elegida["id"],
                             nombre_receta=r_elegida["nombre"],
@@ -271,11 +348,19 @@ class CasoUsoGenerarPlanAutomatico:
             }
         }
 
-    def _seleccionar_receta_con_prioridad(self, recetas: List[dict]) -> dict:
+    def _seleccionar_receta_con_prioridad(self, recetas: List[dict], historial_recientes: Optional[List[int]] = None) -> dict:
+        if historial_recientes is None:
+            historial_recientes = []
+
         # Pesos base optimizados usando los flags pre-calculados en SQL
         pesos = []
         for r in recetas:
             peso = 1.0
+            
+            # Penalización fuerte si la receta ya salió recientemente para forzar variedad
+            if r["id"] in historial_recientes:
+                peso *= 0.05
+
             # Prioridad 1: Preferencia del usuario (corazón)
             if r.get("es_preferida"): peso *= 2.0
             # Prioridad 2: Recomendación clínica (Apto/Potenciado)

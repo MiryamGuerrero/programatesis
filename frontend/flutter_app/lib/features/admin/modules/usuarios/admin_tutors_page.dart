@@ -236,10 +236,10 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("REPRESENTANTE", width: usableWidth * 0.40),
-              _col("IDENTIFICACIÓN", width: usableWidth * 0.20),
+              _col("REPRESENTANTE", width: usableWidth * 0.35),
+              _col("IDENTIFICACIÓN", width: usableWidth * 0.15),
               _col("ESTADO", width: usableWidth * 0.15, center: true),
-              _col("ACCIONES", width: usableWidth * 0.25, center: true),
+              _col("ACCIONES", width: usableWidth * 0.35, center: true),
             ],
             source: _AdminTutorsDataSource(
               items: state.users,
@@ -251,6 +251,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
                   .toggleUserStatus(u["id"].toString(), u["activo"] == true),
               onEdit: (u) => _dialogoTutor(u),
               onDelete: (u) => _eliminarTutor(u),
+              onResend: (u) => _reenviarCorreo(u),
               totalWidth: usableWidth,
               context: context,
             ),
@@ -312,6 +313,18 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
     }
   }
 
+  Future<void> _reenviarCorreo(Map<String, dynamic> user) async {
+    final res = await ref.read(adminTutorsProvider.notifier).resendInviteEmail(user["id"].toString());
+    if (mounted) {
+      if (res) {
+        NutriSnack.show(context, "Correo de configuración enviado a ${user['email']}");
+      } else {
+        NutriSnack.show(context, "No se pudo reenviar el correo", isError: true);
+      }
+    }
+  }
+
+
   void _dialogoTutor(Map<String, dynamic>? user) {
     showDialog(
       context: context,
@@ -344,6 +357,7 @@ class _AdminTutorsDataSource extends DataTableSource {
   final Function(Map<String, dynamic>) onToggle;
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onDelete;
+  final Function(Map<String, dynamic>) onResend;
   final double totalWidth;
   final BuildContext context;
 
@@ -355,6 +369,7 @@ class _AdminTutorsDataSource extends DataTableSource {
     required this.onToggle,
     required this.onEdit,
     required this.onDelete,
+    required this.onResend,
     required this.totalWidth,
     required this.context,
   });
@@ -368,7 +383,7 @@ class _AdminTutorsDataSource extends DataTableSource {
         color: WidgetStateProperty.all(rowColor),
         cells: [
         DataCell(SizedBox(
-          width: totalWidth * 0.40,
+          width: totalWidth * 0.35,
           child: Row(
             children: [
               const NutriShimmer(
@@ -389,13 +404,13 @@ class _AdminTutorsDataSource extends DataTableSource {
           ),
         )),
         DataCell(SizedBox(
-            width: totalWidth * 0.20,
+            width: totalWidth * 0.15,
             child: const NutriShimmer(width: 80, height: 10))),
         DataCell(SizedBox(
             width: totalWidth * 0.15,
             child: const Center(child: NutriShimmer(width: 60, height: 20)))),
         DataCell(SizedBox(
-          width: totalWidth * 0.25,
+          width: totalWidth * 0.35,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -422,7 +437,7 @@ class _AdminTutorsDataSource extends DataTableSource {
       color: WidgetStateProperty.all(rowColor),
       cells: [
       DataCell(SizedBox(
-        width: totalWidth * 0.40,
+        width: totalWidth * 0.35,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
           child: Row(
@@ -451,7 +466,7 @@ class _AdminTutorsDataSource extends DataTableSource {
         ),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.20,
+        width: totalWidth * 0.15,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(u["cedula"]?.toString() ?? "N/A",
@@ -468,18 +483,24 @@ class _AdminTutorsDataSource extends DataTableSource {
         ),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.25,
+        width: totalWidth * 0.35,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _HoverActionButton(
+                  icon: Icons.mark_email_unread_rounded,
+                  label: "Reenviar",
+                  color: AppTema.azulOscuro,
+                  onTap: () => onResend(u)),
+              const SizedBox(width: 8),
+              _HoverActionButton(
                   icon: Icons.edit_note_rounded,
                   label: "Editar",
                   color: AppTema.azulPrincipal,
                   onTap: () => onEdit(u)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _HoverActionButton(
                   icon: u["activo"] == true
                       ? Icons.block_flipped
@@ -487,7 +508,7 @@ class _AdminTutorsDataSource extends DataTableSource {
                   label: u["activo"] == true ? "Baja" : "Alta",
                   color: u["activo"] == true ? Colors.orange : Colors.green,
                   onTap: () => onToggle(u)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _HoverActionButton(
                   icon: Icons.delete_outline_rounded,
                   label: "Borrar",

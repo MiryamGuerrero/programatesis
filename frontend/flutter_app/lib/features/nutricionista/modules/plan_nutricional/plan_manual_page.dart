@@ -475,147 +475,379 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         text: (ultimoControl["peso_kg"] ?? "").toString());
     final tallaCtrl = TextEditingController(
         text: (ultimoControl["talla_cm"] ?? "").toString());
+    final prediagnostico = (ultimoControl["estado_nutricional"] ?? "Desconocido").toString();
+    final prediagnosticoLower = prediagnostico.toLowerCase().replaceAll('ó', 'o').replaceAll('í', 'i').replaceAll('á', 'a').replaceAll('é', 'e');
+
     int? condicionPesoId =
         (ultimoControl["id_condicion_nutricional_resultado"] as num?)?.toInt();
-    int? condicionTallaId;
+        
+    if (condicionPesoId == null || !condicionesPeso.any((c) => (c["id"] as num).toInt() == condicionPesoId)) {
+        // Keyword match for Peso
+        final exactMatch = condicionesPeso.where((c) {
+            final n = (c["nombre"] ?? "").toString().toLowerCase().replaceAll('ó', 'o').replaceAll('í', 'i').replaceAll('á', 'a').replaceAll('é', 'e');
+            if (prediagnosticoLower.contains(n)) return true; // Prioritize exact substring match
+            if (prediagnosticoLower.contains("sobrepeso") && n.contains("sobrepeso")) return true;
+            if (prediagnosticoLower.contains("obesidad") && n.contains("obes")) return true;
+            if (prediagnosticoLower.contains("emaciaci") && n.contains("emaciaci")) return true;
+            if (prediagnosticoLower.contains("delgadez") && n.contains("delgadez")) return true;
+            if (prediagnosticoLower.contains("bajo peso") && n.contains("bajo peso")) return true;
+            return false;
+        }).toList();
+        
+        if (exactMatch.isNotEmpty) {
+            exactMatch.sort((a, b) => (b["nombre"] as String).length.compareTo((a["nombre"] as String).length));
+            condicionPesoId = (exactMatch.first["id"] as num).toInt();
+        } else if (condicionesPeso.isNotEmpty) {
+            final normalPeso = condicionesPeso.where((c) => c["nombre"]?.toString().toLowerCase().contains("normal") ?? false).toList();
+            condicionPesoId = (normalPeso.isNotEmpty ? normalPeso.first["id"] : condicionesPeso.first["id"]) as int?;
+        }
+    }
+
+    int? condicionTallaId =
+        (ultimoControl["id_condicion_nutricional_resultado"] as num?)?.toInt();
+        
+    if (condicionTallaId == null || !condicionesTalla.any((c) => (c["id"] as num).toInt() == condicionTallaId)) {
+        // Keyword match for Talla
+        final exactMatch = condicionesTalla.where((c) {
+            final n = (c["nombre"] ?? "").toString().toLowerCase().replaceAll('ó', 'o').replaceAll('í', 'i').replaceAll('á', 'a').replaceAll('é', 'e');
+            if (prediagnosticoLower.contains(n)) return true; // Prioritize exact substring match
+            if (prediagnosticoLower.contains("talla baja") && n.contains("baja")) return true;
+            if (prediagnosticoLower.contains("talla alta") && n.contains("alta")) return true;
+            return false;
+        }).toList();
+        
+        if (exactMatch.isNotEmpty) {
+            exactMatch.sort((a, b) => (b["nombre"] as String).length.compareTo((a["nombre"] as String).length));
+            condicionTallaId = (exactMatch.first["id"] as num).toInt();
+        } else if (condicionesTalla.isNotEmpty) {
+            final normalTalla = condicionesTalla.where((c) => 
+                (c["nombre"]?.toString().toLowerCase().contains("normal") ?? false) || 
+                (c["nombre"]?.toString().toLowerCase().contains("adecuada") ?? false)
+            ).toList();
+            condicionTallaId = (normalTalla.isNotEmpty ? normalTalla.first["id"] : condicionesTalla.first["id"]) as int?;
+        }
+    }
     final edadLabel = _formatEdad(paciente["fecha_nacimiento"]?.toString());
+    final imcCalculado = (ultimoControl["imc_calculado"] ?? "No calculado").toString();
 
     await showDialog(
       context: context,
       barrierDismissible: false,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             final screenHeight = MediaQuery.of(context).size.height;
-            return AlertDialog(
-              title: const Text("Validar datos clínicos del paciente"),
-              content: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: 520,
-                  maxWidth: 520,
-                  maxHeight: screenHeight * 0.7,
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                width: 850,
+                constraints: BoxConstraints(maxHeight: screenHeight * 0.9),
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 32,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
                 ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Diagnóstico: ${_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "No registrado"}",
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTema.pastelCeleste,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.verified_user_outlined,
+                                    color: AppTema.azulPrincipal, size: 22),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Validación: ${paciente['nombre_completo'] ?? 'Paciente'}",
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTema.azulOscuro,
+                                        fontSize: 16),
+                                  ),
+                                  Text(
+                                    "Paciente de $edadLabel • Revisa el estado",
+                                    style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.blueGrey,
+                                        fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      Text("Edad actual: $edadLabel",
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: pesoCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration:
-                            const InputDecoration(labelText: "Peso (kg)"),
+                      const SizedBox(height: 18),
+                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      const SizedBox(height: 20),
+
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left Column: Read-only Data (Prediagnostic & Context)
+                          Expanded(
+                            flex: 4,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: AppTema.verdeSalud.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: AppTema.verdeSalud.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.auto_awesome, color: AppTema.verdeSalud, size: 18),
+                                          const SizedBox(width: 6),
+                                          Text("Prediagnóstico del Sistema", style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTema.verdeSalud, fontSize: 12)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text("IMC Calculado", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                                Text(imcCalculado, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+                                              ],
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text("Estado Detectado", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                                Text(prediagnostico, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text("Diagnóstico Base", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                            Text(_patientProfile?["diagnostico"]?["condicion_nombre"] ?? "No registrado", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text("Edad actual", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                            Text(edadLabel, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTema.azulOscuro)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          // Right Column: Editable Values
+                          Expanded(
+                            flex: 5,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Ajustar Valores Clínicos", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: AppTema.azulOscuro)),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: pesoCtrl,
+                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: "Peso (kg)",
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                          labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTema.azulPrincipal)),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: tallaCtrl,
+                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: "Talla (cm)",
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                          labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTema.azulPrincipal)),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<int>(
+                                  value: (condicionesPeso.any((c) => (c["id"] as num).toInt() == condicionPesoId)) ? condicionPesoId : null,
+                                  isExpanded: true,
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulOscuro),
+                                  decoration: InputDecoration(
+                                    labelText: "Condición nutricional - peso",
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTema.azulPrincipal)),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                  ),
+                                  items: condicionesPeso.map((c) => DropdownMenuItem<int>(
+                                        value: (c["id"] as num).toInt(),
+                                        child: Text(c["nombre"]?.toString() ?? "Condición"),
+                                      )).toList(),
+                                  onChanged: (v) => setModalState(() => condicionPesoId = v),
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<int>(
+                                  value: (condicionesTalla.any((c) => (c["id"] as num).toInt() == condicionTallaId)) ? condicionTallaId : null,
+                                  isExpanded: true,
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulOscuro),
+                                  decoration: InputDecoration(
+                                    labelText: "Condición nutricional - talla",
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTema.azulPrincipal)),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                  ),
+                                  items: condicionesTalla.map((c) => DropdownMenuItem<int>(
+                                        value: (c["id"] as num).toInt(),
+                                        child: Text(c["nombre"]?.toString() ?? "Condición"),
+                                      )).toList(),
+                                  onChanged: (v) => setModalState(() => condicionTallaId = v),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: tallaCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration:
-                            const InputDecoration(labelText: "Talla (cm)"),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        value: (condicionesPeso.any((c) =>
-                                (c["id"] as num).toInt() == condicionPesoId))
-                            ? condicionPesoId
-                            : null,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                            labelText: "Condición nutricional - peso"),
-                        items: condicionesPeso
-                            .map((c) => DropdownMenuItem<int>(
-                                  value: (c["id"] as num).toInt(),
-                                  child: Text(
-                                      c["nombre"]?.toString() ?? "Condición"),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setModalState(() => condicionPesoId = v),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<int>(
-                        value: (condicionesTalla.any((c) =>
-                                (c["id"] as num).toInt() == condicionTallaId))
-                            ? condicionTallaId
-                            : null,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                            labelText: "Condición nutricional - talla"),
-                        items: condicionesTalla
-                            .map((c) => DropdownMenuItem<int>(
-                                  value: (c["id"] as num).toInt(),
-                                  child: Text(
-                                      c["nombre"]?.toString() ?? "Condición"),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setModalState(() => condicionTallaId = v),
+                      
+                      const SizedBox(height: 28),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              try {
+                                await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (e) {
+                                debugPrint("Error al confirmar: $e");
+                              }
+                            },
+                            child: Text("Dejar como está", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                          ),
+                          const SizedBox(width: 12),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTema.azulPrincipal,
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              final peso = double.tryParse(pesoCtrl.text.trim());
+                              final talla = double.tryParse(tallaCtrl.text.trim());
+                              if (peso == null || talla == null || condicionPesoId == null || condicionTallaId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Completa peso, talla y las 2 condiciones.", style: TextStyle(color: Colors.white))),
+                                );
+                                return;
+                              }
+                              try {
+                                await dio.put(
+                                  "pacientes/$idPaciente/control-mensual-actual",
+                                  data: {
+                                    "peso_kg": peso,
+                                    "talla_cm": talla,
+                                    "id_condicion_nutricional_peso": condicionPesoId,
+                                    "id_condicion_nutricional_talla": condicionTallaId,
+                                  },
+                                );
+                                final resExpNuevo = await dio.get("pacientes/$idPaciente/expediente-completo");
+                                if (mounted) {
+                                  setState(() => _patientProfile = resExpNuevo.data);
+                                }
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (e) {
+                                debugPrint("Error al actualizar: $e");
+                              }
+                            },
+                            child: Text("Actualizar datos", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      await dio.post(
-                          "pacientes/$idPaciente/control-mensual-actual/confirmar");
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    } catch (e) {
-                      debugPrint("Error al confirmar: $e");
-                    }
-                  },
-                  child: const Text("Dejar como está"),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final peso = double.tryParse(pesoCtrl.text.trim());
-                    final talla = double.tryParse(tallaCtrl.text.trim());
-                    if (peso == null ||
-                        talla == null ||
-                        condicionPesoId == null ||
-                        condicionTallaId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                "Completa peso, talla y las 2 condiciones.")),
-                      );
-                      return;
-                    }
-                    try {
-                      await dio.put(
-                        "pacientes/$idPaciente/control-mensual-actual",
-                        data: {
-                          "peso_kg": peso,
-                          "talla_cm": talla,
-                          "id_condicion_nutricional_peso": condicionPesoId,
-                          "id_condicion_nutricional_talla": condicionTallaId,
-                        },
-                      );
-                      final resExpNuevo = await dio
-                          .get("pacientes/$idPaciente/expediente-completo");
-                      if (mounted) {
-                        setState(() => _patientProfile = resExpNuevo.data);
-                      }
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    } catch (e) {
-                      debugPrint("Error al actualizar: $e");
-                    }
-                  },
-                  child: const Text("Actualizar datos"),
-                ),
-              ],
             );
           },
         );
@@ -924,6 +1156,19 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final bool planActivo = p["plan_activo"] == true;
     final bool validacionConfirmada = p["validacion_confirmada"] == true;
 
+    void handleTap() {
+      if (planActivo) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Paciente ya revisado. Este paciente ya cuenta con un plan nutricional activo."),
+            backgroundColor: Colors.blueGrey,
+          ),
+        );
+      } else {
+        _onPatientSelected(p);
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -942,7 +1187,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () => _onPatientSelected(p),
+          onTap: handleTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
@@ -993,7 +1238,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildStatusBadge(
-                      planActivo ? "Plan activo" : "No activo",
+                      planActivo ? "Plan activo" : "Sin plan",
                       planActivo
                           ? const Color(0xFF22C55E)
                           : const Color(0xFF94A3B8),
@@ -1001,8 +1246,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     const SizedBox(height: 6),
                     _buildStatusBadge(
                       validacionConfirmada
-                          ? "Validación nutricional confirmada"
-                          : "Validación nutricional pendiente",
+                          ? "Valid. confirmada"
+                          : "Valid. pendiente",
                       validacionConfirmada
                           ? const Color(0xFF22C55E)
                           : const Color(0xFFF59E0B),
@@ -1011,13 +1256,24 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 ),
                 const SizedBox(width: 24),
                 OutlinedButton.icon(
-                  onPressed: () => _onPatientSelected(p),
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text("Crear plan"),
+                  onPressed: handleTap,
+                  icon: Icon(
+                    planActivo ? Icons.check_circle_outline : Icons.add,
+                    size: 14,
+                    color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                  ),
+                  label: Text(
+                    planActivo ? "Ya revisado" : "Crear plan",
+                    style: TextStyle(
+                      color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF22C55E),
-                    side:
-                        const BorderSide(color: Color(0xFF22C55E), width: 1.2),
+                    foregroundColor: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                    side: BorderSide(
+                      color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                      width: 1.2,
+                    ),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -1030,8 +1286,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Icon(Icons.chevron_right,
-                    color: Color(0xFF94A3B8), size: 22),
+                Icon(Icons.chevron_right,
+                    color: planActivo ? Colors.grey.shade300 : const Color(0xFF94A3B8), 
+                    size: 22),
               ],
             ),
           ),
@@ -1868,6 +2125,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                     ],
                                   ),
                                 ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(Icons.close_rounded,
+                                      size: 18, color: Colors.blueGrey),
+                                  tooltip: "Quitar platillo",
+                                  onPressed: () {
+                                    setState(() {
+                                      s.recipes.remove(rec);
+                                      _isDirty = true;
+                                    });
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -2026,7 +2297,19 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           } else if (_durationType == "una semana") {
                             _endDate = _startDate.add(const Duration(days: 6));
                           } else if (_durationType == "un mes") {
-                            _endDate = _startDate.add(const Duration(days: 30));
+                            DateTime? proximaCitaDate;
+                            if (_patientProfile != null) {
+                              final c = _patientProfile!['ultimo_control'] ?? {};
+                              final str = c['fecha_proxima_cita']?.toString();
+                              if (str != null && str.isNotEmpty) {
+                                try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
+                              }
+                            }
+                            if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
+                              _endDate = proximaCitaDate.subtract(const Duration(days: 1));
+                            } else {
+                              _endDate = _startDate.add(const Duration(days: 30));
+                            }
                           }
                         });
                       },
@@ -2643,36 +2926,56 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   List<Map<String, dynamic>> _filtrarCondicionesPeso(
       List<Map<String, dynamic>> condiciones) {
-    final porTipo = condiciones.where((c) {
-      final tipo = (c["tipo"] ?? c["tipo_condicion"] ?? c["id_tipo_condicion"])
-              ?.toString()
-              .toLowerCase() ??
-          "";
-      return tipo.contains("peso");
-    }).toList();
-    if (porTipo.isNotEmpty) return porTipo;
-    return condiciones.where((c) {
+    final validNames = [
+      "emaciación severa", "emaciación", "emaciacion severa", "emaciacion",
+      "delgadez severa", "delgadez",
+      "bajo peso severo", "bajo peso",
+      "peso normal para la edad", "normal",
+      "posible riesgo de sobrepeso", "sobrepeso", "obesidad",
+      "peso elevado para la edad"
+    ];
+    
+    final filtered = condiciones.where((c) {
       final nombre = (c["nombre"] ?? "").toString().toLowerCase();
-      return nombre.contains("peso") ||
-          nombre.contains("sobrepeso") ||
-          nombre.contains("obes");
+      if (nombre.contains("talla") || nombre.contains("crecimiento")) return false; // STRICT EXCLUSION
+      
+      // Remove accents for comparison just in case
+      final normalized = nombre.replaceAll('ó', 'o').replaceAll('í', 'i').replaceAll('á', 'a');
+      return validNames.any((v) => normalized.contains(v) || normalized == v);
     }).toList();
+    
+    // Deduplicate by name
+    final Map<String, Map<String, dynamic>> uniqueMap = {};
+    for (var c in filtered) {
+      final name = (c["nombre"] ?? "").toString().trim();
+      if (!uniqueMap.containsKey(name)) {
+        uniqueMap[name] = c;
+      }
+    }
+    return uniqueMap.values.toList();
   }
 
   List<Map<String, dynamic>> _filtrarCondicionesTalla(
       List<Map<String, dynamic>> condiciones) {
-    final porTipo = condiciones.where((c) {
-      final tipo = (c["tipo"] ?? c["tipo_condicion"] ?? c["id_tipo_condicion"])
-              ?.toString()
-              .toLowerCase() ??
-          "";
-      return tipo.contains("talla");
-    }).toList();
-    if (porTipo.isNotEmpty) return porTipo;
-    return condiciones.where((c) {
+    final validNames = [
+      "talla baja severa", "talla baja",
+      "talla normal", "talla alta"
+    ];
+    
+    final filtered = condiciones.where((c) {
       final nombre = (c["nombre"] ?? "").toString().toLowerCase();
-      return nombre.contains("talla") || nombre.contains("estatura");
+      return validNames.any((v) => nombre.contains(v));
     }).toList();
+    
+    // Deduplicate by name
+    final Map<String, Map<String, dynamic>> uniqueMap = {};
+    for (var c in filtered) {
+      final name = (c["nombre"] ?? "").toString().trim();
+      if (!uniqueMap.containsKey(name)) {
+        uniqueMap[name] = c;
+      }
+    }
+    return uniqueMap.values.toList();
   }
 
   void _mostrarExpedienteMaestroDialog() {
