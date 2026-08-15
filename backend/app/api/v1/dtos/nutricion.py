@@ -15,6 +15,12 @@ class PlanManualResponse(BaseModel):
     success: bool
     id_plan: int
 
+class AsignarComidaManualFechasRequest(BaseModel):
+    id_paciente: str
+    id_receta: int
+    id_momento: int
+    fechas: List[date]
+
 class RecetasPermitidasRequest(BaseModel):
     id_paciente: str
     id_momento: Optional[int] = None

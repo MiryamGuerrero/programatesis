@@ -371,3 +371,40 @@ class CasoUsoGenerarPlanAutomatico:
             pesos.append(peso)
             
         return random.choices(recetas, weights=pesos, k=1)[0]
+
+    def asignar_comidas_manuales_fechas(self, id_paciente: str, id_receta: int, id_momento: int, fechas: List[date]) -> dict:
+        if not fechas:
+            raise ValueError("Debe proveer al menos una fecha")
+            
+        # Ordenar fechas para saber el rango
+        fechas_ord = sorted(fechas)
+        fecha_min = fechas_ord[0]
+        fecha_max = fechas_ord[-1]
+        
+        # Crear un "Plan" cabecera especial para estas inserciones manuales (o buscar uno existente que calce)
+        # Por simplicidad, creamos un plan que cubra este rango con id_origen_plan = 1 (Tutor)
+        id_plan = self.repo_seguimiento.crear_plan_nutricional({
+            "id_paciente": id_paciente,
+            "id_origen_plan": 1, 
+            "id_estado_plan": 2, 
+            "fecha_inicio": fecha_min,
+            "fecha_fin": fecha_max,
+            "comidas_por_dia": 1
+        })
+        
+        items_a_insertar = []
+        for f in fechas_ord:
+            items_a_insertar.append({
+                "id_plan": id_plan,
+                "fecha_programada": f,
+                "id_momento": id_momento,
+                "id_receta": id_receta
+            })
+            
+        self.repo_seguimiento.agregar_items_plan(items_a_insertar)
+        
+        return {
+            "success": True,
+            "items_inserted": len(items_a_insertar),
+            "id_plan": id_plan
+        }

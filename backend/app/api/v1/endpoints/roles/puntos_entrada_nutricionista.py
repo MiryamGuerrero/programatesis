@@ -13,7 +13,8 @@ from app.api.v1.dtos.clinico import PacienteRegistroCompleto
 from app.api.v1.dtos.nutricion import (
     PlanManualRequest, PlanManualResponse,
     RecetasPermitidasRequest, RecetasPermitidasResponse,
-    RecomendacionIngredienteRequest, PlanAutomaticoRequest
+    RecomendacionIngredienteRequest, PlanAutomaticoRequest,
+    AsignarComidaManualFechasRequest
 )
 from app.infraestructura.database.db import db_cursor
 
@@ -143,6 +144,22 @@ def route_evaluar_reglas(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     return caso_uso.ejecutar(id_paciente)
+
+@router.post("/nutricionista/asignar-comida-manual-fechas")
+def asignar_comida_manual_fechas(
+    request: AsignarComidaManualFechasRequest,
+    user: UserContext = Depends(require_roles("nutricionista", "admin")),
+    caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
+):
+    try:
+        return caso_uso.asignar_comidas_manuales_fechas(
+            id_paciente=request.id_paciente,
+            id_receta=request.id_receta,
+            id_momento=request.id_momento,
+            fechas=request.fechas
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/buscar-pacientes")
 def buscar_pacientes_nutri(

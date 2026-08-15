@@ -244,7 +244,7 @@ def listar_recetas_seguras(
     id_tipo_plato: int | None = Query(default=None),
     limite: int = Query(default=20),
     offset: int = Query(default=0),
-    _=Depends(require_roles("tutor", "admin"))
+    _=Depends(require_roles("tutor", "admin", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()

@@ -10,6 +10,8 @@ import '../../../../shared/widgets/nutri_avatar.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
 import '../../../../shared/widgets/shimmer_components.dart';
 import '../../../../shared/widgets/layout_components.dart';
+import 'asignacion_comida_manual_page.dart';
+import 'widgets/receta_modal_verde.dart';
 
 // --- MODELOS ---
 class MealSlot {
@@ -61,6 +63,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
+  bool _isAssigningSingleMeal = false;
 
   String _durationType = "una semana";
   DateTime _startDate = DateTime.now();
@@ -989,10 +992,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          _selectedPatient == null
-              ? _buildPatientSelection()
-              : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
-          _buildLoadingOverlay(),
+          if (_isAssigningSingleMeal && _selectedPatient != null)
+            AsignacionComidaManualPage(
+              idPaciente: _selectedPatient!['id'],
+              nombrePaciente: _selectedPatient!['nombre_completo'] ?? 'Paciente',
+              onBack: () {
+                setState(() => _isAssigningSingleMeal = false);
+                _onPatientSelected(_selectedPatient!);
+              },
+            )
+          else
+            _selectedPatient == null
+                ? _buildPatientSelection()
+                : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
+          if (!_isAssigningSingleMeal) _buildLoadingOverlay(),
         ],
       ),
     );
@@ -1157,16 +1170,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final bool validacionConfirmada = p["validacion_confirmada"] == true;
 
     void handleTap() {
-      if (planActivo) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Paciente ya revisado. Este paciente ya cuenta con un plan nutricional activo."),
-            backgroundColor: Colors.blueGrey,
-          ),
-        );
-      } else {
-        _onPatientSelected(p);
-      }
+      _onPatientSelected(p);
     }
 
     return Container(
@@ -1258,20 +1262,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 OutlinedButton.icon(
                   onPressed: handleTap,
                   icon: Icon(
-                    planActivo ? Icons.check_circle_outline : Icons.add,
+                    planActivo ? Icons.edit : Icons.add,
                     size: 14,
-                    color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                    color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
                   ),
                   label: Text(
-                    planActivo ? "Ya revisado" : "Crear plan",
+                    planActivo ? "Modificar plan" : "Crear plan",
                     style: TextStyle(
-                      color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                      color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                    foregroundColor: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
                     side: BorderSide(
-                      color: planActivo ? Colors.grey : const Color(0xFF22C55E),
+                      color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
                       width: 1.2,
                     ),
                     padding: const EdgeInsets.symmetric(
@@ -1287,7 +1291,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 ),
                 const SizedBox(width: 12),
                 Icon(Icons.chevron_right,
-                    color: planActivo ? Colors.grey.shade300 : const Color(0xFF94A3B8), 
+                    color: const Color(0xFF94A3B8), 
                     size: 22),
               ],
             ),
@@ -1901,11 +1905,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                        border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.blue.withValues(alpha: 0.05),
-                              blurRadius: 4)
+                              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2))
                         ],
                       ),
                       child: Column(
@@ -1916,7 +1921,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 10,
-                                  color: Colors.blue)),
+                                  color: Color(0xFF16A34A))), // Green shade 600
                           Text(DateFormat('d').format(day.date),
                               style: GoogleFonts.montserrat(
                                   fontWeight: FontWeight.w800,
@@ -1930,7 +1935,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         child: Container(
                           width: 2,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: Colors.blue.withValues(alpha: 0.1),
+                          color: const Color(0xFF22C55E).withValues(alpha: 0.2),
                         ),
                       ),
                   ],
@@ -2005,21 +2010,22 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ? Colors.amber.shade700
             : Colors.blueGrey);
 
+    final Color pastelColor = _getMomentColor(s.momentId);
+    final Color darkColor = _getMomentColorDark(s.momentId);
+
     return Container(
       width: 220,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: pastelColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 4))
         ],
         border: Border.all(
-            color: hasRecipe
-                ? colorSlot.withValues(alpha: 0.45)
-                : Colors.orange.withValues(alpha: 0.1),
+            color: darkColor.withValues(alpha: 0.3),
             width: hasRecipe ? 1.4 : 1),
       ),
       child: Column(
@@ -2028,22 +2034,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: hasRecipe
-                  ? colorSlot.withValues(alpha: 0.1)
-                  : const Color(0xFFFFF7ED),
+              color: darkColor.withValues(alpha: 0.05),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Icon(_getMomentIcon(s.momentId),
-                    size: 14, color: hasRecipe ? colorSlot : Colors.orange),
+                    size: 14, color: darkColor),
                 const SizedBox(width: 8),
                 Text(_capitalize(s.mealType),
                     style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
-                        color: hasRecipe ? colorSlot : Colors.orange.shade800,
+                        color: darkColor,
                         letterSpacing: 0.5)),
               ],
             ),
@@ -2065,13 +2069,16 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.08),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: color.withValues(alpha: 0.22)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))
+                            ],
+                            border: Border.all(color: color.withValues(alpha: 0.3)),
                           ),
                           child: InkWell(
-                            onTap: () => _mostrarDetalleReceta(
-                                (rec["id"] as num?)?.toInt() ?? 0),
+                            onTap: () => mostrarDetalleRecetaVerde(
+                                context, (rec["id"] as num?)?.toInt() ?? 0, ref),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -2131,7 +2138,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                   constraints: const BoxConstraints(),
                                   icon: const Icon(Icons.close_rounded,
                                       size: 18, color: Colors.blueGrey),
-                                  tooltip: "Quitar platillo",
+                                  tooltip: "Eliminar esta receta",
                                   onPressed: () {
                                     setState(() {
                                       s.recipes.remove(rec);
@@ -2144,29 +2151,26 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           ),
                         );
                       }).toList(),
+                      const SizedBox(height: 4),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(Icons.edit_rounded,
-                                size: 18, color: Colors.blueGrey),
-                            onPressed: () => _openRecipePicker(dayIdx, slotIdx),
-                            tooltip: "Editar recetas",
+                          _buildSlotActionIcon(
+                            icon: Icons.edit_note_rounded,
+                            label: "Editar",
+                            color: Colors.blueGrey.shade700,
+                            tooltip: "Cambiar o añadir recetas",
+                            onTap: () => _openRecipePicker(dayIdx, slotIdx),
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                size: 18, color: Colors.redAccent),
-                            onPressed: () => setState(() {
+                          _buildSlotActionIcon(
+                            icon: Icons.delete_outline_rounded,
+                            label: "Borrar",
+                            color: Colors.redAccent.shade400,
+                            tooltip: "Limpiar esta comida",
+                            onTap: () => setState(() {
                               s.recipes = [];
                               _isDirty = true;
                             }),
-                            tooltip: "Quitar",
                           ),
                         ],
                       )
@@ -2290,9 +2294,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         DropdownMenuItem(value: "un mes", child: Text("Un mes")),
                       ],
                       onChanged: (v) {
+                        if (v == "una comida") {
+                          Navigator.pop(context);
+                          setState(() => _isAssigningSingleMeal = true);
+                          return;
+                        }
                         setModalState(() {
                           _durationType = v!;
-                          if (_durationType == "una comida" || _durationType == "un día") {
+                          if (_durationType == "un día") {
                             _endDate = _startDate;
                           } else if (_durationType == "una semana") {
                             _endDate = _startDate.add(const Duration(days: 6));
@@ -2336,9 +2345,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                 fontSize: 14),
                           ),
                           Text(
-                            _durationType == "una comida"
-                                ? "Generación rápida de 1 comida"
-                                : "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                            "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
                             style: TextStyle(
                                 color: Colors.blue.shade700, fontSize: 12),
                           ),
@@ -2347,66 +2354,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     ),
                     const Divider(height: 32),
                     
-                    if (_durationType == "una comida") ...[
-                      _buildModalSectionTitle("Selecciona la comida"),
-                      if (availableMoments.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200)
-                          ),
-                          child: const Text(
-                            "Todos los momentos de comida para el día de hoy ya han pasado.",
-                            style: TextStyle(color: Colors.deepOrange, fontSize: 12),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      else
-                        DropdownButtonFormField<int>(
-                          value: availableMoments.contains(_singleMealId) ? _singleMealId : availableMoments.first,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.blue.shade50,
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                          items: availableMoments.map((id) => DropdownMenuItem(
-                            value: id,
-                            child: Text(_getMomentName(id), style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
-                          )).toList(),
-                          onChanged: (v) => setModalState(() => _singleMealId = v!),
-                        ),
-                    ] else ...[
-                      _buildModalSectionTitle("Tiempos obligatorios"),
-                      const Text("Se establecerán 3 comidas base por día.",
-                          style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
-                      const SizedBox(height: 12),
-                      _buildConfigTile(
-                          "Desayuno", "Principal", Icons.wb_twilight, true, null),
-                      _buildConfigTile(
-                          "Almuerzo", "Principal", Icons.wb_sunny, true, null),
-                      _buildConfigTile("Merienda", "Principal",
-                          Icons.nightlight_round, true, null),
-                      const Divider(height: 32),
-                      _buildModalSectionTitle("Snacks opcionales"),
-                      _buildConfigTile(
-                          "Snack media mañana",
-                          "Entre desayuno y almuerzo",
-                          Icons.coffee,
-                          morningSnack,
-                          (v) => setModalState(() => morningSnack = v!)),
-                      _buildConfigTile(
-                          "Snack media tarde",
-                          "Entre almuerzo y cena",
-                          Icons.apple,
-                          afternoonSnack,
-                          (v) => setModalState(() => afternoonSnack = v!)),
-                    ],
+                    _buildModalSectionTitle("Tiempos obligatorios"),
+                    const Text("Se establecerán 3 comidas base por día.",
+                        style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+                    const SizedBox(height: 12),
+                    _buildConfigTile(
+                        "Desayuno", "Principal", Icons.wb_twilight, true, null),
+                    _buildConfigTile(
+                        "Almuerzo", "Principal", Icons.wb_sunny, true, null),
+                    _buildConfigTile("Merienda", "Principal",
+                        Icons.nightlight_round, true, null),
+                    const Divider(height: 32),
+                    _buildModalSectionTitle("Snacks opcionales"),
+                    _buildConfigTile(
+                        "Snack media mañana",
+                        "Entre desayuno y almuerzo",
+                        Icons.coffee,
+                        morningSnack,
+                        (v) => setModalState(() => morningSnack = v!)),
+                    _buildConfigTile(
+                        "Snack media tarde",
+                        "Entre almuerzo y cena",
+                        Icons.apple,
+                        afternoonSnack,
+                        (v) => setModalState(() => afternoonSnack = v!)),
                   ],
                 ),
               ),
@@ -2482,17 +2453,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                               _morningSnackEnabled = morningSnack;
                               _afternoonSnackEnabled = afternoonSnack;
                               
-                              // SIEMPRE disparamos la generación automática al ajustar o crear
                               final List<int> selectedMomentos = [];
-                              if (_durationType == "una comida") {
-                                selectedMomentos.add(_singleMealId);
-                              } else {
-                                selectedMomentos.addAll([1, 3, 5]);
-                                if (morningSnack) selectedMomentos.add(2);
-                                if (afternoonSnack) selectedMomentos.add(4);
-                              }
+                              selectedMomentos.addAll([1, 3, 5]);
+                              if (morningSnack) selectedMomentos.add(2);
+                              if (afternoonSnack) selectedMomentos.add(4);
                               
-                              // Cerramos el modal inmediatamente para mostrar el overlay de carga global
                               if (context.mounted) Navigator.pop(context);
 
                               await _initPlanAutomaticWithCustomMoments(selectedMomentos);
@@ -2724,6 +2689,74 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
+  Color _getMomentColor(int momentId) {
+    switch (momentId) {
+      case 1:
+        return Colors.orange.shade50;
+      case 2:
+        return Colors.yellow.shade50;
+      case 3:
+        return Colors.blue.shade50;
+      case 4:
+        return Colors.teal.shade50;
+      case 5:
+        return Colors.indigo.shade50;
+      default:
+        return Colors.grey.shade50;
+    }
+  }
+
+  Color _getMomentColorDark(int momentId) {
+    switch (momentId) {
+      case 1:
+        return Colors.orange.shade800;
+      case 2:
+        return Colors.amber.shade900;
+      case 3:
+        return Colors.blue.shade800;
+      case 4:
+        return Colors.teal.shade800;
+      case 5:
+        return Colors.indigo.shade800;
+      default:
+        return Colors.grey.shade800;
+    }
+  }
+
+  Widget _buildSlotActionIcon({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBadge(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2778,48 +2811,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         const SnackBar(content: Text("Día duplicado exitosamente")));
   }
 
-  Future<void> _mostrarDetalleReceta(int idReceta) async {
-    if (idReceta <= 0) return;
-    final dio = ref.read(dioProvider);
-    try {
-      final res = await dio.get("crud/recetas/$idReceta");
-      final r = Map<String, dynamic>.from(res.data ?? {});
-      final ingredientes =
-          List<Map<String, dynamic>>.from(r["ingredientes"] ?? []);
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text((r["nombre"] ?? "Receta").toString()),
-          content: SizedBox(
-            width: 640,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Calorías: ${r["calorias_totales"] ?? 0} kcal"),
-                  Text("Proteínas: ${r["proteinas_totales"] ?? 0} g"),
-                  const SizedBox(height: 12),
-                  const Text("Ingredientes",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  ...ingredientes
-                      .map((i) => Text(
-                          "- ${i["nombre"] ?? "-"} ${i["cantidad"] ?? ""} ${i["unidad"] ?? ""}"))
-                      .toList(),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cerrar"))
-          ],
-        ),
-      );
-    } catch (_) {}
-  }
+  // El método _mostrarDetalleReceta fue reemplazado por mostrarDetalleRecetaVerde
 
   void _savePlan() async {
     // ELIMINADA la restricción de que cada slot debe tener una receta.
