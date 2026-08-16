@@ -55,6 +55,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   bool _viewingHistory = true; 
   bool _recomendadorAbierto = false;
   bool _isSaving = false;
+  bool _saveSuccess = false;
+  bool _isDeleting = false;
+  bool _deleteSuccess = false;
   bool _isLoadingRecomendaciones = false;
   int? _loadingPlanId;
   int? _editingPlanId;
@@ -311,79 +314,246 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
 
     final Set<int> seleccion = {..._boostersSeleccionados};
+    final searchCtrl = TextEditingController();
+    String searchQuery = "";
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModal) {
-          return AlertDialog(
-            title: const Text("Seleccionar ingredientes recomendados"),
-            content: SizedBox(
-              width: 760,
-              height: 520,
+          final filteredSeguros = seguros.where((ing) {
+            final nombre = (ing["nombre"] ?? "").toString().toLowerCase();
+            return nombre.contains(searchQuery.toLowerCase());
+          }).toList();
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 780, maxHeight: 680),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE5EAF2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+                    blurRadius: 28,
+                    offset: const Offset(0, 16),
+                  ),
+                ],
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                      "Selecciona ingredientes seguros para potenciar este plan (nutricionista):"),
-                  const SizedBox(height: 8),
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTema.azulPrincipal.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.eco_rounded,
+                          color: AppTema.azulPrincipal,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          "Seleccionar ingredientes recomendados",
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppTema.azulOscuro,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded),
+                        color: const Color(0xFF64748B),
+                        iconSize: 22,
+                        tooltip: "Cerrar",
+                        splashRadius: 20,
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Selecciona ingredientes seguros para potenciar este plan nutricional.",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: Colors.blueGrey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Buscador igual al de plan de una sola comida
+                  TextField(
+                    controller: searchCtrl,
+                    onChanged: (val) {
+                      setModal(() {
+                        searchQuery = val;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Buscar por nombre de ingrediente...",
+                      hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      suffixIcon: const Icon(Icons.arrow_forward, color: Color(0xFF16A34A)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Lista
                   Expanded(
-                    child: seguros.isEmpty
+                    child: filteredSeguros.isEmpty
                         ? Container(
-                            padding: const EdgeInsets.all(14),
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.orange.shade200),
                             ),
-                            child: const Text(
-                              "No hay ingredientes seguros disponibles para recomendar en este momento.\n\n"
-                              "Posibles causas:\n"
-                              "- Alergias/restricciones del paciente demasiado amplias.\n"
-                              "- No existen ingredientes activos compatibles en el catálogo.\n"
-                              "- Faltan datos clínicos actualizados para filtrar correctamente.",
-                              style: TextStyle(fontSize: 12),
+                            child: Text(
+                              searchQuery.isEmpty
+                                  ? "No hay ingredientes seguros disponibles para recomendar en este momento.\n\n"
+                                      "Posibles causas:\n"
+                                      "- Alergias/restricciones del paciente demasiado amplias.\n"
+                                      "- No existen ingredientes activos compatibles en el catálogo.\n"
+                                      "- Faltan datos clínicos actualizados para filtrar."
+                                  : "No se encontraron ingredientes con '$searchQuery'.",
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: Colors.orange.shade900,
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           )
-                        : ListView.builder(
-                            itemCount: seguros.length,
+                        : ListView.separated(
+                            itemCount: filteredSeguros.length,
+                            separatorBuilder: (_, __) => Divider(color: Colors.grey.shade200, height: 1),
                             itemBuilder: (_, i) {
-                              final ing = seguros[i];
+                              final ing = filteredSeguros[i];
                               final idIng = (ing["id"] as num?)?.toInt() ?? -1;
                               if (idIng <= 0) return const SizedBox.shrink();
                               final nombre = (ing["nombre"] ?? "-").toString();
-                              return CheckboxListTile(
-                                value: seleccion.contains(idIng),
-                                onChanged: (v) {
+                              final isSelected = seleccion.contains(idIng);
+
+                              return ListTile(
+                                onTap: () {
                                   setModal(() {
-                                    if (v == true) {
-                                      seleccion.add(idIng);
-                                    } else {
+                                    if (isSelected) {
                                       seleccion.remove(idIng);
+                                    } else {
+                                      seleccion.add(idIng);
                                     }
                                   });
                                 },
-                                title: Text(nombre),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                leading: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Colors.green.shade50 : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.eco_rounded,
+                                    color: isSelected ? Colors.green.shade600 : Colors.blueGrey.shade300,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  nombre,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                    color: isSelected ? const Color(0xFF0F172A) : Colors.blueGrey.shade800,
+                                  ),
+                                ),
+                                trailing: Checkbox(
+                                  value: isSelected,
+                                  activeColor: const Color(0xFF16A34A),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                  onChanged: (v) {
+                                    setModal(() {
+                                      if (v == true) {
+                                        seleccion.add(idIng);
+                                      } else {
+                                        seleccion.remove(idIng);
+                                      }
+                                    });
+                                  },
+                                ),
                               );
                             },
                           ),
                   ),
+                  const SizedBox(height: 24),
+                  
+                  // Botones
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blueGrey.shade600,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        child: const Text("Cancelar"),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton.icon(
+                        onPressed: () async {
+                          setState(() => _boostersSeleccionados = seleccion.toList());
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          await _aplicarPotenciadoresAutomaticos(idPaciente);
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 20),
+                        label: Text("Aplicar al plan", style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF16A34A), // Verde
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("Cancelar")),
-              FilledButton(
-                onPressed: () async {
-                  setState(() => _boostersSeleccionados = seleccion.toList());
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  await _aplicarPotenciadoresAutomaticos(idPaciente);
-                },
-                child: const Text("Aplicar al plan"),
-              ),
-            ],
           );
         },
       ),
@@ -859,18 +1029,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Future<void> _deletePlan(int id) async {
+    setState(() {
+      _isDeleting = true;
+      _deleteSuccess = false;
+    });
+    
     try {
       final dio = ref.read(dioProvider);
       await dio.delete("planes/$id");
       if (mounted) {
-        setState(() => _patientPlans.removeWhere((p) => p["id"] == id));
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Plan eliminado correctamente")));
+        setState(() {
+          _patientPlans.removeWhere((p) => p["id"] == id);
+          _deleteSuccess = true;
+        });
+        await Future.delayed(const Duration(milliseconds: 1200));
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+      }
     }
   }
 
@@ -919,33 +1101,21 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         final dayItems = group[fStr]!;
 
         final List<MealSlot> slots = [];
-        bool hasM = dayItems.any((i) => i["id_momento"] == 2);
-        bool hasT = dayItems.any((i) => i["id_momento"] == 4);
-
-        slots.add(MealSlot(
-            mealType: "Desayuno",
-            momentId: 1,
-            recipes: _findRecipe(dayItems, 1)));
-        if (hasM) {
-          slots.add(MealSlot(
-              mealType: "Media mañana",
-              momentId: 2,
-              recipes: _findRecipe(dayItems, 2)));
+        
+        for (int mId = 1; mId <= 5; mId++) {
+          final recipes = _findRecipe(dayItems, mId);
+          if (recipes.isNotEmpty) {
+            String mealType = "";
+            switch (mId) {
+              case 1: mealType = "Desayuno"; break;
+              case 2: mealType = "Media mañana"; break;
+              case 3: mealType = "Almuerzo"; break;
+              case 4: mealType = "Media tarde"; break;
+              case 5: mealType = "Merienda"; break;
+            }
+            slots.add(MealSlot(mealType: mealType, momentId: mId, recipes: recipes));
+          }
         }
-        slots.add(MealSlot(
-            mealType: "Almuerzo",
-            momentId: 3,
-            recipes: _findRecipe(dayItems, 3)));
-        if (hasT) {
-          slots.add(MealSlot(
-              mealType: "Media tarde",
-              momentId: 4,
-              recipes: _findRecipe(dayItems, 4)));
-        }
-        slots.add(MealSlot(
-            mealType: "Merienda",
-            momentId: 5,
-            recipes: _findRecipe(dayItems, 5)));
 
         reconstructed.add(PlanDay(date: date, slots: slots));
       }
@@ -992,10 +1162,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          if (_isAssigningSingleMeal && _selectedPatient != null)
+          if (_isAssigningSingleMeal && _selectedPatient != null && _patientProfile != null)
             AsignacionComidaManualPage(
               idPaciente: _selectedPatient!['id'],
               nombrePaciente: _selectedPatient!['nombre_completo'] ?? 'Paciente',
+              patientProfile: _patientProfile!,
+              formatEdad: _formatEdad,
+              onVerExpediente: _mostrarExpedienteMaestroDialog,
               onBack: () {
                 setState(() => _isAssigningSingleMeal = false);
                 _onPatientSelected(_selectedPatient!);
@@ -1006,7 +1179,47 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 ? _buildPatientSelection()
                 : (_viewingHistory ? _buildHistoryLayout() : _buildEditorLayout()),
           if (!_isAssigningSingleMeal) _buildLoadingOverlay(),
+          if (_isSaving || _isDeleting) _buildActionOverlay(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionOverlay() {
+    final bool isSuccess = _isSaving ? _saveSuccess : _deleteSuccess;
+    final String loadingText = _isSaving ? "Guardando Plan..." : "Eliminando Plan...";
+    final String successText = _isSaving ? "Plan guardado con éxito" : "Plan eliminado con éxito";
+    
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.72),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isSuccess)
+                const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 5),
+                )
+              else
+                const Icon(Icons.check_circle_outline_rounded,
+                    color: Color(0xFF4ADE80), size: 86),
+              const SizedBox(height: 24),
+              Text(
+                isSuccess ? successText : loadingText,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1427,29 +1640,36 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
       child: Row(
         children: [
-          IconButton.filledTonal(
-            icon: const Icon(Icons.arrow_back, size: 20),
-            onPressed: () => setState(() => _selectedPatient = null),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, size: 20, color: Color(0xFF1E293B)),
+              onPressed: () => setState(() => _selectedPatient = null),
+            ),
           ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Historial de planes nutricionales",
+                const Text("Historial de planes nutricionales",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        color: const Color(0xFF0F172A))),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 22,
+                        color: Color(0xFF0F172A))),
+                const SizedBox(height: 4),
                 Text(
                     "Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
+                        color: Colors.blueGrey.shade500,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500)),
               ],
             ),
@@ -1484,37 +1704,78 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildEmptyHistoryState() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.history_edu_rounded,
-              size: 80, color: Colors.blueGrey.shade200),
-          const SizedBox(height: 24),
-          const Text("No hay planes previos registrados",
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueGrey)),
-          const SizedBox(height: 8),
-          const Text(
-              "Comienza diseñando el primer plan alimentario para este paciente.",
-              style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 32),
-          Wrap(
-            spacing: 12,
-            children: [
-              OutlinedButton.icon(
-                  onPressed: _startNewPlan,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Crear plan")),
-              OutlinedButton.icon(
-                onPressed: _abrirRecomendadorIngredientes,
-                icon: const Icon(Icons.eco_outlined),
-                label: const Text("Recomendaciones"),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        padding: const EdgeInsets.all(48),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.blue.shade50, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.05),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
-        ],
+              child: Icon(Icons.history_toggle_off_rounded,
+                  size: 56, color: Colors.blue.shade400),
+            ),
+            const SizedBox(height: 24),
+            Text("Aún no hay planes registrados",
+                style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            Text(
+                "Comienza diseñando el primer plan alimentario para este paciente. Puedes crear uno manual o recibir recomendaciones.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Colors.blueGrey.shade400)),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: _startNewPlan,
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: Text("Crear Plan", style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    backgroundColor: const Color(0xFF0F172A), // Slate 900
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _abrirRecomendadorIngredientes,
+                  icon: const Icon(Icons.eco_outlined, size: 20),
+                  label: Text("Recomendaciones", style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    foregroundColor: Colors.blueGrey.shade600,
+                    side: BorderSide(color: Colors.grey.shade200),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1527,132 +1788,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       itemBuilder: (context, idx) {
         final p = _patientPlans[idx];
         final pId = (p['id'] as num?)?.toInt();
-        final isVigente = p["vigente"] == true;
         final bool isLoadingThis = _loadingPlanId == pId;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 20),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                  color: isVigente
-                      ? greenBrand.withValues(alpha: 0.3)
-                      : Colors.transparent)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                      color: isVigente
-                          ? greenBrand.withValues(alpha: 0.1)
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Icon(Icons.description_outlined,
-                      color: isVigente ? greenBrand : Colors.blueGrey),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text("Plan ${p["tipo_plan"]}",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  color: Color(0xFF1E293B))),
-                          const SizedBox(width: 12),
-                          if (isVigente) _buildBadge("Vigente", greenBrand),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                          "Vigencia: ${p["fecha_inicio"]} hasta ${p["fecha_fin"]}",
-                          style: const TextStyle(
-                              color: Colors.blueGrey, fontSize: 13)),
-                      Text("Configuración: ${p["comidas_por_dia"]} comidas",
-                          style: const TextStyle(
-                              color: Colors.blueGrey, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text("Origen: ${p["origen_plan"]}",
-                        style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded,
-                              color: Colors.redAccent),
-                          onPressed: () => _deletePlan(pId ?? 0),
-                          tooltip: "Eliminar plan",
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 140,
-                          child: FilledButton.tonal(
-                            onPressed:
-                                isLoadingThis ? null : () => _verDetallePlan(p),
-                            child: isLoadingThis
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                : const Text("Ver detalle"),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: 150,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text("Adherencia:",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.blueGrey)),
-                              Text("${(p["porcentaje_adherencia"] ?? 0.0)}%",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                      color: greenBrand)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          LinearProgressIndicator(
-                            value: ((p["porcentaje_adherencia"] as num?) ?? 0.0)
-                                    .toDouble() /
-                                100.0,
-                            backgroundColor: Colors.grey.shade200,
-                            color: greenBrand,
-                            borderRadius: BorderRadius.circular(4),
-                            minHeight: 6,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        return _PremiumPlanCard(
+          planData: p,
+          isLoading: isLoadingThis,
+          onDelete: () => _deletePlan(pId ?? 0),
+          onVerDetalle: () => _verDetallePlan(p),
         );
       },
     );
@@ -1737,6 +1879,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   Widget _buildModernTopBar() {
     final bool canFinalize =
         (_editingPlanId == null || _isDirty) && !_isSaving;
+        
+    final String titleText = _editingPlanId != null && !_isDirty
+        ? "Detalles del Plan de ${DateFormat('dd/MM/yyyy').format(_startDate)} a ${DateFormat('dd/MM/yyyy').format(_endDate)}"
+        : "Diseño de plan nutricional";
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1761,7 +1907,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Diseño de plan nutricional",
+                  titleText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -1901,32 +2047,51 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      width: 48,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
-                              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2))
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
                         ],
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
                       child: Column(
                         children: [
-                          Text(
-                              _capitalize(DateFormat('EEE', 'es_EC')
-                                  .format(day.date)),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF22C55E),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
+                            ),
+                            child: Text(
+                              DateFormat('EEE', 'es_EC').format(day.date).toUpperCase(),
+                              textAlign: TextAlign.center,
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 10,
-                                  color: Color(0xFF16A34A))), // Green shade 600
-                          Text(DateFormat('d').format(day.date),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(
+                              DateFormat('d').format(day.date),
                               style: GoogleFonts.montserrat(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 24,
-                                  color: const Color(0xFF1E293B))),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 22,
+                                color: const Color(0xFF1E293B),
+                                height: 1.0,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1935,7 +2100,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         child: Container(
                           width: 2,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF22C55E).withValues(alpha: 0.5),
+                                const Color(0xFF22C55E).withValues(alpha: 0.1),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
                   ],
@@ -2832,7 +3007,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       }
     }
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveSuccess = false;
+    });
 
     final int totalComidas =
         3 + (_morningSnackEnabled ? 1 : 0) + (_afternoonSnackEnabled ? 1 : 0);
@@ -2860,11 +3038,14 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         "boosters": _boostersSeleccionados,
       });
       if (mounted) {
-        setState(() => _isDirty = false); // Ya no hay cambios pendientes
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            backgroundColor: Colors.green,
-            content: Text("✅ Plan guardado y activado")));
-        _onPatientSelected(_selectedPatient!); 
+        setState(() {
+          _isDirty = false;
+          _saveSuccess = true;
+        });
+        await Future.delayed(const Duration(milliseconds: 1200));
+        if (mounted) {
+          _onPatientSelected(_selectedPatient!); 
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -3475,6 +3656,247 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PremiumPlanCard extends StatefulWidget {
+  final Map<String, dynamic> planData;
+  final bool isLoading;
+  final VoidCallback onDelete;
+  final VoidCallback onVerDetalle;
+
+  const _PremiumPlanCard({
+    required this.planData,
+    required this.isLoading,
+    required this.onDelete,
+    required this.onVerDetalle,
+  });
+
+  @override
+  State<_PremiumPlanCard> createState() => _PremiumPlanCardState();
+}
+
+class _PremiumPlanCardState extends State<_PremiumPlanCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.planData;
+    final isVigente = p["vigente"] == true;
+    final adherence = ((p["porcentaje_adherencia"] as num?) ?? 0.0).toDouble();
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.only(bottom: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isHovered ? Colors.green.shade200 : Colors.grey.shade200,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueGrey.shade900.withValues(alpha: _isHovered ? 0.08 : 0.03),
+              blurRadius: _isHovered ? 20 : 10,
+              offset: Offset(0, _isHovered ? 8 : 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          child: Row(
+            children: [
+              // Icono premium
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: isVigente
+                      ? Colors.green.shade50
+                      : (_isHovered ? Colors.grey.shade100 : Colors.grey.shade50),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isVigente ? Colors.green.shade200 : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: Icon(Icons.assignment_rounded,
+                    size: 28,
+                    color: isVigente ? Colors.green.shade600 : Colors.blueGrey.shade400),
+              ),
+              const SizedBox(width: 24),
+              
+              // Información principal
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text("Plan Nutricional",
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 18,
+                                letterSpacing: -0.5,
+                                color: const Color(0xFF0F172A))),
+                        const SizedBox(width: 12),
+                        if (isVigente)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 12, color: Colors.green.shade700),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Vigente",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_rounded, size: 14, color: Colors.blueGrey.shade400),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Vigencia: ${p["fecha_inicio"]} hasta ${p["fecha_fin"]}",
+                          style: GoogleFonts.inter(
+                              color: Colors.blueGrey.shade600, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.restaurant_rounded, size: 14, color: Colors.blueGrey.shade400),
+                        const SizedBox(width: 6),
+                        Text("Configuración: ${p["comidas_por_dia"]} comidas por día",
+                            style: GoogleFonts.inter(
+                                color: Colors.blueGrey.shade500, fontSize: 13, fontWeight: FontWeight.w400)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Acciones y Adherencia
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text("Origen: ${p["origen_plan"]}",
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                            color: Colors.blueGrey.shade500)),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _isHovered ? Colors.red.shade50 : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.delete_outline_rounded,
+                              size: 20,
+                              color: _isHovered ? Colors.red.shade400 : Colors.grey.shade400),
+                          onPressed: widget.onDelete,
+                          tooltip: "Eliminar plan",
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 120,
+                        height: 38,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _isHovered ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                            foregroundColor: _isHovered ? Colors.white : const Color(0xFF334155),
+                            elevation: _isHovered ? 4 : 0,
+                            shadowColor: Colors.black.withValues(alpha: 0.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: widget.isLoading ? null : widget.onVerDetalle,
+                          child: widget.isLoading
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: _isHovered ? Colors.white : const Color(0xFF334155)))
+                              : Text("Ver detalle", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: 160,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Adherencia",
+                                style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blueGrey.shade500)),
+                            Text("${adherence.toStringAsFixed(0)}%",
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: adherence > 70 ? Colors.green.shade600 : Colors.blue.shade600)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: adherence / 100.0,
+                            backgroundColor: Colors.grey.shade100,
+                            color: adherence > 70 ? Colors.green.shade500 : Colors.blue.shade500,
+                            minHeight: 6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
