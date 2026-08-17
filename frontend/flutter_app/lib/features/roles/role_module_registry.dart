@@ -32,6 +32,7 @@ class RoleModule {
   final String key;
   final String title;
   final IconData icon;
+  final String? category;
   final Widget Function() builder;
   final Future<void> Function()? loader;
 
@@ -39,6 +40,7 @@ class RoleModule {
     required this.key,
     required this.title,
     required this.icon,
+    this.category,
     required this.builder,
     this.loader,
   });
@@ -100,6 +102,7 @@ List<RoleModule> modulesForRole(AppRole role) {
     key: "perfil",
     title: "Mi perfil",
     icon: Icons.account_circle_outlined,
+    category: "CUENTA",
     builder: () => DeferredModuleWidget(
             key: const ValueKey("perfil"),
       loader: () => common_perfil.loadLibrary(),
@@ -114,6 +117,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "personal",
           title: "Equipo médico",
           icon: Icons.assignment_ind_rounded,
+          category: "GESTIÓN DE USUARIOS",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("personal"),
             loader: () => admin_users.loadLibrary(),
@@ -124,6 +128,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "tutores",
           title: "Cuentas de tutores",
           icon: Icons.supervised_user_circle_rounded,
+          category: "GESTIÓN DE USUARIOS",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("tutores"),
             loader: () => admin_tutors.loadLibrary(),
@@ -134,6 +139,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "auditoria",
           title: "Auditoría de atenciones",
           icon: Icons.analytics_outlined,
+          category: "SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("auditoria"),
             loader: () => admin_audit.loadLibrary(),
@@ -149,6 +155,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "pacientes",
           title: "Gestión de pacientes",
           icon: Icons.people_outline_rounded,
+          category: "GESTIÓN DE PACIENTES",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("pacientes"),
             loader: () => medico_pacientes.loadLibrary(),
@@ -159,6 +166,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "condiciones",
           title: "Catálogo de condiciones",
           icon: Icons.table_chart_outlined,
+          category: "CONFIGURACIÓN DEL SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("condiciones"),
             loader: () => medico_condiciones.loadLibrary(),
@@ -169,6 +177,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "reglas",
           title: "Reglas clínicas",
           icon: Icons.rule_folder_outlined,
+          category: "CONFIGURACIÓN DEL SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("reglas"),
             loader: () => medico_reglas.loadLibrary(),
@@ -205,9 +214,21 @@ List<RoleModule> modulesForRole(AppRole role) {
     case AppRole.nutricionista:
       return [
         RoleModule(
+          key: "plan_manual",
+          title: "Plan nutricional",
+          icon: Icons.calendar_month_rounded,
+          category: "GESTIÓN DE PACIENTES",
+          builder: () => DeferredModuleWidget(
+            key: const ValueKey("plan_manual"),
+            loader: () => nutri_plan.loadLibrary(),
+            builder: () => nutri_plan.PlanManualPage(),
+          ),
+        ),
+        RoleModule(
           key: "ingredientes",
           title: "Ingredientes",
           icon: Icons.egg_alt_rounded,
+          category: "RECETAS E INGREDIENTES",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("ingredientes"),
             loader: () => nutri_ingredientes.loadLibrary(),
@@ -218,6 +239,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "etiquetas",
           title: "Etiquetas",
           icon: Icons.label_rounded,
+          category: "RECETAS E INGREDIENTES",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("etiquetas"),
             loader: () => nutri_etiquetas.loadLibrary(),
@@ -228,6 +250,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "recetas",
           title: "Recetas",
           icon: Icons.menu_book_rounded,
+          category: "RECETAS E INGREDIENTES",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("recetas"),
             loader: () => nutri_recetas.loadLibrary(),
@@ -235,19 +258,10 @@ List<RoleModule> modulesForRole(AppRole role) {
           ),
         ),
         RoleModule(
-          key: "plan_manual",
-          title: "Plan nutricional",
-          icon: Icons.calendar_month_rounded,
-          builder: () => DeferredModuleWidget(
-            key: const ValueKey("plan_manual"),
-            loader: () => nutri_plan.loadLibrary(),
-            builder: () => nutri_plan.PlanManualPage(),
-          ),
-        ),
-        RoleModule(
           key: "configuracion_menu",
           title: "Menú y horarios",
           icon: Icons.schedule_rounded,
+          category: "CONFIGURACIÓN DEL SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("configuracion_menu"),
             loader: () => nutri_config.loadLibrary(),
@@ -258,6 +272,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "condiciones_nutri",
           title: "Condiciones",
           icon: Icons.health_and_safety_rounded,
+          category: "CONFIGURACIÓN DEL SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("condiciones_nutri"),
             loader: () => nutri_condiciones.loadLibrary(),
@@ -268,6 +283,7 @@ List<RoleModule> modulesForRole(AppRole role) {
           key: "reglas_nutri",
           title: "Reglas nutricionales",
           icon: Icons.rule_rounded,
+          category: "CONFIGURACIÓN DEL SISTEMA",
           builder: () => DeferredModuleWidget(
             key: const ValueKey("reglas_nutri"),
             loader: () => nutri_reglas.loadLibrary(),

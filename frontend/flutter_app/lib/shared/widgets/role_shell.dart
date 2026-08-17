@@ -22,6 +22,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   bool _signingOut = false;
   bool _isMenuExpanded = true;
   final Map<String, Widget> _moduleCache = <String, Widget>{};
+  final Map<String, bool> _categoryExpanded = {};
 
   @override
   void initState() {
@@ -427,6 +428,97 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     const Color companyBlue = Color(0xFF0068B7);
     const Color selectionGreen = Color(0xFF58A932);
 
+    final Map<String, List<int>> categorizedModules = {};
+    for (int i = 0; i < modules.length; i++) {
+      final String cat = modules[i].category ?? "";
+      categorizedModules.putIfAbsent(cat, () => []).add(i);
+    }
+
+    final List<Widget> listItems = [];
+    
+    categorizedModules.forEach((categoryName, indices) {
+      if (categoryName.isNotEmpty && _isMenuExpanded) {
+        final isExpanded = _categoryExpanded[categoryName] ?? true;
+        listItems.add(
+          InkWell(
+            onTap: () {
+              setState(() {
+                _categoryExpanded[categoryName] = !isExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      categoryName,
+                      style: GoogleFonts.montserrat(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      } else if (categoryName.isNotEmpty && !_isMenuExpanded) {
+        listItems.add(const SizedBox(height: 24));
+      }
+
+      final isExpanded = _categoryExpanded[categoryName] ?? true;
+      if (isExpanded || !_isMenuExpanded) {
+        for (final i in indices) {
+          final active = i == _index;
+          listItems.add(
+            InkWell(
+              onTap: () => _selectModule(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: active ? selectionGreen : Colors.transparent,
+                  border: active
+                      ? const Border(
+                          left: BorderSide(color: Colors.white, width: 4))
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(modules[i].icon, color: Colors.white, size: 24),
+                    if (_isMenuExpanded) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          modules[i].title,
+                          style: GoogleFonts.montserrat(
+                              color: Colors.white,
+                              fontWeight: active
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              fontSize: 13),
+                          softWrap: false,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            )
+          );
+        }
+      }
+    });
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: _isMenuExpanded ? 280 : 85,
@@ -435,46 +527,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
         children: [
           const SizedBox(height: 10),
           Expanded(
-            child: ListView.builder(
+            child: ListView(
               padding: EdgeInsets.zero,
-              itemCount: modules.length,
-              itemBuilder: (context, i) {
-                final active = i == _index;
-                return InkWell(
-                  onTap: () => _selectModule(i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: active ? selectionGreen : Colors.transparent,
-                      border: active
-                          ? const Border(
-                              left: BorderSide(color: Colors.white, width: 4))
-                          : null,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(modules[i].icon, color: Colors.white, size: 24),
-                        if (_isMenuExpanded) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              modules[i].title,
-                              style: GoogleFonts.montserrat(
-                                  color: Colors.white,
-                                  fontWeight: active
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  fontSize: 13),
-                              softWrap: false,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
+              children: listItems,
             ),
           ),
           AnimatedOpacity(
