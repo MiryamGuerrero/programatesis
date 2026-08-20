@@ -156,7 +156,8 @@ def asignar_comida_manual_fechas(
             id_paciente=request.id_paciente,
             id_receta=request.id_receta,
             id_momento=request.id_momento,
-            fechas=request.fechas
+            fechas=request.fechas,
+            id_usuario=user.id_usuario
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
