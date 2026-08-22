@@ -505,7 +505,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                                 else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
                               },
                               icon: const Icon(Icons.save_alt_rounded),
-                              label: const Text("Actualizar datos m閐icos"),
+                              label: const Text("Actualizar datos m茅dicos"),
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppTema.azulPrincipal,
                                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -720,7 +720,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             ),
             const SizedBox(width: 16),
             Text(
-              "Actualizaci髇 de datos del paciente",
+              "Actualizaci贸n de datos del paciente",
               style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -733,7 +733,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         Padding(
           padding: const EdgeInsets.only(left: 52),
           child: Text(
-            "Formulario para actualizar datos personales del paciente, informaci髇 del tutor, alergias y su enfermedad principal.",
+            "Formulario para actualizar datos personales del paciente, informaci贸n del tutor, alergias y su enfermedad principal.",
             style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -3667,7 +3667,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       TextFormField(
           controller: c,
           validator: (v) {
-            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la informaci髇";
+            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la informaci贸n";
             return null;
           },
           maxLines: maxLines,
@@ -3695,7 +3695,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       DropdownButtonFormField<int>(
           value: val,
           validator: (v) {
-            if (l.contains("*") && v == null) return "Campo faltante, llene la informaci髇";
+            if (l.contains("*") && v == null) return "Campo faltante, llene la informaci贸n";
             return null;
           },
           isExpanded: true,
