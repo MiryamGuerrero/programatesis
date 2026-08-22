@@ -1625,7 +1625,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ]),
           ],
         ),
-      ));
+      )));
 
   Step _stepPaciente() => Step(
       isActive: _currentStep >= (widget.fixedOnly ? 0 : 1),
@@ -1759,7 +1759,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ]),
           ],
         ),
-      ));
+      )));
 
   Step _stepClinico() => Step(
       isActive: _currentStep >= (widget.fixedOnly ? 1 : 2),
