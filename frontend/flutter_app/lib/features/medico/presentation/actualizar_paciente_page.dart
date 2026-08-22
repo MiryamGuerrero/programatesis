@@ -867,31 +867,6 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         hint: "Seleccione...");
   }
 
-  Widget _buildHeader() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          IconButton.filledTonal(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 18, color: greenBrand),
-              onPressed: () =>
-                  ref.read(medicoNavProvider.notifier).goBackToList()),
-          const SizedBox(width: 24),
-          Expanded(
-              child:               Text(
-            _idPacienteEditando == null
-                ? "Registro integral pediátrico"
-                : true
-                    ? "Datos clínicos base: ${_pacNombre.text}"
-                    : "Expediente: ${_pacNombre.text}",
-            style: GoogleFonts.inter(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F172A)),
-            overflow: TextOverflow.ellipsis,
-          ))
-        ])
-      ]);
-
   Widget _buildSendingOverlay() => Container(
       color: Colors.black.withOpacity(0.85),
       child: Center(
