@@ -393,7 +393,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   double _pesoMediana = 0;
   double _tallaMediana = 0;
 
-  final _formKey = GlobalKey<FormState>();
+  final _formKeyTutor = GlobalKey<FormState>();
+  final _formKeyPaciente = GlobalKey<FormState>();
+  final _formKeyClinico = GlobalKey<FormState>();
   Map<String, dynamic> _fixedInitialSnapshot = {};
 
   @override
@@ -437,9 +439,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                           color: Colors.blueGrey,
                           fontSize: 13),
                     )),
-                child: Form(
-                  key: _formKey,
-                  child: Stepper(
+                child: Stepper(
                     type: StepperType.vertical,
                     currentStep: _currentStep,
                     physics: const NeverScrollableScrollPhysics(),
@@ -462,7 +462,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     steps: [_stepTutor(), _stepPaciente(), _stepClinico()],
                   ),
                 ),
-              ),
             ]),
           ),
         ),
@@ -1798,7 +1797,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 border: Border.all(color: const Color(0xFFE2E8F0))),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionHeader("Enfermedad principal", Icons.add_box_outlined),
+              _sectionHeader("Enfermedad y diagnostico", Icons.coronavirus_outlined, isSub: true),
               const SizedBox(height: 24),
               Row(children: [
                 Expanded(
@@ -1836,7 +1835,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionHeader(
-                  "Actividad de la enfermedad", Icons.analytics_outlined),
+                  "Actividad de la enfermedad", Icons.analytics_outlined, isSub: true),
               const SizedBox(height: 20),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1955,7 +1954,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionHeader(
-                  "Alergias e intolerancias", Icons.warning_amber_rounded),
+                  "Alergias e intolerancias", Icons.warning_amber_rounded, isSub: true),
               const SizedBox(height: 8),
               Text(
                   "Registra restricciones alimentarias y alergias relevantes del paciente.",
@@ -2042,7 +2041,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               Icons.edit_note_rounded,
               maxLines: 4),
         ]),
-      ));
+      )));
 
   Widget _buildEVACard(String title, double val, int max, Function(double) onC,
       {required IconData icon,
@@ -3683,6 +3682,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }) =>
       TextFormField(
           controller: c,
+          validator: (v) {
+            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la información";
+            return null;
+          },
           maxLines: maxLines,
           enabled: enabled,
           onChanged: onChanged,
@@ -3707,6 +3710,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           {String? hint}) =>
       DropdownButtonFormField<int>(
           value: val,
+          validator: (v) {
+            if (l.contains("*") && v == null) return "Campo faltante, llene la información";
+            return null;
+          },
           isExpanded: true,
           hint: hint != null
               ? Text(hint,
@@ -3774,7 +3781,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         ]
       ]));
 
-  Widget _sectionHeader(String t, IconData i) => Row(children: [
+  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) => Row(children: [
         Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -3784,9 +3791,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         const SizedBox(width: 18),
         Text(t,
             style: GoogleFonts.inter(
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-                color: const Color(0xFF0F172A),
+                fontWeight: isSub ? FontWeight.w800 : FontWeight.w900,
+                fontSize: isSub ? 11 : 13,
+                color: isSub ? Colors.blueGrey : const Color(0xFF0F172A),
                 letterSpacing: 0.8))
       ]);
 }
