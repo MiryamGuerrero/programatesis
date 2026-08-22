@@ -403,7 +403,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
 
   @override
   Widget build(BuildContext context) {
-    if (_initialLoading) {
+    if (_loading) {
       return Stack(
         children: [
           Container(color: const Color(0xFFF8FAFC)), // background
@@ -431,7 +431,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       );
     }
     
-    if (_showSuccess) return _buildSuccessScreen();
+    
     
     return _buildFixedOnlyPage();
   }
