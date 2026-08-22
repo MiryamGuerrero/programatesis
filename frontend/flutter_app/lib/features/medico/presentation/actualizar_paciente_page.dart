@@ -13,6 +13,7 @@ import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
+import "../../../shared/widgets/role_shell.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -20,7 +21,7 @@ class ActualizarPacientePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialData;
   
   const ActualizarPacientePage(
-      {super.key, this.initialData, this.fixedOnly = false});
+      {super.key, this.initialData});
 
   @override
   ConsumerState<ActualizarPacientePage> createState() =>
@@ -1120,8 +1121,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         "before":
             label == null ? (oldValue?.toString() ?? "-") : label(oldValue),
         "after":
-            label == null ? (newValue?.toString() ?? "-") : label(newValue),
-      });
+            label == null ? (newValue?.toString() ?? "-") : label(newValue)});
     }
 
     addText("cedula", "Cédula");
@@ -2540,8 +2540,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     required Function(int id) onToggle,
     bool isIngredientes = false,
     bool showSearch = true,
-    void Function(List<Map<String, dynamic>> matches)? onMarkAll,
-  }) {
+    void Function(List<Map<String, dynamic>> matches)? onMarkAll}) {
     final q = searchCtrl.text.toLowerCase().trim();
     final filtered = items.where((e) {
       final id = (e['id'] as num?)?.toInt() ?? -1;
@@ -3044,8 +3043,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                               "fecha_fin": ini
                                   .add(Duration(days: duracionSugerida))
                                   .toIso8601String()
-                                  .split('T')[0],
-                            }));
+                                  .split('T')[0]}));
                       }
                     } else {
                       setState(() => _condicionesTemp.removeAt(index));
@@ -3641,8 +3639,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     String? helper,
     String? hint,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-  }) =>
+    List<TextInputFormatter>? inputFormatters}) =>
       TextFormField(
           controller: c,
           validator: (v) {
