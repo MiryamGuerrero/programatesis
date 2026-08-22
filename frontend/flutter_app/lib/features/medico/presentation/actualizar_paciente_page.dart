@@ -740,6 +740,30 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                 color: const Color(0xFF64748B)),
           ),
         ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTema.verdeSalud, 
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+                },
+                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+              ),
+              Text("Actualización de Datos", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+            ],
+          )
+        ),
       ],
     );
   }
