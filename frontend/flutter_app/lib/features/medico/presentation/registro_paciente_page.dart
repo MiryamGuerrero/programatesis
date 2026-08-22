@@ -504,66 +504,50 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                             color: Colors.blueGrey,
                             fontSize: 13),
                       )),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
+                  child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _fixedSection(
-                          "Representante legal",
-                          Icons.person_outline,
-                          _buildFixedTutorFields(),
-                        ),
+                        Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
                         const SizedBox(height: 24),
-                        _fixedSection(
-                          "Datos generales del paciente",
-                          Icons.badge_outlined,
-                          _buildFixedPatientFields(),
-                        ),
+                        Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
                         const SizedBox(height: 24),
-                        _fixedSection(
-                          "Enfermedad principal",
-                          Icons.add_box_outlined,
-                          _buildFixedDiseaseFields(),
-                        ),
-                        const SizedBox(height: 24),
-                        _fixedSection(
-                          "Alergias e intolerancias",
-                          Icons.warning_amber_rounded,
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                  "Registra restricciones alimentarias y alergias relevantes del paciente.",
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: Colors.blueGrey,
-                                      fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 32),
-                              _buildAlergiasStepContent(),
-                            ],
-                          ),
-                        ),
+                        Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
+                          const SizedBox(height: 24),
+                          _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 32),
+                            _buildAlergiasStepContent(),
+                          ])),
+                          const SizedBox(height: 24),
+                          _fixedSection("Condiciones temporales", Icons.event_note_rounded, _buildSintomasTemporalesSelector()),
+                        ])),
                         const SizedBox(height: 36),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _confirmAndFinishFixedOnly,
-                            icon: const Icon(Icons.save_alt_rounded),
-                            label: const Text("Actualizar datos clÃ­nicos"),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: greenBrand,
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              textStyle: const TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.w800),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            width: 320,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                final tOk = _formKeyTutor.currentState?.validate() ?? false;
+                                final pOk = _formKeyPaciente.currentState?.validate() ?? false;
+                                final cOk = _formKeyClinico.currentState?.validate() ?? false;
+                                if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
+                                else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
+                              },
+                              icon: const Icon(Icons.save_alt_rounded),
+                              label: const Text("Actualizar datos médicos"),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                              ),
                             ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
+
                 ),
               ],
             ),

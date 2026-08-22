@@ -9,6 +9,8 @@ import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
 
+final menuExpandedProvider = StateProvider<bool>((ref) => true);
+
 class RoleShell extends ConsumerStatefulWidget {
   const RoleShell({super.key, required this.role});
   final AppRole role;
@@ -20,7 +22,7 @@ class RoleShell extends ConsumerStatefulWidget {
 class _RoleShellState extends ConsumerState<RoleShell> {
   int _index = 0;
   bool _signingOut = false;
-  bool _isMenuExpanded = true;
+  
   final Map<String, Widget> _moduleCache = <String, Widget>{};
   final Map<String, bool> _categoryExpanded = {};
 
@@ -213,7 +215,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
       height: 75,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: brandBlue.withValues(alpha: 0.15), width: 1.0)),
+        border: Border(bottom: BorderSide(color: brandBlue.withValues(alpha: 0.1), width: 0.5)),
       ),
       child: Row(
         children: [
@@ -226,7 +228,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                   icon: const Icon(Icons.menu_rounded,
                       color: brandBlue, size: 28),
                   onPressed: () =>
-                      setState(() => _isMenuExpanded = !_isMenuExpanded),
+                      ref.read(menuExpandedProvider.notifier).state = !ref.watch(menuExpandedProvider),
                 ),
                 const SizedBox(width: 8),
                 Image.asset(
@@ -290,7 +292,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final List<Widget> listItems = [];
     
     categorizedModules.forEach((categoryName, indices) {
-      if (categoryName.isNotEmpty && _isMenuExpanded) {
+      if (categoryName.isNotEmpty && ref.watch(menuExpandedProvider)) {
         final isExpanded = _categoryExpanded[categoryName] ?? true;
         listItems.add(
           InkWell(
@@ -324,12 +326,12 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             ),
           ),
         );
-      } else if (categoryName.isNotEmpty && !_isMenuExpanded) {
+      } else if (categoryName.isNotEmpty && !ref.watch(menuExpandedProvider)) {
         listItems.add(const SizedBox(height: 24));
       }
 
       final isExpanded = _categoryExpanded[categoryName] ?? true;
-      if (isExpanded || !_isMenuExpanded) {
+      if (isExpanded || !ref.watch(menuExpandedProvider)) {
         for (final i in indices) {
           final active = i == _index;
           listItems.add(
@@ -348,7 +350,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 child: Row(
                   children: [
                     Icon(modules[i].icon, color: Colors.white, size: 24),
-                    if (_isMenuExpanded) ...[
+                    if (ref.watch(menuExpandedProvider)) ...[
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -374,7 +376,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isMenuExpanded ? 280 : 85,
+      width: ref.watch(menuExpandedProvider) ? 280 : 85,
       color: companyBlue,
       child: Column(
         children: [
@@ -387,11 +389,11 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           ),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: _isMenuExpanded ? 1.0 : 0.0,
+            opacity: ref.watch(menuExpandedProvider) ? 1.0 : 0.0,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16.0),
-              child: _isMenuExpanded
+              child: ref.watch(menuExpandedProvider)
                   ? Text(
                       "ReumaNutri v1.0",
                       style: GoogleFonts.montserrat(
@@ -448,12 +450,11 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
     return MenuAnchor(
       controller: _menuController,
       style: const MenuStyle(
-        alignment: AlignmentDirectional.bottomEnd,
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         elevation: WidgetStatePropertyAll(0),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
       ),
-      alignmentOffset: const Offset(0, 8),
+      alignmentOffset: const Offset(-272, 8),
       menuChildren: [
         Container(
           width: 320,
@@ -461,7 +462,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             boxShadow: const [
-              BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))
+              BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
             ],
           ),
           child: Column(
@@ -473,7 +474,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
-                    Text("Notifications",
+                    Text("Notificaciones",
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
@@ -505,7 +506,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                           children: [
                             const Icon(Icons.check, size: 14, color: Color(0xFF64748B)),
                             const SizedBox(width: 4),
-                            Text("Mark all read",
+                            Text("Marcar leídas",
                                 style: GoogleFonts.inter(
                                     fontSize: 12,
                                     color: const Color(0xFF64748B),
@@ -625,7 +626,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Center(
-                    child: Text("View all notifications",
+                    child: Text("Ver todas las notificaciones",
                         style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -723,12 +724,11 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
     return MenuAnchor(
       controller: _menuController,
       style: const MenuStyle(
-        alignment: AlignmentDirectional.bottomEnd,
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         elevation: WidgetStatePropertyAll(0),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
       ),
-      alignmentOffset: const Offset(0, 8),
+      alignmentOffset: const Offset(-85, 8),
       menuChildren: [
         Container(
           width: 280,
@@ -736,7 +736,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             boxShadow: const [
-              BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))
+              BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
             ],
           ),
           child: Column(
@@ -793,6 +793,17 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                 ...widget.userRoles.map((r) {
                   final bool isCurrent = r["id"] == widget.currentRolId;
                   final String roleName = r["nombre"]?.toString() ?? "";
+                  
+                  IconData roleIcon = Icons.badge_outlined;
+                  final String rnLower = roleName.toLowerCase();
+                  if (rnLower.contains("admin")) {
+                    roleIcon = Icons.admin_panel_settings_outlined;
+                  } else if (rnLower.contains("médico") || rnLower.contains("medico")) {
+                    roleIcon = Icons.medical_services_outlined;
+                  } else if (rnLower.contains("nutri")) {
+                    roleIcon = Icons.restaurant_menu_outlined;
+                  }
+                  
                   return InkWell(
                     onTap: () => _changeRole(r["id"] as int),
                     child: Container(
@@ -800,7 +811,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                       color: isCurrent ? const Color(0xFFF8FAFC) : Colors.transparent,
                       child: Row(
                         children: [
-                          const Icon(Icons.badge_outlined, size: 18, color: Color(0xFF64748B)),
+                          Icon(roleIcon, size: 18, color: const Color(0xFF64748B)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(roleName,

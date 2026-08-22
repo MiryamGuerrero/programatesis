@@ -362,11 +362,11 @@ class CasoUsoGenerarPlanAutomatico:
                 peso *= 0.05
 
             # Prioridad 1: Preferencia del usuario (corazón)
-            if r.get("es_preferida"): peso *= 2.0
+            if r.get("es_preferida"): peso *= 6.0
             # Prioridad 2: Recomendación clínica (Apto/Potenciado)
-            if r.get("es_potenciada"): peso *= 1.5
+            if r.get("es_potenciada"): peso *= 4.0
             # Prioridad 3: Restricción clínica leve (Disminuir)
-            if r.get("es_disminuida"): peso *= 0.5
+            if r.get("es_disminuida"): peso *= 0.1
             
             pesos.append(peso)
             
