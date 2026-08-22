@@ -547,8 +547,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                           ),
                         ),
                       ],
-
-                ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1482,7 +1482,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       title: Text(
           widget.fixedOnly ? "Referencia del tutor" : "Representante legal",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Container(
+      content: Form(key: _formKeyTutor, child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1637,7 +1637,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               ? "Referencia del paciente"
               : "Identidad del paciente",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Container(
+      content: Form(key: _formKeyPaciente, child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1769,7 +1769,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               ? "Datos clínicos base"
               : "Protocolo de evaluación clínica",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Container(
+      content: Form(key: _formKeyClinico, child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // ENFERMEDAD PRINCIPAL
