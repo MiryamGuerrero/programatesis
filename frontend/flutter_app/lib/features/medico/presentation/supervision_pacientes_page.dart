@@ -11,6 +11,7 @@ import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 import "registro_paciente_page.dart";
+import "actualizar_paciente_page.dart";
 import "registro_mensual_page.dart";
 
 class SupervisionPacientesPage extends ConsumerWidget {
