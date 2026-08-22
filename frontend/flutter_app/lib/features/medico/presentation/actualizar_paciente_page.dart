@@ -695,6 +695,55 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     );
   }
 
+ Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+              },
+              borderRadius: BorderRadius.circular(50),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTema.azulPrincipal.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              "Actualización de datos del paciente",
+              style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: const Color(0xFF334155)), 
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(left: 52),
+          child: Text(
+            "Formulario para actualizar datos personales del paciente, información del tutor, alergias y su enfermedad principal.",
+            style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFixedPatientFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

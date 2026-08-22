@@ -35,10 +35,9 @@ class SupervisionPacientesPage extends ConsumerWidget {
         return RegistroPacientePage(
             key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
       case MedicoView.fixedEdit:
-        return RegistroPacientePage(
-            key: ValueKey('fixed_${patient?['id']}'),
-            initialData: patient,
-            fixedOnly: true);
+        return ActualizarPacientePage(
+            key: ValueKey('fixed_'),
+            initialData: patient);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
         return RegistroMensualPage(paciente: patient);
