@@ -408,7 +408,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         children: [
           Container(color: const Color(0xFFF8FAFC)), // background
           Container(
-            color: Colors.black.withValues(alpha: 0.6),
+            color: Colors.black.withOpacity(0.6),
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -453,7 +453,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       colorScheme: const ColorScheme.light(primary: AppTema.azulPrincipal),
                       inputDecorationTheme: InputDecorationTheme(
                         filled: true,
-                        fillColor: const Color(0xFFF4F6F8),
+                        fillColor: const Color(0xFFF1F5F9),
                         floatingLabelBehavior: FloatingLabelBehavior.always,
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
@@ -469,7 +469,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                                 BorderSide(color: AppTema.azulPrincipal, width: 2)),
                         labelStyle: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
+                            color: AppTema.azulPrincipal,
                             fontSize: 14),
                       )),
                   child: Column(
@@ -545,7 +545,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                   style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1E293B))),
+                      color: AppTema.azulPrincipal)),
             ],
           ),
           const SizedBox(height: 32),
@@ -553,7 +553,242 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         ],
       ),
     );
-  },
+  }
+
+  Widget _buildFixedTutorFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(
+              child: _field(
+            _tutCedula,
+            "Cédula del tutor*",
+            Icons.assignment_ind_outlined,
+            hint: "Ingrese la cédula del tutor",
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10)
+            ],
+            onChanged: (v) {
+              final limpia = _soloDigitos(v);
+              if (limpia.length == 10) _buscarTutor(limpia);
+            },
+          )),
+          const SizedBox(width: 12),
+          IconButton.filled(
+              onPressed: () {
+                if (_cedulaValida(_tutCedula))
+                  _buscarTutor(_tutCedula.text);
+                else
+                  NutriSnack.show(context,
+                      "La cédula del tutor debe tener exactamente 10 dígitos.",
+                      isError: true, ref: ref);
+              },
+              icon: const Icon(Icons.search),
+              style: IconButton.styleFrom(
+                  backgroundColor: AppTema.azulPrincipal,
+                  padding: const EdgeInsets.all(20),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)))),
+        ]),
+        if (_buscandoTutor)
+          const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator()),
+        if (_tutorNoEncontrado)
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                      color: Colors.orange, shape: BoxShape.circle),
+                  child: const Icon(Icons.priority_high_rounded,
+                      color: Colors.white, size: 14),
+                ),
+                const SizedBox(width: 12),
+                Text("Tutor no registrado. Por favor complete los datos.",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.orange.shade900)),
+              ],
+            ),
+          ),
+        if (_tutorExistente)
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                      color: greenBrand, shape: BoxShape.circle),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 14),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                    "Tutor encontrado. Puede actualizar sus datos si es necesario.",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade900)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+        _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
+            hint: "Ingrese los nombres y apellidos completos"),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: _field(_tutEmail, "Correo electrónico del usuario*",
+                  Icons.alternate_email,
+                  helper: "Este será su nombre de acceso.",
+                  hint: "usuario@ejemplo.com")),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _dropdown("Parentesco*", _parentescos, _tutParentesco,
+                  (v) => setState(() => _tutParentesco = v),
+                  hint: "Seleccione una opción")),
+        ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: _field(
+            _tutTelefono,
+            "Teléfono móvil*",
+            Icons.phone_android_outlined,
+            hint: "09XXXXXXXX",
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10)
+            ],
+          )),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _field(
+                  _tutDireccion, "Dirección del hogar", Icons.map_outlined,
+                  hint: "Av. principal y calle secundaria")),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildFixedPatientFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _field(
+          _pacCedula,
+          "Cédula del paciente*",
+          Icons.assignment_ind_outlined,
+          hint: "Ingrese los 10 dígitos",
+          keyboardType: TextInputType.number,
+          onChanged: _onCedulaPacienteChanged,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10)
+          ],
+        ),
+        if (_validandoCedulaPaciente || _mensajeCedulaPaciente != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Row(
+              children: [
+                if (_validandoCedulaPaciente)
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(Icons.error_outline_rounded,
+                      size: 14, color: Colors.red),
+                const SizedBox(width: 6),
+                Text(
+                  _validandoCedulaPaciente
+                      ? "Validando cédula..."
+                      : _mensajeCedulaPaciente!,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        _validandoCedulaPaciente ? Colors.blueGrey : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+        _field(
+            _pacNombre, "Nombres y apellidos completos*", Icons.person_outline,
+            hint: "Ingrese los nombres y apellidos completos"),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: InkWell(
+                  onTap: _pickFechaNac,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Row(children: [
+                        const Icon(Icons.calendar_today_outlined,
+                            size: 20, color: greenBrand),
+                        const SizedBox(width: 16),
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("Fecha de nacimiento*",
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey)),
+                              Text(
+                                  _pacFechaNac == null
+                                      ? "Seleccione una fecha completa"
+                                      : _formatFechaCompleta(_pacFechaNac!),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _pacFechaNac == null
+                                          ? Colors.grey.shade400
+                                          : Colors.black87))
+                            ])
+                      ])))),
+          const SizedBox(width: 20),
+          Expanded(
+              child: _dropdown(
+                  "Sexo biológico*",
+                  _sexos,
+                  _pacSexo,
+                  (v) => setState(() {
+                        _pacSexo = v;
+                        _calculateOMS();
+                      }),
                   hint: "Seleccione una opción")),
         ]),
         const SizedBox(height: 24),
@@ -960,7 +1195,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
               child: const Text("Cancelar")),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: greenBrand),
+              style: FilledButton.styleFrom(backgroundColor: AppTema.azulPrincipal),
               child: const Text("Sí, actualizar")),
         ],
       ),
@@ -1261,7 +1496,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                   },
                   icon: const Icon(Icons.search),
                   style: IconButton.styleFrom(
-                      backgroundColor: greenBrand,
+                      backgroundColor: AppTema.azulPrincipal,
                       padding: const EdgeInsets.all(20),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)))),
@@ -3469,7 +3704,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             child: FilledButton(
                 onPressed: d.onStepContinue,
                 style: FilledButton.styleFrom(
-                    backgroundColor: greenBrand,
+                    backgroundColor: AppTema.azulPrincipal,
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16))),
