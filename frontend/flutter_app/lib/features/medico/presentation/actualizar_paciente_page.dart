@@ -519,9 +519,9 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       ],
                     ),
                   ),
+                  ),
+                ),
               ],
-            ),
-              ),
             ),
           ),
         ),
@@ -754,7 +754,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 2),
         Padding(
           padding: const EdgeInsets.only(left: 52),
           child: Text(
