@@ -444,81 +444,79 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           backgroundColor: const Color(0xFFF8FAFC),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(48),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 950),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
                 const SizedBox(height: 32),
-                Theme(
-                  data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(primary: AppTema.azulPrincipal),
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-                        border: const OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide.none),
-                        enabledBorder: const OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide.none),
-                        focusedBorder: const OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide:
-                                BorderSide(color: AppTema.azulPrincipal, width: 2)),
-                        labelStyle: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            color: AppTema.azulPrincipal,
-                            fontSize: 14),
-                      )),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
-                        const SizedBox(height: 24),
-                        Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
-                        const SizedBox(height: 24),
-                        Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 950),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(primary: AppTema.azulPrincipal),
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                            border: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide.none),
+                            enabledBorder: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide.none),
+                            focusedBorder: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide(color: AppTema.azulPrincipal, width: 2)),
+                            labelStyle: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                color: AppTema.azulPrincipal,
+                                fontSize: 14),
+                          )),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
                           const SizedBox(height: 24),
-                          _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 32),
-                            _buildAlergiasStepContent(),
+                          Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
+                          const SizedBox(height: 24),
+                          Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
+                            const SizedBox(height: 24),
+                            _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 32),
+                              _buildAlergiasStepContent(),
+                            ])),
                           ])),
-                        ])),
-                        const SizedBox(height: 36),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: SizedBox(
-                            width: 320,
-                            child: FilledButton.icon(
-                              onPressed: () {
-                                final tOk = _formKeyTutor.currentState?.validate() ?? false;
-                                final pOk = _formKeyPaciente.currentState?.validate() ?? false;
-                                final cOk = _formKeyClinico.currentState?.validate() ?? false;
-                                if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
-                                else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
-                              },
-                              icon: const Icon(Icons.save_alt_rounded),
-                              label: const Text("Actualizar datos médicos"),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppTema.azulPrincipal,
-                                padding: const EdgeInsets.symmetric(vertical: 24),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                          const SizedBox(height: 36),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: SizedBox(
+                              width: 320,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  final tOk = _formKeyTutor.currentState?.validate() ?? false;
+                                  final pOk = _formKeyPaciente.currentState?.validate() ?? false;
+                                  final cOk = _formKeyClinico.currentState?.validate() ?? false;
+                                  if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
+                                  else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
+                                },
+                                icon: const Icon(Icons.save_alt_rounded),
+                                label: const Text("Actualizar datos médicos"),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTema.azulPrincipal,
+                                  padding: const EdgeInsets.symmetric(vertical: 24),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
               ],
