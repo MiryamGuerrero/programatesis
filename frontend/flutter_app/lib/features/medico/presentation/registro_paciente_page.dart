@@ -400,9 +400,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _parentescos.isEmpty)
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator(color: greenBrand)));
 
     if (widget.fixedOnly) {
       return _buildFixedOnlyPage();
@@ -536,7 +533,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                                 else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
                               },
                               icon: const Icon(Icons.save_alt_rounded),
-                              label: const Text("Actualizar datos médicos"),
+                              label: const Text("Actualizar datos mï¿½dicos"),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF16A34A),
                                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -3667,7 +3664,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       TextFormField(
           controller: c,
           validator: (v) {
-            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la información";
+            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la informaciï¿½n";
             return null;
           },
           maxLines: maxLines,
@@ -3695,7 +3692,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       DropdownButtonFormField<int>(
           value: val,
           validator: (v) {
-            if (l.contains("*") && v == null) return "Campo faltante, llene la información";
+            if (l.contains("*") && v == null) return "Campo faltante, llene la informaciï¿½n";
             return null;
           },
           isExpanded: true,

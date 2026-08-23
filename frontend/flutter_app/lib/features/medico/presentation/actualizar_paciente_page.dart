@@ -420,7 +420,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(color: greenBrand),
+                    const CircularProgressIndicator(color: AppTema.azulPrincipal),
                     const SizedBox(height: 16),
                     Text("Cargando datos del paciente...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
                   ]
