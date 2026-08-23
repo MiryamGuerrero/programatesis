@@ -3787,7 +3787,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-              value: val,
+              value: val == -1 ? null : val,
               validator: (v) {
                 if (l.contains("*") && v == null) return "Campo requerido";
                 return null;
