@@ -444,10 +444,13 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           backgroundColor: const Color(0xFFF8FAFC),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(48),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 950),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
                 const SizedBox(height: 32),
                 Theme(
                   data: Theme.of(context).copyWith(
@@ -488,8 +491,6 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                             const SizedBox(height: 32),
                             _buildAlergiasStepContent(),
                           ])),
-                          const SizedBox(height: 24),
-                          _fixedSection("Condiciones temporales", Icons.event_note_rounded, _buildSintomasTemporalesSelector()),
                         ])),
                         const SizedBox(height: 36),
                         Align(
@@ -520,6 +521,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                   ),
               ],
             ),
+              ),
+            ),
           ),
         ),
         if (_sending) _buildSendingOverlay(),
@@ -537,7 +540,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             const SizedBox(width: 12),
             Text(title,
                 style: GoogleFonts.inter(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: AppTema.azulPrincipal)),
           ],
@@ -744,7 +747,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             Text(
               "Actualización de datos del paciente",
               style: GoogleFonts.inter(
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                   color: const Color(0xFF334155)), 
@@ -757,7 +760,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           child: Text(
             "Formulario para actualizar datos personales del paciente, información del tutor, alergias y su enfermedad principal.",
             style: GoogleFonts.inter(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF64748B)),
           ),
@@ -776,13 +779,13 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                 onTap: () {
                   ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
                 },
-                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
               ),
-              Text("Actualización de Datos", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text("Actualización de Datos", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
             ],
           )
         ),
@@ -3713,7 +3716,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
           const SizedBox(height: 8),
           TextFormField(
               controller: c,
@@ -3747,7 +3750,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
               value: val,
