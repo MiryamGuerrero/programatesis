@@ -3709,60 +3709,74 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     String? helper,
     String? hint,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters}) =>
-      TextFormField(
-          controller: c,
-          validator: (v) {
-            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la información";
-            return null;
-          },
-          maxLines: maxLines,
-          enabled: enabled,
-          onChanged: onChanged,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1E293B)),
-          decoration: InputDecoration(
-              labelText: l,
-              prefixIcon: Icon(i, size: 20, color: const Color(0xFF334155)),
-              helperText: helper,
-              hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.grey.shade400,
-                  fontWeight: FontWeight.w500),
-              floatingLabelBehavior: FloatingLabelBehavior.always));
+    List<TextInputFormatter>? inputFormatters}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 8),
+          TextFormField(
+              controller: c,
+              validator: (v) {
+                if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo requerido";
+                return null;
+              },
+              maxLines: maxLines,
+              enabled: enabled,
+              onChanged: onChanged,
+              keyboardType: keyboardType,
+              inputFormatters: inputFormatters,
+              style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1E293B)),
+              decoration: InputDecoration(
+                  prefixIcon: Icon(i, size: 20, color: const Color(0xFF64748B)),
+                  helperText: helper,
+                  hintText: hint,
+                  hintStyle: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500)))
+        ],
+      );
+}
 
   Widget _dropdown(String l, List items, int? val, Function(int?) onC,
-          {String? hint}) =>
-      DropdownButtonFormField<int>(
-          value: val,
-          validator: (v) {
-            if (l.contains("*") && v == null) return "Campo faltante, llene la información";
-            return null;
-          },
-          isExpanded: true,
-          hint: hint != null
-              ? Text(hint,
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.grey.shade400,
-                      fontWeight: FontWeight.w500))
-              : null,
-          items: items
-              .map((e) => DropdownMenuItem<int>(
-                  value: e['id'],
-                  child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
+          {String? hint}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+              value: val,
+              validator: (v) {
+                if (l.contains("*") && v == null) return "Campo requerido";
+                return null;
+              },
+              isExpanded: true,
+              hint: hint != null
+                  ? Text(hint,
                       style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1E293B)))))
-              .toList(),
-          onChanged: onC,
-          decoration: InputDecoration(labelText: l));
+                          fontSize: 14,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500))
+                  : null,
+              items: items
+                  .map((e) => DropdownMenuItem<int>(
+                      value: e['id'],
+                      child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
+                          style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B)))))
+                  .toList(),
+              onChanged: onC,
+              decoration: const InputDecoration())
+        ],
+      );
+}
 
   Widget _buildControls(ControlsDetails d) => Padding(
       padding: const EdgeInsets.only(top: 56),
