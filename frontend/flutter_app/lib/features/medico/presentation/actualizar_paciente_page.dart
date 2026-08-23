@@ -528,31 +528,53 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Widget _fixedSection(String title, IconData icon, Widget child) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTema.azulPrincipal, size: 24),
-              const SizedBox(width: 12),
-              Text(title,
-                  style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppTema.azulPrincipal)),
-            ],
-          ),
-          const SizedBox(height: 32),
-          child,
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppTema.azulPrincipal, size: 24),
+            const SizedBox(width: 12),
+            Text(title,
+                style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Container(
+              height: 4,
+              width: 48,
+              decoration: const BoxDecoration(
+                color: AppTema.azulPrincipal,
+                borderRadius: BorderRadius.horizontal(left: Radius.circular(2)),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.horizontal(right: Radius.circular(2)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: child,
+        ),
+      ],
     );
   }
 
@@ -589,7 +611,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
               },
               icon: const Icon(Icons.search),
               style: IconButton.styleFrom(
-                  backgroundColor: AppTema.azulPrincipal,
+                  backgroundColor: AppTema.verdeSalud,
                   padding: const EdgeInsets.all(20),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)))),
