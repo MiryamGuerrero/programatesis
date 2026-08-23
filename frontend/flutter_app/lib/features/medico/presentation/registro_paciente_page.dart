@@ -415,26 +415,18 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _buildHeader(),
               const SizedBox(height: 56),
-              Theme(
+              Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 950), child: Theme(
                 data: Theme.of(context).copyWith(
                     colorScheme: const ColorScheme.light(primary: greenBrand),
                     inputDecorationTheme: const InputDecorationTheme(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: Color(0xFFE2E8F0))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: Color(0xFFE2E8F0))),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: greenBrand, width: 2)),
-                      labelStyle: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueGrey,
-                          fontSize: 13),
+                        filled: true,
+                        fillColor: Color(0xFFF1F5F9),
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: AppTema.azulPrincipal, width: 2)),
+                        labelStyle: TextStyle(fontWeight: FontWeight.w700, color: AppTema.azulPrincipal, fontSize: 13),
                     )),
                 child: Stepper(
                     type: StepperType.vertical,
@@ -459,6 +451,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     steps: [_stepTutor(), _stepPaciente(), _stepClinico()],
                   ),
                 ),
+              ),
+            ),
             ]),
           ),
         ),
@@ -835,30 +829,79 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         hint: "Seleccione...");
   }
 
-  Widget _buildHeader() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          IconButton.filledTonal(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 18, color: greenBrand),
-              onPressed: () =>
-                  ref.read(medicoNavProvider.notifier).goBackToList()),
-          const SizedBox(width: 24),
-          Expanded(
-              child:               Text(
-            _idPacienteEditando == null
-                ? "Registro integral pediátrico"
-                : widget.fixedOnly
-                    ? "Datos clínicos base: ${_pacNombre.text}"
-                    : "Expediente: ${_pacNombre.text}",
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+              },
+              borderRadius: BorderRadius.circular(50),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTema.azulPrincipal.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              "Registro del paciente",
+              style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: const Color(0xFF334155)), 
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 52),
+          child: Text(
+            "Formulario para registrar los datos iniciales de un nuevo paciente, información del tutor, y enfermedad principal.",
             style: GoogleFonts.inter(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F172A)),
-            overflow: TextOverflow.ellipsis,
-          ))
-        ])
-      ]);
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF64748B)),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTema.verdeSalud, 
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+                },
+                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+              ),
+              Text("Nuevo Registro", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            ],
+          )
+        ),
+      ],
+    );
+  }
+
 
   Widget _buildSendingOverlay() => Container(
       color: Colors.black.withOpacity(0.85),
@@ -1476,15 +1519,31 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Step _stepTutor() => Step(
       isActive: _currentStep >= 0,
       state: _currentStep > 0 ? StepState.complete : StepState.editing,
-      title: Text(
-          widget.fixedOnly ? "Referencia del tutor" : "Representante legal",
-          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
+      title: Row(
+          children: [
+            const Icon(Icons.person_outline, color: AppTema.azulPrincipal, size: 24),
+            const SizedBox(width: 12),
+            Text(widget.fixedOnly ? "Referencia del tutor" : "Representante legal",
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulPrincipal)),
+          ]
+        ),
       content: Form(key: _formKeyTutor, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
+                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
+              ],
+            ),
+            const SizedBox(height: 24),
             Row(children: [
               Expanded(
                   child: _field(
@@ -1629,17 +1688,31 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       state: _currentStep > (widget.fixedOnly ? 0 : 1)
           ? StepState.complete
           : StepState.editing,
-      title: Text(
-          widget.fixedOnly
-              ? "Referencia del paciente"
-              : "Identidad del paciente",
-          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
+      title: Row(
+          children: [
+            const Icon(Icons.badge_outlined, color: AppTema.azulPrincipal, size: 24),
+            const SizedBox(width: 12),
+            Text(widget.fixedOnly ? "Referencia del paciente" : "Identidad del paciente",
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulPrincipal)),
+          ]
+        ),
       content: Form(key: _formKeyPaciente, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
+                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
+              ],
+            ),
+            const SizedBox(height: 24),
             _field(
               _pacCedula,
               "Cédula del paciente*",
@@ -1767,8 +1840,22 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               : "Protocolo de evaluación clínica",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Form(key: _formKeyClinico, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
+                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
+              ],
+            ),
+            const SizedBox(height: 24),
           // ENFERMEDAD PRINCIPAL
           Container(
             padding: const EdgeInsets.all(24),
@@ -3659,61 +3746,74 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     String? helper,
     String? hint,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-  }) =>
-      TextFormField(
-          controller: c,
-          validator: (v) {
-            if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo faltante, llene la informaci�n";
-            return null;
-          },
-          maxLines: maxLines,
-          enabled: enabled,
-          onChanged: onChanged,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1E293B)),
-          decoration: InputDecoration(
-              labelText: l,
-              prefixIcon: Icon(i, size: 20, color: const Color(0xFF334155)),
-              helperText: helper,
-              hintText: hint,
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.grey.shade400,
-                  fontWeight: FontWeight.w500),
-              floatingLabelBehavior: FloatingLabelBehavior.always));
+    List<TextInputFormatter>? inputFormatters}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 8),
+          TextFormField(
+              controller: c,
+              validator: (v) {
+                if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo requerido";
+                return null;
+              },
+              maxLines: maxLines,
+              enabled: enabled,
+              onChanged: onChanged,
+              keyboardType: keyboardType,
+              inputFormatters: inputFormatters,
+              style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1E293B)),
+              decoration: InputDecoration(
+                  prefixIcon: Icon(i, size: 20, color: const Color(0xFF64748B)),
+                  helperText: helper,
+                  hintText: hint,
+                  hintStyle: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500)))
+        ],
+      );
+}
 
   Widget _dropdown(String l, List items, int? val, Function(int?) onC,
-          {String? hint}) =>
-      DropdownButtonFormField<int>(
-          value: val,
-          validator: (v) {
-            if (l.contains("*") && v == null) return "Campo faltante, llene la informaci�n";
-            return null;
-          },
-          isExpanded: true,
-          hint: hint != null
-              ? Text(hint,
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.grey.shade400,
-                      fontWeight: FontWeight.w500))
-              : null,
-          items: items
-              .map((e) => DropdownMenuItem<int>(
-                  value: e['id'],
-                  child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
+          {String? hint}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+              value: val,
+              validator: (v) {
+                if (l.contains("*") && v == null) return "Campo requerido";
+                return null;
+              },
+              isExpanded: true,
+              hint: hint != null
+                  ? Text(hint,
                       style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1E293B)))))
-              .toList(),
-          onChanged: onC,
-          decoration: InputDecoration(labelText: l));
+                          fontSize: 14,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500))
+                  : null,
+              items: items
+                  .map((e) => DropdownMenuItem<int>(
+                      value: e['id'],
+                      child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
+                          style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B)))))
+                  .toList(),
+              onChanged: onC,
+              decoration: const InputDecoration())
+        ],
+      );
+}
 
   Widget _buildControls(ControlsDetails d) => Padding(
       padding: const EdgeInsets.only(top: 56),
@@ -3766,9 +3866,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-                color: greenBrand.withOpacity(0.12),
+                color: AppTema.azulPrincipal.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
-            child: Icon(i, size: 20, color: greenBrand)),
+            child: Icon(i, size: 20, color: AppTema.azulPrincipal)),
         const SizedBox(width: 18),
         Text(t,
             style: GoogleFonts.inter(
