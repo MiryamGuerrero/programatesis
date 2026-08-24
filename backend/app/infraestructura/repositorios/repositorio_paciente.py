@@ -1095,7 +1095,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 
                 t_row = cur.fetchone()
                 
-                print("TUTOR ROW:", t_row)
+                
                 if t_row:
                     current_tutor_id = t_row[0]
                     current_email = t_row[1]
@@ -1104,8 +1104,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     email_changed = (tutor.get("email") and tutor["email"].strip().lower() != (current_email or "").strip().lower())
                     cedula_changed = (tutor.get("cedula") and tutor["cedula"].strip() != (current_cedula or "").strip())
                     
-                    print("EMAIL CHANGED:", email_changed, "CEDULA CHANGED:", cedula_changed)
-(tutor.get("cedula") and tutor["cedula"].strip() != (current_cedula or "").strip())
+                    
                     
                     if email_changed or cedula_changed:
                         cur.execute("""
