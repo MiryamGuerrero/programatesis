@@ -476,6 +476,9 @@ def actualizar_expediente_maestro(
             id_paciente,
             payload.model_dump(mode="json"),
         )
+        print("PAYLOAD RECEIVED:", payload.model_dump(mode="json"))
+
+        )
         return {"success": exito, "message": "Expediente actualizado correctamente"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -489,6 +492,9 @@ def registro_paciente_integral(
     try:
         resultado = caso_uso.registrar_nuevo_paciente(
             payload.model_dump(mode="json"),
+        )
+        print("PAYLOAD RECEIVED:", payload.model_dump(mode="json"))
+
             id_usuario_creador=user.user_id,
         )
         return {

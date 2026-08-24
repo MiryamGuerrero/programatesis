@@ -552,7 +552,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             "Se han actualizado los campos de peso, talla y evaluación correctamente",
             ref: ref);
 
-      ref.invalidate(medicoPatientsProvider);
+      ref.invalidate(medicalPatientsProvider);
 
       _limpiarForm();
       _cargarExpediente();
