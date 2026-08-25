@@ -15,6 +15,8 @@ import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
+import '../../../shared/widgets/role_shell.dart';
+import '../../../shared/widgets/custom_date_picker.dart';
 
 class RegistroPacientePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -58,6 +60,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   int? _pacCanton;
   int? _pacParroquia;
   DateTime? _pacFechaNac;
+  final _pacFechaNacCtrl = TextEditingController();
   bool _validandoCedulaPaciente = false;
   String? _mensajeCedulaPaciente;
 
@@ -129,6 +132,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(menuExpandedProvider.notifier).state = false;
+    });
     _generatedPassword = _generateRandomPassword();
     _fetchCatalogos().then((_) => _loadInitialData());
     _ingFocus.addListener(() => setState(() {}));
@@ -373,7 +379,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         if (mounted) {
           setState(() {
             _calculandoOMS = false;
-            _omsError = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+            String err = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+            if (err.toLowerCase().contains("connection error") || err.toLowerCase().contains("dioexception") || err.toLowerCase().contains("apierror") || err.toLowerCase().contains("failed host lookup")) {
+              err = "Error de conexión con el servidor. Verifica tu internet e intenta de nuevo.";
+            }
+            _omsError = err;
             _omsColor = Colors.red;
           });
         }
@@ -433,15 +443,16 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     currentStep: _currentStep,
                     physics: const NeverScrollableScrollPhysics(),
                     onStepContinue: () {
-                      if (_validateCurrentStep(_currentStep)) {
+                      bool stepValid = false;
+                      if (_currentStep == 0) stepValid = _formKeyTutor.currentState?.validate() ?? false;
+                      else if (_currentStep == 1) stepValid = _formKeyPaciente.currentState?.validate() ?? false;
+                      else if (_currentStep == 2) stepValid = _formKeyClinico.currentState?.validate() ?? false;
+
+                      if (_validateCurrentStep(_currentStep) && stepValid) {
                         if (_currentStep < 2)
                           setState(() => _currentStep++);
                         else
                           _finish();
-                      } else {
-                        NutriSnack.show(context,
-                            "Complete campos obligatorios marcados con (*)",
-                            isError: true, ref: ref);
                       }
                     },
                     onStepCancel: () => setState(
@@ -524,10 +535,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                                 final pOk = _formKeyPaciente.currentState?.validate() ?? false;
                                 final cOk = _formKeyClinico.currentState?.validate() ?? false;
                                 if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
-                                else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
                               },
                               icon: const Icon(Icons.save_alt_rounded),
-                              label: const Text("Actualizar datos m�dicos"),
+                              label: const Text("Actualizar datos médicos"),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF16A34A),
                                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -585,7 +595,18 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ],
             onChanged: (v) {
               final limpia = _soloDigitos(v);
-              if (limpia.length == 10) _buscarTutor(limpia);
+              if (limpia.length == 10) {
+                _buscarTutor(limpia);
+              } else if (_tutorExistente || _tutorNoEncontrado) {
+                setState(() {
+                  _tutorExistente = false;
+                  _tutorNoEncontrado = false;
+                  _tutNombre.clear();
+                  _tutEmail.clear();
+                  _tutTelefono.clear();
+                  _tutDireccion.clear();
+                });
+              }
             },
           )),
           const SizedBox(width: 12),
@@ -758,39 +779,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         const SizedBox(height: 24),
         Row(children: [
           Expanded(
-              child: InkWell(
-                  onTap: _pickFechaNac,
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
-                      child: Row(children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 20, color: greenBrand),
-                        const SizedBox(width: 16),
-                        Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Fecha de nacimiento*",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blueGrey)),
-                              Text(
-                                  _pacFechaNac == null
-                                      ? "Seleccione una fecha completa"
-                                      : _formatFechaCompleta(_pacFechaNac!),
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _pacFechaNac == null
-                                          ? Colors.grey.shade400
-                                          : Colors.black87))
-                            ])
-                      ])))),
+            child: _field(
+              _pacFechaNacCtrl,
+              "Fecha de nacimiento*",
+              Icons.calendar_month_outlined,
+              hint: "Seleccione una fecha completa",
+              readOnly: true,
+              onTap: _pickFechaNac,
+            ),
+          ),
           const SizedBox(width: 20),
           Expanded(
               child: _dropdown(
@@ -964,15 +961,26 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           .read(repositorioMedicoProvider)
           .verificarPacientePorCedula(cedula);
       if (!mounted) return;
-      final paciente = res['paciente'] is Map
-          ? Map<String, dynamic>.from(res['paciente'])
-          : null;
-      final pacienteId = paciente?['id']?.toString();
-      final existeOtro = res['existe'] == true &&
-          (_idPacienteEditando == null || pacienteId != _idPacienteEditando);
+      
+      String? errMsg;
+      if (res['error_rol'] == 'medico') {
+        errMsg = "Esta cédula pertenece a personal del sistema.";
+      } else if (res['error_rol'] == 'tutor') {
+        errMsg = "Esta cédula ya está registrada como representante.";
+      } else {
+        final paciente = res['paciente'] is Map
+            ? Map<String, dynamic>.from(res['paciente'])
+            : null;
+        final pacienteId = paciente?['id']?.toString();
+        final existeOtro = res['existe'] == true &&
+            (_idPacienteEditando == null || pacienteId != _idPacienteEditando);
+        if (existeOtro) {
+          errMsg = "Este paciente con esa cédula ya existe.";
+        }
+      }
+      
       setState(() {
-        _mensajeCedulaPaciente =
-            existeOtro ? "Este paciente con esa cédula ya existe." : null;
+        _mensajeCedulaPaciente = errMsg;
       });
     } catch (_) {
       if (!mounted) return;
@@ -995,12 +1003,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           telefonoOk;
     }
     if (step == 1) {
+      bool validAge = false;
+      if (_pacFechaNac != null) {
+        final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+        validAge = age >= 3 && age < 18;
+      }
       return _pacNombre.text.trim().isNotEmpty &&
           _cedulaValida(_pacCedula) &&
           !_validandoCedulaPaciente &&
           _mensajeCedulaPaciente == null &&
           _pacSexo != null &&
-          _pacFechaNac != null;
+          validAge;
     }
     return _idPatologiaBase != null &&
         _lactosa != null &&
@@ -1056,6 +1069,12 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   bool _validateFixedOnly() {
+    bool invalidAge = true;
+    if (_pacFechaNac != null) {
+      final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+      invalidAge = age < 3 || age >= 18;
+    }
+
     if (_tutNombre.text.trim().isEmpty ||
         !_cedulaValida(_tutCedula) ||
         _tutEmail.text.trim().isEmpty ||
@@ -1066,11 +1085,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         _validandoCedulaPaciente ||
         _mensajeCedulaPaciente != null ||
         _pacSexo == null ||
-        _pacFechaNac == null ||
+        invalidAge ||
         _idPatologiaBase == null) {
-      NutriSnack.show(
-          context, "Complete los datos obligatorios marcados con (*).",
-          isError: true, ref: ref);
       return false;
     }
     return _validateAlergiasIntolerancias();
@@ -1215,7 +1231,34 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
     final changes = _fixedChanges();
     if (changes.isEmpty) {
-      NutriSnack.show(context, "No hay cambios para actualizar.", ref: ref);
+      showDialog(
+        context: context,
+        barrierColor: Colors.black.withOpacity(0.8),
+        barrierDismissible: false,
+        builder: (ctx) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Colors.white, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                "No se hizo cambios de datos",
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        Navigator.of(context).pop();
+        ref.read(medicoNavProvider.notifier).goBackToList();
+      }
       return;
     }
 
@@ -1558,7 +1601,18 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 ],
                 onChanged: (v) {
                   final limpia = _soloDigitos(v);
-                  if (limpia.length == 10) _buscarTutor(limpia);
+                  if (limpia.length == 10) {
+                    _buscarTutor(limpia);
+                  } else if (_tutorExistente || _tutorNoEncontrado) {
+                    setState(() {
+                      _tutorExistente = false;
+                      _tutorNoEncontrado = false;
+                      _tutNombre.clear();
+                      _tutEmail.clear();
+                      _tutTelefono.clear();
+                      _tutDireccion.clear();
+                    });
+                  }
                 },
               )),
               const SizedBox(width: 12),
@@ -1762,40 +1816,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             const SizedBox(height: 24),
             Row(children: [
               Expanded(
-                  child: InkWell(
-                      onTap: _pickFechaNac,
-                      child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 18),
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: const Color(0xFFE2E8F0))),
-                          child: Row(children: [
-                            const Icon(Icons.calendar_today_outlined,
-                                size: 20, color: greenBrand),
-                            const SizedBox(width: 16),
-                            Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Fecha de nacimiento*",
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blueGrey)),
-                                  Text(
-                                      _pacFechaNac == null
-                                          ? "Seleccione una fecha completa"
-                                          : _formatFechaCompleta(_pacFechaNac!),
-                                      style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _pacFechaNac == null
-                                              ? Colors.grey.shade400
-                                              : Colors.black87))
-                                ])
-                          ])))),
+                child: _field(
+                  _pacFechaNacCtrl,
+                  "Fecha de nacimiento*",
+                  Icons.calendar_month_outlined,
+                  hint: "Seleccione una fecha completa",
+                  readOnly: true,
+                  onTap: _pickFechaNac,
+                ),
+              ),
               const SizedBox(width: 20),
               Expanded(
                   child: _dropdown(
@@ -1933,8 +1962,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                             EscalaEtiqueta("Moderado", 4),
                             EscalaEtiqueta("Severo", 4)
                           ],
-                          colorActivo: Colors.red,
-                          colorFondoActivo: Colors.red,
+                          colorActivo: AppTema.verdeSalud,
+                          colorFondoActivo: AppTema.verdeSalud,
                           backgroundColor: const Color(0xFFF8FAFC),
                           showIdentityRow: false,
                           onChanged: (v) =>
@@ -3319,109 +3348,59 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StatefulBuilder(
-          builder: (context, setInternalState) {
-            final q = _ingRecomSearchCtrl.text.toLowerCase().trim();
-            final matches = _ingredientes.where((e) {
-              if (q.isEmpty) return false;
-              final name = _norm(e['nombre']).toLowerCase();
-              final syns = (e['sinonimos'] as List? ?? [])
-                  .map((s) => s.toString().toLowerCase())
-                  .toList();
-              return name.contains(q) || syns.any((s) => s.contains(q));
-            }).toList();
-            return Column(
-              children: [
-                TextField(
-                  controller: _ingRecomSearchCtrl,
-                  focusNode: _ingRecomFocus,
-                  onChanged: (_) => setInternalState(() {}),
-                  decoration: InputDecoration(
-                    labelText: "Buscar ingrediente recomendado",
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _ingRecomSearchCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: () {
-                              _ingRecomSearchCtrl.clear();
-                              setInternalState(() {});
-                            },
-                          )
-                        : null,
-                  ),
-                ),
-                if (matches.isNotEmpty && _ingRecomFocus.hasFocus)
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    margin: const EdgeInsets.only(top: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10)
-                      ],
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: min(matches.length, 60),
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (ctx, i) {
-                        final item = matches[i];
-                        final isSel = _recomendacionesIng
-                            .any((ing) => ing['id'] == item['id']);
-                        return ListTile(
-                          dense: true,
-                          title: Text(item['nombre'] ?? ""),
-                          trailing: Icon(
-                              isSel
-                                  ? Icons.check_circle
-                                  : Icons.add_circle_outline,
-                              color: isSel ? Colors.green : null),
-                          onTap: () {
-                            setState(() {
-                              if (!isSel) {
-                                _recomendacionesIng
-                                    .add(Map<String, dynamic>.from(item));
-                                _autoRecomendarDerivados(item['nombre'] ?? "");
-                              } else {
-                                _recomendacionesIng.removeWhere(
-                                    (ing) => ing['id'] == item['id']);
-                              }
-                            });
-                            setInternalState(() {});
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            );
-          },
+        _buildMultiSelector(
+            title: "Recomendador de ingredientes (Opcional)",
+            subtitle: "Ingresa algún ingrediente, nosotros te recomendaremos el más adecuado según el paciente.",
+            enabled: true,
+            items: _ingredientes.map((i) => Map<String, dynamic>.from(i)).toList(),
+            selectedIds: _recomendacionesIng.map((e) => (e['id'] as num).toInt()).toList(),
+            searchCtrl: _ingRecomSearchCtrl,
+            focusNode: _ingRecomFocus,
+            blockedIds: {},
+            isIngredientes: true,
+            onToggle: (id) {
+              setState(() {
+                final idx = _recomendacionesIng.indexWhere((e) => e['id'] == id);
+                if (idx >= 0) {
+                  _recomendacionesIng.removeAt(idx);
+                } else {
+                  final item = _ingredientes.cast<Map<String, dynamic>?>().firstWhere(
+                        (e) => e != null && e['id'] == id,
+                        orElse: () => null,
+                      );
+                  if (item != null) {
+                    _recomendacionesIng.add(Map<String, dynamic>.from(item));
+                    _autoRecomendarDerivados(item['nombre'] ?? "");
+                  }
+                }
+              });
+            },
         ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _recomendacionesIng
-              .map((e) => Chip(
-                    label: Text(
-                      e['nombre'] ?? "",
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue),
-                    ),
-                    onDeleted: () =>
-                        setState(() => _recomendacionesIng.remove(e)),
-                    backgroundColor: Colors.blue.shade50,
-                    deleteIconColor: Colors.blue,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ))
-              .toList(),
-        ),
+        if (_recomendacionesIng.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _recomendacionesIng
+                .map((e) => Chip(
+                      label: Text(
+                        e['nombre'] ?? "",
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700),
+                      ),
+                      onDeleted: () =>
+                          setState(() => _recomendacionesIng.remove(e)),
+                      backgroundColor: Colors.green.shade50,
+                      deleteIconColor: Colors.green.shade700,
+                      side: BorderSide(color: Colors.green.shade200),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ))
+                .toList(),
+          ),
+        ]
       ],
     );
   }
@@ -3664,6 +3643,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         } else {
           setState(() {
             _tutorNoEncontrado = true;
+            _tutNombre.clear();
+            _tutEmail.clear();
+            _tutTelefono.clear();
+            _tutDireccion.clear();
           });
         }
       }
@@ -3674,20 +3657,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Future<void> _pickFechaNac() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _pacFechaNac ?? DateTime(2015),
-      firstDate: DateTime(2005),
-      lastDate: DateTime.now(),
-      helpText: "Seleccione la fecha de nacimiento",
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: greenBrand)),
-        child: child!,
-      ),
+    final d = await showCustomDatePicker(
+      context,
+      initialDate: _pacFechaNac,
+      colorActivo: AppTema.azulPrincipal,
+      colorTexto: AppTema.azulOscuro,
     );
     if (d != null) {
-      setState(() => _pacFechaNac = d);
+      setState(() {
+        _pacFechaNac = d;
+        _pacFechaNacCtrl.text = _formatFechaCompleta(d);
+      });
       _calculateOMS();
     }
   }
@@ -3746,7 +3726,11 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     String? helper,
     String? hint,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters}) {
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3754,7 +3738,41 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           const SizedBox(height: 8),
           TextFormField(
               controller: c,
-              validator: (v) {
+              readOnly: readOnly,
+              onTap: onTap,
+              validator: validator ?? (v) {
+                if (c == _pacFechaNacCtrl) {
+                  if (_pacFechaNac == null) return "Campo requerido";
+                  final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+                  if (age < 3 || age >= 18) return "La edad debe ser mayor a 3 y menor a 18 años";
+                  return null;
+                }
+                if (c == _tutCedula) {
+                  if (v == null || v.trim().isEmpty) return "Campo requerido";
+                  if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                  if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                }
+                if (c == _pacCedula) {
+                  if (v == null || v.trim().isEmpty) {
+                    if (l.contains("*")) return "Campo requerido";
+                  } else {
+                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                  }
+                }
+                if (c == _tutTelefono) {
+                  if (v != null && v.trim().isNotEmpty) {
+                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                  }
+                }
+                if (c == _tutEmail) {
+                  if (v != null && v.trim().isNotEmpty) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
+                      return "Correo electrónico inválido";
+                    }
+                  }
+                }
                 if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo requerido";
                 return null;
               },
@@ -3822,13 +3840,17 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             child: FilledButton(
                 onPressed: d.onStepContinue,
                 style: FilledButton.styleFrom(
-                    backgroundColor: greenBrand,
+                    backgroundColor: AppTema.azulPrincipal,
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16))),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    if (_currentStep < (widget.fixedOnly ? 1 : 2)) ...[
+                      const Icon(Icons.chevron_right_rounded, size: 18),
+                      const SizedBox(width: 8),
+                    ],
                     Text(
                         _currentStep == (widget.fixedOnly ? 1 : 2)
                             ? (_idPacienteEditando == null
@@ -3836,13 +3858,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                                 : widget.fixedOnly
                                     ? "Actualizar datos clínicos"
                                     : "Guardar cambios")
-                            : "Siguiente paso",
+                            : "Continuar",
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w800)),
-                    if (_currentStep < (widget.fixedOnly ? 1 : 2)) ...[
-                      const SizedBox(width: 12),
-                      const Icon(Icons.arrow_forward_rounded, size: 18),
-                    ]
                   ],
                 ))),
         if (_currentStep > 0) ...[
@@ -3851,7 +3869,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               child: OutlinedButton(
                   onPressed: d.onStepCancel,
                   style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: greenBrand, width: 2),
+                      side: const BorderSide(color: AppTema.azulPrincipal, width: 2),
                       foregroundColor: greenBrand,
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       shape: RoundedRectangleBorder(

@@ -12,6 +12,7 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
+import '../../../shared/widgets/custom_date_picker.dart';
 import "_shared/medico_nav_providers.dart";
 import "../../../shared/widgets/role_shell.dart";
 
@@ -59,8 +60,13 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   int? _pacCanton;
   int? _pacParroquia;
   DateTime? _pacFechaNac;
+  final _pacFechaNacCtrl = TextEditingController();
   bool _validandoCedulaPaciente = false;
   String? _mensajeCedulaPaciente;
+  bool _validandoCedulaTutor = false;
+  String? _mensajeCedulaTutor;
+  Timer? _debounceCedulaTutor;
+  String? _cedulaTutorOriginal;
 
   // Clínico
   final _clinPeso = TextEditingController();
@@ -161,6 +167,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     _ingredienteAlergiaFocus.dispose();
     _debounceOMS?.cancel();
     _debounceCedulaPaciente?.cancel();
+    _debounceCedulaTutor?.cancel();
     super.dispose();
   }
 
@@ -237,6 +244,9 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             _pacNombre.text = p['nombre_completo'] ?? "";
             _pacCedula.text = p['cedula'] ?? "";
             _pacFechaNac = DateTime.tryParse(p['fecha_nacimiento'] ?? "");
+            if (_pacFechaNac != null) {
+              _pacFechaNacCtrl.text = _formatFechaCompleta(_pacFechaNac!);
+            }
             _pacSexo = p['id_sexo'];
             _pacCanton = p['id_canton'];
             _pacParroquia = p['id_parroquia'];
@@ -245,6 +255,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             if (t.isNotEmpty) {
               _tutNombre.text = t['nombre_completo'] ?? "";
               _tutCedula.text = t['cedula'] ?? "";
+              _cedulaTutorOriginal = _tutCedula.text;
               _tutEmail.text = t['email'] ?? "";
               _tutTelefono.text = t['telefono'] ?? "";
               _tutDireccion.text = t['direccion'] ?? "";
@@ -377,7 +388,11 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         if (mounted) {
           setState(() {
             _calculandoOMS = false;
-            _omsError = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+            String err = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+            if (err.toLowerCase().contains("connection error") || err.toLowerCase().contains("dioexception") || err.toLowerCase().contains("apierror") || err.toLowerCase().contains("failed host lookup")) {
+              err = "Error de conexión con el servidor. Verifica tu internet e intenta de nuevo.";
+            }
+            _omsError = err;
             _omsColor = Colors.red;
           });
         }
@@ -501,7 +516,6 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                                   final pOk = _formKeyPaciente.currentState?.validate() ?? false;
                                   final cOk = _formKeyClinico.currentState?.validate() ?? false;
                                   if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
-                                  else NutriSnack.show(context, "Complete los campos obligatorios", isError: true, ref: ref);
                                 },
                                 icon: const Icon(Icons.save_alt_rounded),
                                 label: const Text("Actualizar datos médicos"),
@@ -583,98 +597,43 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Expanded(
-              child: _field(
-            _tutCedula,
-            "Cédula del tutor*",
-            Icons.assignment_ind_outlined,
-            hint: "Ingrese la cédula del tutor",
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10)
-            ],
-            onChanged: (v) {
-              final limpia = _soloDigitos(v);
-              if (limpia.length == 10) _buscarTutor(limpia);
-            },
-          )),
-          const SizedBox(width: 12),
-          IconButton.filled(
-              onPressed: () {
-                if (_cedulaValida(_tutCedula))
-                  _buscarTutor(_tutCedula.text);
+        _field(
+          _tutCedula,
+          "Cédula del tutor*",
+          Icons.assignment_ind_outlined,
+          hint: "Ingrese la cédula del tutor",
+          keyboardType: TextInputType.number,
+          onChanged: _onCedulaTutorChanged,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10)
+          ],
+        ),
+        if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Row(
+              children: [
+                if (_validandoCedulaTutor)
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 else
-                  NutriSnack.show(context,
-                      "La cédula del tutor debe tener exactamente 10 dígitos.",
-                      isError: true, ref: ref);
-              },
-              icon: const Icon(Icons.search),
-              style: IconButton.styleFrom(
-                  backgroundColor: AppTema.verdeSalud,
-                  padding: const EdgeInsets.all(20),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)))),
-        ]),
-        if (_buscandoTutor)
-          const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: LinearProgressIndicator()),
-        if (_tutorNoEncontrado)
-          Container(
-            margin: const EdgeInsets.only(top: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: Colors.orange, shape: BoxShape.circle),
-                  child: const Icon(Icons.priority_high_rounded,
-                      color: Colors.white, size: 14),
-                ),
-                const SizedBox(width: 12),
-                Text("Tutor no registrado. Por favor complete los datos.",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.orange.shade900)),
-              ],
-            ),
-          ),
-        if (_tutorExistente)
-          Container(
-            margin: const EdgeInsets.only(top: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: greenBrand, shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 14),
-                ),
-                const SizedBox(width: 12),
+                  const Icon(Icons.error_outline_rounded,
+                      size: 14, color: Colors.red),
+                const SizedBox(width: 6),
                 Text(
-                    "Tutor encontrado. Puede actualizar sus datos si es necesario.",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green.shade900)),
+                  _validandoCedulaTutor
+                      ? "Validando cédula..."
+                      : _mensajeCedulaTutor!,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _validandoCedulaTutor ? Colors.blueGrey : Colors.red,
+                  ),
+                ),
               ],
             ),
           ),
@@ -843,39 +802,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         const SizedBox(height: 24),
         Row(children: [
           Expanded(
-              child: InkWell(
-                  onTap: _pickFechaNac,
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
-                      child: Row(children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 20, color: greenBrand),
-                        const SizedBox(width: 16),
-                        Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Fecha de nacimiento*",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blueGrey)),
-                              Text(
-                                  _pacFechaNac == null
-                                      ? "Seleccione una fecha completa"
-                                      : _formatFechaCompleta(_pacFechaNac!),
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _pacFechaNac == null
-                                          ? Colors.grey.shade400
-                                          : Colors.black87))
-                            ])
-                      ])))),
+            child: _field(
+              _pacFechaNacCtrl,
+              "Fecha de nacimiento*",
+              Icons.calendar_month_outlined,
+              hint: "Seleccione una fecha completa",
+              readOnly: true,
+              onTap: _pickFechaNac,
+            ),
+          ),
           const SizedBox(width: 20),
           Expanded(
               child: _dropdown(
@@ -975,21 +910,82 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           .read(repositorioMedicoProvider)
           .verificarPacientePorCedula(cedula);
       if (!mounted) return;
-      final paciente = res['paciente'] is Map
-          ? Map<String, dynamic>.from(res['paciente'])
-          : null;
-      final pacienteId = paciente?['id']?.toString();
-      final existeOtro = res['existe'] == true &&
-          (_idPacienteEditando == null || pacienteId != _idPacienteEditando);
+      
+      String? errMsg;
+      if (res['error_rol'] == 'medico') {
+        errMsg = "Esta cédula pertenece a personal del sistema.";
+      } else if (res['error_rol'] == 'tutor') {
+        errMsg = "Esta cédula ya está registrada como representante.";
+      } else {
+        final paciente = res['paciente'] is Map
+            ? Map<String, dynamic>.from(res['paciente'])
+            : null;
+        final pacienteId = paciente?['id']?.toString();
+        final existeOtro = res['existe'] == true &&
+            (_idPacienteEditando == null || pacienteId != _idPacienteEditando);
+        if (existeOtro) {
+          errMsg = "Este paciente con esa cédula ya existe.";
+        }
+      }
+      
       setState(() {
-        _mensajeCedulaPaciente =
-            existeOtro ? "Este paciente con esa cédula ya existe." : null;
+        _mensajeCedulaPaciente = errMsg;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _mensajeCedulaPaciente = null);
     } finally {
       if (mounted) setState(() => _validandoCedulaPaciente = false);
+    }
+  }
+
+  void _onCedulaTutorChanged(String value) {
+    final limpia = _soloDigitos(value);
+    _debounceCedulaTutor?.cancel();
+    if (limpia.length != 10) {
+      setState(() {
+        _mensajeCedulaTutor = null;
+        _validandoCedulaTutor = false;
+      });
+      return;
+    }
+
+    if (limpia == _cedulaTutorOriginal) {
+      setState(() {
+        _mensajeCedulaTutor = null;
+        _validandoCedulaTutor = false;
+      });
+      return;
+    }
+
+    _debounceCedulaTutor = Timer(
+      const Duration(milliseconds: 250),
+      () => _verificarCedulaTutor(limpia),
+    );
+  }
+
+  Future<void> _verificarCedulaTutor(String cedula) async {
+    setState(() {
+      _validandoCedulaTutor = true;
+      _mensajeCedulaTutor = null;
+    });
+    try {
+      final res = await ref
+          .read(repositorioMedicoProvider)
+          .buscarTutorPorCedula(cedula);
+      if (!mounted) return;
+      
+      final existeOtro = res['existe'] == true;
+      setState(() {
+        _mensajeCedulaTutor = existeOtro
+            ? "Esta cédula ya pertenece a otro tutor registrado."
+            : null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _mensajeCedulaTutor = null);
+    } finally {
+      if (mounted) setState(() => _validandoCedulaTutor = false);
     }
   }
 
@@ -1001,17 +997,24 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           : _telefonoMovilValido(_tutTelefono);
       return _tutNombre.text.trim().isNotEmpty &&
           _cedulaValida(_tutCedula) &&
+          !_validandoCedulaTutor &&
+          _mensajeCedulaTutor == null &&
           _tutParentesco != null &&
           _tutEmail.text.trim().isNotEmpty &&
           telefonoOk;
     }
     if (step == 1) {
+      bool validAge = false;
+      if (_pacFechaNac != null) {
+        final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+        validAge = age >= 3 && age < 18;
+      }
       return _pacNombre.text.trim().isNotEmpty &&
           _cedulaValida(_pacCedula) &&
           !_validandoCedulaPaciente &&
           _mensajeCedulaPaciente == null &&
           _pacSexo != null &&
-          _pacFechaNac != null;
+          validAge;
     }
     return _idPatologiaBase != null &&
         _lactosa != null &&
@@ -1067,8 +1070,16 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   bool _validateFixedOnly() {
+    bool invalidAge = true;
+    if (_pacFechaNac != null) {
+      final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+      invalidAge = age < 3 || age >= 18;
+    }
+
     if (_tutNombre.text.trim().isEmpty ||
         !_cedulaValida(_tutCedula) ||
+        _validandoCedulaTutor ||
+        _mensajeCedulaTutor != null ||
         _tutEmail.text.trim().isEmpty ||
         _tutTelefono.text.trim().isEmpty ||
         _tutParentesco == null ||
@@ -1077,11 +1088,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         _validandoCedulaPaciente ||
         _mensajeCedulaPaciente != null ||
         _pacSexo == null ||
-        _pacFechaNac == null ||
+        invalidAge ||
         _idPatologiaBase == null) {
-      NutriSnack.show(
-          context, "Complete los datos obligatorios marcados con (*).",
-          isError: true, ref: ref);
       return false;
     }
     return _validateAlergiasIntolerancias();
@@ -1195,8 +1203,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             label == null ? (newValue?.toString() ?? "-") : label(newValue)});
     }
 
-    addText("cedula", "Cédula");
-    addText("nombre", "Nombre completo");
+    addText("tutCedula", "Cédula del Tutor");
+    addText("tutNombre", "Nombre del Tutor");
+    addText("tutEmail", "Correo del Tutor");
+    addText("tutTelefono", "Teléfono del Tutor");
+    addText("tutParentesco", "Parentesco del Tutor",
+        label: (value) => _nameById(_parentescos, (value as num?)?.toInt()));
+    addText("tutDireccion", "Dirección del Tutor");
+    addText("cedula", "Cédula del Paciente");
+    addText("nombre", "Nombre del Paciente");
     addText("fecha_nacimiento", "Fecha de nacimiento",
         label: (value) => _dateLabel(value?.toString() ?? ""));
     addText("sexo", "Sexo biológico",
@@ -1225,50 +1240,192 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
 
     final changes = _fixedChanges();
     if (changes.isEmpty) {
-      NutriSnack.show(context, "No hay cambios para actualizar.", ref: ref);
+      showDialog(
+        context: context,
+        barrierColor: Colors.black.withOpacity(0.8),
+        barrierDismissible: false,
+        builder: (ctx) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Colors.white, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                "No se hizo cambios de datos",
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        Navigator.of(context).pop();
+        ref.read(medicoNavProvider.notifier).goBackToList();
+      }
       return;
     }
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text("Confirmar actualización",
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-        content: SizedBox(
-          width: 620,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
+      builder: (ctx) => Dialog(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          width: 780,
+          constraints: const BoxConstraints(maxWidth: 780, maxHeight: 680),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE5EAF2)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text("Se actualizarán los siguientes campos:",
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.blueGrey,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: changes
-                        .map((change) => _changePreviewRow(change))
-                        .toList(),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.sync_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      "Confirmar actualización",
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulOscuro,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    iconSize: 22,
+                    tooltip: "Cancelar",
+                    splashRadius: 20,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTema.pastelCeleste,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTema.azulPrincipal.withValues(alpha: 0.3),
+                    width: 1.2,
                   ),
                 ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_rounded,
+                      color: AppTema.azulPrincipal,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Se detectaron modificaciones en los siguientes campos. Por favor revisa antes de guardar los cambios en el expediente.",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Column(
+                      children: changes
+                          .map((change) => _changePreviewRow(change))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTema.azulPrincipal,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    child: const Text("Cancelar"),
+                  ),
+                  const SizedBox(width: 18),
+                  SizedBox(
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: const Text("Sí, actualizar"),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTema.azulPrincipal,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar")),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: AppTema.azulPrincipal),
-              child: const Text("Sí, actualizar")),
-        ],
       ),
     );
 
@@ -1280,32 +1437,119 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   Widget _changePreviewRow(Map<String, String> change) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(change["field"] ?? "",
-            style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulOscuro)),
-        const SizedBox(height: 6),
-        Text("Antes: ${change["before"]}",
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.red.shade700)),
-        const SizedBox(height: 3),
-        Text("Después: ${change["after"]}",
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.green.shade700)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Título del campo
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    change["field"] ?? "",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTema.azulOscuro,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Contenido Antes -> Después
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.remove_circle_outline, size: 16, color: Colors.red.shade700),
+                            const SizedBox(width: 6),
+                            Text("Antes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.red.shade700)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          change["before"] ?? "-",
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.red.shade900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade400, size: 28),
+                ),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 16, color: Colors.green.shade700),
+                            const SizedBox(width: 6),
+                            Text("Después", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          change["after"] ?? "-",
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1538,102 +1782,45 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                  child: _field(
-                _tutCedula,
-                "Cédula del tutor*",
-                Icons.assignment_ind_outlined,
-                hint: "Ingrese la cédula del tutor",
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10)
-                ],
-                onChanged: (v) {
-                  final limpia = _soloDigitos(v);
-                  if (limpia.length == 10) _buscarTutor(limpia);
-                },
-              )),
-              const SizedBox(width: 12),
-              IconButton.filled(
-                  onPressed: () {
-                    if (_cedulaValida(_tutCedula))
-                      _buscarTutor(_tutCedula.text);
+            _field(
+              _tutCedula,
+              "Cédula del tutor*",
+              Icons.assignment_ind_outlined,
+              hint: "Ingrese la cédula del tutor",
+              keyboardType: TextInputType.number,
+              onChanged: _onCedulaTutorChanged,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10)
+              ],
+            ),
+            if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 12),
+                child: Row(
+                  children: [
+                    if (_validandoCedulaTutor)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     else
-                      NutriSnack.show(context,
-                          "La cédula del tutor debe tener exactamente 10 dígitos.",
-                          isError: true, ref: ref);
-                  },
-                  icon: const Icon(Icons.search),
-                  style: IconButton.styleFrom(
-                      backgroundColor: AppTema.azulPrincipal,
-                      padding: const EdgeInsets.all(20),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)))),
-            ]),
-            if (_buscandoTutor)
-              const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: LinearProgressIndicator()),
-            if (_tutorNoEncontrado)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                          color: Colors.orange, shape: BoxShape.circle),
-                      child: const Icon(Icons.priority_high_rounded,
-                          color: Colors.white, size: 14),
-                    ),
-                    const SizedBox(width: 12),
-                    Text("Tutor no registrado. Por favor complete los datos.",
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.orange.shade900)),
-                  ],
-                ),
-              ),
-            if (_tutorExistente)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                          color: greenBrand, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded,
-                          color: Colors.white, size: 14),
-                    ),
-                    const SizedBox(width: 12),
+                      const Icon(Icons.error_outline_rounded,
+                          size: 14, color: Colors.red),
+                    const SizedBox(width: 6),
                     Text(
-                        "Tutor encontrado. Puede actualizar sus datos si es necesario.",
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade900)),
+                      _validandoCedulaTutor
+                          ? "Validando cédula..."
+                          : _mensajeCedulaTutor!,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _validandoCedulaTutor
+                            ? Colors.blueGrey
+                            : Colors.red,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1742,40 +1929,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             const SizedBox(height: 24),
             Row(children: [
               Expanded(
-                  child: InkWell(
-                      onTap: _pickFechaNac,
-                      child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 18),
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: const Color(0xFFE2E8F0))),
-                          child: Row(children: [
-                            const Icon(Icons.calendar_today_outlined,
-                                size: 20, color: greenBrand),
-                            const SizedBox(width: 16),
-                            Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Fecha de nacimiento*",
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blueGrey)),
-                                  Text(
-                                      _pacFechaNac == null
-                                          ? "Seleccione una fecha completa"
-                                          : _formatFechaCompleta(_pacFechaNac!),
-                                      style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _pacFechaNac == null
-                                              ? Colors.grey.shade400
-                                              : Colors.black87))
-                                ])
-                          ])))),
+                child: _field(
+                  _pacFechaNacCtrl,
+                  "Fecha de nacimiento*",
+                  Icons.calendar_month_outlined,
+                  hint: "Seleccione una fecha completa",
+                  readOnly: true,
+                  onTap: _pickFechaNac,
+                ),
+              ),
               const SizedBox(width: 20),
               Expanded(
                   child: _dropdown(
@@ -1899,8 +2061,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                             EscalaEtiqueta("Moderado", 4),
                             EscalaEtiqueta("Severo", 4)
                           ],
-                          colorActivo: Colors.red,
-                          colorFondoActivo: Colors.red,
+                          colorActivo: AppTema.verdeSalud,
+                          colorFondoActivo: AppTema.verdeSalud,
                           backgroundColor: const Color(0xFFF8FAFC),
                           showIdentityRow: false,
                           onChanged: (v) =>
@@ -3638,20 +3800,17 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Future<void> _pickFechaNac() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _pacFechaNac ?? DateTime(2015),
-      firstDate: DateTime(2005),
-      lastDate: DateTime.now(),
-      helpText: "Seleccione la fecha de nacimiento",
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: greenBrand)),
-        child: child!,
-      ),
+    final d = await showCustomDatePicker(
+      context,
+      initialDate: _pacFechaNac,
+      colorActivo: AppTema.azulPrincipal,
+      colorTexto: AppTema.azulOscuro,
     );
     if (d != null) {
-      setState(() => _pacFechaNac = d);
+      setState(() {
+        _pacFechaNac = d;
+        _pacFechaNacCtrl.text = _formatFechaCompleta(d);
+      });
       _calculateOMS();
     }
   }
@@ -3710,7 +3869,10 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     String? helper,
     String? hint,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters}) {
+    List<TextInputFormatter>? inputFormatters,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3718,7 +3880,41 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           const SizedBox(height: 8),
           TextFormField(
               controller: c,
+              readOnly: readOnly,
+              onTap: onTap,
               validator: (v) {
+                if (c == _pacFechaNacCtrl) {
+                  if (_pacFechaNac == null) return "Campo requerido";
+                  final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+                  if (age < 3 || age >= 18) return "La edad debe ser mayor a 3 y menor a 18 años";
+                  return null;
+                }
+                if (c == _tutCedula) {
+                  if (v == null || v.trim().isEmpty) return "Campo requerido";
+                  if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                  if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                }
+                if (c == _pacCedula) {
+                  if (v == null || v.trim().isEmpty) {
+                    if (l.contains("*")) return "Campo requerido";
+                  } else {
+                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                  }
+                }
+                if (c == _tutTelefono) {
+                  if (v != null && v.trim().isNotEmpty) {
+                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                  }
+                }
+                if (c == _tutEmail) {
+                  if (v != null && v.trim().isNotEmpty) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
+                      return "Correo electrónico inválido";
+                    }
+                  }
+                }
                 if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo requerido";
                 return null;
               },
