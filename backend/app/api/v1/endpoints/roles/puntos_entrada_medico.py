@@ -69,6 +69,35 @@ def pre_diagnostico_nutricional(
             "anios": result["edad_meses"] // 12,
             "meses": result["edad_meses"] % 12
         }
+    except ValueError as exc:
+        import logging
+        logging.warning(f"OMS bounds error: {str(exc)}")
+        from backend.app.core.utils import calculate_age_months
+        meses_totales = calculate_age_months(payload.fecha_nacimiento if isinstance(payload.fecha_nacimiento, date) else date.fromisoformat(payload.fecha_nacimiento), date.today())
+        
+        # Calculate basic BMI just in case
+        imc = round(payload.peso_kg / ((payload.talla_cm / 100) ** 2), 2) if payload.talla_cm > 0 else 0
+        return {
+            "imc": imc,
+            "z_score": 0.0,
+            "id_condicion_nutricional": None,
+            "id_condicion_nutricional_oms": None,
+            "diagnostico_nutri_texto": "Sin evaluación",
+            "diagnostico_talla_texto": "Sin referencia",
+            "diagnostico_peso_complementario": "Sin referencia",
+            "diagnostico_combinado": "Sin evaluación (Requiere Nutricionista)",
+            "resumen_clinico": str(exc),
+            "z_score_talla": 0.0,
+            "peso_ideal": 0.0,
+            "talla_ideal": 0.0,
+            "ganancia_peso_necesaria": 0.0,
+            "ganancia_talla_necesaria": 0.0,
+            "estado_peso": "mantener",
+            "anios": meses_totales // 12,
+            "meses": meses_totales % 12,
+            "fuera_de_rango": True,
+            "mensaje_oms": str(exc)
+        }
     except Exception as exc:
         import logging
         logging.error(f"Error en pre_diagnostico_nutricional: {str(exc)}", exc_info=True)
@@ -158,6 +187,17 @@ def verificar_paciente_por_cedula(
             (limpia,),
         )
         row = cur.fetchone()
+
+        cur.execute("select id_rol from usuarios.usuario where cedula = %s limit 1", (limpia,))
+        row_usuario = cur.fetchone()
+
+    if row_usuario:
+        id_rol = row_usuario[0]
+        # 1=admin, 2=medico, 3=nutri
+        if id_rol in [1, 2, 3]:
+            return {"existe": False, "cedula": limpia, "error_rol": "medico"}
+        else:
+            return {"existe": False, "cedula": limpia, "error_rol": "tutor"}
 
     if not row:
         return {"existe": False, "cedula": limpia}
@@ -477,8 +517,6 @@ def actualizar_expediente_maestro(
             payload.model_dump(mode="json"),
         )
         print("PAYLOAD RECEIVED:", payload.model_dump(mode="json"))
-
-        )
         return {"success": exito, "message": "Expediente actualizado correctamente"}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -490,11 +528,9 @@ def registro_paciente_integral(
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
 ):
     try:
+        print("PAYLOAD RECEIVED:", payload.model_dump(mode="json"))
         resultado = caso_uso.registrar_nuevo_paciente(
             payload.model_dump(mode="json"),
-        )
-        print("PAYLOAD RECEIVED:", payload.model_dump(mode="json"))
-
             id_usuario_creador=user.user_id,
         )
         return {

@@ -1,4 +1,4 @@
-﻿import "package:flutter/material.dart";
+import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -459,15 +459,15 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
         Container(
           width: 320,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFF0068B7),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: const [
               BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Padding(
@@ -476,22 +476,22 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                   children: [
                     Text("Notificaciones",
                         style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: const Color(0xFF1E293B))),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Colors.white)),
                     const SizedBox(width: 8),
                     if (unreadCount > 0)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(unreadCount.toString(),
                             style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFF475569))),
+                                color: Colors.white)),
                       ),
                     const Spacer(),
                     if (unreadCount > 0)
@@ -504,12 +504,12 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                         },
                         child: Row(
                           children: [
-                            const Icon(Icons.check, size: 14, color: Color(0xFF64748B)),
+                            const Icon(Icons.check, size: 14, color: Colors.white70),
                             const SizedBox(width: 4),
                             Text("Marcar leídas",
                                 style: GoogleFonts.inter(
                                     fontSize: 12,
-                                    color: const Color(0xFF64748B),
+                                    color: Colors.white70,
                                     fontWeight: FontWeight.w500)),
                           ],
                         ),
@@ -517,120 +517,134 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
               // List
               if (notifs.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Center(
-                    child: Text("Sin notificaciones nuevas",
-                        style: GoogleFonts.inter(
-                            fontSize: 13, color: const Color(0xFF94A3B8))),
+                SizedBox(
+                  width: 320,
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Text("Sin notificaciones nuevas",
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: Colors.white70)),
+                    ),
                   ),
                 )
               else
-                ConstrainedBox(
+                Container(
+                  width: 320,
                   constraints: const BoxConstraints(maxHeight: 350),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: notifs.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    itemBuilder: (context, index) {
-                      final n = notifs[index];
-                      Color iconColor;
-                      Color bgColor;
-                      IconData icon;
-                      switch (n.type) {
-                        case NutriNotificationType.success:
-                          iconColor = const Color(0xFF10B981);
-                          bgColor = const Color(0xFFD1FAE5);
-                          icon = Icons.check_circle_outline;
-                          break;
-                        case NutriNotificationType.warning:
-                          iconColor = const Color(0xFFF59E0B);
-                          bgColor = const Color(0xFFFEF3C7);
-                          icon = Icons.warning_amber_rounded;
-                          break;
-                        case NutriNotificationType.error:
-                          iconColor = const Color(0xFFEF4444);
-                          bgColor = const Color(0xFFFEE2E2);
-                          icon = Icons.error_outline_rounded;
-                          break;
-                        default:
-                          iconColor = const Color(0xFF3B82F6);
-                          bgColor = const Color(0xFFDBEAFE);
-                          icon = Icons.info_outline_rounded;
-                      }
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int index = 0; index < notifs.length; index++) ...[
+                          Builder(builder: (context) {
+                            final n = notifs[index];
+                            Color iconColor;
+                            Color bgColor;
+                            IconData icon;
+                            switch (n.type) {
+                              case NutriNotificationType.success:
+                                iconColor = const Color(0xFF10B981);
+                                bgColor = const Color(0xFFD1FAE5);
+                                icon = Icons.check_circle_outline;
+                                break;
+                              case NutriNotificationType.warning:
+                                iconColor = const Color(0xFFF59E0B);
+                                bgColor = const Color(0xFFFEF3C7);
+                                icon = Icons.warning_amber_rounded;
+                                break;
+                              case NutriNotificationType.error:
+                                iconColor = const Color(0xFFEF4444);
+                                bgColor = const Color(0xFFFEE2E2);
+                                icon = Icons.error_outline_rounded;
+                                break;
+                              default:
+                                iconColor = const Color(0xFF3B82F6);
+                                bgColor = const Color(0xFFDBEAFE);
+                                icon = Icons.info_outline_rounded;
+                            }
 
-                      return InkWell(
-                        onTap: () {
-                          if (!n.read) notifier.markAsRead(n.id);
-                        },
-                        child: Container(
-                          color: n.read ? Colors.transparent : const Color(0xFFF8FAFC),
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: bgColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(icon, size: 18, color: iconColor),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
+                            return InkWell(
+                              onTap: () {
+                                if (!n.read) notifier.markAsRead(n.id);
+                              },
+                              child: Container(
+                                width: 320,
+                                color: n.read ? Colors.transparent : Colors.white.withOpacity(0.08),
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(n.title,
-                                        style: GoogleFonts.inter(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF1E293B))),
-                                    const SizedBox(height: 4),
-                                    Text(n.message,
-                                        style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            color: const Color(0xFF64748B))),
-                                    const SizedBox(height: 6),
-                                    Text(_timeAgo(n.timestamp),
-                                        style: GoogleFonts.inter(
-                                            fontSize: 11,
-                                            color: const Color(0xFF94A3B8))),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: bgColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(icon, size: 18, color: iconColor),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    SizedBox(
+                                      width: 220,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(n.title,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white)),
+                                          const SizedBox(height: 4),
+                                          Text(n.message,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  color: Colors.white70)),
+                                          const SizedBox(height: 6),
+                                          Text(_timeAgo(n.timestamp),
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color: Colors.white54)),
+                                        ],
+                                      ),
+                                    ),
+                                    if (!n.read)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                            color: Colors.white, shape: BoxShape.circle),
+                                      )
                                   ],
                                 ),
                               ),
-                              if (!n.read)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 6),
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                      color: Color(0xFF3B82F6), shape: BoxShape.circle),
-                                )
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                            );
+                          }),
+                          if (index < notifs.length - 1)
+                            Container(height: 1, width: 320, color: Colors.white.withOpacity(0.1)),
+                        ]
+                      ],
+                    ),
                   ),
                 ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
               // Footer
-              InkWell(
-                onTap: () => _menuController.close(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: Text("Ver todas las notificaciones",
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF64748B))),
+              SizedBox(
+                width: 320,
+                child: InkWell(
+                  onTap: () => _menuController.close(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text("Ver todas las notificaciones",
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white)),
+                    ),
                   ),
                 ),
               ),
@@ -733,15 +747,15 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
         Container(
           width: 280,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFF0068B7),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: const [
               BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header con info de usuario
               Padding(
@@ -750,7 +764,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: const Color(0xFF0068B7).withValues(alpha: 0.1),
+                      backgroundColor: Colors.white,
                       child: Text(widget.iniciales,
                           style: const TextStyle(
                               color: Color(0xFF0068B7),
@@ -758,7 +772,8 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                               fontSize: 14)),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: 180,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -766,18 +781,18 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: const Color(0xFF1E293B))),
+                                  color: Colors.white)),
                           Text(widget.nombreRol,
                               style: GoogleFonts.inter(
                                   fontSize: 12,
-                                  color: const Color(0xFF64748B))),
+                                  color: Colors.white70)),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
               
               // Roles list
               if (widget.userRoles.length > 1) ...[
@@ -785,49 +800,52 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: Text("Cambiar Rol",
                       style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                           letterSpacing: 0.5)),
                 ),
                 ...widget.userRoles.map((r) {
                   final bool isCurrent = r["id"] == widget.currentRolId;
                   final String roleName = r["nombre"]?.toString() ?? "";
-                  
                   IconData roleIcon = Icons.badge_outlined;
                   final String rnLower = roleName.toLowerCase();
                   if (rnLower.contains("admin")) {
                     roleIcon = Icons.admin_panel_settings_outlined;
-                  } else if (rnLower.contains("médico") || rnLower.contains("medico")) {
+                  } else if (rnLower.contains("medico") || rnLower.contains("médico")) {
                     roleIcon = Icons.medical_services_outlined;
+                  } else if (rnLower.contains("tutor")) {
+                    roleIcon = Icons.family_restroom_rounded;
                   } else if (rnLower.contains("nutri")) {
                     roleIcon = Icons.restaurant_menu_outlined;
                   }
-                  
+
                   return InkWell(
                     onTap: () => _changeRole(r["id"] as int),
                     child: Container(
+                      width: 280,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      color: isCurrent ? const Color(0xFFF8FAFC) : Colors.transparent,
+                      color: isCurrent ? Colors.white.withOpacity(0.1) : Colors.transparent,
                       child: Row(
                         children: [
-                          Icon(roleIcon, size: 18, color: const Color(0xFF64748B)),
+                          Icon(roleIcon, size: 18, color: Colors.white70),
                           const SizedBox(width: 12),
-                          Expanded(
+                          SizedBox(
+                            width: 180,
                             child: Text(roleName,
                                 style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w500,
-                                    color: isCurrent ? const Color(0xFF0068B7) : const Color(0xFF475569))),
+                                    color: Colors.white)),
                           ),
                           if (isCurrent)
-                            const Icon(Icons.check, size: 16, color: Color(0xFF0068B7))
+                            const Icon(Icons.check, size: 16, color: Colors.white)
                         ],
                       ),
                     ),
                   );
                 }),
-                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
               ],
               const SizedBox(height: 4),
             ],
@@ -925,10 +943,6 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.power_settings_new_rounded,
-                          color: _isHovered ? brandBlue : Colors.white,
-                          size: 16),
-                      const SizedBox(width: 10),
                       Text("Cerrar sesión",
                           style: GoogleFonts.montserrat(
                             color: _isHovered ? brandBlue : Colors.white,

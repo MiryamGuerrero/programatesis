@@ -25,8 +25,11 @@ class MedicoNavState {
 class MedicoNavNotifier extends StateNotifier<MedicoNavState> {
   MedicoNavNotifier() : super(MedicoNavState());
 
-  void setView(MedicoView view, {Map<String, dynamic>? patient}) {
-    state = state.copyWith(currentView: view, selectedPatient: patient);
+  void setView(MedicoView view, {Map<String, dynamic>? patient, bool clearPatient = false}) {
+    state = MedicoNavState(
+      currentView: view,
+      selectedPatient: clearPatient ? null : (patient ?? state.selectedPatient),
+    );
   }
 
   void goBackToList() {

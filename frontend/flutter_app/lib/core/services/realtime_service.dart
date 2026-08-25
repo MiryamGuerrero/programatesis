@@ -1,4 +1,4 @@
-﻿import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../state/app_providers.dart";
 import "../../shared/models/app_role.dart";
@@ -113,10 +113,15 @@ class RealtimeService {
                 nombre = res['nombre_completo'] ?? nombre;
               } catch (_) {}
               
+              final diag = payload.newRecord['estado_nutricional'] ?? "";
+              final isFueraRango = diag.toString().contains("Fuera de rango");
+              
               _ref.read(notificationProvider.notifier).add(
-                    "Control médico finalizado",
-                    "El paciente $nombre fue evaluado. Listo para plan nutricional.",
-                    type: NutriNotificationType.success,
+                    isFueraRango ? "Evaluación Nutricional Pendiente" : "Control médico finalizado",
+                    isFueraRango 
+                      ? "El paciente $nombre está fuera de los rangos de la OMS. Requiere evaluación manual."
+                      : "El paciente $nombre fue evaluado. Listo para plan nutricional.",
+                    type: isFueraRango ? NutriNotificationType.error : NutriNotificationType.success,
                   );
             },
           )

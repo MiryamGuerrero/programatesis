@@ -60,6 +60,8 @@ class PreDiagnosticoResponse(BaseModel):
     estado_peso: Optional[str] = "mantener"
     anios: int
     meses: int
+    fuera_de_rango: Optional[bool] = False
+    mensaje_oms: Optional[str] = None
 
 class PacienteRegistroCompleto(BaseModel):
     nombre_completo: str

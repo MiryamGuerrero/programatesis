@@ -1,6 +1,7 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
@@ -625,6 +626,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
   final _emailCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _cedulaCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
+  final _direccionCtrl = TextEditingController();
   bool _saving = false;
 
   @override
@@ -634,6 +637,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
       _emailCtrl.text = widget.user!["email"] ?? "";
       _nombreCtrl.text = widget.user!["nombre_completo"] ?? "";
       _cedulaCtrl.text = widget.user!["cedula"] ?? "";
+      _telefonoCtrl.text = widget.user!["telefono"] ?? "";
+      _direccionCtrl.text = widget.user!["direccion"] ?? "";
     }
   }
 
@@ -646,8 +651,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 440,
-        constraints: const BoxConstraints(maxWidth: 440),
+        width: 780,
+        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 580),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -704,28 +709,118 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _input(
-              _nombreCtrl,
-              "Nombre completo",
-              "Ingresar nombre completo",
-              Icons.badge_outlined,
-            ),
-            const SizedBox(height: 16),
-            _input(
-              _emailCtrl,
-              "Correo electrónico",
-              "usuario@nutrireuma.com",
-              Icons.mail_outline,
-            ),
-            const SizedBox(height: 16),
-            _input(
-              _cedulaCtrl,
-              "Cédula",
-              "Número de cédula",
-              Icons.person_outline_rounded,
-            ),
             const SizedBox(height: 20),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Columna Izquierda: Datos Personales
+                  Expanded(
+                    flex: 10,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 12),
+                              child: Text(
+                                "Datos Personales",
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTema.azulOscuro,
+                                ),
+                              ),
+                            ),
+                            _input(
+                              _nombreCtrl,
+                              "Nombre completo",
+                              "Ingresar nombre completo",
+                              Icons.badge_outlined,
+                            ),
+                            const SizedBox(height: 16),
+                            _input(
+                              _cedulaCtrl,
+                              "Cédula",
+                              "Número de cédula",
+                              Icons.person_outline_rounded,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _input(
+                              _emailCtrl,
+                              "Correo electrónico",
+                              "usuario@nutrireuma.com",
+                              Icons.mail_outline,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Divisor vertical sutil
+                  Container(
+                    width: 1.2,
+                    color: const Color(0xFFE2E8F0),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  
+                  // Columna Derecha: Datos de Contacto
+                  Expanded(
+                    flex: 12,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 12),
+                              child: Text(
+                                "Datos de Contacto",
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTema.azulOscuro,
+                                ),
+                              ),
+                            ),
+                            _input(
+                              _telefonoCtrl,
+                              "Teléfono",
+                              "Ingresar teléfono",
+                              Icons.phone_outlined,
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _input(
+                              _direccionCtrl,
+                              "Dirección",
+                              "Ingresar dirección",
+                              Icons.location_on_outlined,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -747,8 +842,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
                   Expanded(
                     child: Text(
                       isEdit
-                          ? "Actualiza los datos de acceso y perfil del tutor."
-                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
+                          ? "Actualiza todos los datos del tutor."
+                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña. Asegúrate de llenar todos los campos.",
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         height: 1.3,
@@ -812,6 +907,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
     String hint,
     IconData icon, {
     bool obscure = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,6 +927,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
         TextField(
           controller: controller,
           obscureText: obscure,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: GoogleFonts.inter(
             fontSize: 14,
             color: const Color(0xFF334155),
@@ -875,8 +974,12 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
       );
 
   Future<void> _save() async {
-    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
-      NutriSnack.show(context, "Por favor complete los campos obligatorios",
+    if (_nombreCtrl.text.trim().isEmpty || 
+        _emailCtrl.text.trim().isEmpty || 
+        _cedulaCtrl.text.trim().isEmpty || 
+        _telefonoCtrl.text.trim().isEmpty || 
+        _direccionCtrl.text.trim().isEmpty) {
+      NutriSnack.show(context, "Por favor complete todos los datos obligatorios",
           isError: true);
       return;
     }
@@ -886,17 +989,21 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
       if (widget.user != null) {
         await repo.updateUser(
           userId: widget.user!["id"].toString(),
-          nombreCompleto: _nombreCtrl.text,
-          email: _emailCtrl.text,
-          cedula: _cedulaCtrl.text,
+          nombreCompleto: _nombreCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          cedula: _cedulaCtrl.text.trim(),
+          telefono: _telefonoCtrl.text.trim(),
+          direccion: _direccionCtrl.text.trim(),
           idRol: 4, // Rol Tutor Fijo
         );
       } else {
         await repo.createUser(
-          email: _emailCtrl.text,
-          nombreCompleto: _nombreCtrl.text,
+          email: _emailCtrl.text.trim(),
+          nombreCompleto: _nombreCtrl.text.trim(),
           idRol: 4, // Rol Tutor Fijo
-          cedula: _cedulaCtrl.text,
+          cedula: _cedulaCtrl.text.trim(),
+          telefono: _telefonoCtrl.text.trim(),
+          direccion: _direccionCtrl.text.trim(),
         );
       }
       widget.onSuccess();
@@ -910,3 +1017,4 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
     }
   }
 }
+

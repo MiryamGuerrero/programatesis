@@ -269,7 +269,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           height: 48,
           child: FilledButton.icon(
             onPressed: () {
-              ref.read(medicoNavProvider.notifier).setView(MedicoView.register);
+              ref.read(medicoNavProvider.notifier).setView(MedicoView.register, clearPatient: true);
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppTema.verdeSalud,
