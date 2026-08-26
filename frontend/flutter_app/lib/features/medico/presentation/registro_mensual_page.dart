@@ -930,35 +930,82 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _buildHeaderBar() => Container(
+  Widget _buildHeaderBar() {
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
-      child: Row(children: [
-        IconButton.filledTonal(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-            onPressed: () =>
-                ref.read(medicoNavProvider.notifier).goBackToList()),
-        const SizedBox(width: 24),
-        Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text("Seguimiento clínico del paciente",
-                  style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppTema.azulPrincipal,
-                      letterSpacing: -0.5)),
+              InkWell(
+                onTap: () {
+                  ref.read(medicoNavProvider.notifier).goBackToList();
+                },
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTema.azulPrincipal.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 4.0),
+                    child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
               Text(
-                  "Módulo para registro mensual y monitoreo de evolución del paciente pediátrico reumatológico.",
-                  style: GoogleFonts.montserrat(
-                      color: const Color(0xFF64748B),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500))
-            ])
-      ]));
+                "Control mensual del paciente",
+                style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF334155)), 
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 52),
+            child: Text(
+              "Formulario para registrar o editar el control mensual, evolución, datos antropométricos y estado nutricional del paciente.",
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B)),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTema.verdeSalud, 
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () {
+                    ref.read(medicoNavProvider.notifier).goBackToList();
+                  },
+                  child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+                ),
+                Text("Control Mensual", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              ],
+            )
+          ),
+        ],
+      )
+    );
+  }
 
   Widget _buildTabBar() => Container(
       height: 60,
