@@ -855,6 +855,15 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Stack(
+        children: [
+          Container(color: const Color(0xFFF8FAFC)), // background
+          _buildLoadingOverlay(),
+        ],
+      );
+    }
+    
     return Stack(
       children: [
         Scaffold(
@@ -879,7 +888,6 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             ],
           ),
         ),
-        if (_loading) _buildLoadingOverlay(),
       ],
     );
   }
