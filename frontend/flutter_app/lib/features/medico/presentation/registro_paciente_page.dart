@@ -96,6 +96,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   bool _brote = false;
   bool? _lactosa;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
+  late TextEditingController _proximaCitaCtrl;
 
   bool _tieneAlergiaSub = false;
   bool _tieneAlergiaIng = false;
@@ -136,12 +137,29 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       if (mounted) ref.read(menuExpandedProvider.notifier).state = false;
     });
     _generatedPassword = _generateRandomPassword();
+    _proximaCitaCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
     _fetchCatalogos().then((_) => _loadInitialData());
     _ingFocus.addListener(() => setState(() {}));
   }
 
+  Future<void> _pickProximaCita() async {
+    final d = await showCustomDatePicker(
+      context,
+      initialDate: _proximaCita,
+      colorActivo: AppTema.azulPrincipal,
+      colorTexto: AppTema.azulOscuro,
+    );
+    if (d != null) {
+      setState(() {
+        _proximaCita = d;
+        _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(d);
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _proximaCitaCtrl.dispose();
     _tutNombre.dispose();
     _tutCedula.dispose();
     _tutEmail.dispose();
@@ -2134,9 +2152,29 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ),
           ],
           const SizedBox(height: 24),
-          _field(_clinNotas, "Observaciones médicas iniciales",
-              Icons.edit_note_rounded,
-              maxLines: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _field(
+                  _clinNotas, 
+                  "Observaciones médicas iniciales",
+                  Icons.edit_note_rounded,
+                  maxLines: 4
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: _field(
+                  _proximaCitaCtrl,
+                  "Fecha de próxima consulta",
+                  Icons.event_note_rounded,
+                  readOnly: true,
+                  onTap: _pickProximaCita,
+                ),
+              ),
+            ],
+          ),
         ]),
       )));
 

@@ -119,6 +119,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   ];
 
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
+  late TextEditingController _proximaCitaCtrl;
   final List<Map<String, dynamic>> _condicionesTemp = [];
   List<Map<String, dynamic>> _recomendacionesIng = [];
   List<dynamic> _condicionesTemporalesCat = [];
@@ -170,6 +171,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         setState(() {});
       }
     });
+    _proximaCitaCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
     _cargarExpediente();
     _loadCatalogos();
   }
@@ -209,6 +211,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   @override
   void dispose() {
+    _proximaCitaCtrl.dispose();
     _tabController.dispose();
     _debounceOMS?.cancel();
     _heatmapScrollCtrl.dispose();
@@ -227,6 +230,21 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     _rigidez.dispose();
     _notas.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickProximaCita() async {
+    final d = await showCustomDatePicker(
+      context,
+      initialDate: _proximaCita,
+      colorActivo: AppTema.azulPrincipal,
+      colorTexto: AppTema.azulOscuro,
+    );
+    if (d != null) {
+      setState(() {
+        _proximaCita = d;
+        _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(d);
+      });
+    }
   }
 
   Future<void> _cargarExpediente() async {
@@ -482,6 +500,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ??
           DateTime.now().add(const Duration(days: 30));
+      _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
 
       if (_expediente != null && _expediente!['recomendaciones'] != null) {
         _recomendacionesIng = List<Map<String, dynamic>>.from(
@@ -1409,45 +1428,31 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         _buildRecomendacionesSelector(),
         const SizedBox(height: 48),
 
-        Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _sectionHeader(
-                    "5. Seguimiento y observaciones", Icons.event_note_rounded),
-                const SizedBox(height: 24),
-                Container(
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: ListTile(
-                        leading:
-                            const Icon(Icons.calendar_month, color: greenBrand),
-                        title: const Text("Próxima cita*",
-                            style: TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                            DateFormat('EEEE, dd/MM/yyyy', 'es')
-                                .format(_proximaCita),
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: greenBrand)),
-                        onTap: () async {
-                          final d = await showDatePicker(
-                              context: context,
-                              initialDate: _proximaCita,
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 180)));
-                          if (d != null) setState(() => _proximaCita = d);
-                        })),
-              ])),
-        ]),
+        _sectionHeader("5. Seguimiento y observaciones", Icons.event_note_rounded),
         const SizedBox(height: 24),
-        _field(_notas, "Observaciones médicas", Icons.edit_note, maxLines: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _field(
+                _notas, 
+                "Observaciones médicas", 
+                Icons.edit_note, 
+                maxLines: 4
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: _field(
+                _proximaCitaCtrl,
+                "Fecha de próxima consulta",
+                Icons.event_note_rounded,
+                readOnly: true,
+                onTap: _pickProximaCita,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 48),
 
         SizedBox(
@@ -2333,12 +2338,16 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           {int maxLines = 1,
           Function(String)? onChanged,
           bool enabled = true,
-          String? helper}) =>
+          String? helper,
+          bool readOnly = false,
+          VoidCallback? onTap}) =>
       TextFormField(
           controller: c,
           maxLines: maxLines,
           enabled: enabled,
           onChanged: onChanged,
+          readOnly: readOnly,
+          onTap: onTap,
           decoration: InputDecoration(
               labelText: l,
               helperText: helper,
