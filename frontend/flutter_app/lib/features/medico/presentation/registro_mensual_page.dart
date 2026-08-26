@@ -1033,8 +1033,15 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ]
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1043,9 +1050,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               children: [
                 Icon(
                   _controlMensualYaHecho
-                      ? Icons.check_circle_outline
-                      : Icons.lock_outline,
-                  color: _controlMensualYaHecho ? Colors.blue : Colors.orange,
+                      ? Icons.check_circle_rounded
+                      : Icons.lock_outline_rounded,
+                  color: _controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange.shade700,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1053,11 +1060,10 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     _mensajeControlMensual.isNotEmpty
                         ? _mensajeControlMensual
                         : "Aún no corresponde el control mensual.",
-                    style: GoogleFonts.montserrat(
-                      fontSize: 14,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color:
-                          _controlMensualYaHecho ? Colors.blue : Colors.orange,
+                      color: _controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange.shade700,
                     ),
                   ),
                 ),
@@ -1068,9 +1074,10 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               _controlMensualYaHecho
                   ? "Si necesita corregir el control, vaya al monitor de evolución y edite ese registro."
                   : "La ventana de registro se habilitará cuando se cumpla la fecha programada.",
-              style: GoogleFonts.montserrat(
-                fontSize: 12,
-                color: Colors.blueGrey,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
                 height: 1.5,
               ),
             ),
@@ -1079,14 +1086,15 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               children: [
                 FilledButton.icon(
                   onPressed: () => _tabController.animateTo(1),
-                  icon: const Icon(Icons.show_chart_rounded),
-                  label: const Text("Ir al monitor de evolución"),
+                  icon: const Icon(Icons.trending_up_rounded, size: 18),
+                  label: Text("Ir al monitor de evolución", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                   style: FilledButton.styleFrom(
-                    backgroundColor: greenBrand,
+                    backgroundColor: AppTema.verdeSalud,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    elevation: 0,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1094,14 +1102,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   onPressed: () {
                     ref.read(medicoNavProvider.notifier).goBackToList();
                   },
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text("Volver a Gestión de Pacientes"),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: Text("Volver a Gestión de Pacientes", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF64748B),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
