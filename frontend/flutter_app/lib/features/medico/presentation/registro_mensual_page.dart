@@ -15,6 +15,7 @@ import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
+import '../../../shared/widgets/role_shell.dart';
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -158,6 +159,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(menuExpandedProvider.notifier).state = false;
+      }
+    });
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
