@@ -886,24 +886,24 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Colors.white,
+      color: Colors.black.withOpacity(0.6),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: greenBrand, strokeWidth: 4),
-            const SizedBox(height: 24),
-            Text(
-              "Cargando control mensual...",
-              style: GoogleFonts.montserrat(
-                  color: const Color(0xFF0F172A),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1),
-            ),
-          ],
-        ),
-      ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16)
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTema.azulPrincipal),
+              const SizedBox(height: 16),
+              Text("Cargando control mensual...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
+            ]
+          )
+        )
+      )
     );
   }
 
