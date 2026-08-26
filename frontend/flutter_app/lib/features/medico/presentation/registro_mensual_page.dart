@@ -1067,7 +1067,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   ? _mensajeControlMensual
                   : "Aún no corresponde el control mensual",
               style: GoogleFonts.inter(
-                fontSize: 22,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF0F172A),
                 letterSpacing: -0.5,
@@ -1082,7 +1082,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     ? "Si necesitas corregir la información del control actual, por favor dirígete al monitor de evolución y edita el registro correspondiente."
                     : "La ventana de registro se habilitará automáticamente cuando se cumpla la fecha programada para el siguiente control mensual.",
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF64748B),
                   fontWeight: FontWeight.w500,
                   height: 1.5,
@@ -1096,8 +1096,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               children: [
                 FilledButton.icon(
                   onPressed: () => _tabController.animateTo(1),
-                  icon: const Icon(Icons.trending_up_rounded, size: 20),
-                  label: Text("Ir al monitor", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+                  icon: const Icon(Icons.trending_up_rounded, size: 18),
+                  label: Text("Ir al monitor", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF0F172A),
                     foregroundColor: Colors.white,
@@ -1113,8 +1113,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   onPressed: () {
                     ref.read(medicoNavProvider.notifier).goBackToList();
                   },
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  label: Text("Volver a Gestión", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: Text("Volver a Gestión", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF475569),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
