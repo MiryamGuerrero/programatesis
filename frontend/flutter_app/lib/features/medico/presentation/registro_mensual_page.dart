@@ -75,6 +75,7 @@ class RegistroMensualPage extends ConsumerStatefulWidget {
 class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _activeMonitorIndex = 0;
   bool _loading = false;
   bool _yaEvaluadoHoy = false;
   bool _controlMensualYaHecho = false;
@@ -2362,8 +2363,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   borderRadius: BorderRadius.all(Radius.circular(12)))));
 
   Widget _buildHistoryTab({bool isNested = false}) {
-    if (_loading && _expediente == null)
+    if (_loading && _expediente == null) {
       return const Center(child: CircularProgressIndicator());
+    }
     final evo = _evolucionMensual;
     final historial = (evo?['controles'] as List? ?? [])
         .whereType<Map>()
@@ -2373,6 +2375,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       return const Center(
           child: Text("No hay registros previos para graficar."));
     }
+    
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2388,32 +2391,234 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             style: GoogleFonts.inter(
                 fontSize: 15, color: const Color(0xFF64748B))),
         const SizedBox(height: 28),
-        _buildEvolutionDashboard(evo),
-        const SizedBox(height: 56),
-        _buildFoodIntakeSection(),
-        const SizedBox(height: 56),
-        _sectionHeader(
-            "Línea de tiempo de eventos clínicos", Icons.timeline_rounded),
-        const SizedBox(height: 24),
-        _buildClinicalTimeline(historial),
-        const SizedBox(height: 56),
-        _sectionHeader("Registros cronológicos", Icons.list_alt_rounded),
-        const SizedBox(height: 24),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: historial.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) =>
-              _buildHistoryItem(historial[historial.length - 1 - index]),
-        ),
+        _buildOpsDashboard(evo, historial),
       ],
     );
 
-    if (isNested)
+    if (isNested) {
       return Padding(padding: const EdgeInsets.all(40), child: content);
+    }
     return SingleChildScrollView(
-        padding: const EdgeInsets.all(40), child: content);
+      padding: const EdgeInsets.all(24),
+      child: content,
+    );
+  }
+
+  Widget _buildOpsDashboard(Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
+    final controls = _evoFilteredControls(evo);
+    final monthlyControls = _groupEvoControlsByMonth(controls);
+    final stats = _calculateEvoStats(monthlyControls);
+    
+    final tabs = [
+      "Síntomas y Clínica",
+      "Mapa Articular",
+      "Crecimiento y Nutrición",
+      "Historial de Controles",
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Pestañas (Navegación horizontal superior)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: List.generate(tabs.length, (index) {
+                final active = _activeMonitorIndex == index;
+                return InkWell(
+                  onTap: () => setState(() => _activeMonitorIndex = index),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: active ? AppTema.azulPrincipal : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: active ? AppTema.azulPrincipal : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Text(
+                      tabs[index],
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                        color: active ? Colors.white : Colors.blueGrey,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          
+          // Contenido principal de la pestaña (dividido en 2 columnas estilo OPS)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Columna Izquierda (Contexto y KPIs)
+                Container(
+                  width: 300,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    border: Border(right: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                  child: _buildOpsLeftPanel(stats, controls, evo),
+                ),
+                
+                // Columna Derecha (Gráficas)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: _buildOpsRightPanel(controls, evo, historial),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOpsLeftPanel(Map<String, dynamic> stats, List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
+    if (_activeMonitorIndex == 0) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+            child: Text("Figura 1", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(height: 16),
+          Text("Evolución mensual de síntomas", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 24),
+          _opsKpi("Último nivel de dolor", "${controls.isNotEmpty ? controls.last['puntos_dolor'] ?? '-' : '-'} / 10"),
+          const SizedBox(height: 16),
+          _opsKpi("Última fatiga", "${controls.isNotEmpty ? controls.last['nivel_fatiga'] ?? '-' : '-'} / 10"),
+          const Spacer(),
+          const Divider(),
+          Text("Fuente: Historial de la Escala Visual Analógica (EVA) reportada por el paciente en sus controles regulares.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+        ],
+      );
+    } else if (_activeMonitorIndex == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+            child: Text("Figura 2", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(height: 16),
+          Text("Mapa articular", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 24),
+          _opsKpi("Articulaciones inflamadas", "${controls.isNotEmpty ? controls.last['articulaciones_inflamadas'] ?? '-' : '-'}"),
+          const SizedBox(height: 16),
+          _opsKpi("Articulaciones dolorosas", "${controls.isNotEmpty ? controls.last['articulaciones_dolorosas'] ?? '-' : '-'}"),
+          const Spacer(),
+          const Divider(),
+          Text("Fuente: Conteo clínico de 27 articulaciones para evaluación de AIJ.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+        ],
+      );
+    } else if (_activeMonitorIndex == 2) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+            child: Text("Figura 3", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(height: 16),
+          Text("Crecimiento y nutrición", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 24),
+          _opsKpi("Último IMC", "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
+          const Spacer(),
+          const Divider(),
+          Text("Fuente: Evaluaciones de talla y peso usando estándares OMS.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+            child: Text("Historial", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(height: 16),
+          Text("Registros cronológicos", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 24),
+          _opsKpi("Controles totales", "${controls.length}"),
+          const Spacer(),
+          const Divider(),
+          Text("Fuente: Línea de tiempo de eventos clínicos del paciente.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+        ],
+      );
+    }
+  }
+
+  Widget _opsKpi(String title, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Text(value, style: GoogleFonts.inter(fontSize: 36, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+      ],
+    );
+  }
+
+  Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
+    if (_activeMonitorIndex == 0) {
+      return Column(
+        children: [
+          _buildEvoActivitySection(controls),
+          const SizedBox(height: 24),
+          _buildEvoInflammationSectionV2(controls),
+        ],
+      );
+    } else if (_activeMonitorIndex == 1) {
+      return _buildEvoHeatmapSection(controls);
+    } else if (_activeMonitorIndex == 2) {
+      return Column(
+        children: [
+          _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {})),
+          const SizedBox(height: 40),
+          _buildFoodIntakeSection(),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildClinicalTimeline(historial),
+          const SizedBox(height: 40),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: historial.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildChartExplanation(String title, String content, Color color) =>
