@@ -49,7 +49,7 @@ class _HeatLabel extends StatelessWidget {
               text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF1E293B),
@@ -671,7 +671,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Expediente maestro integral",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontWeight: FontWeight.w900, fontSize: 20)),
                       Text(
                           "Registro oficial del paciente y soporte legal en el sistema ReumaNutri",
@@ -869,7 +869,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     letterSpacing: 0.2)),
             const SizedBox(height: 4),
             Text(v?.toString() ?? "No registrado",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight:
                       (isBold || isAlert) ? FontWeight.w900 : FontWeight.w600,
@@ -1037,7 +1037,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           indicator: const UnderlineTabIndicator(
               borderSide: BorderSide(width: 4, color: greenBrand),
               insets: EdgeInsets.symmetric(horizontal: 60)),
-          labelStyle: GoogleFonts.montserrat(
+          labelStyle: GoogleFonts.inter(
               fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
           tabs: const [
             Tab(text: "Registro clínico"),
@@ -1196,7 +1196,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
         // 1. SIGNOS VITALES Y ANTROPOMETRÍA
         _sectionHeader(
-            "1. Signos vitales y antropometría", Icons.monitor_weight_outlined),
+            "Signos vitales y antropometría", Icons.monitor_weight_outlined),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(24),
@@ -1429,7 +1429,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         _buildRecomendacionesSelector(),
         const SizedBox(height: 48),
 
-        _sectionHeader("5. Seguimiento y observaciones", Icons.event_note_rounded),
+        _sectionHeader("Seguimiento y observaciones", Icons.event_note_rounded),
         const SizedBox(height: 24),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1536,13 +1536,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: sel ? greenBrand : const Color(0xFF0F172A))),
                     const SizedBox(height: 4),
                     Text(desc,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.w500)),
@@ -1600,7 +1600,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(icon, size: 16, color: isSel ? greenBrand : Colors.blueGrey),
             const SizedBox(width: 10),
             Text(name,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: isSel ? greenBrand : Colors.blueGrey)),
@@ -1817,7 +1817,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             child: Text(
               "Quedan $diasRestantes días",
               textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF334155)),
@@ -1841,7 +1841,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
             const SizedBox(width: 12),
             Text("Diagnóstico nutricional OMS",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF475569))),
@@ -1861,7 +1861,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         const SizedBox(height: 24),
         Text(
             "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A))),
@@ -1939,7 +1939,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("•",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             color: _omsColor)),
@@ -2007,13 +2007,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF64748B))),
             const SizedBox(height: 2),
             Text(value,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
@@ -2025,7 +2025,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Icon(i, size: 18, color: greenBrand),
         const SizedBox(width: 12),
         Text(t,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontWeight: FontWeight.w900,
                 fontSize: 13,
                 color: const Color(0xFF0F172A),
@@ -2050,13 +2050,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 child: Icon(icon, color: greenBrand, size: 20)),
             const SizedBox(width: 12),
             Text(title,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
           ]),
           Text("${val.toInt()}/$max",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: greenBrand)),
@@ -2080,7 +2080,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   isSel ? greenBrand : Colors.grey.shade200)),
                       child: Center(
                           child: Text("$index",
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: isSel
@@ -2092,7 +2092,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: labels
                 .map((l) => Text(l,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)))
@@ -2105,7 +2105,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       String label, TextEditingController ctrl, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: Colors.blueGrey)),
@@ -2124,7 +2124,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     controller: ctrl,
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 14, fontWeight: FontWeight.w700),
                     decoration: const InputDecoration(
                         border: InputBorder.none,
@@ -2176,12 +2176,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("¿Tiene brote activo?",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: _brote ? Colors.red.shade900 : Colors.green.shade900)),
           Text("Indique si el paciente presenta un brote en este momento.",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
@@ -2212,7 +2212,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             color: _brote ? Colors.red : greenBrand),
         const SizedBox(width: 16),
         Text(_brote ? "Brote activo detectado" : "Sin brote activo",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
                 color: _brote ? Colors.red : greenBrand)),
@@ -2232,7 +2232,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           isExpanded: true,
           hint: hint != null
               ? Text(hint,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 13,
                       color: Colors.grey.shade400,
                       fontWeight: FontWeight.w500))
@@ -2241,7 +2241,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => DropdownMenuItem<int>(
                   value: e['id'],
                   child: Text(e['nombre'] ?? e['descripcion'] ?? "",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF1E293B)))))
@@ -2275,7 +2275,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(v,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: greenBrand))
@@ -2320,19 +2320,24 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 fontWeight: FontWeight.w800,
                 color: color,
                 height: 1.4,
-                fontFamily: GoogleFonts.montserrat().fontFamily),
+                fontFamily: GoogleFonts.inter().fontFamily),
             children: spans));
   }
 
-  Widget _sectionHeader(String t, IconData i) => Row(children: [
-        Icon(i, size: 18, color: greenBrand),
-        const SizedBox(width: 12),
+  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) => Row(children: [
+        Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: AppTema.azulPrincipal.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+            child: Icon(i, size: 20, color: AppTema.azulPrincipal)),
+        const SizedBox(width: 18),
         Text(t,
-            style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-                color: const Color(0xFF0F172A),
-                letterSpacing: 0.5))
+            style: GoogleFonts.inter(
+                fontWeight: isSub ? FontWeight.w800 : FontWeight.w900,
+                fontSize: isSub ? 11 : 13,
+                color: isSub ? Colors.blueGrey : const Color(0xFF0F172A),
+                letterSpacing: 0.8))
       ]);
 
   Widget _field(TextEditingController c, String l, IconData i,
@@ -2371,16 +2376,17 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Centro de análisis clínico",
+        Text("Monitor de evolución",
             style: GoogleFonts.inter(
-                fontSize: 24,
+                fontSize: 28,
                 fontWeight: FontWeight.w800,
                 color: AppTema.azulPrincipal,
-                letterSpacing: -0.5)),
+                letterSpacing: -1)),
         const SizedBox(height: 8),
-        const Text(
-            "Prioridad reumatológica: monitoreo de actividad de enfermedad AIJ + estado nutricional integral.",
-            style: TextStyle(color: Colors.blueGrey, fontSize: 13)),
+        Text(
+            "Historial y análisis clínico de la actividad de la enfermedad y estado nutricional.",
+            style: GoogleFonts.inter(
+                fontSize: 15, color: const Color(0xFF64748B))),
         const SizedBox(height: 28),
         _buildEvolutionDashboard(evo),
         const SizedBox(height: 56),
@@ -2456,7 +2462,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(title,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                           color: color)),
@@ -2643,7 +2649,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   const Text("Actual",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$actual $unit",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: color)),
@@ -2651,7 +2657,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   const Text("Ideal OMS",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$ideal $unit",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Colors.green)),
@@ -2975,7 +2981,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text(
                       h['estado_nutricional'] ?? "Sin diagnóstico",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                           color: const Color(0xFF0F172A)),
@@ -3037,7 +3043,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     const Icon(Icons.analytics_outlined, color: greenBrand),
                     const SizedBox(width: 12),
                     Text("Resumen de valoración",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
                             color: greenBrand)),
@@ -3105,7 +3111,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     color: Colors.blueGrey)),
             const SizedBox(height: 2),
             Text(v,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: isHighlight ? FontWeight.w900 : FontWeight.w600,
                     color: isHighlight ? greenBrand : const Color(0xFF1E293B)))
@@ -3414,33 +3420,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     };
   }
 
-  Widget _redesignHeader() => Row(
+  Widget _redesignHeader() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.green.shade100)),
-            child: const Icon(Icons.add_box_outlined,
-                color: Color(0xFF2E7D32), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("1. Evolución mensual de síntomas",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A))),
-              Text(
-                  "Seguimiento de dolor y energía reportados en los controles del paciente",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B))),
-            ],
+          _sectionHeader("Evolución mensual de síntomas", Icons.show_chart_rounded),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 58),
+            child: Text(
+                "Seguimiento de dolor y energía reportados en los controles del paciente",
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B))),
           ),
         ],
       );
@@ -3471,18 +3463,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF64748B))),
                 const SizedBox(height: 2),
                 Text(value,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                         color: color)),
                 Text(status,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 8,
                         fontWeight: FontWeight.w800,
                         color: color)),
@@ -3564,7 +3556,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Tendencia clínica",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
@@ -3574,7 +3566,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       size: 12, color: Color(0xFF64748B)),
                   const SizedBox(width: 4),
                   Text("Pase el cursor para ver detalle",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF64748B))),
@@ -3646,7 +3638,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 6),
             Text(title,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF334155))),
@@ -3691,7 +3683,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         reservedSize: 24,
                         interval: calculatedMaxY / 2,
                         getTitlesWidget: (v, meta) => Text(v.toInt().toString(),
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF94A3B8))))),
@@ -3715,7 +3707,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
                                       color: const Color(0xFF94A3B8))));
@@ -3798,51 +3790,51 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               TextSpan(
                   text:
                       "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "$label: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text: "${value.toStringAsFixed(1)}/10\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text: "Controles: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "${c['controles_mes'] ?? 1}\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "Estado: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "$estado\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "Brote: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "${c['en_brote'] == true ? 'Sí' : 'No'}",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: c['en_brote'] == true ? Colors.red : Colors.green,
                       fontWeight: FontWeight.w800)),
@@ -3868,7 +3860,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 color: Color(0xFF004FC4),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
             child: Text("Lectura clínica rápida",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: Colors.white)),
@@ -3913,7 +3905,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 color: Colors.red, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
                         Text("Alta actividad",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.red)),
@@ -3949,7 +3941,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 children: [
                   Flexible(
                       child: Text(label,
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF64748B)),
@@ -3958,7 +3950,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Flexible(
                       child: Text(value,
                           textAlign: TextAlign.right,
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: isMultiLine
@@ -3989,7 +3981,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   size: 14, color: Color(0xFF0F172A)),
               const SizedBox(width: 8),
               Text("Top 3 controles recientes",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
@@ -4039,14 +4031,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   Widget _tableHeader(String t) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Text(t,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 8,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF64748B))));
   Widget _tableCell(String t) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(t,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 9,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF0F172A))));
@@ -4057,7 +4049,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             SizedBox(
                 width: 14,
                 child: Text("$val",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         color: const Color(0xFF0F172A)))),
@@ -4083,7 +4075,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     brote ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(4)),
             child: Text(brote ? "Sí" : "No",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
                     color: brote ? Colors.red : Colors.green)),
@@ -4111,7 +4103,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       color: Colors.white, size: 12)),
               const SizedBox(width: 10),
               Text("Interpretación",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF004FC4))),
@@ -4119,7 +4111,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ),
           const SizedBox(height: 8),
           Text(stats['interpretacion'],
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF334155),
@@ -4146,7 +4138,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: color.withOpacity(0.2))),
         child: Text(t,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 8, fontWeight: FontWeight.w800, color: color)),
       );
 
@@ -4672,13 +4664,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("2. Actividad articular",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento de articulaciones inflamadas, dolorosas y rigidez matutina del paciente",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -4704,7 +4696,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       size: 14, color: Color(0xFF2563EB)),
                   const SizedBox(width: 8),
                   Text("Evolución articular",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF0F172A))),
@@ -4724,7 +4716,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     const SizedBox(width: 8),
                     Text(
                         "Cada gráfica ajusta automáticamente su escala según el rango de valores del paciente.",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF334155))),
@@ -4791,7 +4783,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           size: 14, color: Color(0xFF2563EB)),
                       const SizedBox(width: 8),
                       Text("Resumen del periodo",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 11, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 16),
@@ -4825,12 +4817,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           size: 14, color: Colors.green),
                       const SizedBox(width: 8),
                       Text("Interpretación de la actividad articular",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 11, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 10),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -4910,7 +4902,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 const SizedBox(height: 6),
                 Text(title,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
@@ -4960,7 +4952,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             interval: maxY / 2,
                             getTitlesWidget: (v, meta) => Text(
                                 v.toInt().toString(),
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF94A3B8))))),
@@ -4982,7 +4974,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       fontWeight: FontWeight.w600,
                                       color: const Color(0xFF94A3B8)));
@@ -5011,26 +5003,26 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               TextSpan(
                                   text:
                                       "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       color: const Color(0xFF64748B))),
                               TextSpan(
                                   text:
                                       "${type == 'rigidez' ? 'Rigidez' : (type == 'inflamadas' ? 'Inflamadas' : 'Dolorosas')}: ",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600)),
                               TextSpan(
                                   text:
                                       "${it.y.toStringAsFixed(type == 'rigidez' ? 0 : 1)}${type == 'rigidez' ? ' min' : ''}\n",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
                                       color: color)),
                               TextSpan(
                                   text:
                                       "Controles del mes: ${c['controles_mes'] ?? 1}",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       color: const Color(0xFF64748B))),
                             ]);
@@ -5053,23 +5045,23 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text("Actual",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF64748B))),
                 Text("$actual",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: color)),
                 const SizedBox(height: 6),
                 Text("Máximo",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF64748B))),
                 Text("$maxVal",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: color.withOpacity(0.7))),
@@ -5088,13 +5080,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(icon, size: 14, color: const Color(0xFF64748B)),
             const SizedBox(width: 8),
             Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF64748B))),
             const Spacer(),
             Text(value,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
@@ -5214,13 +5206,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("3. Inflamación y estado clínico",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento mensual de inflamación, estado clínico y brote",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -5302,13 +5294,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Interpretación clínica",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -5349,11 +5341,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Evolución mensual de inflamación (0-3)",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 12, fontWeight: FontWeight.w800)),
                   Text(
                       "Un punto por mes; valores agregados por promedio mensual",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 9, color: Colors.blueGrey)),
                 ],
               ),
@@ -5404,7 +5396,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           interval: 1,
                           getTitlesWidget: (v, meta) => Text(
                               v.toInt().toString(),
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
                                   color: const Color(0xFF94A3B8))))),
@@ -5428,7 +5420,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                     ['fecha_control'] ??
                                                 ""))
                                         .toString(),
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF94A3B8))));
@@ -5454,22 +5446,22 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         TextSpan(
                             text:
                                 "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 8, color: const Color(0xFF64748B))),
                         TextSpan(
                             text: "Inflamación: ",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9, fontWeight: FontWeight.w600)),
                         TextSpan(
                             text: "${it.y.toStringAsFixed(1)}/3\n",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.purple)),
                         TextSpan(
                             text:
                                 "Brotes del mes: ${c['brotes_mes'] ?? 0} | Controles: ${c['controles_mes'] ?? 1}",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 8, color: const Color(0xFF64748B))),
                       ]);
                     }).toList(),
@@ -5480,7 +5472,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ),
           const SizedBox(height: 10),
           Text(_generateInflammationHint(controls),
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF334155))),
@@ -5503,7 +5495,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const Icon(Icons.timeline_rounded, size: 14, color: Colors.purple),
             const SizedBox(width: 8),
             Text("Estado y brote últimos 6 controles",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10, fontWeight: FontWeight.w800))
           ]),
           const SizedBox(height: 18),
@@ -5545,7 +5537,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                   ''),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.montserrat(
+                                          style: GoogleFonts.inter(
                                               fontSize: 8,
                                               fontWeight: FontWeight.w800,
                                               color: const Color(0xFF64748B))),
@@ -5583,7 +5575,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 7,
                                       fontWeight: FontWeight.w700,
                                       color: _stateColor(
@@ -5667,13 +5659,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("3. Inflamación y estado clínico",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento del nivel de inflamación y actividad clínica a lo largo del tiempo",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -5706,11 +5698,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("Evolución de la inflamación (0-3)",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800)),
                               Text("Puntuación de inflamación por visita",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9, color: Colors.blueGrey)),
                             ],
                           ),
@@ -5774,7 +5766,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                       interval: 1,
                                       getTitlesWidget: (v, meta) => Text(
                                           v.toInt().toString(),
-                                          style: GoogleFonts.montserrat(
+                                          style: GoogleFonts.inter(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w600,
                                               color:
@@ -5794,7 +5786,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                 _monthShort(controls[idx]
                                                         ['fecha_control'] ??
                                                     ""),
-                                                style: GoogleFonts.montserrat(
+                                                style: GoogleFonts.inter(
                                                     fontSize: 9,
                                                     fontWeight: FontWeight.w600,
                                                     color: const Color(
@@ -5821,19 +5813,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                               TextSpan(
                                                   text:
                                                       "${_formatIsoDate(controls[it.x.toInt()]['fecha_control'])}\n",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 8,
                                                       color: const Color(
                                                           0xFF64748B))),
                                               TextSpan(
                                                   text: "Inflamación: ",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 9,
                                                       fontWeight:
                                                           FontWeight.w600)),
                                               TextSpan(
                                                   text: "${it.y.toInt()}/3",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 10,
                                                       fontWeight:
                                                           FontWeight.w900,
@@ -5860,7 +5852,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(_generateInflammationHint(controls),
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF334155)))),
@@ -5892,7 +5884,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 size: 14, color: Color(0xFF004FC4)),
                             const SizedBox(width: 8),
                             Text("Estado de enfermedad",
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 10, fontWeight: FontWeight.w800))
                           ]),
                           const SizedBox(height: 12),
@@ -5931,17 +5923,17 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text("Último estado",
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.blueGrey)),
                                 Text(ultimoEstadoStr,
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w900,
                                         color: ultimoEstadoColor)),
                                 Text("Evaluación en $ultimoMes",
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.blueGrey)),
@@ -5967,7 +5959,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 size: 14, color: Colors.purple),
                             const SizedBox(width: 8),
                             Text("Brote (últimas evaluaciones)",
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 10, fontWeight: FontWeight.w800))
                           ]),
                           const SizedBox(height: 12),
@@ -6047,13 +6039,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Interpretación clínica",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -6083,7 +6075,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
         Text(text,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF64748B)))
@@ -6102,7 +6094,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(width: 8),
           Expanded(
               child: Text(label,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF64748B)))),
@@ -6118,7 +6110,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       valueColor: AlwaysStoppedAnimation<Color>(color)))),
           const SizedBox(width: 8),
           Text("$count",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9, fontWeight: FontWeight.w800, color: color)),
         ],
       ),
@@ -6133,7 +6125,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             border: Border.all(
                 color: (isBrote ? Colors.red : Colors.green).withOpacity(0.1))),
         child: Text(isBrote ? "Sí" : "No",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 8,
                 fontWeight: FontWeight.w800,
                 color: isBrote ? Colors.red : Colors.green)),
@@ -6158,14 +6150,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Text(title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 7,
                           fontWeight: FontWeight.w700,
                           color: Colors.blueGrey)),
                   Text(value,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                           color: const Color(0xFF0F172A))),
@@ -6251,7 +6243,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("4. Mapa de calor mensual", Icons.grid_view_rounded),
+        _sectionHeader("Mapa de calor mensual", Icons.grid_view_rounded),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -6280,7 +6272,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       children: [
                         Text(
                           "Resumen de indicadores de salud",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF1E293B),
@@ -6612,7 +6604,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 alignment: Alignment.center,
                 child: Text(
                   label,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF1E293B),
@@ -6759,7 +6751,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("5. Crecimiento y nutrición", Icons.show_chart_rounded),
+        _sectionHeader("Crecimiento y nutrición", Icons.show_chart_rounded),
         const SizedBox(height: 12),
         LayoutBuilder(builder: (context, constraints) {
           final cardWidth = constraints.maxWidth >= 760
@@ -7215,7 +7207,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           SizedBox(
@@ -7241,7 +7233,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Expanded(
@@ -7505,7 +7497,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 Text(label,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
                 Text(value,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: color)),
@@ -7755,18 +7747,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               TextSpan(
                   text:
                       "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "$label: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text:
                       "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
             ],
           );
@@ -8189,7 +8181,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("6. Relación dolor - energía - brote",
+          _sectionHeader("Relación dolor - energía - brote",
               Icons.scatter_plot_rounded),
           const SizedBox(height: 12),
           Row(
@@ -8847,7 +8839,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("7. Consumo alimentario y aceptación de recetas",
+        _sectionHeader("Consumo alimentario y aceptación de recetas",
             Icons.restaurant_menu_rounded),
         const SizedBox(height: 12),
         Text(
