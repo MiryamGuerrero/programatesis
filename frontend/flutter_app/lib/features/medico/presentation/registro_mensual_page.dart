@@ -16,6 +16,7 @@ import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 import '../../../shared/widgets/role_shell.dart';
+import '../../../shared/widgets/custom_date_picker.dart';
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
