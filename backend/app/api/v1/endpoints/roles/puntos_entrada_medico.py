@@ -262,6 +262,7 @@ def consumo_alimentario_paciente(
                 coalesce(r.nombre, 'Receta no encontrada') as receta_consumida,
                 coalesce(r.nombre, 'Receta no encontrada') as receta_asignada,
                 coalesce(r.descripcion, '') as descripcion_receta,
+                r.imagen_url,
                 coalesce(pi.consumida, false) as consumida,
                 er.estrellas,
                 er.comentario,

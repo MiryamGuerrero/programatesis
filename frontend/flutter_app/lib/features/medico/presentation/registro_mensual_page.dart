@@ -75,7 +75,8 @@ class RegistroMensualPage extends ConsumerStatefulWidget {
 class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _activeMonitorIndex = 0;
+  int _activeDomainIndex = 0;
+  int _activeFigureIndex = 0;
   bool _loading = false;
   bool _yaEvaluadoHoy = false;
   bool _controlMensualYaHecho = false;
@@ -677,7 +678,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       Text(
                           "Registro oficial del paciente y soporte legal en el sistema ReumaNutri",
                           style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12)),
+                              color: Colors.grey.shade600, fontSize: 11)),
                     ],
                   ),
                   const Spacer(),
@@ -1188,7 +1189,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   child: Text(
                       "PACIENTE YA EVALUADO HOY. Si registra una nueva valoración, se sobreescribirá el control de esta fecha.",
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.orange))),
             ]),
@@ -1474,7 +1475,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         ? "Registrar valoración"
                         : "Guardar cambios",
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                        fontWeight: FontWeight.bold, fontSize: 14)),
                 style: FilledButton.styleFrom(
                     backgroundColor: greenBrand,
                     shape: RoundedRectangleBorder(
@@ -1602,7 +1603,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(width: 10),
             Text(name,
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: isSel ? greenBrand : Colors.blueGrey)),
             if (isSel) ...[
@@ -1685,7 +1686,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => Chip(
                   label: Text(e['nombre'] ?? "",
                       style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.red)),
                   onDeleted: () => setState(() => selectedList.remove(e)),
@@ -1760,7 +1761,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       ? "Activa por $duracionSugerida días"
                       : "Sugerencia: $duracionSugerida días",
                   style: GoogleFonts.inter(
-                      fontSize: 11, color: const Color(0xFF64748B))),
+                      fontSize: 10, color: const Color(0xFF64748B))),
               children: sel
                   ? [
                       Padding(
@@ -1819,7 +1820,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               "Quedan $diasRestantes días",
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF334155)),
             ),
@@ -1843,7 +1844,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(width: 12),
             Text("Diagnóstico nutricional OMS",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF475569))),
           ]),
@@ -1948,7 +1949,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Expanded(
                         child: Text(line,
                             style: GoogleFonts.inter(
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF334155),
                                 height: 1.35))),
@@ -2107,7 +2108,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
               color: Colors.blueGrey)),
       const SizedBox(height: 8),
@@ -2296,7 +2297,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               child: Text(
                   "$l: ${DateFormat('EEEE, d MMMM y', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}",
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600))),
         ]),
@@ -2372,8 +2373,45 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
     if (evo == null || historial.isEmpty) {
-      return const Center(
-          child: Text("No hay registros previos para graficar."));
+      final emptyContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Monitor de evolución",
+              style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTema.azulPrincipal,
+                  letterSpacing: -1)),
+          const SizedBox(height: 8),
+          Text(
+              "Historial y análisis clínico de la actividad de la enfermedad y estado nutricional.",
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xFF64748B))),
+          const SizedBox(height: 48),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.monitor_heart_outlined, size: 64, color: Colors.blueGrey.shade200),
+                  const SizedBox(height: 24),
+                  Text("Aún no hay controles históricos", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                  const SizedBox(height: 8),
+                  Text("No hay registros previos para graficar.\nRegistra el control de este mes para activar el monitor de evolución.", textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 14, color: Colors.blueGrey)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+      if (isNested) return Padding(padding: const EdgeInsets.all(40), child: emptyContent);
+      return SingleChildScrollView(padding: const EdgeInsets.all(24), child: emptyContent);
     }
     
     final content = Column(
@@ -2381,7 +2419,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       children: [
         Text("Monitor de evolución",
             style: GoogleFonts.inter(
-                fontSize: 28,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: AppTema.azulPrincipal,
                 letterSpacing: -1)),
@@ -2389,7 +2427,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Text(
             "Historial y análisis clínico de la actividad de la enfermedad y estado nutricional.",
             style: GoogleFonts.inter(
-                fontSize: 15, color: const Color(0xFF64748B))),
+                fontSize: 13, color: const Color(0xFF64748B))),
         const SizedBox(height: 28),
         _buildOpsDashboard(evo, historial),
       ],
@@ -2408,216 +2446,334 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     final controls = _evoFilteredControls(evo);
     final monthlyControls = _groupEvoControlsByMonth(controls);
     final stats = _calculateEvoStats(monthlyControls);
-    
-    final tabs = [
-      "Síntomas y Clínica",
-      "Mapa Articular",
-      "Crecimiento y Nutrición",
-      "Historial de Controles",
+
+    final domains = [
+      "Evolución Reumatológica",
+      "Evolución Nutricional",
+      "Resumen Clínico",
+      "Historial Clínico",
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Pestañas (Navegación horizontal superior)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: List.generate(tabs.length, (index) {
-                final active = _activeMonitorIndex == index;
-                return InkWell(
-                  onTap: () => setState(() => _activeMonitorIndex = index),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: active ? AppTema.azulPrincipal : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: active ? AppTema.azulPrincipal : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: Text(
-                      tabs[index],
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                        color: active ? Colors.white : Colors.blueGrey,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          
-          // Contenido principal de la pestaña (dividido en 2 columnas estilo OPS)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Columna Izquierda (Contexto y KPIs)
-                Container(
-                  width: 300,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    border: Border(right: BorderSide(color: Colors.grey.shade200)),
-                  ),
-                  child: _buildOpsLeftPanel(stats, controls, evo),
-                ),
-                
-                // Columna Derecha (Gráficas)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: _buildOpsRightPanel(controls, evo, historial),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    final figureTabs = [
+      ["Síntomas y Dolor", "Mapa Articular"],
+      ["Antropometría", "Consumo Alimentario"],
+      ["Lectura Rápida"],
+      ["Línea Temporal", "Registros Detallados"],
+    ];
 
-  Widget _buildOpsLeftPanel(Map<String, dynamic> stats, List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
-    if (_activeMonitorIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-            child: Text("Figura 1", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(height: 16),
-          Text("Evolución mensual de síntomas", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 24),
-          _opsKpi("Último nivel de dolor", "${controls.isNotEmpty ? controls.last['puntos_dolor'] ?? '-' : '-'} / 10"),
-          const SizedBox(height: 16),
-          _opsKpi("Última fatiga", "${controls.isNotEmpty ? controls.last['nivel_fatiga'] ?? '-' : '-'} / 10"),
-          const Spacer(),
-          const Divider(),
-          Text("Fuente: Historial de la Escala Visual Analógica (EVA) reportada por el paciente en sus controles regulares.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
-        ],
-      );
-    } else if (_activeMonitorIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-            child: Text("Figura 2", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(height: 16),
-          Text("Mapa articular", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 24),
-          _opsKpi("Articulaciones inflamadas", "${controls.isNotEmpty ? controls.last['articulaciones_inflamadas'] ?? '-' : '-'}"),
-          const SizedBox(height: 16),
-          _opsKpi("Articulaciones dolorosas", "${controls.isNotEmpty ? controls.last['articulaciones_dolorosas'] ?? '-' : '-'}"),
-          const Spacer(),
-          const Divider(),
-          Text("Fuente: Conteo clínico de 27 articulaciones para evaluación de AIJ.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
-        ],
-      );
-    } else if (_activeMonitorIndex == 2) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-            child: Text("Figura 3", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(height: 16),
-          Text("Crecimiento y nutrición", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 24),
-          _opsKpi("Último IMC", "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
-          const Spacer(),
-          const Divider(),
-          Text("Fuente: Evaluaciones de talla y peso usando estándares OMS.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
-        ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-            child: Text("Historial", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(height: 16),
-          Text("Registros cronológicos", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 24),
-          _opsKpi("Controles totales", "${controls.length}"),
-          const Spacer(),
-          const Divider(),
-          Text("Fuente: Línea de tiempo de eventos clínicos del paciente.", style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
-        ],
-      );
-    }
-  }
-
-  Widget _opsKpi(String title, String value) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-        const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.inter(fontSize: 36, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+        // Navegación Nivel 1 (Fuera de la caja)
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          children: List.generate(domains.length, (index) {
+            final active = _activeDomainIndex == index;
+            return InkWell(
+              onTap: () => setState(() {
+                _activeDomainIndex = index;
+                _activeFigureIndex = 0; // Reset tab
+              }),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                padding: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: active ? AppTema.azulPrincipal.withOpacity(0.05) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text("${index + 1}", style: GoogleFonts.inter(color: active ? Colors.white : Colors.blueGrey.shade600, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      domains[index],
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 24),
+
+        // La Caja Principal
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Pestañitas Nivel 2 (Dentro de la caja, arriba a la derecha)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  children: List.generate(figureTabs[_activeDomainIndex].length, (idx) {
+                    final active = _activeFigureIndex == idx;
+                    return InkWell(
+                      onTap: () => setState(() => _activeFigureIndex = idx),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: active ? Colors.blueGrey.shade50 : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: active ? Colors.blueGrey.shade200 : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(
+                          figureTabs[_activeDomainIndex][idx],
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                            color: active ? AppTema.azulPrincipal : Colors.blueGrey,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              // Contenido (2 columnas)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Columna Izquierda
+                  Container(
+                      width: 280,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16)),
+                      ),
+                      child: _buildOpsLeftPanel(stats, controls, evo),
+                    ),
+
+                    // Columna Derecha (Gráfica)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: _buildOpsRightPanel(controls, evo, historial, stats, monthlyControls),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
-    if (_activeMonitorIndex == 0) {
-      return Column(
-        children: [
-          _buildEvoActivitySection(controls),
-          const SizedBox(height: 24),
-          _buildEvoInflammationSectionV2(controls),
-        ],
-      );
-    } else if (_activeMonitorIndex == 1) {
-      return _buildEvoHeatmapSection(controls);
-    } else if (_activeMonitorIndex == 2) {
-      return Column(
-        children: [
-          _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {})),
-          const SizedBox(height: 40),
-          _buildFoodIntakeSection(),
-        ],
-      );
-    } else {
-      return Column(
+  Widget _buildOpsLeftPanel(Map<String, dynamic> stats, List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
+    String badgeText = "";
+    String title = "";
+    String desc = "";
+    Widget kpis = const SizedBox.shrink();
+
+    if (_activeDomainIndex == 0) { // Reumatológica
+      if (_activeFigureIndex == 0) { // Síntomas
+        badgeText = "Figura 1";
+        title = "Evolución de Síntomas";
+        desc = "Seguimiento histórico de la Escala Visual Analógica (EVA) reportada por el paciente.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Último Dolor", "${controls.isNotEmpty ? controls.last['puntos_dolor'] ?? '-' : '-'} / 10"),
+            const SizedBox(height: 16),
+            _opsKpi("Fatiga", "${controls.isNotEmpty ? controls.last['nivel_fatiga'] ?? '-' : '-'} / 10"),
+            
+          ],
+        );
+      } else { // Mapa Articular
+        badgeText = "Figura 2";
+        title = "Inflamación Articular";
+        desc = "Conteo clínico de las 27 articulaciones para evaluar el estado físico actual.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Art. Inflamadas", "${controls.isNotEmpty ? controls.last['articulaciones_inflamadas'] ?? '-' : '-'}"),
+            const SizedBox(height: 16),
+            _opsKpi("Art. Dolorosas", "${controls.isNotEmpty ? controls.last['articulaciones_dolorosas'] ?? '-' : '-'}"),
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 1) { // Nutricional
+      if (_activeFigureIndex == 0) { // Antropometría
+        badgeText = "Figura 3";
+        title = "Crecimiento y Estado";
+        desc = "Evolución antropométrica frente a los estándares de crecimiento de la OMS.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("IMC Actual", "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
+            const SizedBox(height: 16),
+            _opsKpi("Talla Actual", "${controls.isNotEmpty ? controls.last['talla_cm'] ?? '-' : '-'} cm"),
+          ],
+        );
+      } else { // Consumo
+        badgeText = "Figura 4";
+        title = "Adherencia a la Dieta";
+        desc = "Registro del consumo alimentario y aceptación de las recomendaciones dietéticas.";
+        final data = _consumoAlimentario;
+        final resumen = Map<String, dynamic>.from(data?['resumen'] ?? {});
+        final adh = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("% de Adherencia", "${adh.toStringAsFixed(1)}%"),
+            const SizedBox(height: 16),
+            _opsKpi("Total de Registros", "${_foodFilteredItems().length}"),
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 2) { // Resumen
+      badgeText = "Figura 5";
+      title = "Impacto Global";
+      desc = "Panorama general de la efectividad del tratamiento médico y nutricional combinado.";
+      kpis = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildClinicalTimeline(historial),
-          const SizedBox(height: 40),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: historial.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+          _opsKpi("Meses Controlados", "${controls.length}"),
+          const SizedBox(height: 16),
+          _opsKpi("Tendencia Clínica", stats['tendencia_clinica'] ?? "-", isText: true),
+        ],
+      );
+    } else { // Historial
+      if (_activeFigureIndex == 0) { // Timeline
+        badgeText = "Figura 6";
+        title = "Línea Temporal";
+        desc = "Vista gráfica de eventos clínicos a lo largo del tiempo.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Meses Registrados", "${controls.length}"),
+          ],
+        );
+      } else { // Registros Detallados
+        badgeText = "Figura 7";
+        title = "Registros Detallados";
+        desc = "Lista cronológica completa de todas las consultas y sus variables clínicas.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Controles Totales", "${controls.length}"),
+          ],
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+          child: Text(badgeText, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+        ),
+        const SizedBox(height: 16),
+        Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        const SizedBox(height: 32),
+        kpis,
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 8),
+        Text(desc, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey, height: 1.5)),
+      ],
+    );
+  }
+
+  Widget _opsKpi(String title, String value, {bool isText = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: isText ? 13 : 24,
+            fontWeight: isText ? FontWeight.w700 : FontWeight.w900,
+            color: AppTema.azulPrincipal,
+            height: 1.2
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial, Map<String, dynamic> stats, List<Map<String, dynamic>> monthlyControls) {
+    if (_activeDomainIndex == 0) { // Reumatológica
+      if (_activeFigureIndex == 0) { // Síntomas y Dolor
+        return _redesignTendenciaClinica(monthlyControls, stats);
+      } else { // Mapa Articular
+        return Column(
+          children: [
+            _buildEvoActivitySection(controls),
+            const SizedBox(height: 24),
+            _buildEvoInflammationSectionV2(controls),
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 1) { // Nutricional
+      if (_activeFigureIndex == 0) {
+        return _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {}));
+      } else {
+        return _buildFoodIntakeSection();
+      }
+    } else if (_activeDomainIndex == 2) { // Resumen Clínico
+      return Column(
+        children: [
+          _redesignSummaryCards(stats),
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: _buildEvoHeatmapSection(controls)), // Heatmap is the visual Lectura Rápida
+              const SizedBox(width: 14),
+              Expanded(flex: 4, child: _redesignLecturaRapida(stats)),
+            ],
           ),
         ],
       );
+    } else { // Historial
+      if (_activeFigureIndex == 0) {
+        return _buildClinicalTimeline(historial);
+      } else {
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: historial.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+        );
+      }
     }
   }
 
@@ -2638,7 +2794,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     children: [
                   Text(title,
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: color,
                           letterSpacing: 0.5)),
@@ -2822,7 +2978,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(width: 8),
             Text(label,
                 style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: Colors.blueGrey,
                     letterSpacing: 0.5))
@@ -2840,7 +2996,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Positioned(
                       bottom: 10,
                       child: Container(
-                          width: 32,
+                          width: 22,
                           height: barHeight.clamp(10, 200),
                           decoration: BoxDecoration(
                               color: color,
@@ -3160,7 +3316,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Expanded(
               child: Text(conclusion,
                   style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600, color: color)))
+                      fontSize: 10, fontWeight: FontWeight.w600, color: color)))
         ]));
   }
 
@@ -3200,7 +3356,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Text(
                       "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min",
                       style:
-                          const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                          const TextStyle(fontSize: 10, color: Colors.blueGrey),
                     ),
                   ],
                 ),
@@ -3664,26 +3820,34 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     color: color.withOpacity(0.08), shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 20)),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF64748B))),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: color)),
-                Text(status,
-                    style: GoogleFonts.inter(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF64748B))),
+                  const SizedBox(height: 2),
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: color)),
+                  Text(status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: color)),
+                ],
+              ),
             ),
           ],
         ),
@@ -3747,7 +3911,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls) {
+  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls, Map<String, dynamic> stats) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3789,10 +3953,50 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               (c) => (c['nivel_fatiga'] ?? 10).toDouble(),
               Colors.green,
               "energy"),
-        ],
-      ),
-    );
-  }
+                    const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.description_outlined,
+                        size: 16, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text("Interpretación de síntomas y dolor",
+                        style: GoogleFonts.inter(
+                            fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)))
+                  ]),
+                  const SizedBox(height: 12),
+                  Text(stats['interpretacion'] ?? 'Sin interpretación disponible.',
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: const Color(0xFF334155),
+                          height: 1.5,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (stats['altaActividad'] == true)
+                        _interpretPill("Alta Actividad", Colors.red)
+                      else
+                        _interpretPill("Síntomas estables", Colors.green),
+                      _interpretPill(stats['patronClinico']?.toString().toUpperCase() ?? "SEGUIMIENTO", Colors.blue),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
   Widget _redesignSingleChart(
       String title,
@@ -3844,7 +4048,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(width: 6),
             Text(title,
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF334155))),
           ],
@@ -4066,7 +4270,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
             child: Text("Lectura clínica rápida",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: Colors.white)),
           ),
@@ -4187,7 +4391,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const SizedBox(width: 8),
               Text("Top 3 controles recientes",
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
             ],
@@ -4309,7 +4513,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const SizedBox(width: 10),
               Text("Interpretación",
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF004FC4))),
             ],
@@ -4368,7 +4572,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                  flex: 2, child: _redesignTendenciaClinica(monthlyControls)),
+                  flex: 2, child: _redesignTendenciaClinica(monthlyControls, stats)),
               const SizedBox(width: 14),
               Expanded(
                   flex: 1,
@@ -4605,7 +4809,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   value: e.key,
                   child: Text("$label: ${e.value}",
                       style: GoogleFonts.inter(
-                          fontSize: 11, fontWeight: FontWeight.w700))))
+                          fontSize: 10, fontWeight: FontWeight.w700))))
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
@@ -4648,7 +4852,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   }
 
   Widget _smallMetricCard(String title, String value, Color color) => SizedBox(
-        width: 150,
+        width: 170,
         child: _metricCard(title, value, color),
       );
 
@@ -4939,7 +5143,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   inflActual,
                   inflMax,
                   "inflamadas"),
-              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
               // 2. Dolorosas
               _jointRowChart(
@@ -4950,7 +5154,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   dolActual,
                   dolMax,
                   "dolorosas"),
-              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
               // 3. Rigidez
               _jointRowChart(
@@ -4989,7 +5193,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       const SizedBox(width: 8),
                       Text("Resumen del periodo",
                           style: GoogleFonts.inter(
-                              fontSize: 11, fontWeight: FontWeight.w800))
+                              fontSize: 10, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 16),
                     _footerStatItem(Icons.analytics_outlined, "Prom. rigidez",
@@ -5023,7 +5227,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       const SizedBox(width: 8),
                       Text("Interpretación de la actividad articular",
                           style: GoogleFonts.inter(
-                              fontSize: 11, fontWeight: FontWeight.w800))
+                              fontSize: 10, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 10),
                     Text(interpretacion,
@@ -5267,7 +5471,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         color: const Color(0xFF64748B))),
                 Text("$maxVal",
                     style: GoogleFonts.inter(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: color.withOpacity(0.7))),
               ],
@@ -5500,7 +5704,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text("Interpretación clínica",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
@@ -6245,7 +6449,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text("Interpretación clínica",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
@@ -6397,7 +6601,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text("Estado de enfermedad",
               style:
-                  GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+                  GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -6409,7 +6613,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(height: 12),
           Text("Brote",
               style:
-                  GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+                  GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -6805,7 +7009,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               Container(
                 width: cellWidth,
-                height: 32,
+                height: 22,
                 alignment: Alignment.center,
                 child: Text(
                   label,
@@ -7209,7 +7413,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text("Nivel de riesgo",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: riskColor)),
                     Text(risk,
@@ -7238,7 +7442,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(label,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: Colors.blueGrey)),
           Container(
@@ -7248,7 +7452,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 borderRadius: BorderRadius.circular(4)),
             child: Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                    fontSize: 10, fontWeight: FontWeight.w700, color: color)),
           ),
         ],
       ),
@@ -7402,7 +7606,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)),
               ),
@@ -7660,12 +7864,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+              style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey)),
           Row(
             children: [
               Text(value,
                   style: GoogleFonts.inter(
-                      fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                      fontSize: 10, fontWeight: FontWeight.w700, color: color)),
               const SizedBox(width: 6),
               Container(
                   width: 8,
@@ -7830,7 +8034,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       return Center(
         child: Text(
           "Sin datos suficientes",
-          style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey),
+          style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
         ),
       );
     }
@@ -8198,7 +8402,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(height: 4),
             Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+                    fontSize: 16, fontWeight: FontWeight.w800, color: color)),
           ],
         ),
       );
@@ -8212,7 +8416,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         child: RichText(
           text: TextSpan(
             style:
-                GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                GoogleFonts.inter(fontSize: 10, color: const Color(0xFF334155)),
             children: [
               TextSpan(
                   text: "$k: ",
@@ -8240,7 +8444,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Row(children: [
             Text("Diagnóstico nutricional OMS",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: Colors.blueGrey)),
             const SizedBox(width: 8),
@@ -8260,7 +8464,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Text(
               "IMC ideal ${_formatNum(pre['imc'] ?? c['imc_calculado'])} · Z-score ${_formatNum(pre['z_score_bmi'] ?? c['z_score_bmi'])}",
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
@@ -8290,7 +8494,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Expanded(
                         child: Text(item,
                             style: GoogleFonts.inter(
-                                fontSize: 11,
+                                fontSize: 10,
                                 color: Colors.blueGrey.shade700,
                                 height: 1.35))),
                   ],
@@ -8477,7 +8681,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             ? "Los controles con brote se concentran en mayor dolor y menor energía."
                             : "No se observa relación marcada entre dolor y energía en el período seleccionado.",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Colors.blueGrey.shade700,
                             height: 1.45),
@@ -8567,7 +8771,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(title,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A))),
           const SizedBox(height: 8),
@@ -8659,7 +8863,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           "${_formatIsoDate(c['fecha_control'])}\n${tooltipBuilder(c)}",
                           const TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600),
                         ),
                       ];
@@ -8707,7 +8911,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(title,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A))),
           const SizedBox(height: 8),
@@ -8923,7 +9127,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         child: RichText(
           text: TextSpan(
             style:
-                GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                GoogleFonts.inter(fontSize: 10, color: const Color(0xFF334155)),
             children: [
               TextSpan(
                   text: "$title: ",
@@ -8986,7 +9190,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           if ((c['nota_evolucion'] ?? '').toString().isNotEmpty)
             Text("Nota: ${c['nota_evolucion']}",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Colors.blueGrey.shade700)),
         ],
@@ -9050,7 +9254,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Text(
           "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
           style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 10,
               color: Colors.blueGrey,
               fontWeight: FontWeight.w600),
         ),
@@ -9186,7 +9390,6 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ],
         ),
         const SizedBox(height: 14),
-        _foodTableHeader(),
         if (visible.isEmpty)
           Container(
             width: double.infinity,
@@ -9203,19 +9406,70 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           )
         else
           Container(
+            width: double.infinity,
             decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade200)),
-            child: Column(
-              children: [
-                for (int i = 0; i < visible.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: Colors.grey.shade200),
-                  _foodTableRow(visible[i]),
-                ],
-              ],
+            clipBehavior: Clip.antiAlias,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.grey.shade200,
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+                    columnSpacing: 8,
+                    horizontalMargin: 12,
+                    dataRowMaxHeight: double.infinity,
+                    dataRowMinHeight: 52,
+                    columns: [
+                      _foodTableCol("FECHA"),
+                      _foodTableCol("MOMENTO"),
+                      _foodTableCol("RECETA", maxWidth: 220),
+                      _foodTableCol("CONSUMO"),
+                      _foodTableCol("ACCIONES", center: true),
+                    ],
+                    rows: visible.map((item) {
+                      final estado = (item['estado_consumo'] ?? "No marcada").toString();
+                      final color = _foodStatusColor(estado);
+                      final motivo = _foodReason(item);
+                      final badRating = _isBadFoodRating(item);
+                      
+                      return DataRow(
+                        color: WidgetStateProperty.all(badRating ? Colors.red.shade50 : Colors.white),
+                        cells: [
+                          DataCell(_foodCell(_formatIsoDate(item['fecha']))),
+                          DataCell(_foodCell(item['momento']?.toString() ?? "-")),
+                          DataCell(_foodCell(
+                              (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
+                              weight: FontWeight.w800,
+                              maxWidth: 220,
+                              color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
+                          DataCell(_foodBadge(estado, color)),
+                          DataCell(Center(
+                            child: TextButton.icon(
+                              onPressed: () => _showFoodRecipeModal(item),
+                              icon: const Icon(Icons.visibility_outlined, size: 15),
+                              label: const Text("Ver"),
+                              style: TextButton.styleFrom(
+                                  textStyle: GoogleFonts.inter(
+                                      fontSize: 9, fontWeight: FontWeight.w900)),
+                            ),
+                          )),
+                        ]
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+                ),
+              ),
             ),
-          ),
         const SizedBox(height: 10),
         _foodPagination(total, start, end, totalPages),
       ],
@@ -9266,7 +9520,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const SizedBox(height: 4),
               Text(subtitle,
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Colors.blueGrey,
                       fontWeight: FontWeight.w600)),
             ],
@@ -9302,7 +9556,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     value: opt['value'] as String,
                     child: Text("${label}: ${opt['label']}",
                         style: GoogleFonts.inter(
-                            fontSize: 11, fontWeight: FontWeight.w700)),
+                            fontSize: 10, fontWeight: FontWeight.w700)),
                   ))
               .toList(),
           onChanged: (v) {
@@ -9399,13 +9653,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(height: 10),
           Text("El paciente consumió con mayor frecuencia:",
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           if (ingredients.isEmpty)
             Text("Sin consumo suficiente para generar hallazgos.",
-                style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey))
+                style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey))
           else
             Wrap(
               spacing: 8,
@@ -9420,7 +9674,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       border: Border.all(color: Colors.green.shade100)),
                   child: Text((ing['nombre'] ?? "-").toString(),
                       style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: Colors.green.shade800)),
                 );
@@ -9466,7 +9720,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(height: 8),
             Text("Sin alertas para el periodo evaluado.",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: Colors.blueGrey,
                     fontWeight: FontWeight.w600)),
           ],
@@ -9529,7 +9783,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "${item['receta_consumida'] ?? item['receta_asignada'] ?? 'Receta'}: ${_starsText(item['estrellas'])} · ${_foodReason(item)}",
+                          "",
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
@@ -9549,99 +9803,39 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _foodTableHeader() => Container(
-        decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(flex: 2, child: _foodHeaderText("Fecha")),
-            Expanded(flex: 2, child: _foodHeaderText("Momento")),
-            Expanded(flex: 4, child: _foodHeaderText("Receta")),
-            Expanded(flex: 2, child: _foodHeaderText("Consumo")),
-            Expanded(flex: 2, child: _foodHeaderText("Calificación")),
-            Expanded(flex: 3, child: _foodHeaderText("Motivo")),
-            Expanded(flex: 2, child: Center(child: _foodHeaderText("Acción"))),
-          ],
+
+
+  DataColumn _foodTableCol(String label, {double? maxWidth, bool center = false}) {
+    return DataColumn(
+      label: Container(
+        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        alignment: center ? Alignment.center : Alignment.centerLeft,
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 8.5,
+              color: Colors.white,
+              letterSpacing: 0.2),
         ),
-      );
-
-  Widget _foodHeaderText(String t) => Text(t,
-      style: GoogleFonts.inter(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          color: const Color(0xFF334155)));
-
-  Widget _foodTableRow(Map<String, dynamic> item) {
-    final estado = (item['estado_consumo'] ?? "No marcada").toString();
-    final color = _foodStatusColor(estado);
-    final motivo = _foodReason(item);
-    final badRating = _isBadFoodRating(item);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: badRating ? Colors.red.shade50 : Colors.white,
-        border: Border(
-            bottom: BorderSide(
-                color:
-                    badRating ? Colors.red.shade100 : const Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: _foodCell(_formatIsoDate(item['fecha']))),
-          Expanded(
-              flex: 2, child: _foodCell(item['momento']?.toString() ?? "-")),
-          Expanded(
-              flex: 4,
-              child: _foodCell(
-                  (item['receta_consumida'] ?? item['receta_asignada'] ?? "-")
-                      .toString(),
-                  weight: FontWeight.w800,
-                  color: badRating
-                      ? Colors.red.shade800
-                      : const Color(0xFF334155))),
-          Expanded(flex: 2, child: _foodBadge(estado, color)),
-          Expanded(
-              flex: 2,
-              child: _foodCell(_starsText(item['estrellas']),
-                  color: _ratingColor(item['estrellas']),
-                  weight: badRating ? FontWeight.w900 : FontWeight.w700)),
-          Expanded(
-              flex: 3,
-              child: _foodCell(motivo,
-                  color:
-                      motivo == "-" ? Colors.blueGrey : Colors.red.shade700)),
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () => _showFoodRecipeModal(item),
-                icon: const Icon(Icons.visibility_outlined, size: 15),
-                label: const Text("Ver"),
-                style: TextButton.styleFrom(
-                    textStyle: GoogleFonts.inter(
-                        fontSize: 10, fontWeight: FontWeight.w900)),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   Widget _foodCell(String text,
-          {FontWeight weight = FontWeight.w600, Color? color}) =>
-      Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: weight,
-            color: color ?? const Color(0xFF334155),
-            height: 1.3),
+          {FontWeight weight = FontWeight.w600, Color? color, double? maxWidth}) =>
+      Container(
+        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        child: Text(
+          text,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+              fontSize: 8.5,
+              fontWeight: weight,
+              color: color ?? const Color(0xFF334155),
+              height: 1.2),
+        ),
       );
 
   Widget _foodBadge(String text, Color color) => Container(
@@ -9657,7 +9851,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   String _starsText(dynamic value) {
     final stars = int.tryParse(value?.toString() ?? "");
-    if (stars == null || stars <= 0) return "Sin calificación";
+    if (stars == null || stars <= 0) return "Sin calificaci├│n";
     return "$stars/5";
   }
 
@@ -9730,118 +9924,200 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final recipeName =
-        (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta")
-            .toString();
-    final description = (item['descripcion_receta'] ??
-            item['descripcion_larga'] ??
-            item['descripcion'] ??
-            "Sin descripción registrada.")
-        .toString();
-    final state = (item['estado_consumo'] ?? "No marcada").toString();
+    final recipeName = (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta").toString();
+    final String? imgUrl = item["imagen_url"];
+    
+    // Calorias y Proteinas
+    final caloriasTotales = item["calorias_totales"] ?? 0;
+    final proteinasTotales = item["proteinas_totales"] ?? 0;
 
     showDialog(
       context: context,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.restaurant_menu_rounded,
-                        color:
-                            _isBadFoodRating(item) ? Colors.red : greenBrand),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(recipeName,
-                          style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A))),
-                    ),
-                    IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded)),
-                  ],
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left side: Large Image
+              Expanded(
+                flex: 2,
+                child: Container(
+                  color: Colors.grey.shade100,
+                  child: imgUrl != null && imgUrl.isNotEmpty
+                      ? Image.network(
+                          imgUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
+                        )
+                      : const Center(
+                          child: Icon(Icons.restaurant, size: 80, color: Colors.grey)),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _foodBadge(state, _foodStatusColor(state)),
-                    _foodBadge(_starsText(item['estrellas']),
-                        _ratingColor(item['estrellas'])),
-                    if (_foodReason(item) != "-")
-                      _foodBadge(_foodReason(item), Colors.red),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text("Resumen",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.blueGrey)),
-                const SizedBox(height: 6),
-                Text(description,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        height: 1.45,
-                        color: const Color(0xFF334155),
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 18),
-                Text("Ingredientes",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.blueGrey)),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ingredientes.isEmpty
-                      ? Center(
-                          child: Text(
-                              "Sin ingredientes registrados para esta receta.",
-                              style: GoogleFonts.inter(
-                                  color: Colors.blueGrey,
-                                  fontWeight: FontWeight.w700)))
-                      : ListView.separated(
-                          itemCount: ingredientes.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final ing = ingredientes[i];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                  ing['es_principal'] == true
-                                      ? Icons.star_rounded
-                                      : Icons.circle_outlined,
-                                  size: 18,
-                                  color: ing['es_principal'] == true
-                                      ? Colors.orange
-                                      : Colors.blueGrey),
-                              title: Text(ing['nombre']?.toString() ?? "-",
+              ),
+              // Right side: Info
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          const Icon(Icons.restaurant_menu, color: Colors.green, size: 32),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  recipeName,
                                   style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13)),
-                            );
-                          },
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 22,
+                                      color: Colors.blueGrey.shade900),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  "Detalles Nutricionales",
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (int.tryParse(item['estrellas']?.toString() ?? "") != null && int.tryParse(item['estrellas']?.toString() ?? "")! > 0)
+                                      _foodBadge(_starsText(item['estrellas']), _ratingColor(item['estrellas'])),
+                                    if (_foodReason(item) != "-")
+                                      _foodBadge(_foodReason(item), Colors.red),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close),
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Macronutrients Cards
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Calorías", style: TextStyle(color: Colors.orange.shade700, fontSize: 12)),
+                                        Text("${caloriasTotales} kcal", style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.fitness_center, color: Colors.blue, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Proteínas", style: TextStyle(color: Colors.blue.shade700, fontSize: 12)),
+                                        Text("${proteinasTotales} g", style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      const Text("Ingredientes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      // Ingredients List
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.green.shade100),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: ingredientes.isEmpty 
+                              ? const Center(child: Text("Sin ingredientes registrados"))
+                              : ListView.separated(
+                            itemCount: ingredientes.length,
+                            separatorBuilder: (_, __) => const Divider(height: 16, color: Colors.black12),
+                            itemBuilder: (ctx, idx) {
+                              final i = ingredientes[idx];
+                              return Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
+                                    child: const Icon(Icons.eco, color: Colors.green, size: 16),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      i["nombre"] ?? "Ingrediente",
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                    ),
+                                  ),
+                                  Text(
+                                    "${i['cantidad'] ?? ''} ${i['unidad'] ?? ''}",
+                                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                  )
+                                ],
+                              );
+                            },
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
   Widget _foodPagination(int total, int start, int end, int totalPages) {
     final displayStart = total == 0 ? 0 : start + 1;
     final displayEnd = total == 0 ? 0 : end;
@@ -9860,18 +10136,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Row(
           children: [
             IconButton(
-              tooltip: "Página anterior",
+              tooltip: "P├ígina anterior",
               onPressed:
                   _foodPage > 1 ? () => setState(() => _foodPage--) : null,
               icon: const Icon(Icons.chevron_left_rounded),
             ),
             Text("$_foodPage / $totalPages",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 9,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF334155))),
             IconButton(
-              tooltip: "Página siguiente",
+              tooltip: "P├ígina siguiente",
               onPressed: _foodPage < totalPages
                   ? () => setState(() => _foodPage++)
                   : null,
@@ -10013,7 +10289,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => Chip(
                   label: Text(e['nombre'] ?? "",
                       style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.blue)),
                   onDeleted: () =>
@@ -10060,3 +10336,6 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+
+
+
