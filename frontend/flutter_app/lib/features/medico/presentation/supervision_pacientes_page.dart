@@ -88,20 +88,26 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       backgroundColor: AppTema.grisFondo,
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
-                _buildStatsRow(state),
-                const SizedBox(height: 24),
-                _buildSearchBarAndAddButton(state),
-                const SizedBox(height: 16),
-                _buildPatientsTable(state),
-              ],
+          RefreshIndicator(
+            onRefresh: () async {
+              await ref.read(medicalPatientsProvider.notifier).loadPage();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildStatsRow(state),
+                  const SizedBox(height: 24),
+                  _buildSearchBarAndAddButton(state),
+                  const SizedBox(height: 16),
+                  _buildPatientsTable(state),
+                ],
+              ),
             ),
           ),
           if (_archiving) _buildArchivingOverlay(),
@@ -441,7 +447,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       await ref
           .read(repositorioMedicoProvider)
           .archivarPaciente(p["id"].toString());
-      ref.invalidate(medicalPatientsProvider);
+      await ref.read(medicalPatientsProvider.notifier).loadPage();
       if (!mounted) return;
       setState(() => _archiveSuccess = true);
       await Future.delayed(const Duration(milliseconds: 1200));

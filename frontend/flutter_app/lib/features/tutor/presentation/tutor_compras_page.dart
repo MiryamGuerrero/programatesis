@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -83,98 +84,109 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: comprasAsync.when(
-                  data: (groupedData) {
-                    // Aplanar los items para procesarlos
-                    final List<Map<String, dynamic>> allItems = [];
-                    groupedData.forEach((categoria, items) {
-                      for (var item in items) {
-                        allItems.add({
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(listaComprasProvider);
+                    await Future.delayed(const Duration(milliseconds: 600));
+                  },
+                  child: comprasAsync.when(
+                    data: (groupedData) {
+                      // Aplanar los items para procesarlos
+                      final List<Map<String, dynamic>> allItems = [];
+                      groupedData.forEach((categoria, items) {
+                        for (var item in items) {
+                          allItems.add({
+                            ...item,
+                            "categoria": categoria,
+                          });
+                        }
+                      });
+
+                      final processedItems = allItems.map((item) {
+                        final id = "${item['categoria']}_${item['nombre']}";
+                        return {
                           ...item,
-                          "categoria": categoria,
-                        });
-                      }
-                    });
+                          "id_virtual": id,
+                          "comprado": _localComprados.contains(id),
+                        };
+                      }).toList();
 
-                    final processedItems = allItems.map((item) {
-                      final id = "${item['categoria']}_${item['nombre']}";
-                      return {
-                        ...item,
-                        "id_virtual": id,
-                        "comprado": _localComprados.contains(id),
-                      };
-                    }).toList();
+                      final displayItems = processedItems
+                          .where((item) => _selectedTab == 0
+                              ? !(item["comprado"] as bool)
+                              : (item["comprado"] as bool))
+                          .toList();
 
-                    final displayItems = processedItems
-                        .where((item) => _selectedTab == 0
-                            ? !(item["comprado"] as bool)
-                            : (item["comprado"] as bool))
-                        .toList();
-
-                    if (displayItems.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                      if (displayItems.isEmpty) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            Icon(
-                              _selectedTab == 0
-                                  ? Icons.shopping_basket_outlined
-                                  : Icons.check_circle_outline,
-                              size: 64,
-                              color: colorScheme.outline.withOpacity(0.5),
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _selectedTab == 0
+                                        ? Icons.shopping_basket_outlined
+                                        : Icons.check_circle_outline,
+                                    size: 64,
+                                    color: colorScheme.outline.withOpacity(0.5),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _selectedTab == 0
+                                        ? "¡Todo comprado!"
+                                        : "No hay items comprados aún",
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(color: colorScheme.outline),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _selectedTab == 0
-                                  ? "¡Todo comprado!"
-                                  : "No hay items comprados aún",
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(color: colorScheme.outline),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    final Map<String, List<Map<String, dynamic>>> groupedItems =
-                        {};
-                    for (var item in displayItems) {
-                      final cat = item["categoria"] ?? "OTROS";
-                      if (!groupedItems.containsKey(cat))
-                        groupedItems[cat] = [];
-                      groupedItems[cat]!.add(item);
-                    }
-
-                    return ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
-                      itemCount: groupedItems.keys.length,
-                      itemBuilder: (context, index) {
-                        final categoria = groupedItems.keys.elementAt(index);
-                        final itemsEnCategoria = groupedItems[categoria]!;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildCategoryHeader(context, categoria),
-                            ...itemsEnCategoria
-                                .map((item) => _buildShoppingItem(
-                                      context,
-                                      item["nombre"] ?? "Ingrediente",
-                                      "",
-                                      "${item["cantidad"]} ${item["unidad"]}",
-                                      item["id_virtual"],
-                                      item["comprado"] as bool,
-                                    )),
-                            const SizedBox(height: 16),
                           ],
                         );
-                      },
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text("Error: $err")),
+                      }
+
+                      final Map<String, List<Map<String, dynamic>>> groupedItems =
+                          {};
+                      for (var item in displayItems) {
+                        final cat = item["categoria"] ?? "OTROS";
+                        if (!groupedItems.containsKey(cat))
+                          groupedItems[cat] = [];
+                        groupedItems[cat]!.add(item);
+                      }
+
+                      return ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+                        itemCount: groupedItems.keys.length,
+                        itemBuilder: (context, index) {
+                          final categoria = groupedItems.keys.elementAt(index);
+                          final itemsEnCategoria = groupedItems[categoria]!;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildCategoryHeader(context, categoria),
+                              ...itemsEnCategoria
+                                  .map((item) => _buildShoppingItem(
+                                        context,
+                                        item["nombre"] ?? "Ingrediente",
+                                        "",
+                                        "${item["cantidad"]} ${item["unidad"]}",
+                                        item["id_virtual"],
+                                        item["comprado"] as bool,
+                                      )),
+                              const SizedBox(height: 16),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    loading: () => _buildComprasShimmer(context),
+                    error: (err, stack) => Center(child: Text("Error: $err")),
+                  ),
                 ),
               ),
               Positioned(
@@ -236,6 +248,59 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildComprasShimmer(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFCBD5E1),
+      highlightColor: const Color(0xFFF8FAFC),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          // Category header placeholder
+          Container(
+            height: 14,
+            width: 100,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          // Item placeholders
+          for (int i = 0; i < 3; i++)
+            Container(
+              height: 64,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          const SizedBox(height: 8),
+          // Second category
+          Container(
+            height: 14,
+            width: 120,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          for (int i = 0; i < 2; i++)
+            Container(
+              height: 64,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

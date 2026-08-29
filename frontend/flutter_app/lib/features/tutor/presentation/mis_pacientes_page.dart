@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import 'tutor_home_page.dart';
@@ -13,6 +14,34 @@ class MisPacientesPage extends ConsumerStatefulWidget {
 }
 
 class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
+  Future<void> _onRefresh() async {
+    ref.invalidate(misPacientesProvider);
+    await ref.read(misPacientesProvider.future);
+  }
+
+  Widget _buildPacientesShimmer() {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFCBD5E1),
+      highlightColor: const Color(0xFFF8FAFC),
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        itemCount: 3,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -55,19 +84,28 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
               child: patientsAsync.when(
                 data: (patients) {
                   if (patients.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                    return RefreshIndicator(
+                      onRefresh: _onRefresh,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          Icon(Icons.person_off_rounded,
-                              size: 80,
-                              color: colorScheme.outline.withOpacity(0.1)),
-                          const SizedBox(height: 20),
-                          Text(
-                            "No tienes pacientes asignados",
-                            style: GoogleFonts.montserrat(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.outline,
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.person_off_rounded,
+                                    size: 80,
+                                    color: colorScheme.outline.withOpacity(0.1)),
+                                const SizedBox(height: 20),
+                                Text(
+                                  "No tienes pacientes asignados",
+                                  style: GoogleFonts.montserrat(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.outline,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -75,29 +113,42 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
                     );
                   }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24.0, vertical: 8),
-                    itemCount: patients.length,
-                    itemBuilder: (context, index) {
-                      final p = patients[index];
-                      return _PatientCard(
-                        patientData: p,
-                        onTap: () {
-                          ref.read(selectedPatientIdProvider.notifier).state =
-                              p["id"].toString();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const TutorHomePage()),
-                          );
-                        },
-                      );
-                    },
+                  return RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24.0, vertical: 8),
+                      itemCount: patients.length,
+                      itemBuilder: (context, index) {
+                        final p = patients[index];
+                        return _PatientCard(
+                          patientData: p,
+                          onTap: () {
+                            ref.read(selectedPatientIdProvider.notifier).state =
+                                p["id"].toString();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const TutorHomePage()),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text("Error: $err")),
+                loading: () => _buildPacientesShimmer(),
+                error: (err, stack) => RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                      Center(child: Text("Error: $err")),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],

@@ -1,5 +1,5 @@
-from datetime import date
-from typing import List, Dict, Any
+from datetime import date, time, datetime
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.deps import require_roles
 from app.core.security import UserContext
@@ -137,8 +137,45 @@ def marcar_consumida(payload: Dict[str, Any], _=Depends(require_roles("tutor", "
         raise HTTPException(status_code=400, detail="ID de plan_item requerido")
     from app.infraestructura.repositorios.repositorio_seguimiento import RepositorioSeguimientoPostgres
     repo = RepositorioSeguimientoPostgres()
+    ventana = repo.obtener_ventana_consumo(id_plan_item)
+    if not ventana:
+        raise HTTPException(status_code=404, detail="Plan item no encontrado")
+    if not _consumo_dentro_de_horario(ventana, payload.get("fecha"), payload.get("hora")):
+        raise HTTPException(
+            status_code=409,
+            detail="El horario del momento de comida ya venció, no se puede registrar el consumo"
+        )
     exito = repo.marcar_item_consumido(id_plan_item, consumida)
     return SuccessResponse(success=exito)
+
+def _parse_hora(value: Any) -> Optional[time]:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(value, "%H:%M:%S").time()
+    except ValueError:
+        return None
+
+def _consumo_dentro_de_horario(ventana: dict, fecha: Any, hora: Any) -> bool:
+    """Solo permite marcar/desmarcar consumo dentro de la ventana del momento de comida."""
+    if not fecha or not hora:
+        return False
+    try:
+        fecha_cliente = date.fromisoformat(str(fecha))
+    except ValueError:
+        return False
+    if ventana.get("fecha_programada") != fecha_cliente:
+        return False
+    hora_inicio = ventana.get("hora_inicio")
+    hora_fin = ventana.get("hora_fin")
+    hora_cliente = _parse_hora(hora)
+    if hora_cliente is None or not hora_inicio or not hora_fin:
+        return False
+    return hora_inicio <= hora_cliente <= hora_fin
 
 @router.get("/plan-diario/{id_paciente}")
 def obtener_plan_diario(

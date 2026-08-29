@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NutriReuma - Política de Privacidad y Términos de Servicio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Lato:wght@400;500;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0171BB;
+      --primary-dark: #005686;
+      --secondary: #70A81C;
+      --text-main: #1E293B;
+      --text-secondary: #64748B;
+      --text-muted: #94A3B8;
+      --bg-main: #F8FAFC;
+      --bg-surface: #FFFFFF;
+      --border-soft: #E2E8F0;
+      --border-accent: #CBD5E1;
+      --pastel-celeste: #E0F2FE;
+      --pastel-verde: #F0FDF4;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Lato', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    header {
+      background-color: rgba(255, 255, 255, 0.98);
+      border-bottom: 1px solid var(--border-soft);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 16px 32px;
+    }
+
+    .header-container {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      background-color: var(--primary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-name {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-name .nutri { color: var(--primary); }
+    .brand-name .reuma { color: var(--secondary); }
+
+    .academic-tag {
+      background-color: var(--pastel-celeste);
+      color: var(--primary-dark);
+      border: 1px solid rgba(1, 113, 187, 0.2);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Hero */
+    .hero {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 56px 24px 40px 24px;
+      text-align: center;
+    }
+
+    .hero-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-family: 'Inter', sans-serif;
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      letter-spacing: -0.8px;
+      margin-bottom: 14px;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 660px;
+      margin: 0 auto 24px auto;
+    }
+
+    .meta-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 24px;
+      background-color: var(--bg-main);
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-soft);
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .svg-icon {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Layout */
+    .main-container {
+      max-width: 1120px;
+      margin: 40px auto;
+      padding: 0 32px;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 40px;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: sticky;
+      top: 96px;
+      height: fit-content;
+    }
+
+    .nav-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary-dark);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+      display: block;
+    }
+
+    .nav-link:hover {
+      background-color: var(--pastel-celeste);
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+
+    /* Content Area */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Declaration Banner */
+    .declaration-banner {
+      background-color: var(--pastel-verde);
+      border: 1px solid #BBF7D0;
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .banner-icon {
+      width: 36px;
+      height: 36px;
+      background-color: var(--secondary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .banner-content h3 {
+      font-family: 'Inter', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: #14532D;
+      margin-bottom: 6px;
+    }
+
+    .banner-content p {
+      font-size: 14px;
+      color: #166534;
+      line-height: 1.55;
+    }
+
+    /* Policy Section */
+    .policy-section {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      scroll-margin-top: 100px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .section-badge {
+      width: 30px;
+      height: 30px;
+      background-color: var(--primary);
+      color: white;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .policy-section h2 {
+      font-family: 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    .policy-section p {
+      font-size: 15px;
+      color: var(--text-main);
+      margin-bottom: 14px;
+    }
+
+    .policy-section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .bullet-list {
+      margin: 12px 0 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bullet-list li {
+      font-size: 14.5px;
+      color: var(--text-main);
+    }
+
+    .bullet-list strong {
+      color: var(--primary-dark);
+    }
+
+    .info-box {
+      background-color: var(--bg-main);
+      border-left: 3px solid var(--primary);
+      padding: 16px 20px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      margin: 16px 0;
+    }
+
+    .info-box p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--primary-dark);
+      color: white;
+      padding: 36px 24px;
+      margin-top: 80px;
+      text-align: center;
+    }
+
+    .footer-container {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .footer-text {
+      font-size: 13.5px;
+      color: #94A3B8;
+    }
+
+    @media (max-width: 850px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        padding: 0 16px;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .hero h1 {
+        font-size: 26px;
+      }
+
+      .policy-section {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-container">
+      <a href="#" class="brand">
+        <div class="brand-logo">NR</div>
+        <div class="brand-name">
+          <span class="nutri">Nutri</span><span class="reuma">Reuma</span>
+        </div>
+      </a>
+      <div class="academic-tag">
+        Proyecto de Investigación & Tesis
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-container">
+      <h1>Política de Privacidad y Términos de Servicio</h1>
+      <p>Marco de protección de información y condiciones de uso de la plataforma NutriReuma para soporte nutricional clínico pediátrico.</p>
+      <div class="meta-bar">
+        <div class="meta-item">
+          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          Última actualización: 30 de Julio de 2026
+        </div>
+        <div class="meta-item">
+          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Versión 1.0 (Google Play Console Standard)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Container -->
+  <div class="main-container">
+    
+    <!-- Sidebar Nav -->
+    <aside class="sidebar">
+      <div class="nav-card">
+        <div class="nav-title">Navegación</div>
+        <ul class="nav-list">
+          <li><a href="#academico" class="nav-link">1. Marco Académico</a></li>
+          <li><a href="#recopilacion" class="nav-link">2. Tratamiento de Datos</a></li>
+          <li><a href="#terceros" class="nav-link">3. No Comercialización</a></li>
+          <li><a href="#seguridad" class="nav-link">4. Seguridad Técnica</a></li>
+          <li><a href="#pediatria" class="nav-link">5. Protección Pediátrica</a></li>
+          <li><a href="#permisos" class="nav-link">6. Permisos Android</a></li>
+          <li><a href="#derechos" class="nav-link">7. Derechos del Usuario</a></li>
+          <li><a href="#terminos" class="nav-link">8. Términos de Servicio</a></li>
+          <li><a href="#contacto" class="nav-link">9. Contacto de Soporte</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Content Area -->
+    <main class="content-area">
+
+      <!-- Declaration Banner -->
+      <div class="declaration-banner">
+        <div class="banner-icon">
+          <svg class="svg-icon" style="width:20px; height:20px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="banner-content">
+          <h3>Declaración de No Comercialización de Datos</h3>
+          <p>NutriReuma es una plataforma desarrollada exclusivamente para fines investigativos de tesis universitaria. <strong>No recopila información con fines comerciales, no comercializa datos personales y no comparte información con redes publicitarias ni terceros.</strong></p>
+        </div>
+      </div>
+
+      <!-- Section 1 -->
+      <section id="academico" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">1</div>
+          <h2>Marco Académico del Proyecto</h2>
+        </div>
+        <p>NutriReuma es un sistema integral de evaluación y supervisión nutricional enfocado en pacientes pediátricos en el área de reumatología. Su diseño e implementación corresponden a un trabajo de investigación y titulación universitaria.</p>
+        <p>El objetivo principal del sistema es proporcionar una herramienta técnica que facilite a médicos, nutricionistas y tutores autorizados la coordinación y seguimiento de planes alimentarios y controles clínicos de manera segura y estructurada.</p>
+      </section>
+
+      <!-- Section 2 -->
+      <section id="recopilacion" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">2</div>
+          <h2>Tratamiento y Uso de la Información</h2>
+        </div>
+        <p>Para la adecuada operación de la plataforma en el entorno tutelar y clínico, únicamente se procesan los datos indispensables para la gestión nutricional:</p>
+        <ul class="bullet-list">
+          <li><strong>Datos de Registro de Usuarios:</strong> Nombre completo, correo electrónico institucional o personal proporcionado por el profesional médico, cédula de identidad y rol asignado en el sistema.</li>
+          <li><strong>Parámetros Antropométricos Pediátricos:</strong> Fecha de nacimiento, peso, talla, preferencias alimentarias y diagnósticos nutricionales generados a través de tablas de referencia de la OMS.</li>
+          <li><strong>Credenciales y Autenticación:</strong> Identificadores de sesión encriptados gestionados mediante Supabase Auth.</li>
+        </ul>
+        <div class="info-box">
+          <p><strong>Uso Exclusivo:</strong> Los datos procesados se emplean de manera estricta para la evaluación nutricional del paciente y la sugerencia de menús adaptados dentro de la aplicación.</p>
+        </div>
+      </section>
+
+      <!-- Section 3 -->
+      <section id="terceros" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">3</div>
+          <h2>Política de No Transferencia a Terceros</h2>
+        </div>
+        <p>El equipo de investigación garantiza formalmente las siguientes condiciones:</p>
+        <ul class="bullet-list">
+          <li><strong>Sin Venta ni Alquiler de Datos:</strong> Ningún registro almacenado es objeto de comercialización, venta o transferencia onerosa.</li>
+          <li><strong>Ausencia de Publicidad y Monitoreo Comercial:</strong> La aplicación no integra librerías ni SDKs de terceros orientados a la publicidad comportamental o el rastreo comercial (tales como Google AdMob o Meta Pixel).</li>
+          <li><strong>Procesamiento Restringido:</strong> La información no se comparte con entidades financieras, empresas aseguradoras ni agregadores de datos.</li>
+        </ul>
+      </section>
+
+      <!-- Section 4 -->
+      <section id="seguridad" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">4</div>
+          <h2>Seguridad Técnica de la Infraestructura</h2>
+        </div>
+        <p>Se aplican salvaguardas de seguridad informática acordes a las mejores prácticas para proteger la confidencialidad de la información:</p>
+        <ul class="bullet-list">
+          <li><strong>Encriptación en Tránsito:</strong> Todas las comunicaciones entre la aplicación móvil y el servidor backend se efectúan bajo protocolos cifrados HTTPS/TLS.</li>
+          <li><strong>Seguridad por Rol a Nivel de Filas (RLS):</strong> Las políticas de base de datos garantizan que cada tutor únicamente tenga acceso a los datos del paciente bajo su tutela legal.</li>
+          <li><strong>Protección de Credenciales:</strong> Las contraseñas se gestionan mediante funciones de hash de alta seguridad en el módulo de autenticación de Supabase.</li>
+        </ul>
+      </section>
+
+      <!-- Section 5 -->
+      <section id="pediatria" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">5</div>
+          <h2>Protección de Datos en Pacientes Pediátricos</h2>
+        </div>
+        <p>Al tratarse de soporte nutricional para pacientes menores de edad, el ingreso y consulta de información clínica y alimentaria se encuentra restringido al personal médico autorizante y al tutor legal registrado.</p>
+        <p>La plataforma no permite la creación autónoma de cuentas por parte de menores ni el uso directo no supervisado. El tutor legal conserva en todo momento la administración del acceso.</p>
+      </section>
+
+      <!-- Section 6 -->
+      <section id="permisos" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">6</div>
+          <h2>Permisos Solicitados en la Aplicación Móvil Android</h2>
+        </div>
+        <p>La aplicación móvil Android de NutriReuma únicamente requiere los permisos esenciales para su interacción con el servidor:</p>
+        <ul class="bullet-list">
+          <li><strong>INTERNET y ACCESS_NETWORK_STATE:</strong> Requeridos para realizar la sincronización de planes nutricionales, autenticación y consulta de recetas desde el servidor backend.</li>
+        </ul>
+        <p>La aplicación no solicita permisos para ubicación geográfica en tiempo real, libreta de contactos, cámara ni almacenamiento externo para su función regular.</p>
+      </section>
+
+      <!-- Section 7 -->
+      <section id="derechos" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">7</div>
+          <h2>Derechos del Usuario y Gestión de Cuentas</h2>
+        </div>
+        <p>El usuario registrado dispone de las siguientes opciones respecto a su información personal:</p>
+        <ul class="bullet-list">
+          <li><strong>Acceso y Modificación:</strong> Posibilidad de consultar y actualizar la contraseña o datos de perfil dentro de la aplicación.</li>
+          <li><strong>Solicitud de Eliminación de Cuenta:</strong> Posibilidad de solicitar la baja definitiva del perfil de tutor y sus datos asociados enviando una solicitud formal a la dirección de correo institucional del proyecto.</li>
+        </ul>
+      </section>
+
+      <!-- Section 8 -->
+      <section id="terminos" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">8</div>
+          <h2>Términos de Servicio</h2>
+        </div>
+        <p>El uso de NutriReuma implica la aceptación de los siguientes términos generales:</p>
+        <ul class="bullet-list">
+          <li><strong>Herramienta de Soporte Complementario:</strong> La información y planes sugeridos por la aplicación constituyen una guía orientativa de apoyo y no sustituyen la atención ni la prescripción médica directa en situaciones de urgencia.</li>
+          <li><strong>Responsabilidad sobre el Acceso:</strong> El usuario es responsable de mantener la reserva de sus credenciales de ingreso a la plataforma.</li>
+        </ul>
+      </section>
+
+      <!-- Section 9 -->
+      <section id="contacto" class="policy-section">
+        <div class="section-head">
+          <div class="section-badge">9</div>
+          <h2>Contacto de Soporte e Investigación</h2>
+        </div>
+        <p>Para consultas relacionadas con esta política de privacidad o la gestión de datos en NutriReuma, puede comunicarse con el equipo responsable a través del canal oficial:</p>
+        <div class="info-box">
+          <p><strong>Equipo de Investigación y Desarrollo - NutriReuma</strong></p>
+          <p>Correo de Soporte: <strong>soporte.nutrireuma@gmail.com</strong></p>
+          <p>Proyecto de Titulación / Investigación Universitaria</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="brand">
+        <div class="brand-logo" style="width: 32px; height: 32px; font-size: 14px; background-color: var(--secondary);">NR</div>
+        <div class="brand-name" style="font-size: 18px; color: white;">
+          <span class="nutri" style="color: white;">Nutri</span><span class="reuma" style="color: #A3E635;">Reuma</span>
+        </div>
+      </div>
+      <p class="footer-text">© 2026 NutriReuma. Todos los derechos reservados. Proyecto de Titulación e Investigación Académica.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

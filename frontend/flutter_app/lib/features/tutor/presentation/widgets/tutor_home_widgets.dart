@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../../core/state/app_providers.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/app_sizes.dart';
 import '../../../../../core/theme/app_responsive.dart';
 import '../tutor_receta_detalle_page.dart';
+import '../momento_horario.dart';
 import '../../data/repositorio_tutor.dart';
 import 'generar_plan_automatico_modal.dart';
 
@@ -19,6 +22,21 @@ class DashboardView extends ConsumerStatefulWidget {
 
 class _DashboardViewState extends ConsumerState<DashboardView> {
   final Map<int, bool> _expandedStates = {};
+  Timer? _clockTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _toggleConsumida(int idPlanItem, bool currentStatus) async {
     try {
@@ -26,8 +44,18 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       await dio.post('tutor/marcar-consumida', data: {
         "id_plan_item": idPlanItem,
         "consumida": !currentStatus,
+        "fecha": fechaHoyIso(),
+        "hora": horaActualHhMm(),
       });
-      ref.invalidate(planDiarioProvider);
+      if (widget.idPaciente != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        await ref.refresh(
+            planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today))
+                .future);
+      } else {
+        ref.invalidate(planDiarioProvider);
+      }
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
       if (mounted) {
@@ -41,7 +69,15 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     try {
       final repo = ref.read(repositorioTutorProvider);
       await repo.intercambiarRecetaPlan(idPlanItem);
-      ref.invalidate(planDiarioProvider);
+      if (widget.idPaciente != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        await ref.refresh(
+            planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today))
+                .future);
+      } else {
+        ref.invalidate(planDiarioProvider);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -55,6 +91,83 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     }
   }
 
+  Future<void> _refreshPage() async {
+    final idPaciente = widget.idPaciente ?? ref.read(selectedPatientIdProvider);
+    if (idPaciente != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: today)));
+      ref.invalidate(tipSaludableProvider);
+      await Future.delayed(const Duration(milliseconds: 700));
+    }
+  }
+
+  Widget _buildDashboardShimmer(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _refreshPage,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveSpacing(AppSpacing.md),
+          vertical: AppSpacing.md,
+        ),
+        child: Shimmer.fromColors(
+          baseColor: const Color(0xFFCBD5E1),
+          highlightColor: const Color(0xFFF8FAFC),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 100,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              Container(
+                height: 24,
+                width: 180,
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              Container(
+                height: 140,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              Container(
+                height: 140,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -63,320 +176,378 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    final idPaciente = widget.idPaciente;
-    final planAsync = idPaciente != null
-        ? ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: today)))
-        : const AsyncValue<List<Map<String, dynamic>>>.data([]);
+    final idPaciente = widget.idPaciente ?? ref.watch(selectedPatientIdProvider);
+    if (idPaciente == null) {
+      return _buildDashboardShimmer(context);
+    }
 
-    return planAsync.when(
-      data: (meals) {
-        if (meals.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.no_food_outlined,
-                      size: 80, color: Colors.grey.shade300),
-                  const SizedBox(height: 24),
-                  Text(
-                    "No hay un plan para hoy",
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "El nutricionista aún no ha asignado un plan. Puedes generar uno automáticamente basado en tus necesidades.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, height: 1.5),
-                  ),
-                  const SizedBox(height: 32),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      if (idPaciente != null) {
+    final planAsync = ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: today)));
+
+    if (planAsync.isLoading && !planAsync.hasValue) {
+      return _buildDashboardShimmer(context);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshPage,
+      child: planAsync.when(
+        data: (meals) {
+          if (meals.isEmpty) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.no_food_outlined,
+                        size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 24),
+                    Text(
+                      "No hay un plan para hoy",
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "El nutricionista aún no ha asignado un plan. Puedes generar uno automáticamente basado en tus necesidades.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600, height: 1.5),
+                    ),
+                    const SizedBox(height: 32),
+                    FilledButton.icon(
+                      onPressed: () async {
                         final result = await showModalBottomSheet<bool>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => GenerarPlanAutomaticoModal(
-                              idPaciente: idPaciente),
-                        );
-                        if (result == true) {
-                          ref.invalidate(planDiarioProvider);
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text("Generar Plan Automático"),
-                    style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16)),
-                  ),
-                ],
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => GenerarPlanAutomaticoModal(
+                                idPaciente: idPaciente),
+                          );
+                          if (result == true) {
+                            ref.invalidate(planDiarioProvider);
+                          }
+                      },
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text("Generar Plan Automático"),
+                      style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 16)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        }
-
-        final Map<int, List<Map<String, dynamic>>> grouped = {};
-        final List<int> momentOrder = [];
-        for (var m in meals) {
-          final idMom = m["id_momento"] as int;
-          if (!grouped.containsKey(idMom)) {
-            grouped[idMom] = [];
-            momentOrder.add(idMom);
+            );
           }
-          grouped[idMom]!.add(m);
-        }
 
-        int? featuredMomentId;
-        final currentTimeInMinutes = now.hour * 60 + now.minute;
+          final Map<int, List<Map<String, dynamic>>> grouped = {};
+          final List<int> momentOrder = [];
+          for (var m in meals) {
+            final idMom = m["id_momento"] as int;
+            if (!grouped.containsKey(idMom)) {
+              grouped[idMom] = [];
+              momentOrder.add(idMom);
+            }
+            grouped[idMom]!.add(m);
+          }
 
-        for (var momId in momentOrder) {
-          final firstMeal = grouped[momId]!.first;
-          final startStr = firstMeal["momento_hora_inicio"]?.toString();
-          final endStr = firstMeal["momento_hora_fin"]?.toString();
-          if (startStr != null && endStr != null) {
-            final startParts = startStr.split(':');
-            final endParts = endStr.split(':');
-            final startMin =
-                int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-            final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+          int? featuredMomentId;
+          final currentTimeInMinutes = now.hour * 60 + now.minute;
 
-            if (currentTimeInMinutes >= startMin &&
-                currentTimeInMinutes <= endMin) {
-              featuredMomentId = momId;
-              break;
+          for (var momId in momentOrder) {
+            final firstMeal = grouped[momId]!.first;
+            final startStr = firstMeal["momento_hora_inicio"]?.toString();
+            final endStr = firstMeal["momento_hora_fin"]?.toString();
+            if (startStr != null && endStr != null) {
+              final startParts = startStr.split(':');
+              final endParts = endStr.split(':');
+              final startMin =
+                  int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+              final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+
+              if (currentTimeInMinutes >= startMin &&
+                  currentTimeInMinutes <= endMin) {
+                featuredMomentId = momId;
+                break;
+              }
             }
           }
-        }
 
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveSpacing(AppSpacing.md),
-              vertical: AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ...momentOrder.map((momId) {
-                final isFeatured = momId == featuredMomentId;
-                final momentMeals = grouped[momId]!;
-                final firstMeal = momentMeals.first;
-                final String momentoNombre =
-                    firstMeal["momento_nombre"]?.toString() ?? "COMIDA";
-                final String range =
-                    "${firstMeal["momento_hora_inicio"]?.toString().substring(0, 5)} - ${firstMeal["momento_hora_fin"]?.toString().substring(0, 5)}";
-                final String? decoImageUrl =
-                    firstMeal["receta_url_imagen"]?.toString();
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveSpacing(AppSpacing.md),
+                vertical: AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...momentOrder.map((momId) {
+                  final isFeatured = momId == featuredMomentId;
+                  final momentMeals = grouped[momId]!;
+                  final firstMeal = momentMeals.first;
+                  final firstMealWithImage = momentMeals.firstWhere(
+                    (m) =>
+                        m["receta_url_imagen"] != null &&
+                        m["receta_url_imagen"].toString().trim().isNotEmpty,
+                    orElse: () => firstMeal,
+                  );
+                  final String momentImageUrl =
+                      firstMealWithImage["receta_url_imagen"]?.toString() ?? "";
+                  final String momentoNombre =
+                      firstMeal["momento_nombre"]?.toString() ?? "COMIDA";
+                  final String range =
+                      "${firstMeal["momento_hora_inicio"]?.toString().substring(0, 5)} - ${firstMeal["momento_hora_fin"]?.toString().substring(0, 5)}";
+                  
+                  final isExpanded = _expandedStates[momId] ?? false;
 
-                final isExpanded = _expandedStates[momId] ?? false;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: isFeatured
-                        ? colorScheme.primary.withOpacity(0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: isFeatured
-                        ? Border.all(color: colorScheme.primary, width: 2)
-                        : Border.all(
-                            color: Colors.grey.withOpacity(0.1), width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isFeatured
-                            ? colorScheme.primary.withOpacity(0.12)
-                            : Colors.black.withOpacity(0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Theme(
-                    data: theme.copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: false,
-                      maintainState: true,
-                      tilePadding: EdgeInsets.zero,
-                      showTrailingIcon: false,
-                      onExpansionChanged: (expanded) {
-                        setState(() {
-                          _expandedStates[momId] = expanded;
-                        });
-                      },
-                      title: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Stack(
-                          children: [
-                            if (decoImageUrl != null && decoImageUrl.isNotEmpty)
-                              Positioned(
-                                bottom: -20,
-                                right: -10,
-                                child: Opacity(
-                                  opacity: 0.4,
-                                  child: Transform.rotate(
-                                    angle: -0.2,
-                                    child: Image.network(
-                                      decoImageUrl,
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                    ),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isFeatured
+                          ? const Color(0xFFF0F9FF)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(20),
+                      border: isFeatured
+                          ? Border.all(
+                              color: colorScheme.primary, width: 1.8)
+                          : Border.all(
+                              color: const Color(0xFFE2E8F0), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isFeatured
+                              ? colorScheme.primary.withOpacity(0.08)
+                              : Colors.black.withOpacity(0.03),
+                          blurRadius: isFeatured ? 12 : 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      children: [
+                        // Imagen de la primera comida extendida hasta el extremo derecho, ocupando toda la altura de la tarjeta, con mayor transparencia y que se oculta al desplegar el acordeón
+                        if (momentImageUrl.isNotEmpty)
+                          Positioned(
+                            top: 0,
+                            bottom: 0,
+                            right: 0,
+                            width: context.responsiveValue(
+                                mobile: 200.0, tablet: 280.0),
+                            child: AnimatedOpacity(
+                              opacity: isExpanded ? 0.0 : 1.0,
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeInOut,
+                              child: IgnorePointer(
+                                child: ShaderMask(
+                                  shaderCallback: (Rect bounds) {
+                                    return const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.transparent,
+                                        Color(0x99000000), // Máxima opacidad suave (~60%)
+                                      ],
+                                      stops: [0.0, 0.35, 1.0],
+                                    ).createShader(bounds);
+                                  },
+                                  blendMode: BlendMode.dstIn,
+                                  child: Image.network(
+                                    momentImageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) =>
+                                        const SizedBox.shrink(),
                                   ),
                                 ),
                               ),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: (isFeatured
-                                              ? colorScheme.primary
-                                              : Colors.grey.shade200)
-                                          .withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _getMomentIcon(momentoNombre),
-                                      color: isFeatured
-                                          ? colorScheme.primary
-                                          : Colors.grey.shade600,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          momentoNombre,
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 18,
-                                            color: isFeatured
-                                                ? colorScheme.primary
-                                                : const Color(0xFF1E293B),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          isFeatured
-                                              ? "¡Momento actual!"
-                                              : "Plan de alimentación",
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                            color: Colors.grey.shade600,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.access_time_rounded,
-                                                size: 14,
-                                                color: Colors.grey.shade500),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              range,
-                                              style: theme.textTheme.labelSmall
-                                                  ?.copyWith(
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      _buildStatusPill(
-                                          momentMeals, currentTimeInMinutes),
-                                      const SizedBox(height: 6),
-                                      Icon(
-                                        isExpanded
-                                            ? Icons.keyboard_arrow_up_rounded
-                                            : Icons.keyboard_arrow_down_rounded,
-                                        color: isFeatured
-                                            ? colorScheme.primary
-                                            : const Color(0xFF1E293B),
-                                        size: 30,
+                            ),
+                          ),
+                        Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          clipBehavior: Clip.antiAlias,
+                          child: Theme(
+                            data:
+                                theme.copyWith(dividerColor: Colors.transparent),
+                            child: ExpansionTile(
+                              key: Key("expansion_tile_$momId"),
+                              initiallyExpanded: isExpanded,
+                              onExpansionChanged: (expanded) {
+                                setState(() {
+                                  _expandedStates[momId] = expanded;
+                                });
+                              },
+                              tilePadding: EdgeInsets.zero,
+                              childrenPadding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              trailing: Padding(
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
                                       ),
                                     ],
                                   ),
+                                  child: Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    color: isFeatured
+                                        ? colorScheme.primary
+                                        : const Color(0xFF64748B),
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  if (isFeatured)
+                                    Container(
+                                      width: 5,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primary,
+                                        borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(4),
+                                          bottomRight: Radius.circular(4),
+                                        ),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: (isFeatured
+                                                      ? colorScheme.primary
+                                                      : Colors.grey.shade200)
+                                                  .withOpacity(0.1),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              _getMomentIcon(momentoNombre),
+                                              color: isFeatured
+                                                  ? colorScheme.primary
+                                                  : Colors.grey.shade600,
+                                              size: 24,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  momentoNombre,
+                                                  style: theme.textTheme.titleMedium
+                                                      ?.copyWith(
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 17,
+                                                    color: isFeatured
+                                                        ? colorScheme.primary
+                                                        : const Color(0xFF1E293B),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  range,
+                                                  style: theme.textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    color:
+                                                        const Color(0xFF64748B),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
+                              children: [
+                            Column(
+                              children: momentMeals.map((m) {
+                                final bool isConsumida = m["consumida"] == true;
+                                final bool canToggle = puedeMarcarConsumida(
+                                  horaInicio:
+                                      m["momento_hora_inicio"]?.toString(),
+                                  horaFin: m["momento_hora_fin"]?.toString(),
+                                  ahora: now,
+                                );
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: (isFeatured && !isConsumida)
+                                      ? _FeaturedMealCard(
+                                          meal: m,
+                                          onConsumida: () => _toggleConsumida(
+                                              m["id_plan_item"], isConsumida),
+                                          onCambiar: () => _intercambiarReceta(
+                                              m["id_plan_item"]),
+                                        )
+                                      : _UpcomingMealCard(
+                                          meal: m,
+                                          isConsumida: isConsumida,
+                                          canToggle: canToggle,
+                                          onToggleConsumida: () =>
+                                              _toggleConsumida(
+                                                  m["id_plan_item"], isConsumida),
+                                        ),
+                                );
+                              }).toList(),
                             ),
                           ],
                         ),
                       ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(
-                              left: 16, right: 16, bottom: 16),
-                          child: Column(
-                            children: momentMeals.map((m) {
-                              final bool isConsumida = m["consumida"] == true;
-                              final String? startStr =
-                                  m["momento_hora_inicio"]?.toString();
-                              bool isPastOrCurrent = true;
-                              if (startStr != null) {
-                                final parts = startStr.split(':');
-                                final startMin = int.parse(parts[0]) * 60 +
-                                    int.parse(parts[1]);
-                                if (currentTimeInMinutes < startMin) {
-                                  isPastOrCurrent = false;
-                                }
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: (isFeatured && !isConsumida)
-                                    ? _FeaturedMealCard(
-                                        meal: m,
-                                        onConsumida: () => _toggleConsumida(
-                                            m["id_plan_item"], isConsumida),
-                                        onCambiar: () => _intercambiarReceta(
-                                            m["id_plan_item"]),
-                                      )
-                                    : _UpcomingMealCard(
-                                        meal: m,
-                                        isConsumida: isConsumida,
-                                        showCheckButton: isPastOrCurrent,
-                                        onToggleConsumida: () =>
-                                            _toggleConsumida(
-                                                m["id_plan_item"], isConsumida),
-                                      ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
                     ),
-                  ),
-                );
-              }).toList(),
-              const SizedBox(height: 24),
-              const _HealthyTipBanner(),
-              const SizedBox(height: 32),
-            ],
+                    // Etiqueta de estado reposicionada en la esquina superior derecha
+                    Positioned(
+                      top: 10,
+                      right: 14,
+                      child: IgnorePointer(
+                        child: _buildStatusPill(
+                            momentMeals, currentTimeInMinutes),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 24),
+            const _HealthyTipBanner(),
+            const SizedBox(height: 32),
+          ],
+        ),
+      );
+        },
+        loading: () => _buildDashboardShimmer(context),
+        error: (err, _) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: 400,
+            alignment: Alignment.center,
+            child: Text("Error: $err"),
           ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text("Error: $err")),
+        ),
+      ),
     );
   }
 
@@ -403,34 +574,50 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         int.parse(endStr.split(':')[0]) * 60 + int.parse(endStr.split(':')[1]);
 
     final allConsumida = meals.every((m) => m["consumida"] == true);
+    final anyConsumida = meals.any((m) => m["consumida"] == true);
 
     String label = "";
     Color color = Colors.grey;
 
-    if (currentMin >= startMin && currentMin <= endMin) {
-      label = allConsumida ? "COMPLETADO" : "AHORA";
-      color = allConsumida ? AppTema.verdeSalud : AppTema.azulPrincipal;
+    if (allConsumida) {
+      label = "COMPLETADO";
+      color = AppTema.verdeSalud;
+    } else if (anyConsumida) {
+      label = "PENDIENTE";
+      color = Colors.orange;
+    } else if (currentMin >= startMin && currentMin <= endMin) {
+      label = "AHORA";
+      color = AppTema.azulPrincipal;
     } else if (currentMin < startMin) {
       label = "SIGUIENTE";
       color = Colors.blueGrey;
     } else {
-      label = allConsumida ? "FINALIZADO" : "PENDIENTE";
-      color = allConsumida ? Colors.grey : Colors.orange;
+      label = "NO COMPLETADO";
+      color = const Color(0xFFEF4444);
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.35),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(label,
-          style: const TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          )),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }
@@ -647,13 +834,13 @@ class _FeaturedMealCardState extends State<_FeaturedMealCard> {
 class _UpcomingMealCard extends StatefulWidget {
   final Map<String, dynamic> meal;
   final bool isConsumida;
-  final bool showCheckButton;
+  final bool canToggle;
   final Future<void> Function() onToggleConsumida;
 
   const _UpcomingMealCard(
       {required this.meal,
       this.isConsumida = false,
-      this.showCheckButton = true,
+      this.canToggle = true,
       required this.onToggleConsumida});
 
   @override
@@ -676,6 +863,11 @@ class _UpcomingMealCardState extends State<_UpcomingMealCard> {
   Widget build(BuildContext context) {
     final String url = widget.meal["receta_url_imagen"] ?? "";
     final theme = Theme.of(context);
+
+    // Determina si el momento de comida ya pasó (hora actual > hora_fin)
+    final bool hasExpired = momentoYaPaso(
+      horaFin: widget.meal["momento_hora_fin"]?.toString(),
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -743,11 +935,17 @@ class _UpcomingMealCardState extends State<_UpcomingMealCard> {
                     color: AppTema.verdeSalud,
                     fontWeight: FontWeight.bold,
                     fontSize: 12))
-            : (widget.meal["receta_descripcion"] != null
-                ? Text(widget.meal["receta_descripcion"],
+            : (hasExpired
+                ? const Text("No completada",
                     style: TextStyle(
-                        fontSize: AppTextSizes.bodySmall(context.screenWidth)))
-                : null),
+                        color: Color(0xFFEF4444),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12))
+                : (widget.meal["receta_descripcion"] != null
+                    ? Text(widget.meal["receta_descripcion"],
+                        style: TextStyle(
+                            fontSize: AppTextSizes.bodySmall(context.screenWidth)))
+                    : null)),
         trailing: _isLoading
             ? const Padding(
                 padding: EdgeInsets.all(12.0),
@@ -757,20 +955,39 @@ class _UpcomingMealCardState extends State<_UpcomingMealCard> {
                     child: CircularProgressIndicator(strokeWidth: 2)),
               )
             : (widget.isConsumida
-                ? IconButton(
-                    icon: const Icon(Icons.undo_rounded,
-                        size: 20, color: Colors.grey),
-                    tooltip: "Desmarcar",
-                    onPressed: _handleToggle,
-                  )
-                : (widget.showCheckButton
+                ? (widget.canToggle
+                    ? IconButton(
+                        icon: const Icon(Icons.undo_rounded,
+                            size: 20, color: Colors.grey),
+                        tooltip: "Desmarcar",
+                        onPressed: _handleToggle,
+                      )
+                    : const Tooltip(
+                        message:
+                            "El horario de este momento ya venció, no se puede modificar",
+                        child: Icon(Icons.check_circle_rounded,
+                            size: 20, color: AppTema.verdeSalud),
+                      ))
+                : (widget.canToggle
                     ? IconButton(
                         icon: const Icon(Icons.check_circle_outline_rounded,
                             size: 24, color: AppTema.verdeSalud),
                         tooltip: "Marcar como consumida",
                         onPressed: _handleToggle,
                       )
-                    : const SizedBox(width: 48))),
+                    : (hasExpired
+                        ? const Tooltip(
+                            message:
+                                "El horario de este momento ya venció (No completada)",
+                            child: Icon(Icons.lock_clock_outlined,
+                                size: 20, color: Color(0xFFEF4444)),
+                          )
+                        : const Tooltip(
+                            message:
+                                "Aún no es hora de este momento de comida",
+                            child: Icon(Icons.schedule_rounded,
+                                size: 20, color: Color(0xFF94A3B8)),
+                          )))),
       ),
     );
   }
@@ -792,13 +1009,14 @@ class _HealthyTipBanner extends ConsumerWidget {
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: const Color(0xFFF0FDF4),
             borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: Colors.grey.withOpacity(0.1), width: 0.5),
+            border: Border.all(
+                color: AppTema.verdeSalud.withOpacity(0.3), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
+                color: AppTema.verdeSalud.withOpacity(0.08),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],

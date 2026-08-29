@@ -377,9 +377,10 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             receta['en_plan_hoy'] = False
             if id_paciente:
                 cur.execute("""
-                    select pi.id, pi.consumida
+                    select pi.id, pi.consumida, m.hora_inicio, m.hora_fin
                     from interaccion.plan_item pi
                     join interaccion.plan_nutricional p on p.id = pi.id_plan
+                    join nutricion.momento_comida m on m.id = pi.id_momento
                     where p.id_paciente = %s 
                       and pi.id_receta = %s 
                       and pi.fecha_programada = current_date
@@ -390,6 +391,8 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     receta['en_plan_hoy'] = True
                     receta['id_plan_item_hoy'] = plan_row[0]
                     receta['consumida_hoy'] = plan_row[1]
+                    receta['momento_hora_inicio_hoy'] = plan_row[2]
+                    receta['momento_hora_fin_hoy'] = plan_row[3]
 
             cur.execute("SELECT id_momento FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
             receta['momentos'] = [r[0] for r in cur.fetchall()]

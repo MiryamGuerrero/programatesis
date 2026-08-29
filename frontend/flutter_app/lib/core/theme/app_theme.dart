@@ -87,11 +87,14 @@ class AppTema {
         ),
       ),
 
-      // APPBAR M3 (Flat/Clean)
+      // APPBAR M3 (Flat/Clean con distinción sutil)
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: Colors.black.withOpacity(0.06),
         centerTitle: false,
         titleTextStyle: headlineTheme.titleLarge?.copyWith(
           color: const Color(0xFF1E293B),
@@ -101,13 +104,14 @@ class AppTema {
         iconTheme: const IconThemeData(color: Color(0xFF64748B)),
       ),
 
-      // TARJETAS M3
+      // TARJETAS M3 (Con contraste respecto a fondo blanco de ventana)
       cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 0,
+        color: const Color(0xFFF8FAFC),
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.04),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
         ),
         margin: const EdgeInsets.only(bottom: 16),
       ),
@@ -115,9 +119,9 @@ class AppTema {
       // INPUTS M3
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFFF8FAFC),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28), // Altamente redondeado
+          borderRadius: BorderRadius.circular(28),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
         enabledBorder: OutlineInputBorder(
@@ -133,23 +137,26 @@ class AppTema {
         hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
       ),
 
-      // NAVIGATION BAR (Sustituye a BottomNavigationBar en M3)
+      // NAVIGATION BAR (Distintivo y elegante)
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
-        indicatorColor: azulPrincipal.withOpacity(0.1),
+        surfaceTintColor: Colors.white,
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.08),
+        indicatorColor: azulPrincipal.withOpacity(0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return headlineTheme.labelMedium
-                ?.copyWith(color: azulPrincipal, fontWeight: FontWeight.bold);
+                ?.copyWith(color: azulPrincipal, fontWeight: FontWeight.w800);
           }
           return headlineTheme.labelMedium
-              ?.copyWith(color: const Color(0xFF64748B));
+              ?.copyWith(color: const Color(0xFF64748B), fontWeight: FontWeight.w600);
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: azulPrincipal);
+            return const IconThemeData(color: azulPrincipal, size: 24);
           }
-          return const IconThemeData(color: Color(0xFF94A3B8));
+          return const IconThemeData(color: Color(0xFF64748B), size: 24);
         }),
       ),
 

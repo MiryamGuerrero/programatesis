@@ -1,3 +1,4 @@
+import "dart:ui";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -122,6 +123,14 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
 
 class _AppScrollBehavior extends MaterialScrollBehavior {
   const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 
   @override
   Widget buildScrollbar(

@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../core/state/app_providers.dart";
@@ -64,6 +65,103 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     _initialized = true;
   }
 
+  Future<void> _onRefreshPage() async {
+    _initialized = false;
+    ref.invalidate(miPerfilProvider);
+    await ref.read(miPerfilProvider.future);
+  }
+
+  Widget _buildPerfilShimmer(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _onRefreshPage,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ResponsiveMaxConstraints(
+          maxWidth: 800,
+          child: Shimmer.fromColors(
+            baseColor: const Color(0xFFCBD5E1),
+            highlightColor: const Color(0xFFF8FAFC),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  color: Colors.white,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: 160,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 90,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.responsiveSpacing(AppSpacing.md),
+                    vertical: context.responsiveSpacing(AppSpacing.xl),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 380,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      Container(
+                        height: 52,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Container(
+                        height: 52,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveProfile() async {
     final nombres = _nombresController.text.trim();
     final apellidos = _apellidosController.text.trim();
@@ -90,6 +188,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       );
 
       if (!mounted) return;
+      _initialized = false;
       ref.invalidate(miPerfilProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Perfil actualizado con éxito")),
@@ -113,6 +212,13 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     final colorScheme = theme.colorScheme;
     final perfilAsync = ref.watch(miPerfilProvider);
 
+    if (perfilAsync.isLoading && !perfilAsync.hasValue) {
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: _buildPerfilShimmer(context),
+      );
+    }
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: perfilAsync.when(
@@ -127,34 +233,48 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                   ? _apellidosController.text[0]
                   : "");
 
-          return SingleChildScrollView(
-            child: ResponsiveMaxConstraints(
-              maxWidth: 800,
-              child: Column(
-                children: [
-                  _buildProfileHeader(context, iniciales, parentesco),
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: context.responsiveSpacing(AppSpacing.md),
-                        vertical: context.responsiveSpacing(AppSpacing.xl)),
-                    child: Column(
-                      children: [
-                        _buildFormCard(context),
-                        const SizedBox(height: AppSpacing.xl),
-                        _buildSaveButton(context),
-                        const SizedBox(height: AppSpacing.md),
-                        _buildLogoutButton(context),
-                        const SizedBox(height: AppSpacing.xxl),
-                      ],
+          return RefreshIndicator(
+            onRefresh: _onRefreshPage,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ResponsiveMaxConstraints(
+                maxWidth: 800,
+                child: Column(
+                  children: [
+                    _buildProfileHeader(context, iniciales, parentesco),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.responsiveSpacing(AppSpacing.md),
+                          vertical: context.responsiveSpacing(AppSpacing.xl)),
+                      child: Column(
+                        children: [
+                          _buildFormCard(context),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildSaveButton(context),
+                          const SizedBox(height: AppSpacing.md),
+                          _buildLogoutButton(context),
+                          const SizedBox(height: AppSpacing.xxl),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text("Error al cargar perfil: $e")),
+        loading: () => _buildPerfilShimmer(context),
+        error: (e, _) => RefreshIndicator(
+          onRefresh: _onRefreshPage,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Container(
+              height: 400,
+              alignment: Alignment.center,
+              child: Text("Error al cargar perfil: $e"),
+            ),
+          ),
+        ),
       ),
     );
   }

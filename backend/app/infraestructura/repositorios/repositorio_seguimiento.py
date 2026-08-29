@@ -123,6 +123,24 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             cur.execute(sql, (consumida, id_plan_item))
             return cur.rowcount > 0
 
+    def obtener_ventana_consumo(self, id_plan_item: int) -> Optional[dict]:
+        with db_cursor() as cur:
+            sql = """
+                select
+                    pi.fecha_programada,
+                    m.hora_inicio,
+                    m.hora_fin
+                from interaccion.plan_item pi
+                join nutricion.momento_comida m on m.id = pi.id_momento
+                where pi.id = %s
+            """
+            cur.execute(sql, (id_plan_item,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            cols = [d[0] for d in cur.description]
+            return dict(zip(cols, row))
+
     def obtener_dias_con_plan(self, id_paciente: str, mes: int, anio: int) -> List[dict]:
         with db_cursor() as cur:
             sql = """

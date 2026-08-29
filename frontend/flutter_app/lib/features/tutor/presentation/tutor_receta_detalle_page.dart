@@ -6,6 +6,7 @@ import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_sizes.dart';
 import '../../../core/theme/app_responsive.dart';
+import 'momento_horario.dart';
 
 class TutorRecetaDetallePage extends ConsumerStatefulWidget {
   final int idReceta;
@@ -57,6 +58,22 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   Future<void> _toggleConsumida() async {
     if (_receta == null || _receta!['en_plan_hoy'] != true) return;
 
+    final bool canToggle = puedeMarcarConsumida(
+      horaInicio: _receta?['momento_hora_inicio_hoy']?.toString(),
+      horaFin: _receta?['momento_hora_fin_hoy']?.toString(),
+    );
+    if (!canToggle) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                "El horario de este momento de comida ya venció, no se puede modificar el consumo."),
+          ),
+        );
+      }
+      return;
+    }
+
     final idPlanItem = _receta!['id_plan_item_hoy'];
     final bool currentStatus = _receta!['consumida_hoy'] == true;
 
@@ -66,12 +83,22 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       await dio.post('tutor/marcar-consumida', data: {
         "id_plan_item": idPlanItem,
         "consumida": !currentStatus,
+        "fecha": fechaHoyIso(),
+        "hora": horaActualHhMm(),
       });
 
       setState(() {
         _receta!['consumida_hoy'] = !currentStatus;
       });
-      ref.invalidate(planDiarioProvider);
+      final idPaciente = ref.read(selectedPatientIdProvider);
+      if (idPaciente != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        await ref.refresh(
+            planDiarioProvider((idPaciente: idPaciente, fecha: today)).future);
+      } else {
+        ref.invalidate(planDiarioProvider);
+      }
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
     } finally {
@@ -107,7 +134,11 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
 
     return Scaffold(
       bottomNavigationBar: _buildRatingSection(context, theme, r['id']),
-      body: NestedScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _cargarDetalle();
+        },
+        child: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             _buildSliverAppBar(context, r, url, colorScheme),
@@ -147,8 +178,9 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMacronutrientesPieChart(
       BuildContext context, Map<String, dynamic> r) {
@@ -284,6 +316,10 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
 
   Widget _buildConsumidaSection(BuildContext context, Map<String, dynamic> r) {
     final bool isConsumida = r['consumida_hoy'] == true;
+    final bool canToggle = puedeMarcarConsumida(
+      horaInicio: r['momento_hora_inicio_hoy']?.toString(),
+      horaFin: r['momento_hora_fin_hoy']?.toString(),
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -332,10 +368,18 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                   ),
                 ),
                 Text(
-                  isConsumida ? "Consumida" : "¿Ya la preparaste?",
+                  isConsumida
+                      ? "Consumida"
+                      : (canToggle
+                          ? "¿Ya la preparaste?"
+                          : "No completada (Horario vencido)"),
                   style: TextStyle(
                     fontSize: AppTextSizes.caption(context.screenWidth),
-                    color: Colors.grey.shade600,
+                    color: isConsumida
+                        ? AppTema.verdeSalud
+                        : (canToggle ? Colors.grey.shade600 : const Color(0xFFEF4444)),
+                    fontWeight:
+                        canToggle ? null : FontWeight.w600,
                   ),
                 ),
               ],
@@ -346,7 +390,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             width: 110,
             height: 40,
             child: FilledButton.tonal(
-              onPressed: _isActionLoading ? null : _toggleConsumida,
+              onPressed: (_isActionLoading || !canToggle) ? null : _toggleConsumida,
               style: FilledButton.styleFrom(
                 backgroundColor:
                     isConsumida ? Colors.grey.shade100 : AppTema.verdeSalud,
@@ -456,15 +500,17 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
   }
 
   Future<void> _handleRating(int rating, int recetaId) async {
+    final int previousRating = _userRating;
     setState(() => _userRating = rating);
     if (rating <= 2) {
-      _showFeedbackDialog(rating, recetaId);
+      _showFeedbackDialog(rating, recetaId, previousRating);
     } else {
       _submitRating(rating, recetaId, null, null);
     }
   }
 
-  Future<void> _showFeedbackDialog(int stars, int recetaId) async {
+  Future<void> _showFeedbackDialog(
+      int stars, int recetaId, int previousRating) async {
     final dio = ref.read(dioProvider);
     List<dynamic> motivos = [];
     try {
@@ -484,65 +530,255 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       context: context,
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text("Ayúdanos a mejorar",
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                    "Lamentamos que no te haya gustado. ¿Podrías indicarnos el motivo?"),
-                const SizedBox(height: 16),
-                ...motivos.map((m) => RadioListTile<int>(
-                      title: Text(m['nombre'],
-                          style: const TextStyle(fontSize: 14)),
-                      value: m['id'],
-                      groupValue: selectedMotivoId,
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) {
-                        setDialogState(() {
-                          selectedMotivoId = val;
-                          showOtherField = m['nombre']
-                              .toString()
-                              .toLowerCase()
-                              .contains("otro");
-                        });
-                      },
-                    )),
-                if (showOtherField)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: TextField(
-                      controller: commentController,
-                      decoration: const InputDecoration(
-                        hintText: "Describe el motivo...",
-                        border: OutlineInputBorder(),
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 12,
+          clipBehavior: Clip.antiAlias,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Icono de cabecera centrado
+                  Center(
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFDE68A),
+                          width: 2,
+                        ),
                       ),
-                      maxLines: 2,
+                      child: const Icon(
+                        Icons.rate_review_rounded,
+                        color: Color(0xFFD97706),
+                        size: 30,
+                      ),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  // Título principal
+                  Text(
+                    "Ayúdanos a mejorar",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Píldora de estrellas seleccionadas
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...List.generate(
+                            5,
+                            (index) => Icon(
+                              index < stars
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 16,
+                              color: index < stars
+                                  ? const Color(0xFFF59E0B)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "$stars de 5 estrellas",
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF475569),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Subtítulo explicativo
+                  Text(
+                    "Lamentamos que la receta no haya sido de tu agrado. ¿Podrías indicarnos el motivo principal para tomarlo en cuenta?",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.lato(
+                      fontSize: 13.5,
+                      color: const Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Lista interactiva de motivos de rechazo
+                  ...motivos.map((m) {
+                    final bool isSelected = selectedMotivoId == m['id'];
+                    final String nombre = m['nombre']?.toString() ?? "";
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedMotivoId = m['id'];
+                            showOtherField =
+                                nombre.toLowerCase().contains("otro");
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTema.azulPrincipal.withOpacity(0.08)
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTema.azulPrincipal
+                                  : const Color(0xFFE2E8F0),
+                              width: isSelected ? 1.8 : 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked_rounded
+                                    : Icons.radio_button_off_rounded,
+                                size: 20,
+                                color: isSelected
+                                    ? AppTema.azulPrincipal
+                                    : const Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  nombre,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? AppTema.azulPrincipal
+                                        : const Color(0xFF334155),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  // Campo de texto para detalle adicional u "Otro"
+                  if (showOtherField) ...[
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      style: const TextStyle(fontSize: 13.5),
+                      decoration: InputDecoration(
+                        hintText:
+                            "Describe con más detalle el motivo o sugerencia...",
+                        hintStyle: const TextStyle(
+                            fontSize: 13, color: Color(0xFF94A3B8)),
+                        filled: true,
+                        fillColor: const Color(0xFFF1F5F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                              color: AppTema.azulPrincipal, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.all(14),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  // Botones de acción
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() => _userRating = previousRating);
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          ),
+                          child: const Text(
+                            "Cancelar",
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: selectedMotivoId == null
+                              ? null
+                              : () {
+                                  Navigator.pop(context);
+                                  _submitRating(stars, recetaId,
+                                      selectedMotivoId, commentController.text);
+                                },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTema.azulPrincipal,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            "Enviar opinión",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-                onPressed: () {
-                  setState(() => _userRating = 0);
-                  Navigator.pop(context);
-                },
-                child: const Text("Cancelar")),
-            FilledButton(
-              onPressed: selectedMotivoId == null
-                  ? null
-                  : () {
-                      Navigator.pop(context);
-                      _submitRating(stars, recetaId, selectedMotivoId,
-                          commentController.text);
-                    },
-              child: const Text("Enviar"),
-            ),
-          ],
         ),
       ),
     );
@@ -682,9 +918,13 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
         ],
         border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
           initiallyExpanded: false,
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
           title: Text(
@@ -710,7 +950,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildStatItem(

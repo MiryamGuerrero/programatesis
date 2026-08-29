@@ -11,6 +11,12 @@ import 'tutor_gustos_page.dart';
 import 'onboarding_gustos_page.dart';
 import 'widgets/generar_plan_automatico_modal.dart';
 import 'widgets/tutor_home_widgets.dart';
+import '../data/seguimiento_provider.dart'
+    show
+        subgruposGustosProvider,
+        momentosComidaProvider,
+        tiposPlatoProvider,
+        recetasSegurasInicialesProvider;
 
 class TutorHomePage extends ConsumerStatefulWidget {
   const TutorHomePage({super.key});
@@ -25,39 +31,12 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
   int _oldBottomNavIndex = 0;
   bool _showOnboarding = false;
   bool _checkingOnboarding = true;
+  late final PageController _pageController;
 
-  late final AnimationController _selectorController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 280),
-    reverseDuration: const Duration(milliseconds: 200),
-  );
-
-  late final Animation<double> _selectorScaleAnimation = Tween<double>(
-    begin: 0.82,
-    end: 1.0,
-  ).animate(CurvedAnimation(
-    parent: _selectorController,
-    curve: Curves.easeOutBack,
-    reverseCurve: Curves.easeInCubic,
-  ));
-
-  late final Animation<Offset> _selectorSlideAnimation = Tween<Offset>(
-    begin: const Offset(0.04, -0.06),
-    end: Offset.zero,
-  ).animate(CurvedAnimation(
-    parent: _selectorController,
-    curve: Curves.easeOutBack,
-    reverseCurve: Curves.easeInCubic,
-  ));
-
-  late final Animation<double> _selectorFadeAnimation = Tween<double>(
-    begin: 0.0,
-    end: 1.0,
-  ).animate(CurvedAnimation(
-    parent: _selectorController,
-    curve: Curves.easeOut,
-    reverseCurve: Curves.easeIn,
-  ));
+  late AnimationController _selectorController;
+  late Animation<double> _selectorScaleAnimation;
+  late Animation<Offset> _selectorSlideAnimation;
+  late Animation<double> _selectorFadeAnimation;
 
   final _overlayController = OverlayPortalController();
   final _layerLink = LayerLink();
@@ -65,6 +44,36 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _bottomNavIndex);
+    _selectorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _selectorScaleAnimation = Tween<double>(
+      begin: 0.82,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _selectorController,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    ));
+    _selectorSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.04, -0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _selectorController,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    ));
+    _selectorFadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _selectorController,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    ));
     _checkOnboardingStatus();
   }
 
@@ -92,6 +101,7 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
 
   @override
   void dispose() {
+    _pageController.dispose();
     _selectorController.dispose();
     super.dispose();
   }
@@ -133,7 +143,16 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
     }
 
     String nombrePaciente = "Seleccionar";
-    if (idPaciente != null) {
+    if (idPaciente == null) {
+      patientsAsync.whenData((list) {
+        if (list.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(selectedPatientIdProvider.notifier).state =
+                list.first["id"].toString();
+          });
+        }
+      });
+    } else {
       patientsAsync.whenData((list) {
         try {
           final p = list.firstWhere((p) => p["id"].toString() == idPaciente);
@@ -152,80 +171,69 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        titleSpacing: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _appBarData[_bottomNavIndex]["titulo"]!,
-              style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: AppTextSizes.title(context.screenWidth)),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
             ),
-            Text(
-              _appBarData[_bottomNavIndex]["subtitulo"]!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: AppTextSizes.caption(context.screenWidth)),
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            titleSpacing: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-          ],
-        ),
-        actions: [
-          _buildPatientSelector(context, nombrePaciente, patientsAsync),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          final currentIdPaciente = ref.read(selectedPatientIdProvider);
-          final now = DateTime.now();
-
-          ref.invalidate(planDiarioProvider);
-          ref.invalidate(misPacientesProvider);
-          ref.invalidate(listaComprasProvider);
-
-          if (currentIdPaciente != null) {
-            ref.invalidate(diasConPlanProvider((
-              idPaciente: currentIdPaciente,
-              mes: now.month,
-              anio: now.year
-            )));
-          }
-
-          await Future.delayed(const Duration(milliseconds: 800));
-        },
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          switchInCurve: Curves.easeInOutCubic,
-          switchOutCurve: Curves.easeInOutCubic,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            final childKey = child.key;
-            int childKeyIndex =
-                (childKey is ValueKey<int>) ? childKey.value : -1;
-            final bool isForward = _bottomNavIndex >= _oldBottomNavIndex;
-            Offset beginOffset = (childKeyIndex == _bottomNavIndex)
-                ? (isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0))
-                : (isForward
-                    ? const Offset(-1.0, 0.0)
-                    : const Offset(1.0, 0.0));
-            return SlideTransition(
-              position: animation
-                  .drive(Tween<Offset>(begin: beginOffset, end: Offset.zero)),
-              child: child,
-            );
-          },
-          child: SizedBox.expand(
-            key: ValueKey<int>(_bottomNavIndex),
-            child: ResponsiveMaxConstraints(child: vistas[_bottomNavIndex]),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _appBarData[_bottomNavIndex]["titulo"]!,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: AppTextSizes.title(context.screenWidth)),
+                ),
+                Text(
+                  _appBarData[_bottomNavIndex]["subtitulo"]!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: AppTextSizes.caption(context.screenWidth)),
+                ),
+              ],
+            ),
+            actions: [
+              _buildPatientSelector(context, nombrePaciente, patientsAsync),
+            ],
           ),
         ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: vistas.length,
+        onPageChanged: (index) {
+          if (index != _bottomNavIndex) {
+            if (index == 0) {
+              ref.invalidate(tipSaludableProvider);
+            }
+            setState(() {
+              _oldBottomNavIndex = _bottomNavIndex;
+              _bottomNavIndex = index;
+            });
+          }
+        },
+        itemBuilder: (context, index) {
+          return _KeepAliveWrapper(
+            key: ValueKey(index),
+            child: SizedBox.expand(
+              child: ResponsiveMaxConstraints(child: vistas[index]),
+            ),
+          );
+        },
       ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
@@ -262,6 +270,9 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
                 _oldBottomNavIndex = _bottomNavIndex;
                 _bottomNavIndex = index;
               });
+              if (_pageController.hasClients) {
+                _pageController.jumpToPage(index);
+              }
             }
           },
           destinations: const [
@@ -442,8 +453,18 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(24)),
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                      color: colorScheme.primary.withOpacity(0.2), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withOpacity(0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -469,5 +490,25 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
         ),
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

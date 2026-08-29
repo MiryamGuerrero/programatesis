@@ -4,6 +4,7 @@ import "package:google_fonts/google_fonts.dart";
 import "../../../core/theme/app_theme.dart";
 import "../data/seguimiento_provider.dart";
 import "../data/repositorio_tutor.dart";
+import "momento_horario.dart";
 
 class PlanDiarioPage extends ConsumerWidget {
   final String idPaciente;
@@ -23,8 +24,9 @@ class PlanDiarioPage extends ConsumerWidget {
     try {
       final repo = ref.read(repositorioTutorProvider);
       await repo.registrarConsumo(idPlanItem, 1);
-      ref.invalidate(
-          planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
+      await ref.refresh(
+          planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi))
+              .future);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -39,8 +41,9 @@ class PlanDiarioPage extends ConsumerWidget {
     try {
       final repo = ref.read(repositorioTutorProvider);
       await repo.intercambiarRecetaPlan(idPlanItem);
-      ref.invalidate(
-          planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
+      await ref.refresh(
+          planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi))
+              .future);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Receta intercambiada con éxito")),
@@ -177,18 +180,32 @@ class _MealCardState extends State<_MealCard> {
   @override
   Widget build(BuildContext context) {
     final bool consumido = widget.item["id_estado_consumo"] == 1;
+    final bool canToggle = puedeMarcarConsumida(
+      horaInicio: widget.item["momento_hora_inicio"]?.toString(),
+      horaFin: widget.item["momento_hora_fin"]?.toString(),
+    );
+    final bool hasExpired = momentoYaPaso(
+      horaFin: widget.item["momento_hora_fin"]?.toString(),
+    );
     final String momento = widget.item["momento_nombre"] ?? "Comida";
     final String receta = widget.item["receta_nombre"] ?? "Cargando receta...";
     final String calorias = "${widget.item["calorias_totales"] ?? 0} kcal";
 
+    final Color barColor = consumido
+        ? AppTema.verdeSalud
+        : (canToggle
+            ? AppTema.azulPrincipal
+            : (hasExpired ? const Color(0xFFEF4444) : const Color(0xFF94A3B8)));
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -202,7 +219,7 @@ class _MealCardState extends State<_MealCard> {
             children: [
               Container(
                 width: 6,
-                color: consumido ? AppTema.verdeSalud : AppTema.azulPrincipal,
+                color: barColor,
               ),
               Expanded(
                 child: Padding(
@@ -216,7 +233,27 @@ class _MealCardState extends State<_MealCard> {
                           _buildMomentoTag(momento),
                           if (consumido)
                             const Icon(Icons.check_circle_rounded,
-                                color: AppTema.verdeSalud, size: 24),
+                                color: AppTema.verdeSalud, size: 24)
+                          else if (hasExpired)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: const Color(0xFFFCA5A5)),
+                              ),
+                              child: Text(
+                                "NO COMPLETADO",
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFFEF4444),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -239,71 +276,99 @@ class _MealCardState extends State<_MealCard> {
                       ),
                       if (!consumido) ...[
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: OutlinedButton(
-                                onPressed: (_isChanging || _isMarking)
-                                    ? null
-                                    : _handleMarcar,
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                      color: AppTema.azulPrincipal),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                child: _isMarking
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: AppTema.azulPrincipal),
-                                      )
-                                    : Text(
-                                        "MARCAR CONSUMIDO",
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTema.azulPrincipal,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            if (widget.onCambiar != null) ...[
-                              const SizedBox(width: 8),
+                        if (canToggle)
+                          Row(
+                            children: [
                               Expanded(
-                                flex: 1,
+                                flex: 2,
                                 child: OutlinedButton(
-                                  onPressed:
-                                      _isChanging ? null : _handleCambiar,
+                                  onPressed: (_isChanging || _isMarking)
+                                      ? null
+                                      : _handleMarcar,
                                   style: OutlinedButton.styleFrom(
-                                    side:
-                                        BorderSide(color: Colors.grey.shade300),
+                                    side: const BorderSide(
+                                        color: AppTema.azulPrincipal),
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(12)),
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
                                   ),
-                                  child: _isChanging
+                                  child: _isMarking
                                       ? const SizedBox(
                                           width: 18,
                                           height: 18,
                                           child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              color: Colors.grey),
+                                              color: AppTema.azulPrincipal),
                                         )
-                                      : const Icon(Icons.autorenew,
-                                          size: 18, color: Colors.grey),
+                                      : Text(
+                                          "MARCAR CONSUMIDO",
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTema.azulPrincipal,
+                                          ),
+                                        ),
                                 ),
                               ),
+                              if (widget.onCambiar != null) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 1,
+                                  child: OutlinedButton(
+                                    onPressed:
+                                        _isChanging ? null : _handleCambiar,
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(
+                                          color: Colors.grey.shade300),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                    ),
+                                    child: _isChanging
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.grey),
+                                          )
+                                        : const Icon(Icons.autorenew,
+                                            size: 18, color: Colors.grey),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFFCA5A5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.lock_clock_outlined,
+                                    size: 16, color: Color(0xFFEF4444)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Horario vencido - No completado",
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFFEF4444),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ],
                   ),

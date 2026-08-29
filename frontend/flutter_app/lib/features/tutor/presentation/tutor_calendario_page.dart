@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import 'tutor_receta_detalle_page.dart';
@@ -77,8 +78,21 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
 
     return Container(
       color: colorScheme.surface,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
+      child: RefreshIndicator(
+        onRefresh: () async {
+          if (idPaciente != null) {
+            ref.invalidate(planDiarioProvider(
+                (idPaciente: idPaciente, fecha: _selectedDate)));
+            ref.invalidate(diasConPlanProvider((
+              idPaciente: idPaciente,
+              mes: _displayedMonth.month,
+              anio: _displayedMonth.year,
+            )));
+            await Future.delayed(const Duration(milliseconds: 600));
+          }
+        },
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
           if (notification is ScrollEndNotification) {
             final double offset = _scrollController.offset;
             if (offset > 0 && offset < 220) {
@@ -185,12 +199,94 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
                   ),
                 );
               },
-              loading: () => const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator())),
+              loading: () => _buildCalendarioShimmer(),
               error: (err, stack) => SliverFillRemaining(
                   child: Center(child: Text("Error: $err"))),
             ),
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildCalendarioShimmer() {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+      sliver: SliverToBoxAdapter(
+        child: Shimmer.fromColors(
+          baseColor: const Color(0xFFCBD5E1),
+          highlightColor: const Color(0xFFF8FAFC),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Moment 1: label + card
+              Container(
+                height: 16,
+                width: 120,
+                margin: const EdgeInsets.only(top: 16, bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              Container(
+                height: 90,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              // Moment 2: label + 2 cards
+              Container(
+                height: 16,
+                width: 100,
+                margin: const EdgeInsets.only(top: 16, bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              Container(
+                height: 90,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              Container(
+                height: 90,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              // Moment 3: label + card
+              Container(
+                height: 16,
+                width: 80,
+                margin: const EdgeInsets.only(top: 16, bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              Container(
+                height: 90,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -274,12 +370,15 @@ class _ExpandableCalendarHeaderDelegate extends SliverPersistentHeaderDelegate {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF8FAFC),
+        border: const Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+        ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2))
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3))
         ],
       ),
       child: Column(
@@ -532,13 +631,14 @@ class _CompactRecipeCard extends StatelessWidget {
     final String? desc = meal["receta_descripcion"];
 
     return Card(
-      elevation: 0,
-      color: isConsumida ? Colors.grey.shade50 : Colors.white,
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.03),
+      color: isConsumida ? Colors.grey.shade50 : const Color(0xFFF8FAFC),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: isConsumida
             ? BorderSide(color: AppTema.verdeSalud.withOpacity(0.5), width: 1.5)
-            : BorderSide(color: Colors.grey.shade200),
+            : const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
       ),
       child: ListTile(
         onTap: () {

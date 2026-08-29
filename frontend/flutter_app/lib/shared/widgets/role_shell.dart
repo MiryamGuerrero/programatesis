@@ -23,13 +23,21 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   bool _isMenuExpanded = true;
   final Map<String, Widget> _moduleCache = <String, Widget>{};
   final Map<String, bool> _categoryExpanded = {};
+  late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _index);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(realtimeServiceProvider).init();
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -38,6 +46,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     if (oldWidget.role != widget.role) {
       _index = 0;
       _moduleCache.clear();
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
     }
   }
 
@@ -56,27 +67,44 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     if (modules.isEmpty) return const SizedBox.shrink();
 
     final safeIndex = _index.clamp(0, modules.length - 1).toInt();
-    final children = <Widget>[];
 
-    for (var i = 0; i < modules.length; i++) {
-      final module = modules[i];
-      final cacheKey = _cacheKeyFor(module, i);
-      final shouldBuild = i == safeIndex || _moduleCache.containsKey(cacheKey);
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: modules.length,
+      onPageChanged: (index) {
+        if (_index != index) {
+          setState(() {
+            _index = index;
+          });
+        }
+      },
+      itemBuilder: (context, i) {
+        final module = modules[i];
+        final cacheKey = _cacheKeyFor(module, i);
+        final shouldBuild = i == safeIndex || _moduleCache.containsKey(cacheKey);
 
-      children.add(
-        shouldBuild ? _moduleFor(module, i) : const SizedBox.expand(),
-      );
-    }
+        if (!shouldBuild) {
+          return const SizedBox.expand();
+        }
 
-    return IndexedStack(
-      index: safeIndex,
-      children: children,
+        return _KeepAliveWrapper(
+          key: ValueKey(cacheKey),
+          child: _moduleFor(module, i),
+        );
+      },
     );
   }
 
   void _selectModule(int index) {
     if (_index == index) return;
     setState(() => _index = index);
+    if (_pageController.hasClients && _pageController.page?.round() != index) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   String _obtenerIniciales(String nombre) {
@@ -663,5 +691,25 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
         ),
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
