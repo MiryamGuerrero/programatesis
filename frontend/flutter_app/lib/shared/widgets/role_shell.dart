@@ -19,18 +19,31 @@ class RoleShell extends ConsumerStatefulWidget {
   ConsumerState<RoleShell> createState() => _RoleShellState();
 }
 
-class _RoleShellState extends ConsumerState<RoleShell> {
+class _RoleShellState extends ConsumerState<RoleShell>
+    with SingleTickerProviderStateMixin {
   int _index = 0;
   bool _signingOut = false;
   
   final Map<String, Widget> _moduleCache = <String, Widget>{};
   final Map<String, bool> _categoryExpanded = {};
-  late final PageController _pageController;
+  final Set<int> _visitedIndices = {};
+  bool _navigatingForward = true;
+
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _index);
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeInOut,
+    );
+    _animController.value = 1.0; // Start fully visible
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(realtimeServiceProvider).init();
     });
@@ -38,7 +51,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -48,9 +61,8 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     if (oldWidget.role != widget.role) {
       _index = 0;
       _moduleCache.clear();
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(0);
-      }
+      _visitedIndices.clear();
+      _animController.value = 1.0;
     }
   }
 
@@ -69,44 +81,35 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     if (modules.isEmpty) return const SizedBox.shrink();
 
     final safeIndex = _index.clamp(0, modules.length - 1).toInt();
+    _visitedIndices.add(safeIndex);
 
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: modules.length,
-      onPageChanged: (index) {
-        if (_index != index) {
-          setState(() {
-            _index = index;
-          });
-        }
-      },
-      itemBuilder: (context, i) {
-        final module = modules[i];
-        final cacheKey = _cacheKeyFor(module, i);
-        final shouldBuild = i == safeIndex || _moduleCache.containsKey(cacheKey);
-
-        if (!shouldBuild) {
-          return const SizedBox.expand();
-        }
-
-        return _KeepAliveWrapper(
-          key: ValueKey(cacheKey),
-          child: _moduleFor(module, i),
-        );
-      },
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset(_navigatingForward ? 0.08 : -0.08, 0.0),
+          end: Offset.zero,
+        ).animate(_fadeAnimation),
+        child: IndexedStack(
+          index: safeIndex,
+          children: [
+            for (int i = 0; i < modules.length; i++)
+              _visitedIndices.contains(i)
+                  ? _moduleFor(modules[i], i)
+                  : const SizedBox.expand(),
+          ],
+        ),
+      ),
     );
   }
 
   void _selectModule(int index) {
     if (_index == index) return;
-    setState(() => _index = index);
-    if (_pageController.hasClients && _pageController.page?.round() != index) {
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+    setState(() {
+      _navigatingForward = index > _index;
+      _index = index;
+    });
+    _animController.forward(from: 0.0);
   }
 
   String _obtenerIniciales(String nombre) {

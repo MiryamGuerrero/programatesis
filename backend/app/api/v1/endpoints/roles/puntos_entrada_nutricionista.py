@@ -152,12 +152,13 @@ def asignar_comida_manual_fechas(
     caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
+        id_profesional_interno = _resolver_id_profesional_interno(user.user_id, user.email)
         return caso_uso.asignar_comidas_manuales_fechas(
             id_paciente=request.id_paciente,
             id_receta=request.id_receta,
             id_momento=request.id_momento,
             fechas=request.fechas,
-            id_usuario=user.id_usuario
+            id_usuario=id_profesional_interno
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

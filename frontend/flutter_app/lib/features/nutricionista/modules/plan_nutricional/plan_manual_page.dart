@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
@@ -91,6 +92,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     "Validación nutricional pendiente"
   ];
 
+  RealtimeChannel? _realtimeChannel;
+
   int _calcularEdad(dynamic fechaNacimiento) {
     if (fechaNacimiento == null) return 0;
     try {
@@ -110,14 +113,144 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _fetchPatients(""));
+    Future.microtask(() {
+      _fetchPatients("");
+      _setupRealtimeSubscription();
+    });
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     _historyScrollController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _setupRealtimeSubscription() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('plan_manual_realtime_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'clinico',
+            table: 'validacion_control_nutricional_mensual',
+            callback: (payload) {
+              debugPrint("[Realtime] validacion_control_nutricional_mensual: ${payload.eventType}");
+              final newRec = payload.newRecord;
+              final idPaciente = (newRec['id_paciente'] ?? payload.oldRecord['id_paciente'])?.toString();
+              final bool confirmado = newRec['confirmado'] == true;
+              if (idPaciente != null && mounted) {
+                setState(() {
+                  for (var p in _patients) {
+                    if (p['id']?.toString() == idPaciente) {
+                      p['validacion_confirmada'] = confirmado;
+                    }
+                  }
+                  if (_selectedPatient != null && _selectedPatient!['id']?.toString() == idPaciente) {
+                    _selectedPatient!['validacion_confirmada'] = confirmado;
+                  }
+                });
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'clinico',
+            table: 'control_paciente',
+            callback: (payload) {
+              debugPrint("[Realtime] control_paciente: ${payload.eventType}");
+              _fetchPatientsSilently();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'plan_nutricional',
+            callback: (payload) {
+              debugPrint("[Realtime] plan_nutricional: ${payload.eventType}");
+              final newRec = payload.newRecord;
+              final oldRec = payload.oldRecord;
+              final idPaciente = (newRec['id_paciente'] ?? oldRec['id_paciente'])?.toString();
+              if (idPaciente != null && mounted) {
+                final isInsert = payload.eventType == PostgresChangeEvent.insert;
+                final isDelete = payload.eventType == PostgresChangeEvent.delete;
+                setState(() {
+                  for (var p in _patients) {
+                    if (p['id']?.toString() == idPaciente) {
+                      if (isInsert) p['plan_activo'] = true;
+                      if (isDelete) p['plan_activo'] = false;
+                    }
+                  }
+                  if (_selectedPatient != null && _selectedPatient!['id']?.toString() == idPaciente) {
+                    if (isInsert) _selectedPatient!['plan_activo'] = true;
+                    if (isDelete) _selectedPatient!['plan_activo'] = false;
+                  }
+                });
+              }
+              _fetchPatientsSilently();
+              if (_selectedPatient != null) {
+                _fetchPatientPlansSilently(_selectedPatient!['id']);
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'plan_item',
+            callback: (payload) {
+              debugPrint("[Realtime] plan_item: ${payload.eventType}");
+              if (_selectedPatient != null) {
+                _fetchPatientPlansSilently(_selectedPatient!['id']);
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'seguimiento_plan_item',
+            callback: (payload) {
+              debugPrint("[Realtime] seguimiento_plan_item: ${payload.eventType}");
+              if (_selectedPatient != null) {
+                _fetchPatientPlansSilently(_selectedPatient!['id']);
+              }
+            },
+          )
+          .subscribe((status, [error]) {
+            debugPrint("[Realtime] Canal plan_manual status: $status, error: $error");
+          });
+    } catch (e) {
+      debugPrint("Error setting up realtime subscription in PlanManual: $e");
+    }
+  }
+
+  Future<void> _fetchPatientPlansSilently(dynamic patientId) async {
+    if (patientId == null) return;
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get("pacientes/$patientId/planes");
+      if (mounted && res.data != null) {
+        final List planesRaw = res.data ?? [];
+        setState(() {
+          _patientPlans = planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchPatientsSilently() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final q = _searchController.text.trim();
+      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q});
+      if (mounted && res.data != null) {
+        setState(() {
+          _patients = List<Map<String, dynamic>>.from(res.data);
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchPatients(String q) async {
@@ -971,6 +1104,18 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             onPressed: () async {
                               try {
                                 await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
+                                if (mounted) {
+                                  setState(() {
+                                    for (var p in _patients) {
+                                      if (p['id']?.toString() == idPaciente.toString()) {
+                                        p['validacion_confirmada'] = true;
+                                      }
+                                    }
+                                    if (_selectedPatient != null && _selectedPatient!['id']?.toString() == idPaciente.toString()) {
+                                      _selectedPatient!['validacion_confirmada'] = true;
+                                    }
+                                  });
+                                }
                                 if (ctx.mounted) Navigator.pop(ctx);
                               } catch (e) {
                                 debugPrint("Error al confirmar: $e");
@@ -1006,7 +1151,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                 );
                                 final resExpNuevo = await dio.get("pacientes/$idPaciente/expediente-completo");
                                 if (mounted) {
-                                  setState(() => _patientProfile = resExpNuevo.data);
+                                  setState(() {
+                                    _patientProfile = resExpNuevo.data;
+                                    for (var p in _patients) {
+                                      if (p['id']?.toString() == idPaciente.toString()) {
+                                        p['validacion_confirmada'] = true;
+                                      }
+                                    }
+                                    if (_selectedPatient != null && _selectedPatient!['id']?.toString() == idPaciente.toString()) {
+                                      _selectedPatient!['validacion_confirmada'] = true;
+                                    }
+                                  });
                                 }
                                 if (ctx.mounted) Navigator.pop(ctx);
                               } catch (e) {
@@ -1041,7 +1196,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         setState(() {
           _patientPlans.removeWhere((p) => p["id"] == id);
           _deleteSuccess = true;
+          final hasVigente = _patientPlans.any((p) => p["vigente"] == true || p["plan_activo"] == true);
+          final pId = _selectedPatient?["id"]?.toString();
+          if (pId != null) {
+            for (var p in _patients) {
+              if (p['id']?.toString() == pId) {
+                p['plan_activo'] = hasVigente;
+              }
+            }
+            if (_selectedPatient != null) {
+              _selectedPatient!['plan_activo'] = hasVigente;
+            }
+          }
         });
+        _fetchPatientsSilently();
         await Future.delayed(const Duration(milliseconds: 1200));
       }
     } catch (e) {
@@ -1172,6 +1340,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               onBack: () {
                 setState(() => _isAssigningSingleMeal = false);
                 _onPatientSelected(_selectedPatient!);
+                _fetchPatientsSilently();
               },
             )
           else
@@ -1534,12 +1703,15 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildStatusBadge(String text, Color color) {
     IconData icon;
-    if (text == "Plan activo") {
-      icon = Icons.check_circle_outline;
-    } else if (text == "Validación nutricional confirmada") {
+    if (text == "Plan activo" ||
+        text == "Valid. confirmada" ||
+        text == "Validación nutricional confirmada") {
       icon = Icons.verified_user_outlined;
-    } else if (text == "No activo") {
+    } else if (text == "No activo" || text == "Sin plan") {
       icon = Icons.remove_circle_outline;
+    } else if (text == "Valid. pendiente" ||
+        text == "Validación nutricional pendiente") {
+      icon = Icons.pending_actions_outlined;
     } else {
       icon = Icons.access_time;
     }
@@ -1791,6 +1963,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         final bool isLoadingThis = _loadingPlanId == pId;
 
         return _PremiumPlanCard(
+          key: ValueKey("plan_${pId}_${p['porcentaje_adherencia']}_${p['consumidos']}"),
           planData: p,
           isLoading: isLoadingThis,
           onDelete: () => _deletePlan(pId ?? 0),
@@ -3037,11 +3210,23 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         "plan": planData,
         "boosters": _boostersSeleccionados,
       });
+      final savedPatientId = _selectedPatient!["id"]?.toString();
       if (mounted) {
         setState(() {
           _isDirty = false;
           _saveSuccess = true;
+          if (savedPatientId != null) {
+            for (var p in _patients) {
+              if (p['id']?.toString() == savedPatientId) {
+                p['plan_activo'] = true;
+              }
+            }
+            if (_selectedPatient != null) {
+              _selectedPatient!['plan_activo'] = true;
+            }
+          }
         });
+        _fetchPatientsSilently();
         await Future.delayed(const Duration(milliseconds: 1200));
         if (mounted) {
           _onPatientSelected(_selectedPatient!); 
@@ -3668,6 +3853,7 @@ class _PremiumPlanCard extends StatefulWidget {
   final VoidCallback onVerDetalle;
 
   const _PremiumPlanCard({
+    super.key,
     required this.planData,
     required this.isLoading,
     required this.onDelete,
@@ -3861,35 +4047,51 @@ class _PremiumPlanCardState extends State<_PremiumPlanCard> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: 160,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        begin: 0,
+                        end: (adherence / 100.0).clamp(0.0, 1.0),
+                      ),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animatedVal, _) {
+                        final displayPct = (animatedVal * 100).round();
+                        final isGood = displayPct > 70;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Adherencia",
-                                style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.blueGrey.shade500)),
-                            Text("${adherence.toStringAsFixed(0)}%",
-                                style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: adherence > 70 ? Colors.green.shade600 : Colors.blue.shade600)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Adherencia",
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blueGrey.shade500)),
+                                Text("$displayPct%",
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: isGood
+                                            ? Colors.green.shade600
+                                            : Colors.blue.shade600)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: animatedVal,
+                                backgroundColor: Colors.grey.shade100,
+                                color: isGood
+                                    ? Colors.green.shade500
+                                    : Colors.blue.shade500,
+                                minHeight: 6,
+                              ),
+                            ),
                           ],
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: adherence / 100.0,
-                            backgroundColor: Colors.grey.shade100,
-                            color: adherence > 70 ? Colors.green.shade500 : Colors.blue.shade500,
-                            minHeight: 6,
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ],
