@@ -262,9 +262,6 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
         _idSexo == null ||
         _idParentesco == null ||
         _enfermedadBase == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Por favor complete todos los campos obligatorios (*)"),
-          backgroundColor: Colors.red));
       return;
     }
 
@@ -410,6 +407,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
           children: [
             TextFormField(
                 controller: _nombreCtrl,
+                validator: (v) => (v == null || v.trim().isEmpty) ? "Campo requerido" : null,
                 decoration: const InputDecoration(
                     labelText: "Nombres y Apellidos Completos *",
                     border: OutlineInputBorder(),
@@ -421,6 +419,13 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _cedulaPacCtrl,
+                      validator: (v) {
+                        if (v != null && v.trim().isNotEmpty) {
+                          if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                          if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                        }
+                        return null;
+                      },
                       decoration: const InputDecoration(
                           labelText: "Cédula / Pasaporte",
                           border: OutlineInputBorder(),
@@ -436,6 +441,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: DropdownButtonFormField<int>(
                 initialValue: _idSexo,
+                validator: (v) => v == null ? "Campo requerido" : null,
                 items: _sexos
                     .map((s) => DropdownMenuItem<int>(
                         value: s['id'],
@@ -458,6 +464,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: DropdownButtonFormField<int>(
                 initialValue: _idCanton,
+                validator: (v) => v == null ? "Campo requerido" : null,
                 items: _cantones
                     .map((c) => DropdownMenuItem<int>(
                         value: c['id'],
@@ -478,6 +485,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: DropdownButtonFormField<int>(
                 initialValue: _idParroquia,
+                validator: (v) => v == null ? "Campo requerido" : null,
                 items: _parroquiasFiltradas
                     .map((p) => DropdownMenuItem<int>(
                         value: p['id'],
@@ -493,6 +501,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _enfermedadBase,
+              validator: (v) => (v == null || v.isEmpty) ? "Campo requerido" : null,
               items: _condicionesClinicas
                   .map((c) => DropdownMenuItem<String>(
                       value: c['nombre'],
@@ -519,6 +528,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _pesoCtrl,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? "Campo requerido" : null,
                       decoration: const InputDecoration(
                           labelText: "Peso (kg) *",
                           border: OutlineInputBorder(),
@@ -530,6 +540,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _tallaCtrl,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? "Campo requerido" : null,
                       decoration: const InputDecoration(
                           labelText: "Talla (cm) *",
                           border: OutlineInputBorder(),
@@ -543,6 +554,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _pcrCtrl,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? "Campo requerido" : null,
                       decoration: const InputDecoration(
                           labelText: "PCR (mg/L) *",
                           border: OutlineInputBorder(),
@@ -985,6 +997,12 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _cedulaTutorCtrl,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return "Campo requerido";
+                        if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                        if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números permitidos";
+                        return null;
+                      },
                       decoration: const InputDecoration(
                           labelText: "Cédula del Tutor *",
                           border: OutlineInputBorder(),
@@ -1040,6 +1058,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
             const SizedBox(height: 16),
             TextFormField(
                 controller: _nombreTutorCtrl,
+                validator: (v) => (v == null || v.trim().isEmpty) ? "Campo requerido" : null,
                 decoration: const InputDecoration(
                     labelText: "Nombre Completo del Tutor *",
                     border: OutlineInputBorder(),
@@ -1049,6 +1068,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
               initialValue: _idParentesco,
+              validator: (v) => v == null ? "Campo requerido" : null,
               items: _parentescos
                   .map((p) => DropdownMenuItem<int>(
                       value: p['id'],
@@ -1064,6 +1084,14 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _emailTutorCtrl,
+                      validator: (v) {
+                        if (v != null && v.trim().isNotEmpty) {
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
+                            return "Correo electrónico inválido";
+                          }
+                        }
+                        return null;
+                      },
                       decoration: const InputDecoration(
                           labelText: "Correo Electrónico",
                           border: OutlineInputBorder(),
@@ -1075,6 +1103,13 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
               Expanded(
                   child: TextFormField(
                       controller: _telTutorCtrl,
+                      validator: (v) {
+                        if (v != null && v.trim().isNotEmpty) {
+                          if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                          if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
+                        }
+                        return null;
+                      },
                       decoration: const InputDecoration(
                           labelText: "Teléfono / Móvil",
                           border: OutlineInputBorder(),
@@ -1148,6 +1183,7 @@ class _RegistrarPacientePageState extends ConsumerState<RegistrarPacientePage> {
   Widget _buildDateField() {
     return TextFormField(
       readOnly: true,
+      validator: (_) => _fnac == null ? "Campo requerido" : null,
       onTap: () async {
         final d = await showDatePicker(
             context: context,

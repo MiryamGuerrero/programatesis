@@ -11,6 +11,7 @@ import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 import "registro_paciente_page.dart";
+import "actualizar_paciente_page.dart";
 import "registro_mensual_page.dart";
 
 class SupervisionPacientesPage extends ConsumerWidget {
@@ -34,10 +35,9 @@ class SupervisionPacientesPage extends ConsumerWidget {
         return RegistroPacientePage(
             key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
       case MedicoView.fixedEdit:
-        return RegistroPacientePage(
-            key: ValueKey('fixed_${patient?['id']}'),
-            initialData: patient,
-            fixedOnly: true);
+        return ActualizarPacientePage(
+            key: ValueKey('fixed_'),
+            initialData: patient);
       case MedicoView.control:
         if (patient == null) return const _ListaPacientesView();
         return RegistroMensualPage(paciente: patient);
@@ -275,7 +275,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           height: 48,
           child: FilledButton.icon(
             onPressed: () {
-              ref.read(medicoNavProvider.notifier).setView(MedicoView.register);
+              ref.read(medicoNavProvider.notifier).setView(MedicoView.register, clearPatient: true);
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppTema.verdeSalud,

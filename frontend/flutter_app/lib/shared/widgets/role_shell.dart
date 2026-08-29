@@ -9,6 +9,8 @@ import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
 
+final menuExpandedProvider = StateProvider<bool>((ref) => true);
+
 class RoleShell extends ConsumerStatefulWidget {
   const RoleShell({super.key, required this.role});
   final AppRole role;
@@ -20,7 +22,7 @@ class RoleShell extends ConsumerStatefulWidget {
 class _RoleShellState extends ConsumerState<RoleShell> {
   int _index = 0;
   bool _signingOut = false;
-  bool _isMenuExpanded = true;
+  
   final Map<String, Widget> _moduleCache = <String, Widget>{};
   final Map<String, bool> _categoryExpanded = {};
   late final PageController _pageController;
@@ -239,8 +241,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
 
     return Container(
       height: 75,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
+        border: Border(bottom: BorderSide(color: brandBlue.withValues(alpha: 0.1), width: 0.5)),
       ),
       child: Row(
         children: [
@@ -253,7 +256,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                   icon: const Icon(Icons.menu_rounded,
                       color: brandBlue, size: 28),
                   onPressed: () =>
-                      setState(() => _isMenuExpanded = !_isMenuExpanded),
+                      ref.read(menuExpandedProvider.notifier).state = !ref.watch(menuExpandedProvider),
                 ),
                 const SizedBox(width: 8),
                 Image.asset(
@@ -286,160 +289,12 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           const Spacer(),
           const _NotificationBell(),
           const SizedBox(width: 24),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(nombre,
-                  style: GoogleFonts.montserrat(
-                      color: const Color(0xFF1E293B),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
-              if (userRoles.length > 1)
-                PopupMenuButton<int>(
-                  tooltip: "Cambiar de rol",
-                  offset: const Offset(0, 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.1), width: 1),
-                  ),
-                  color: Colors.white,
-                  surfaceTintColor: Colors.white,
-                  elevation: 12,
-                  onSelected: (int selectedRolId) async {
-                    if (selectedRolId == currentRolId) return;
-
-                    // Mostrar un diálogo de carga rápido
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) => const Center(
-                        child: CircularProgressIndicator(color: brandBlue),
-                      ),
-                    );
-
-                    try {
-                      final repo = ref.read(supabaseCrudRepositoryProvider);
-                      await repo.switchActiveRole(selectedRolId);
-
-                      // Refrescar sesión de Supabase
-                      final client = ref.read(supabaseClientProvider);
-                      await client.auth.refreshSession();
-
-                      // Invalidar proveedores globales
-                      ref.invalidate(appRoleProvider);
-                      ref.invalidate(miPerfilProvider);
-
-                      if (mounted) {
-                        Navigator.of(context).pop(); // Cerrar diálogo de carga
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        Navigator.of(context).pop(); // Cerrar diálogo de carga
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Error al cambiar de rol: ${e.toString()}",
-                              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                            ),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  itemBuilder: (context) {
-                    return userRoles.map<PopupMenuEntry<int>>((r) {
-                      final bool isCurrent = r["id"] == currentRolId;
-                      final String roleName = r["nombre"]?.toString() ?? "";
-                      
-                      IconData roleIcon = Icons.badge_outlined;
-                      final lowerName = roleName.toLowerCase();
-                      if (lowerName.contains("admin")) roleIcon = Icons.admin_panel_settings_outlined;
-                      else if (lowerName.contains("médico") || lowerName.contains("medico")) roleIcon = Icons.medical_services_outlined;
-                      else if (lowerName.contains("nutricionista")) roleIcon = Icons.restaurant_menu_outlined;
-                      else if (lowerName.contains("paciente")) roleIcon = Icons.person_outline_rounded;
-
-                      return PopupMenuItem<int>(
-                        value: r["id"] as int,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isCurrent ? brandBlue.withValues(alpha: 0.08) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: isCurrent ? brandBlue.withValues(alpha: 0.1) : Colors.blueGrey.withValues(alpha: 0.08),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  roleIcon,
-                                  size: 16,
-                                  color: isCurrent ? brandBlue : Colors.blueGrey.shade600,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                roleName,
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 13,
-                                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
-                                  color: isCurrent ? brandBlue : const Color(0xFF1E293B),
-                                ),
-                              ),
-                              if (isCurrent) ...[
-                                const SizedBox(width: 16),
-                                const Icon(Icons.check_circle_rounded, color: brandBlue, size: 18)
-                              ] else ...[
-                                const SizedBox(width: 34),
-                              ]
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList();
-                  },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(nombreRol,
-                            style: GoogleFonts.montserrat(
-                                color: brandGreen,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800)),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down_rounded,
-                            color: brandGreen, size: 16),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                Text(nombreRol,
-                    style: GoogleFonts.montserrat(
-                        color: brandGreen,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(width: 12),
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: brandBlue.withValues(alpha: 0.08),
-            child: Text(iniciales,
-                style: const TextStyle(
-                    color: brandBlue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
+          _UserProfileDropdown(
+            nombre: nombre,
+            nombreRol: nombreRol,
+            iniciales: iniciales,
+            userRoles: userRoles,
+            currentRolId: currentRolId,
           ),
           const SizedBox(width: 24),
           _HoverSignOutButton(
@@ -465,7 +320,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final List<Widget> listItems = [];
     
     categorizedModules.forEach((categoryName, indices) {
-      if (categoryName.isNotEmpty && _isMenuExpanded) {
+      if (categoryName.isNotEmpty && ref.watch(menuExpandedProvider)) {
         final isExpanded = _categoryExpanded[categoryName] ?? true;
         listItems.add(
           InkWell(
@@ -499,12 +354,12 @@ class _RoleShellState extends ConsumerState<RoleShell> {
             ),
           ),
         );
-      } else if (categoryName.isNotEmpty && !_isMenuExpanded) {
+      } else if (categoryName.isNotEmpty && !ref.watch(menuExpandedProvider)) {
         listItems.add(const SizedBox(height: 24));
       }
 
       final isExpanded = _categoryExpanded[categoryName] ?? true;
-      if (isExpanded || !_isMenuExpanded) {
+      if (isExpanded || !ref.watch(menuExpandedProvider)) {
         for (final i in indices) {
           final active = i == _index;
           listItems.add(
@@ -523,7 +378,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
                 child: Row(
                   children: [
                     Icon(modules[i].icon, color: Colors.white, size: 24),
-                    if (_isMenuExpanded) ...[
+                    if (ref.watch(menuExpandedProvider)) ...[
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -549,7 +404,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isMenuExpanded ? 280 : 85,
+      width: ref.watch(menuExpandedProvider) ? 280 : 85,
       color: companyBlue,
       child: Column(
         children: [
@@ -562,11 +417,11 @@ class _RoleShellState extends ConsumerState<RoleShell> {
           ),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: _isMenuExpanded ? 1.0 : 0.0,
+            opacity: ref.watch(menuExpandedProvider) ? 1.0 : 0.0,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16.0),
-              child: _isMenuExpanded
+              child: ref.watch(menuExpandedProvider)
                   ? Text(
                       "ReumaNutri v1.0",
                       style: GoogleFonts.montserrat(
@@ -596,43 +451,485 @@ class _RoleShellState extends ConsumerState<RoleShell> {
   }
 }
 
-class _NotificationBell extends ConsumerWidget {
+class _NotificationBell extends ConsumerStatefulWidget {
   const _NotificationBell();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(notificationProvider);
-    final unreadCount = ref.read(notificationProvider.notifier).unreadCount;
+  ConsumerState<_NotificationBell> createState() => _NotificationBellState();
+}
 
-    return unreadCount > 0
-        ? Badge(
-            label: Text(unreadCount.toString()),
-            child: _buildBellIcon(),
-          )
-        : _buildBellIcon();
+class _NotificationBellState extends ConsumerState<_NotificationBell> {
+  final MenuController _menuController = MenuController();
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return "Justo ahora";
+    if (diff.inMinutes < 60) return "hace ${diff.inMinutes} min";
+    if (diff.inHours < 24) return "hace ${diff.inHours} h";
+    return "hace ${diff.inDays} d";
   }
 
-  Widget _buildBellIcon() {
-    return PopupMenuButton<void>(
-      offset: const Offset(0, 50),
-      icon: const Icon(Icons.notifications_none_rounded,
-          color: Color(0xFF64748B), size: 26),
-      tooltip: "Notificaciones",
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      itemBuilder: (context) => [
-        PopupMenuItem<void>(
-          enabled: false,
-          child: Text("Notificaciones",
-              style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11,
-                  color: const Color(0xFF0068B7))),
+  @override
+  Widget build(BuildContext context) {
+    final notifs = ref.watch(notificationProvider);
+    final unreadCount = notifs.where((n) => !n.read).length;
+    final notifier = ref.read(notificationProvider.notifier);
+
+    return MenuAnchor(
+      controller: _menuController,
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+        elevation: WidgetStatePropertyAll(0),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+      alignmentOffset: const Offset(-272, 8),
+      menuChildren: [
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0068B7),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Text("Notificaciones",
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Colors.white)),
+                    const SizedBox(width: 8),
+                    if (unreadCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(unreadCount.toString(),
+                            style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white)),
+                      ),
+                    const Spacer(),
+                    if (unreadCount > 0)
+                      InkWell(
+                        onTap: () {
+                          for (final n in notifs) {
+                            if (!n.read) notifier.markAsRead(n.id);
+                          }
+                          _menuController.close();
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check, size: 14, color: Colors.white70),
+                            const SizedBox(width: 4),
+                            Text("Marcar leídas",
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
+              // List
+              if (notifs.isEmpty)
+                SizedBox(
+                  width: 320,
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Text("Sin notificaciones nuevas",
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: Colors.white70)),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 320,
+                  constraints: const BoxConstraints(maxHeight: 350),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int index = 0; index < notifs.length; index++) ...[
+                          Builder(builder: (context) {
+                            final n = notifs[index];
+                            Color iconColor;
+                            Color bgColor;
+                            IconData icon;
+                            switch (n.type) {
+                              case NutriNotificationType.success:
+                                iconColor = const Color(0xFF10B981);
+                                bgColor = const Color(0xFFD1FAE5);
+                                icon = Icons.check_circle_outline;
+                                break;
+                              case NutriNotificationType.warning:
+                                iconColor = const Color(0xFFF59E0B);
+                                bgColor = const Color(0xFFFEF3C7);
+                                icon = Icons.warning_amber_rounded;
+                                break;
+                              case NutriNotificationType.error:
+                                iconColor = const Color(0xFFEF4444);
+                                bgColor = const Color(0xFFFEE2E2);
+                                icon = Icons.error_outline_rounded;
+                                break;
+                              default:
+                                iconColor = const Color(0xFF3B82F6);
+                                bgColor = const Color(0xFFDBEAFE);
+                                icon = Icons.info_outline_rounded;
+                            }
+
+                            return InkWell(
+                              onTap: () {
+                                if (!n.read) notifier.markAsRead(n.id);
+                              },
+                              child: Container(
+                                width: 320,
+                                color: n.read ? Colors.transparent : Colors.white.withOpacity(0.08),
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: bgColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(icon, size: 18, color: iconColor),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    SizedBox(
+                                      width: 220,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(n.title,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white)),
+                                          const SizedBox(height: 4),
+                                          Text(n.message,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  color: Colors.white70)),
+                                          const SizedBox(height: 6),
+                                          Text(_timeAgo(n.timestamp),
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color: Colors.white54)),
+                                        ],
+                                      ),
+                                    ),
+                                    if (!n.read)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                            color: Colors.white, shape: BoxShape.circle),
+                                      )
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                          if (index < notifs.length - 1)
+                            Container(height: 1, width: 320, color: Colors.white.withOpacity(0.1)),
+                        ]
+                      ],
+                    ),
+                  ),
+                ),
+              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
+              // Footer
+              SizedBox(
+                width: 320,
+                child: InkWell(
+                  onTap: () => _menuController.close(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text("Ver todas las notificaciones",
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
+      builder: (context, controller, child) {
+        return IconButton(
+          icon: unreadCount > 0
+              ? Badge(
+                  label: Text(unreadCount.toString()),
+                  child: const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 26),
+                )
+              : const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 26),
+          onPressed: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+        );
+      },
     );
   }
 }
 
+class _UserProfileDropdown extends ConsumerStatefulWidget {
+  final String nombre;
+  final String nombreRol;
+  final String iniciales;
+  final List<dynamic> userRoles;
+  final int currentRolId;
+
+  const _UserProfileDropdown({
+    required this.nombre,
+    required this.nombreRol,
+    required this.iniciales,
+    required this.userRoles,
+    required this.currentRolId,
+  });
+
+  @override
+  ConsumerState<_UserProfileDropdown> createState() => _UserProfileDropdownState();
+}
+
+class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
+  final MenuController _menuController = MenuController();
+
+  Future<void> _changeRole(int selectedRolId) async {
+    if (selectedRolId == widget.currentRolId) return;
+
+    // Cierra el menu
+    _menuController.close();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF0068B7)),
+      ),
+    );
+
+    try {
+      final repo = ref.read(supabaseCrudRepositoryProvider);
+      await repo.switchActiveRole(selectedRolId);
+
+      final client = ref.read(supabaseClientProvider);
+      await client.auth.refreshSession();
+
+      ref.invalidate(appRoleProvider);
+      ref.invalidate(miPerfilProvider);
+
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error al cambiar de rol: ${e.toString()}"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuAnchor(
+      controller: _menuController,
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+        elevation: WidgetStatePropertyAll(0),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+      alignmentOffset: const Offset(-85, 8),
+      menuChildren: [
+        Container(
+          width: 280,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0068B7),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12), spreadRadius: 4)
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header con info de usuario
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white,
+                      child: Text(widget.iniciales,
+                          style: const TextStyle(
+                              color: Color(0xFF0068B7),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 180,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.nombre,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Colors.white)),
+                          Text(widget.nombreRol,
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
+              
+              // Roles list
+              if (widget.userRoles.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text("Cambiar Rol",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5)),
+                ),
+                ...widget.userRoles.map((r) {
+                  final bool isCurrent = r["id"] == widget.currentRolId;
+                  final String roleName = r["nombre"]?.toString() ?? "";
+                  IconData roleIcon = Icons.badge_outlined;
+                  final String rnLower = roleName.toLowerCase();
+                  if (rnLower.contains("admin")) {
+                    roleIcon = Icons.admin_panel_settings_outlined;
+                  } else if (rnLower.contains("medico") || rnLower.contains("médico")) {
+                    roleIcon = Icons.medical_services_outlined;
+                  } else if (rnLower.contains("tutor")) {
+                    roleIcon = Icons.family_restroom_rounded;
+                  } else if (rnLower.contains("nutri")) {
+                    roleIcon = Icons.restaurant_menu_outlined;
+                  }
+
+                  return InkWell(
+                    onTap: () => _changeRole(r["id"] as int),
+                    child: Container(
+                      width: 280,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      color: isCurrent ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                      child: Row(
+                        children: [
+                          Icon(roleIcon, size: 18, color: Colors.white70),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 180,
+                            child: Text(roleName,
+                                style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w500,
+                                    color: Colors.white)),
+                          ),
+                          if (isCurrent)
+                            const Icon(Icons.check, size: 16, color: Colors.white)
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
+              ],
+              const SizedBox(height: 4),
+            ],
+          ),
+        ),
+      ],
+      builder: (context, controller, child) {
+        return InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(widget.nombre,
+                        style: GoogleFonts.inter(
+                            color: const Color(0xFF1E293B),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    Text(widget.nombreRol,
+                        style: GoogleFonts.inter(
+                            color: const Color(0xFF64748B),
+                            fontSize: 11)),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF0068B7).withValues(alpha: 0.1),
+                  child: Text(widget.iniciales,
+                      style: const TextStyle(
+                          color: Color(0xFF0068B7),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B), size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 class _HoverSignOutButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool isSigningOut;
@@ -674,10 +971,6 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.power_settings_new_rounded,
-                          color: _isHovered ? brandBlue : Colors.white,
-                          size: 16),
-                      const SizedBox(width: 10),
                       Text("Cerrar sesión",
                           style: GoogleFonts.montserrat(
                             color: _isHovered ? brandBlue : Colors.white,

@@ -459,9 +459,13 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
   }
 
   void _mostrarDetalleControl(Map<String, dynamic> ctrl) {
-    final dateStr = ctrl['fecha_control'] != null
-        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_control']))
+    final dateMedicoStr = ctrl['fecha_medico'] != null
+        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_medico']))
         : '-';
+    
+    final dateNutriStr = ctrl['fecha_nutricionista'] != null
+        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_nutricionista']))
+        : 'Pendiente / No registrado';
 
     final String? name = ctrl['especialista_nombre'];
     final String? rol = ctrl['especialista_rol'];
@@ -469,6 +473,12 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
     final String specialistInfo = name != null
         ? "$name${rol != null ? ' ($rol)' : ''}${isActive ? '' : ' - Inactivo/Borrado'}"
         : "Sin Especialista";
+
+    final notaMedico = ctrl['nota_evolucion_medico']?.toString() ?? "Sin observaciones médicas en esta sesión.";
+    final notaNutri = ctrl['nota_evolucion_nutri']?.toString() ?? "Sin observaciones de nutrición en esta sesión.";
+    
+    final nombreMedico = ctrl['medico_nombre'] ?? "Sin Médico";
+    final nombreNutri = ctrl['nutricionista_nombre'] ?? "Sin Nutricionista";
 
     showDialog(
       context: context,
@@ -521,7 +531,7 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
                                   fontSize: 18),
                             ),
                             Text(
-                              "Fecha: $dateStr",
+                              "Evaluación Médica: $dateMedicoStr\nAtención Nutricional: $dateNutriStr",
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   color: Colors.blueGrey,
@@ -577,13 +587,27 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
                                 const Icon(Icons.format_quote_rounded, color: Color(0xFFCBD5E1), size: 28),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    ctrl['nota_evolucion']?.toString() ?? "Sin observaciones registradas en esta sesión.",
-                                    style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        height: 1.5,
-                                        color: AppTema.azulOscuro,
-                                        fontStyle: FontStyle.italic),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "MÉDICO ($nombreMedico):\n$notaMedico",
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            height: 1.5,
+                                            color: AppTema.azulOscuro,
+                                            fontStyle: FontStyle.italic),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "NUTRICIONISTA ($nombreNutri):\n$notaNutri",
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            height: 1.5,
+                                            color: AppTema.verdeSalud,
+                                            fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -856,8 +880,8 @@ class _AdminAuditDataSource extends DataTableSource {
     if (localIndex < 0 || localIndex >= items.length) return null;
     final ctrl = items[localIndex];
 
-    final dateStr = ctrl['fecha_control'] != null
-        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_control']))
+    final dateStr = ctrl['fecha_medico'] != null
+        ? DateFormat('dd/MM/yyyy').format(DateTime.parse(ctrl['fecha_medico']))
         : '-';
 
     final bool isActive = ctrl['especialista_activo'] != false;

@@ -224,12 +224,21 @@ def listar_controles_auditoria(
     where_str = f"where {' and '.join(where_clauses)}" if where_clauses else ""
     
     with db_cursor() as cur:
+        # Contamos los controles médicos (cada control es una fila unificada en la auditoría)
         count_sql = f"""
             select count(*)
             from clinico.control_paciente cp
             join usuarios.paciente p on p.id = cp.id_paciente
             left join usuarios.usuario um on um.id = cp.id_medico
-            left join usuarios.usuario un on un.id = cp.id_nutricionista
+            left join lateral (
+                select pn.creado_por
+                from interaccion.plan_nutricional pn
+                where pn.id_paciente = cp.id_paciente
+                  and pn.created_at >= cp.created_at
+                  and pn.created_at <= cp.created_at + interval '3 days'
+                order by pn.created_at desc limit 1
+            ) pn on true
+            left join usuarios.usuario un on un.id = coalesce(cp.id_nutricionista, pn.creado_por)
             {where_str}
         """
         cur.execute(count_sql, tuple(params))
@@ -237,20 +246,23 @@ def listar_controles_auditoria(
         
         items_sql = f"""
             select 
-                cp.id::text,
-                cp.fecha_control::text,
+                cp.id::text as id,
+                cp.fecha_control::text as fecha_medico,
+                pn.fecha_nutri::text as fecha_nutricionista,
                 p.nombre_completo::text as paciente_nombre,
+                um.nombre_completo::text as medico_nombre,
+                un.nombre_completo::text as nutricionista_nombre,
                 case
-                    when cp.id_medico is not null and cp.id_nutricionista is not null then um.nombre_completo || ' y ' || un.nombre_completo
+                    when cp.id_medico is not null and un.id is not null then um.nombre_completo || ' y ' || un.nombre_completo
                     when cp.id_medico is not null then um.nombre_completo
-                    when cp.id_nutricionista is not null then un.nombre_completo
+                    when un.id is not null then un.nombre_completo
                     else 'Nadie'
                 end::text as especialista_nombre,
                 coalesce(um.activo, un.activo, true) as especialista_activo,
                 case
-                    when cp.id_medico is not null and cp.id_nutricionista is not null then 'Médico y Nutricionista'
+                    when cp.id_medico is not null and un.id is not null then 'Médico y Nutricionista'
                     when cp.id_medico is not null then 'Médico'
-                    when cp.id_nutricionista is not null then 'Nutricionista'
+                    when un.id is not null then 'Nutricionista'
                     else 'Nadie'
                 end::text as especialista_rol,
                 cp.peso_kg,
@@ -260,11 +272,26 @@ def listar_controles_auditoria(
                 cp.escala_inflamacion,
                 cp.nivel_fatiga,
                 cp.en_brote,
-                cp.nota_evolucion::text
+                cp.nota_evolucion::text as nota_evolucion_medico,
+                pn.nota_nutri::text as nota_evolucion_nutri
             from clinico.control_paciente cp
             join usuarios.paciente p on p.id = cp.id_paciente
             left join usuarios.usuario um on um.id = cp.id_medico
-            left join usuarios.usuario un on un.id = cp.id_nutricionista
+            left join lateral (
+                select 
+                    pn_inner.creado_por, 
+                    pn_inner.created_at as fecha_nutri,
+                    case 
+                        when pn_inner.fecha_inicio = pn_inner.fecha_fin then 'Asignó plan de una sola comida para ' || to_char(pn_inner.fecha_inicio, 'DD/MM/YYYY')
+                        else 'Asignó plan nutricional del ' || to_char(pn_inner.fecha_inicio, 'DD/MM/YYYY') || ' al ' || to_char(pn_inner.fecha_fin, 'DD/MM/YYYY')
+                    end as nota_nutri
+                from interaccion.plan_nutricional pn_inner
+                where pn_inner.id_paciente = cp.id_paciente
+                  and pn_inner.created_at >= cp.created_at
+                  and pn_inner.created_at <= cp.created_at + interval '3 days'
+                order by pn_inner.created_at desc limit 1
+            ) pn on true
+            left join usuarios.usuario un on un.id = coalesce(cp.id_nutricionista, pn.creado_por)
             {where_str}
             order by cp.fecha_control desc, cp.id desc
             limit %s offset %s

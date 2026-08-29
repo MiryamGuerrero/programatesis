@@ -15,6 +15,8 @@ import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
+import '../../../shared/widgets/role_shell.dart';
+import '../../../shared/widgets/custom_date_picker.dart';
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -47,7 +49,7 @@ class _HeatLabel extends StatelessWidget {
               text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF1E293B),
@@ -72,7 +74,10 @@ class RegistroMensualPage extends ConsumerStatefulWidget {
 
 class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     with SingleTickerProviderStateMixin {
+  String _tendenciaFilter = '1y';
   late TabController _tabController;
+  int _activeDomainIndex = 0;
+  int _activeFigureIndex = 0;
   bool _loading = false;
   bool _yaEvaluadoHoy = false;
   bool _controlMensualYaHecho = false;
@@ -118,6 +123,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   ];
 
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
+  late TextEditingController _proximaCitaCtrl;
   final List<Map<String, dynamic>> _condicionesTemp = [];
   List<Map<String, dynamic>> _recomendacionesIng = [];
   List<dynamic> _condicionesTemporalesCat = [];
@@ -158,12 +164,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(menuExpandedProvider.notifier).state = false;
+      }
+    });
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {});
       }
     });
+    _proximaCitaCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
     _cargarExpediente();
     _loadCatalogos();
   }
@@ -203,6 +215,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   @override
   void dispose() {
+    _proximaCitaCtrl.dispose();
     _tabController.dispose();
     _debounceOMS?.cancel();
     _heatmapScrollCtrl.dispose();
@@ -221,6 +234,21 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     _rigidez.dispose();
     _notas.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickProximaCita() async {
+    final d = await showCustomDatePicker(
+      context,
+      initialDate: _proximaCita,
+      colorActivo: AppTema.azulPrincipal,
+      colorTexto: AppTema.azulOscuro,
+    );
+    if (d != null) {
+      setState(() {
+        _proximaCita = d;
+        _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(d);
+      });
+    }
   }
 
   Future<void> _cargarExpediente() async {
@@ -476,6 +504,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ??
           DateTime.now().add(const Duration(days: 30));
+      _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
 
       if (_expediente != null && _expediente!['recomendaciones'] != null) {
         _recomendacionesIng = List<Map<String, dynamic>>.from(
@@ -552,7 +581,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             "Se han actualizado los campos de peso, talla y evaluación correctamente",
             ref: ref);
 
-      ref.invalidate(medicoPatientsProvider);
+      ref.invalidate(medicalPatientsProvider);
 
       _limpiarForm();
       _cargarExpediente();
@@ -645,12 +674,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Expediente maestro integral",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontWeight: FontWeight.w900, fontSize: 20)),
                       Text(
                           "Registro oficial del paciente y soporte legal en el sistema ReumaNutri",
                           style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12)),
+                              color: Colors.grey.shade600, fontSize: 11)),
                     ],
                   ),
                   const Spacer(),
@@ -843,7 +872,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     letterSpacing: 0.2)),
             const SizedBox(height: 4),
             Text(v?.toString() ?? "No registrado",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight:
                       (isBold || isAlert) ? FontWeight.w900 : FontWeight.w600,
@@ -855,6 +884,15 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Stack(
+        children: [
+          Container(color: const Color(0xFFF8FAFC)), // background
+          _buildLoadingOverlay(),
+        ],
+      );
+    }
+    
     return Stack(
       children: [
         Scaffold(
@@ -879,31 +917,30 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             ],
           ),
         ),
-        if (_loading) _buildLoadingOverlay(),
       ],
     );
   }
 
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Colors.white,
+      color: Colors.black.withOpacity(0.6),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: greenBrand, strokeWidth: 4),
-            const SizedBox(height: 24),
-            Text(
-              "Cargando control mensual...",
-              style: GoogleFonts.montserrat(
-                  color: const Color(0xFF0F172A),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1),
-            ),
-          ],
-        ),
-      ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16)
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTema.azulPrincipal),
+              const SizedBox(height: 16),
+              Text("Cargando control mensual...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
+            ]
+          )
+        )
+      )
     );
   }
 
@@ -916,35 +953,82 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _buildHeaderBar() => Container(
+  Widget _buildHeaderBar() {
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
-      child: Row(children: [
-        IconButton.filledTonal(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-            onPressed: () =>
-                ref.read(medicoNavProvider.notifier).goBackToList()),
-        const SizedBox(width: 24),
-        Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text("Seguimiento clínico del paciente",
-                  style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppTema.azulPrincipal,
-                      letterSpacing: -0.5)),
+              InkWell(
+                onTap: () {
+                  ref.read(medicoNavProvider.notifier).goBackToList();
+                },
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTema.azulPrincipal.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 4.0),
+                    child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
               Text(
-                  "Módulo para registro mensual y monitoreo de evolución del paciente pediátrico reumatológico.",
-                  style: GoogleFonts.montserrat(
-                      color: const Color(0xFF64748B),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500))
-            ])
-      ]));
+                "Control mensual del paciente",
+                style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF334155)), 
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 52),
+            child: Text(
+              "Formulario para registrar o editar el control mensual, evolución, datos antropométricos y estado nutricional del paciente.",
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B)),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTema.verdeSalud, 
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () {
+                    ref.read(medicoNavProvider.notifier).goBackToList();
+                  },
+                  child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+                ),
+                Text("Control Mensual", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              ],
+            )
+          ),
+        ],
+      )
+    );
+  }
 
   Widget _buildTabBar() => Container(
       height: 60,
@@ -956,7 +1040,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           indicator: const UnderlineTabIndicator(
               borderSide: BorderSide(width: 4, color: greenBrand),
               insets: EdgeInsets.symmetric(horizontal: 60)),
-          labelStyle: GoogleFonts.montserrat(
+          labelStyle: GoogleFonts.inter(
               fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
           tabs: const [
             Tab(text: "Registro clínico"),
@@ -969,63 +1053,82 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     if (bloqueado) {
       content = Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withOpacity(0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            )
+          ]
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _controlMensualYaHecho
-                      ? Icons.check_circle_outline
-                      : Icons.lock_outline,
-                  color: _controlMensualYaHecho ? Colors.blue : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _mensajeControlMensual.isNotEmpty
-                        ? _mensajeControlMensual
-                        : "Aún no corresponde el control mensual.",
-                    style: GoogleFonts.montserrat(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color:
-                          _controlMensualYaHecho ? Colors.blue : Colors.orange,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _controlMensualYaHecho
-                  ? "Si necesita corregir el control, vaya al monitor de evolución y edite ese registro."
-                  : "La ventana de registro se habilitará cuando se cumpla la fecha programada.",
-              style: GoogleFonts.montserrat(
-                fontSize: 12,
-                color: Colors.blueGrey,
-                height: 1.5,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: (_controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange).withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _controlMensualYaHecho
+                    ? Icons.check_circle_rounded
+                    : Icons.lock_outline_rounded,
+                color: _controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange.shade700,
+                size: 48,
               ),
             ),
             const SizedBox(height: 24),
+            Text(
+              _mensajeControlMensual.isNotEmpty
+                  ? _mensajeControlMensual
+                  : "Aún no corresponde el control mensual",
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+                letterSpacing: -0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _controlMensualYaHecho
+                    ? "Si necesitas corregir la información del control actual, por favor dirígete al monitor de evolución y edita el registro correspondiente."
+                    : "La ventana de registro se habilitará automáticamente cuando se cumpla la fecha programada para el siguiente control mensual.",
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 32),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 FilledButton.icon(
                   onPressed: () => _tabController.animateTo(1),
-                  icon: const Icon(Icons.show_chart_rounded),
-                  label: const Text("Ir al monitor de evolución"),
+                  icon: const Icon(Icons.trending_up_rounded, size: 18),
+                  label: Text("Ir al monitor", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
                   style: FilledButton.styleFrom(
-                    backgroundColor: greenBrand,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1033,12 +1136,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   onPressed: () {
                     ref.read(medicoNavProvider.notifier).goBackToList();
                   },
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text("Volver a Gestión de Pacientes"),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: Text("Volver a Gestión", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF64748B),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    foregroundColor: const Color(0xFF475569),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1087,7 +1190,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   child: Text(
                       "PACIENTE YA EVALUADO HOY. Si registra una nueva valoración, se sobreescribirá el control de esta fecha.",
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.orange))),
             ]),
@@ -1096,7 +1199,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
         // 1. SIGNOS VITALES Y ANTROPOMETRÍA
         _sectionHeader(
-            "1. Signos vitales y antropometría", Icons.monitor_weight_outlined),
+            "Signos vitales y antropometría", Icons.monitor_weight_outlined),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(24),
@@ -1329,45 +1432,31 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         _buildRecomendacionesSelector(),
         const SizedBox(height: 48),
 
-        Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _sectionHeader(
-                    "5. Seguimiento y observaciones", Icons.event_note_rounded),
-                const SizedBox(height: 24),
-                Container(
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: ListTile(
-                        leading:
-                            const Icon(Icons.calendar_month, color: greenBrand),
-                        title: const Text("Próxima cita*",
-                            style: TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                            DateFormat('EEEE, dd/MM/yyyy', 'es')
-                                .format(_proximaCita),
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: greenBrand)),
-                        onTap: () async {
-                          final d = await showDatePicker(
-                              context: context,
-                              initialDate: _proximaCita,
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 180)));
-                          if (d != null) setState(() => _proximaCita = d);
-                        })),
-              ])),
-        ]),
+        _sectionHeader("Seguimiento y observaciones", Icons.event_note_rounded),
         const SizedBox(height: 24),
-        _field(_notas, "Observaciones médicas", Icons.edit_note, maxLines: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _field(
+                _notas, 
+                "Observaciones médicas", 
+                Icons.edit_note, 
+                maxLines: 4
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: _field(
+                _proximaCitaCtrl,
+                "Fecha de próxima consulta",
+                Icons.event_note_rounded,
+                readOnly: true,
+                onTap: _pickProximaCita,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 48),
 
         SizedBox(
@@ -1387,7 +1476,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         ? "Registrar valoración"
                         : "Guardar cambios",
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                        fontWeight: FontWeight.bold, fontSize: 14)),
                 style: FilledButton.styleFrom(
                     backgroundColor: greenBrand,
                     shape: RoundedRectangleBorder(
@@ -1450,13 +1539,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: sel ? greenBrand : const Color(0xFF0F172A))),
                     const SizedBox(height: 4),
                     Text(desc,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.w500)),
@@ -1514,8 +1603,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(icon, size: 16, color: isSel ? greenBrand : Colors.blueGrey),
             const SizedBox(width: 10),
             Text(name,
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: isSel ? greenBrand : Colors.blueGrey)),
             if (isSel) ...[
@@ -1598,7 +1687,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => Chip(
                   label: Text(e['nombre'] ?? "",
                       style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.red)),
                   onDeleted: () => setState(() => selectedList.remove(e)),
@@ -1673,7 +1762,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       ? "Activa por $duracionSugerida días"
                       : "Sugerencia: $duracionSugerida días",
                   style: GoogleFonts.inter(
-                      fontSize: 11, color: const Color(0xFF64748B))),
+                      fontSize: 10, color: const Color(0xFF64748B))),
               children: sel
                   ? [
                       Padding(
@@ -1731,8 +1820,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             child: Text(
               "Quedan $diasRestantes días",
               textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(
-                  fontSize: 11,
+              style: GoogleFonts.inter(
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF334155)),
             ),
@@ -1755,8 +1844,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
             const SizedBox(width: 12),
             Text("Diagnóstico nutricional OMS",
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF475569))),
           ]),
@@ -1775,7 +1864,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         const SizedBox(height: 24),
         Text(
             "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF0F172A))),
@@ -1853,7 +1942,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("•",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             color: _omsColor)),
@@ -1861,7 +1950,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Expanded(
                         child: Text(line,
                             style: GoogleFonts.inter(
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF334155),
                                 height: 1.35))),
@@ -1921,13 +2010,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF64748B))),
             const SizedBox(height: 2),
             Text(value,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
@@ -1939,7 +2028,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Icon(i, size: 18, color: greenBrand),
         const SizedBox(width: 12),
         Text(t,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontWeight: FontWeight.w900,
                 fontSize: 13,
                 color: const Color(0xFF0F172A),
@@ -1964,13 +2053,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 child: Icon(icon, color: greenBrand, size: 20)),
             const SizedBox(width: 12),
             Text(title,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
           ]),
           Text("${val.toInt()}/$max",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: greenBrand)),
@@ -1994,7 +2083,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   isSel ? greenBrand : Colors.grey.shade200)),
                       child: Center(
                           child: Text("$index",
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: isSel
@@ -2006,7 +2095,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: labels
                 .map((l) => Text(l,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)))
@@ -2019,8 +2108,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       String label, TextEditingController ctrl, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: GoogleFonts.montserrat(
-              fontSize: 11,
+          style: GoogleFonts.inter(
+              fontSize: 10,
               fontWeight: FontWeight.w700,
               color: Colors.blueGrey)),
       const SizedBox(height: 8),
@@ -2038,7 +2127,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     controller: ctrl,
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 14, fontWeight: FontWeight.w700),
                     decoration: const InputDecoration(
                         border: InputBorder.none,
@@ -2090,12 +2179,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("¿Tiene brote activo?",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: _brote ? Colors.red.shade900 : Colors.green.shade900)),
           Text("Indique si el paciente presenta un brote en este momento.",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
@@ -2126,7 +2215,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             color: _brote ? Colors.red : greenBrand),
         const SizedBox(width: 16),
         Text(_brote ? "Brote activo detectado" : "Sin brote activo",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
                 color: _brote ? Colors.red : greenBrand)),
@@ -2146,7 +2235,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           isExpanded: true,
           hint: hint != null
               ? Text(hint,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 13,
                       color: Colors.grey.shade400,
                       fontWeight: FontWeight.w500))
@@ -2155,7 +2244,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => DropdownMenuItem<int>(
                   value: e['id'],
                   child: Text(e['nombre'] ?? e['descripcion'] ?? "",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF1E293B)))))
@@ -2189,7 +2278,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(v,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: greenBrand))
@@ -2209,7 +2298,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               child: Text(
                   "$l: ${DateFormat('EEEE, d MMMM y', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}",
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600))),
         ]),
@@ -2234,31 +2323,40 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 fontWeight: FontWeight.w800,
                 color: color,
                 height: 1.4,
-                fontFamily: GoogleFonts.montserrat().fontFamily),
+                fontFamily: GoogleFonts.inter().fontFamily),
             children: spans));
   }
 
-  Widget _sectionHeader(String t, IconData i) => Row(children: [
-        Icon(i, size: 18, color: greenBrand),
-        const SizedBox(width: 12),
+  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) => Row(children: [
+        Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: AppTema.azulPrincipal.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+            child: Icon(i, size: 20, color: AppTema.azulPrincipal)),
+        const SizedBox(width: 18),
         Text(t,
-            style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-                color: const Color(0xFF0F172A),
-                letterSpacing: 0.5))
+            style: GoogleFonts.inter(
+                fontWeight: isSub ? FontWeight.w800 : FontWeight.w900,
+                fontSize: isSub ? 11 : 13,
+                color: isSub ? Colors.blueGrey : const Color(0xFF0F172A),
+                letterSpacing: 0.8))
       ]);
 
   Widget _field(TextEditingController c, String l, IconData i,
           {int maxLines = 1,
           Function(String)? onChanged,
           bool enabled = true,
-          String? helper}) =>
+          String? helper,
+          bool readOnly = false,
+          VoidCallback? onTap}) =>
       TextFormField(
           controller: c,
           maxLines: maxLines,
           enabled: enabled,
           onChanged: onChanged,
+          readOnly: readOnly,
+          onTap: onTap,
           decoration: InputDecoration(
               labelText: l,
               helperText: helper,
@@ -2267,57 +2365,647 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   borderRadius: BorderRadius.all(Radius.circular(12)))));
 
   Widget _buildHistoryTab({bool isNested = false}) {
-    if (_loading && _expediente == null)
+    if (_loading && _expediente == null) {
       return const Center(child: CircularProgressIndicator());
+    }
     final evo = _evolucionMensual;
     final historial = (evo?['controles'] as List? ?? [])
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
     if (evo == null || historial.isEmpty) {
-      return const Center(
-          child: Text("No hay registros previos para graficar."));
+      final emptyContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Monitor de evolución",
+              style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTema.azulPrincipal,
+                  letterSpacing: -1)),
+          const SizedBox(height: 8),
+          Text(
+              "Historial y análisis clínico de la actividad de la enfermedad y estado nutricional.",
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xFF64748B))),
+          const SizedBox(height: 48),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.monitor_heart_outlined, size: 64, color: Colors.blueGrey.shade200),
+                  const SizedBox(height: 24),
+                  Text("Aún no hay controles históricos", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                  const SizedBox(height: 8),
+                  Text("No hay registros previos para graficar.\nRegistra el control de este mes para activar el monitor de evolución.", textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 14, color: Colors.blueGrey)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+      if (isNested) return Padding(padding: const EdgeInsets.all(40), child: emptyContent);
+      return SingleChildScrollView(padding: const EdgeInsets.all(24), child: emptyContent);
     }
+    
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Centro de análisis clínico",
+        Text("Monitor de evolución",
             style: GoogleFonts.inter(
-                fontSize: 24,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: AppTema.azulPrincipal,
-                letterSpacing: -0.5)),
+                letterSpacing: -1)),
         const SizedBox(height: 8),
-        const Text(
-            "Prioridad reumatológica: monitoreo de actividad de enfermedad AIJ + estado nutricional integral.",
-            style: TextStyle(color: Colors.blueGrey, fontSize: 13)),
+        Text(
+            "Historial y análisis clínico de la actividad de la enfermedad y estado nutricional.",
+            style: GoogleFonts.inter(
+                fontSize: 13, color: const Color(0xFF64748B))),
         const SizedBox(height: 28),
-        _buildEvolutionDashboard(evo),
-        const SizedBox(height: 56),
-        _buildFoodIntakeSection(),
-        const SizedBox(height: 56),
-        _sectionHeader(
-            "Línea de tiempo de eventos clínicos", Icons.timeline_rounded),
+        _buildOpsDashboard(evo, historial),
+      ],
+    );
+
+    if (isNested) {
+      return Padding(padding: const EdgeInsets.all(40), child: content);
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: content,
+    );
+  }
+
+  Widget _buildOpsDashboard(Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
+    final controls = _evoFilteredControls(evo);
+    final monthlyControls = _groupEvoControlsByMonth(controls);
+    final stats = _calculateEvoStats(monthlyControls);
+
+    final domains = [
+      "Evolución Reumatológica",
+      "Evolución Nutricional",
+      "Resumen Clínico",
+      "Historial Clínico",
+    ];
+
+    final figureTabs = [
+      ["Síntomas y Dolor", "Mapa Articular"],
+      ["Antropometría", "Consumo Alimentario"],
+      ["Lectura Rápida"],
+      ["Línea Temporal", "Registros Detallados"],
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Navegación Nivel 1 (Fuera de la caja)
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          children: List.generate(domains.length, (index) {
+            final active = _activeDomainIndex == index;
+            return InkWell(
+              onTap: () => setState(() {
+                _activeDomainIndex = index;
+                _activeFigureIndex = 0; // Reset tab
+              }),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                padding: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: active ? AppTema.azulPrincipal.withOpacity(0.05) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text("${index + 1}", style: GoogleFonts.inter(color: active ? Colors.white : Colors.blueGrey.shade600, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      domains[index],
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
         const SizedBox(height: 24),
-        _buildClinicalTimeline(historial),
-        const SizedBox(height: 56),
-        _sectionHeader("Registros cronológicos", Icons.list_alt_rounded),
-        const SizedBox(height: 24),
-        ListView.separated(
+
+        // La Caja Principal
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Pestañitas Nivel 2 (Dentro de la caja, arriba a la derecha)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  children: List.generate(figureTabs[_activeDomainIndex].length, (idx) {
+                    final active = _activeFigureIndex == idx;
+                    return InkWell(
+                      onTap: () => setState(() => _activeFigureIndex = idx),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: active ? Colors.blueGrey.shade50 : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: active ? Colors.blueGrey.shade200 : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(
+                          figureTabs[_activeDomainIndex][idx],
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                            color: active ? AppTema.azulPrincipal : Colors.blueGrey,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              // Contenido (2 columnas)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Columna Izquierda
+                  Container(
+                      width: 280,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16)),
+                      ),
+                      child: _buildOpsLeftPanel(stats, controls, evo),
+                    ),
+
+                    // Columna Derecha (Gráfica)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: _buildOpsRightPanel(controls, evo, historial, stats, monthlyControls),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOpsLeftPanel(Map<String, dynamic> stats, List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
+    String badgeText = "";
+    String title = "";
+    String desc = "";
+    Widget kpis = const SizedBox.shrink();
+
+    if (_activeDomainIndex == 0) { // Reumatológica
+      DateTime latestControlDate = DateTime.now();
+      if (controls.isNotEmpty) {
+        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        if (parsed != null) latestControlDate = parsed;
+      }
+      final now = latestControlDate;
+      
+      DateTime threshold;
+      switch (_tendenciaFilter) {
+        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
+        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
+        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
+        default: threshold = DateTime(2000); break;
+      }
+      final filteredControls = controls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+
+      if (_activeFigureIndex == 0) { // Síntomas
+        final double? lastPain = filteredControls.isEmpty ? null : (filteredControls.last['puntos_dolor'] ?? 0).toDouble();
+        final double? prevPain = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['puntos_dolor'] ?? 0).toDouble() : null;
+        final double? lastFatigue = filteredControls.isEmpty ? null : (filteredControls.last['nivel_fatiga'] ?? 10).toDouble();
+        final double? prevFatigue = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['nivel_fatiga'] ?? 10).toDouble() : null;
+
+        String painInterp = "Información insuficiente para análisis clínico.";
+        if (lastPain != null) {
+          if (lastPain <= 2) painInterp = "Paciente en remisión o con dolor leve bien controlado. ";
+          else if (lastPain <= 6) painInterp = "Actividad sintomática moderada. Se sugiere monitoreo clínico continuo. ";
+          else painInterp = "Actividad severa aguda. Posible riesgo inminente de daño o brote activo. ";
+          
+          if (prevPain != null) {
+            if (lastPain > prevPain) painInterp += "Cuadro sintomático en deterioro respecto al último control.";
+            else if (lastPain < prevPain) painInterp += "Evolución favorable con reducción de sintomatología.";
+            else painInterp += "Estado clínico estacionario sin cambios agudos.";
+          }
+        }
+
+        String fatigueInterp = "Información insuficiente para análisis clínico.";
+        if (lastFatigue != null) {
+          if (lastFatigue <= 3) fatigueInterp = "Agotamiento crítico (astenia severa) que compromete la calidad de vida. ";
+          else if (lastFatigue <= 6) fatigueInterp = "Nivel de energía intermedio con episodios de fatiga recurrente. ";
+          else fatigueInterp = "Óptima vitalidad reportada, compatible con buen estado general. ";
+          
+          if (prevFatigue != null) {
+            if (lastFatigue < prevFatigue) fatigueInterp += "Incremento del cansancio basal frente a visita previa.";
+            else if (lastFatigue > prevFatigue) fatigueInterp += "Recuperación de la energía y funcionalidad.";
+            else fatigueInterp += "Condición basal estable.";
+          }
+        }
+
+        Widget buildBlock(String badge, String title, String valTitle, double? val, String interp) {
+          return Container(
+            constraints: const BoxConstraints(minHeight: 220),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+                const SizedBox(height: 16),
+                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                const SizedBox(height: 16),
+                Text(valTitle, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                const SizedBox(height: 4),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: val != null ? val.toInt().toString() : "-", style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+                      TextSpan(text: " / 10", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulPrincipal)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                const SizedBox(height: 16),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
+                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 0),
+            buildBlock("Figura 1", "EVOLUCIÓN DEL DOLOR", "Último Dolor", lastPain, painInterp),
+            const SizedBox(height: 125),
+            buildBlock("Figura 2", "EVOLUCIÓN DE LA ENERGÍA DEL PACIENTE", "Último valor de nivel de energía", lastFatigue, fatigueInterp),
+          ],
+        );
+      } else { // Mapa Articular
+        final int? lastInf = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_inflamadas'] ?? 0).toInt();
+        final int? lastDol = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_dolorosas'] ?? 0).toInt();
+        final int? lastRig = filteredControls.isEmpty ? null : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
+
+        String jointInterp = "Información insuficiente para análisis clínico.";
+        if (lastInf != null && lastDol != null) {
+          if (lastInf == 0 && lastDol == 0) jointInterp = "Ausencia de actividad inflamatoria articular. Excelente pronóstico actual. ";
+          else if (lastInf <= 2) jointInterp = "Actividad oligoarticular leve. Requiere seguimiento de las articulaciones afectadas. ";
+          else jointInterp = "Actividad poliarticular severa. Sugiere brote activo y riesgo de daño estructural. ";
+          
+          if (lastRig != null && lastRig > 30) {
+            jointInterp += "Rigidez matinal prolongada indica inflamación sistémica activa.";
+          } else if (lastRig != null && lastRig > 0) {
+            jointInterp += "Rigidez matinal leve a moderada presente.";
+          }
+        }
+
+        Widget buildMultiKpiBlock(String badge, String title, List<Map<String, dynamic>> kpis, String interp) {
+          return Container(
+            constraints: const BoxConstraints(minHeight: 220),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+                const SizedBox(height: 16),
+                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                const SizedBox(height: 16),
+                Column(
+                  children: kpis.map((k) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Text(k['title'], style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey, height: 1.2))),
+                        Text(k['val'].toString(), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                const SizedBox(height: 16),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
+                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 0),
+            buildMultiKpiBlock("Figura 3", "ACTIVIDAD ARTICULAR", [
+              {'title': 'Articulaciones inflamadas actualmente', 'val': lastInf ?? '-'},
+              {'title': 'Articulaciones dolorosas actualmente', 'val': lastDol ?? '-'},
+              {'title': 'Rigidez actual en minutos', 'val': lastRig ?? '-'},
+            ], jointInterp),
+            const SizedBox(height: 10),
+            // Block for Figura 4
+            Container(
+              constraints: const BoxConstraints(minHeight: 220),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                    child: Text("Figura 4", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text("PENDIENTE", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                ]
+              )
+            )
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 1) { // Nutricional
+      if (_activeFigureIndex == 0) { // Antropometría
+        badgeText = "Figura 3";
+        title = "Crecimiento y Estado";
+        desc = "Evolución antropométrica frente a los estándares de crecimiento de la OMS.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("IMC Actual", "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
+            const SizedBox(height: 16),
+            _opsKpi("Talla Actual", "${controls.isNotEmpty ? controls.last['talla_cm'] ?? '-' : '-'} cm"),
+          ],
+        );
+      } else { // Consumo
+        badgeText = "Figura 4";
+        title = "Adherencia a la Dieta";
+        desc = "Registro del consumo alimentario y aceptación de las recomendaciones dietéticas.";
+        final data = _consumoAlimentario;
+        final resumen = Map<String, dynamic>.from(data?['resumen'] ?? {});
+        final adh = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("% de Adherencia", "${adh.toStringAsFixed(1)}%"),
+            const SizedBox(height: 16),
+            _opsKpi("Total de Registros", "${_foodFilteredItems().length}"),
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 2) { // Resumen
+      badgeText = "Figura 5";
+      title = "Impacto Global";
+      desc = "Panorama general de la efectividad del tratamiento médico y nutricional combinado.";
+      kpis = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _opsKpi("Meses Controlados", "${controls.length}"),
+          const SizedBox(height: 16),
+          _opsKpi("Tendencia Clínica", stats['tendencia_clinica'] ?? "-", isText: true),
+        ],
+      );
+    } else { // Historial
+      if (_activeFigureIndex == 0) { // Timeline
+        badgeText = "Figura 6";
+        title = "Línea Temporal";
+        desc = "Vista gráfica de eventos clínicos a lo largo del tiempo.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Meses Registrados", "${controls.length}"),
+          ],
+        );
+      } else { // Registros Detallados
+        badgeText = "Figura 7";
+        title = "Registros Detallados";
+        desc = "Lista cronológica completa de todas las consultas y sus variables clínicas.";
+        kpis = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _opsKpi("Controles Totales", "${controls.length}"),
+          ],
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+          child: Text(badgeText, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+        ),
+        const SizedBox(height: 16),
+        Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        const SizedBox(height: 32),
+        kpis,
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 8),
+        Text(desc, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey, height: 1.5)),
+      ],
+    );
+  }
+
+  Widget _opsKpi(String title, String value, {bool isText = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: isText ? 13 : 24,
+            fontWeight: isText ? FontWeight.w700 : FontWeight.w900,
+            color: AppTema.azulPrincipal,
+            height: 1.2
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial, Map<String, dynamic> stats, List<Map<String, dynamic>> monthlyControls) {
+    if (_activeDomainIndex == 0) { // Reumatológica
+      DateTime latestControlDate = DateTime.now();
+      if (controls.isNotEmpty) {
+        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        if (parsed != null) latestControlDate = parsed;
+      }
+      final now = latestControlDate;
+      
+      DateTime threshold;
+      switch (_tendenciaFilter) {
+        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
+        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
+        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
+        default: threshold = DateTime(2000); break;
+      }
+      final filteredControls = controls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+      final filteredMonthlyControls = monthlyControls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+
+      if (_activeFigureIndex == 0) { // Síntomas y Dolor
+        return _redesignTendenciaClinica(filteredMonthlyControls, stats);
+      } else { // Mapa Articular
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Evolución Clínica Articular",
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0F172A))),
+                  Container(
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _tendenciaFilter,
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
+                        style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                        items: const [
+                          DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
+                          DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
+                          DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
+                          DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _tendenciaFilter = val);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildEvoActivitySection(filteredControls),
+            const SizedBox(height: 24),
+            _buildEvoInflammationSectionV2(filteredControls),
+          ],
+        );
+      }
+    } else if (_activeDomainIndex == 1) { // Nutricional
+      if (_activeFigureIndex == 0) {
+        return _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {}));
+      } else {
+        return _buildFoodIntakeSection();
+      }
+    } else if (_activeDomainIndex == 2) { // Resumen Clínico
+      return Column(
+        children: [
+          _redesignSummaryCards(stats),
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: _buildEvoHeatmapSection(controls)), // Heatmap is the visual Lectura Rápida
+              const SizedBox(width: 14),
+              Expanded(flex: 4, child: _redesignLecturaRapida(stats)),
+            ],
+          ),
+        ],
+      );
+    } else { // Historial
+      if (_activeFigureIndex == 0) {
+        return _buildClinicalTimeline(historial);
+      } else {
+        return ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: historial.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) =>
-              _buildHistoryItem(historial[historial.length - 1 - index]),
-        ),
-      ],
-    );
-
-    if (isNested)
-      return Padding(padding: const EdgeInsets.all(40), child: content);
-    return SingleChildScrollView(
-        padding: const EdgeInsets.all(40), child: content);
+          itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+        );
+      }
+    }
   }
 
   Widget _buildChartExplanation(String title, String content, Color color) =>
@@ -2337,7 +3025,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     children: [
                   Text(title,
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: color,
                           letterSpacing: 0.5)),
@@ -2366,7 +3054,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(title,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                           color: color)),
@@ -2521,7 +3209,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(width: 8),
             Text(label,
                 style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: Colors.blueGrey,
                     letterSpacing: 0.5))
@@ -2539,7 +3227,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Positioned(
                       bottom: 10,
                       child: Container(
-                          width: 32,
+                          width: 22,
                           height: barHeight.clamp(10, 200),
                           decoration: BoxDecoration(
                               color: color,
@@ -2553,7 +3241,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   const Text("Actual",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$actual $unit",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: color)),
@@ -2561,7 +3249,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   const Text("Ideal OMS",
                       style: TextStyle(fontSize: 9, color: Colors.grey)),
                   Text("$ideal $unit",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Colors.green)),
@@ -2859,7 +3547,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Expanded(
               child: Text(conclusion,
                   style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600, color: color)))
+                      fontSize: 10, fontWeight: FontWeight.w600, color: color)))
         ]));
   }
 
@@ -2885,7 +3573,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text(
                       h['estado_nutricional'] ?? "Sin diagnóstico",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                           color: const Color(0xFF0F172A)),
@@ -2899,7 +3587,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Text(
                       "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min",
                       style:
-                          const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                          const TextStyle(fontSize: 10, color: Colors.blueGrey),
                     ),
                   ],
                 ),
@@ -2947,7 +3635,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     const Icon(Icons.analytics_outlined, color: greenBrand),
                     const SizedBox(width: 12),
                     Text("Resumen de valoración",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
                             color: greenBrand)),
@@ -3015,7 +3703,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     color: Colors.blueGrey)),
             const SizedBox(height: 2),
             Text(v,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: isHighlight ? FontWeight.w900 : FontWeight.w600,
                     color: isHighlight ? greenBrand : const Color(0xFF1E293B)))
@@ -3300,7 +3988,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ? "no hay meses con brote registrado"
           : "hay brote en $mesesConBrote de $totalMeses meses";
       interpretacion =
-          "La gráfica mensual resume $totalControles controles en $totalMeses meses. El dolor es $dolorStr (promedio ${promedioDolor.toStringAsFixed(1)}/10) y la energía es $energiaStr (promedio ${promedioEnergia.toStringAsFixed(1)}/10). Frente al mes anterior, el dolor $tendenciaDolor y la energía $tendenciaEnergia; $broteLectura. Esto sugiere $patronClinico y debe correlacionarse con examen clínico, brotes y adherencia del paciente.";
+          "Las gráficas resumen $totalControles controles en $totalMeses meses. El dolor es $dolorStr (promedio ${promedioDolor.toStringAsFixed(1)}/10) y la energía es $energiaStr (promedio ${promedioEnergia.toStringAsFixed(1)}/10). Frente al mes anterior, el dolor $tendenciaDolor y la energía $tendenciaEnergia; $broteLectura. Esto sugiere $patronClinico y debe correlacionarse con examen clínico, brotes y adherencia del paciente.";
     }
 
     return {
@@ -3324,33 +4012,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     };
   }
 
-  Widget _redesignHeader() => Row(
+  Widget _redesignHeader() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.green.shade100)),
-            child: const Icon(Icons.add_box_outlined,
-                color: Color(0xFF2E7D32), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("1. Evolución mensual de síntomas",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A))),
-              Text(
-                  "Seguimiento de dolor y energía reportados en los controles del paciente",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B))),
-            ],
+          _sectionHeader("Evolución mensual de síntomas", Icons.show_chart_rounded),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 58),
+            child: Text(
+                "Seguimiento de dolor y energía reportados en los controles del paciente",
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B))),
           ),
         ],
       );
@@ -3377,26 +4051,34 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     color: color.withOpacity(0.08), shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 20)),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF64748B))),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: color)),
-                Text(status,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF64748B))),
+                  const SizedBox(height: 2),
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: color)),
+                  Text(status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: color)),
+                ],
+              ),
             ),
           ],
         ),
@@ -3460,50 +4142,107 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
+  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls, Map<String, dynamic> stats) {
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Tendencia clínica",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 13,
+              Text("Tendencia clínica de Síntomas",
+                  style: GoogleFonts.inter(
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
-              Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      size: 12, color: Color(0xFF64748B)),
-                  const SizedBox(width: 4),
-                  Text("Pase el cursor para ver detalle",
-                      style: GoogleFonts.montserrat(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B))),
-                ],
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _tendenciaFilter,
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                    items: const [
+                      DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
+                      DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
+                      DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
+                      DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _tendenciaFilter = val);
+                    },
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           _redesignSingleChart("Dolor EVA (0-10)", controls,
               (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, "pain"),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 24),
           _redesignSingleChart(
               "Energía (0-10)",
               controls,
               (c) => (c['nivel_fatiga'] ?? 10).toDouble(),
               Colors.green,
               "energy"),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(text: "Interpretación general: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF0369A1))),
+                  TextSpan(text: (() {
+                    if (controls.isEmpty) return "Información insuficiente en el período seleccionado.";
+                    final first = controls.first;
+                    final last = controls.last;
+                    final double initialPain = (first['puntos_dolor'] ?? 0).toDouble();
+                    final double finalPain = (last['puntos_dolor'] ?? 0).toDouble();
+                    final double initialFatigue = (first['nivel_fatiga'] ?? 10).toDouble();
+                    final double finalFatigue = (last['nivel_fatiga'] ?? 10).toDouble();
+                    
+                    String interp = "Las gráficas resumen " + controls.length.toString() + " controles médicos registrados en el período seleccionado. ";
+                    if (finalPain < initialPain) {
+                      interp += "Se observa una mejoría clínica con reducción del dolor. ";
+                    } else if (finalPain > initialPain) {
+                      interp += "El dolor ha empeorado en el período evaluado. ";
+                    } else {
+                      interp += "El dolor se ha mantenido estable. ";
+                    }
+                    
+                    if (finalFatigue > initialFatigue) {
+                      interp += "El nivel de energía ha mejorado. ";
+                    } else if (finalFatigue < initialFatigue) {
+                      interp += "Se evidencia un aumento en la fatiga del paciente. ";
+                    }
+                    
+                    if (finalPain <= 2 && finalFatigue >= 7) {
+                      interp += "El estado general sugiere un adecuado control de la enfermedad y buena calidad de vida.";
+                    } else if (finalPain >= 7 || finalFatigue <= 3) {
+                      interp += "El estado es de alerta clínica, requiriendo posible revisión del esquema terapéutico por alta carga sintomática.";
+                    } else {
+                      interp += "Se mantiene una actividad sintomática moderada bajo monitoreo.";
+                    }
+                    return interp;
+                  })(), style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF0369A1), fontWeight: FontWeight.normal, height: 1.4)),
+                ]
+              )
+            )
+          ),
         ],
-      ),
     );
   }
 
@@ -3518,56 +4257,29 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .entries
         .map((e) => FlSpot(e.key.toDouble(), getValue(e.value)))
         .toList();
-    final double maxVal =
-        spots.isEmpty ? 10 : spots.map((s) => s.y).reduce(max);
 
-    // Escala dinámica: se adapta pero mantiene bases lógicas para EVA (5 o 10)
     double calculatedMaxY = 10.0;
-    if (maxVal <= 5) {
-      calculatedMaxY = 5.0;
-    } else if (maxVal <= 10) {
-      calculatedMaxY = 10.0;
-    } else {
-      calculatedMaxY = (maxVal * 1.2).ceilToDouble();
-    }
 
     final bool isPain = type == "pain";
     final List<(double, double, Color)> bands = isPain
         ? const [
-            (0, 2, Color(0x0D2E7D32)),
-            (3, 6, Color(0x0DF59E0B)),
-            (7, 10, Color(0x0DF87171))
+            (0, 2.5, Color(0x082E7D32)),
+            (2.5, 6.5, Color(0x08F59E0B)),
+            (6.5, 10, Color(0x08F87171))
           ]
         : const [
-            (0, 3, Color(0x0DF87171)),
-            (4, 6, Color(0x0DF59E0B)),
-            (7, 10, Color(0x0D2E7D32))
+            (0, 3.5, Color(0x08F87171)),
+            (3.5, 6.5, Color(0x08F59E0B)),
+            (6.5, 10, Color(0x082E7D32))
           ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-                width: 8,
-                height: 8,
-                decoration:
-                    BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 6),
-            Text(title,
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF334155))),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 140,
-          child: LineChart(
-            LineChartData(
-              minX: 0,
+    return Container(
+      height: 220,
+      padding: EdgeInsets.zero,
+      child: LineChart(
+        LineChartData(
+          clipData: const FlClipData.all(),
+          minX: 0,
               maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
               minY: 0,
               maxY: calculatedMaxY,
@@ -3601,7 +4313,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         reservedSize: 24,
                         interval: calculatedMaxY / 2,
                         getTitlesWidget: (v, meta) => Text(v.toInt().toString(),
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF94A3B8))))),
@@ -3620,12 +4332,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           return Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                  (controls[idx]['mes_label'] ??
-                                          _monthShort(controls[idx]
+                                  (controls[idx]['mes_label_largo'] ??
+                                          _monthLong(controls[idx]
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
                                       color: const Color(0xFF94A3B8))));
@@ -3642,16 +4354,29 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     .map((i) => TouchedSpotIndicatorData(
                         FlLine(
                             color: color.withOpacity(0.15), strokeWidth: 1.5),
-                        FlDotData(show: true, getDotPainter: _getSmallDot)))
-                    .toList(),
-                touchTooltipData: _redesignTooltipData(controls, type),
-              ),
+                      FlDotData(show: true, getDotPainter: _getSmallDot)))
+                  .toList(),
+              touchTooltipData: _redesignTooltipData(controls, type),
             ),
           ),
         ),
-      ],
-    );
+      );
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   static FlDotPainter _getSmallDot(
           FlSpot spot, double xPercentage, LineChartBarData bar, int index) =>
@@ -3707,52 +4432,52 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               TextSpan(
                   text:
-                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                  style: GoogleFonts.montserrat(
+                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "$label: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text: "${value.toStringAsFixed(1)}/10\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text: "Controles: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "${c['controles_mes'] ?? 1}\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "Estado: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "$estado\n",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF334155),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "Brote: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xFF0F172A),
                       fontWeight: FontWeight.w800)),
               TextSpan(
                   text: "${c['en_brote'] == true ? 'Sí' : 'No'}",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 9,
                       color: c['en_brote'] == true ? Colors.red : Colors.green,
                       fontWeight: FontWeight.w800)),
@@ -3778,8 +4503,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 color: Color(0xFF004FC4),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
             child: Text("Lectura clínica rápida",
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: Colors.white)),
           ),
@@ -3823,7 +4548,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 color: Colors.red, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
                         Text("Alta actividad",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.red)),
@@ -3859,7 +4584,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 children: [
                   Flexible(
                       child: Text(label,
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF64748B)),
@@ -3868,7 +4593,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Flexible(
                       child: Text(value,
                           textAlign: TextAlign.right,
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: isMultiLine
@@ -3899,8 +4624,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   size: 14, color: Color(0xFF0F172A)),
               const SizedBox(width: 8),
               Text("Top 3 controles recientes",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 11,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
             ],
@@ -3949,14 +4674,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   Widget _tableHeader(String t) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Text(t,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 8,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF64748B))));
   Widget _tableCell(String t) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(t,
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.inter(
               fontSize: 9,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF0F172A))));
@@ -3967,7 +4692,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             SizedBox(
                 width: 14,
                 child: Text("$val",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         color: const Color(0xFF0F172A)))),
@@ -3993,7 +4718,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     brote ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(4)),
             child: Text(brote ? "Sí" : "No",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
                     color: brote ? Colors.red : Colors.green)),
@@ -4021,15 +4746,15 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       color: Colors.white, size: 12)),
               const SizedBox(width: 10),
               Text("Interpretación",
-                  style: GoogleFonts.montserrat(
-                      fontSize: 11,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF004FC4))),
             ],
           ),
           const SizedBox(height: 8),
           Text(stats['interpretacion'],
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF334155),
@@ -4056,7 +4781,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: color.withOpacity(0.2))),
         child: Text(t,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 8, fontWeight: FontWeight.w800, color: color)),
       );
 
@@ -4081,7 +4806,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                  flex: 2, child: _redesignTendenciaClinica(monthlyControls)),
+                  flex: 2, child: _redesignTendenciaClinica(monthlyControls, stats)),
               const SizedBox(width: 14),
               Expanded(
                   flex: 1,
@@ -4318,7 +5043,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   value: e.key,
                   child: Text("$label: ${e.value}",
                       style: GoogleFonts.inter(
-                          fontSize: 11, fontWeight: FontWeight.w700))))
+                          fontSize: 10, fontWeight: FontWeight.w700))))
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
@@ -4361,7 +5086,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   }
 
   Widget _smallMetricCard(String title, String value, Color color) => SizedBox(
-        width: 150,
+        width: 170,
         child: _metricCard(title, value, color),
       );
 
@@ -4582,13 +5307,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("2. Actividad articular",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento de articulaciones inflamadas, dolorosas y rigidez matutina del paciente",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -4614,7 +5339,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       size: 14, color: Color(0xFF2563EB)),
                   const SizedBox(width: 8),
                   Text("Evolución articular",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF0F172A))),
@@ -4634,7 +5359,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     const SizedBox(width: 8),
                     Text(
                         "Cada gráfica ajusta automáticamente su escala según el rango de valores del paciente.",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF334155))),
@@ -4652,7 +5377,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   inflActual,
                   inflMax,
                   "inflamadas"),
-              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
               // 2. Dolorosas
               _jointRowChart(
@@ -4663,7 +5388,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   dolActual,
                   dolMax,
                   "dolorosas"),
-              const Divider(height: 32, color: Color(0xFFF1F5F9)),
+              const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
               // 3. Rigidez
               _jointRowChart(
@@ -4701,8 +5426,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           size: 14, color: Color(0xFF2563EB)),
                       const SizedBox(width: 8),
                       Text("Resumen del periodo",
-                          style: GoogleFonts.montserrat(
-                              fontSize: 11, fontWeight: FontWeight.w800))
+                          style: GoogleFonts.inter(
+                              fontSize: 10, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 16),
                     _footerStatItem(Icons.analytics_outlined, "Prom. rigidez",
@@ -4735,12 +5460,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           size: 14, color: Colors.green),
                       const SizedBox(width: 8),
                       Text("Interpretación de la actividad articular",
-                          style: GoogleFonts.montserrat(
-                              fontSize: 11, fontWeight: FontWeight.w800))
+                          style: GoogleFonts.inter(
+                              fontSize: 10, fontWeight: FontWeight.w800))
                     ]),
                     const SizedBox(height: 10),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -4820,7 +5545,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 const SizedBox(height: 6),
                 Text(title,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
@@ -4870,7 +5595,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             interval: maxY / 2,
                             getTitlesWidget: (v, meta) => Text(
                                 v.toInt().toString(),
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF94A3B8))))),
@@ -4887,12 +5612,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               if (idx < 0 || idx >= controls.length)
                                 return const SizedBox.shrink();
                               return Text(
-                                  (controls[idx]['mes_label'] ??
-                                          _monthShort(controls[idx]
+                                  (controls[idx]['mes_label_largo'] ??
+                                          _monthLong(controls[idx]
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       fontWeight: FontWeight.w600,
                                       color: const Color(0xFF94A3B8)));
@@ -4920,27 +5645,27 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             children: [
                               TextSpan(
                                   text:
-                                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                                  style: GoogleFonts.montserrat(
+                                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       color: const Color(0xFF64748B))),
                               TextSpan(
                                   text:
                                       "${type == 'rigidez' ? 'Rigidez' : (type == 'inflamadas' ? 'Inflamadas' : 'Dolorosas')}: ",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600)),
                               TextSpan(
                                   text:
                                       "${it.y.toStringAsFixed(type == 'rigidez' ? 0 : 1)}${type == 'rigidez' ? ' min' : ''}\n",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
                                       color: color)),
                               TextSpan(
                                   text:
                                       "Controles del mes: ${c['controles_mes'] ?? 1}",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 8,
                                       color: const Color(0xFF64748B))),
                             ]);
@@ -4963,24 +5688,24 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text("Actual",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF64748B))),
                 Text("$actual",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: color)),
                 const SizedBox(height: 6),
                 Text("Máximo",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF64748B))),
                 Text("$maxVal",
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11,
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: color.withOpacity(0.7))),
               ],
@@ -4998,13 +5723,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Icon(icon, size: 14, color: const Color(0xFF64748B)),
             const SizedBox(width: 8),
             Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF64748B))),
             const Spacer(),
             Text(value,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A))),
@@ -5124,13 +5849,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("3. Inflamación y estado clínico",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento mensual de inflamación, estado clínico y brote",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -5212,13 +5937,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Interpretación clínica",
-                        style: GoogleFonts.montserrat(
-                            fontSize: 11,
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -5259,11 +5984,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Evolución mensual de inflamación (0-3)",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 12, fontWeight: FontWeight.w800)),
                   Text(
                       "Un punto por mes; valores agregados por promedio mensual",
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 9, color: Colors.blueGrey)),
                 ],
               ),
@@ -5314,7 +6039,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           interval: 1,
                           getTitlesWidget: (v, meta) => Text(
                               v.toInt().toString(),
-                              style: GoogleFonts.montserrat(
+                              style: GoogleFonts.inter(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
                                   color: const Color(0xFF94A3B8))))),
@@ -5333,12 +6058,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             return Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                    (controls[idx]['mes_label'] ??
-                                            _monthShort(controls[idx]
+                                    (controls[idx]['mes_label_largo'] ??
+                                            _monthLong(controls[idx]
                                                     ['fecha_control'] ??
                                                 ""))
                                         .toString(),
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF94A3B8))));
@@ -5363,23 +6088,23 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       return LineTooltipItem("", const TextStyle(), children: [
                         TextSpan(
                             text:
-                                "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                            style: GoogleFonts.montserrat(
+                                "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                            style: GoogleFonts.inter(
                                 fontSize: 8, color: const Color(0xFF64748B))),
                         TextSpan(
                             text: "Inflamación: ",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 9, fontWeight: FontWeight.w600)),
                         TextSpan(
                             text: "${it.y.toStringAsFixed(1)}/3\n",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.purple)),
                         TextSpan(
                             text:
                                 "Brotes del mes: ${c['brotes_mes'] ?? 0} | Controles: ${c['controles_mes'] ?? 1}",
-                            style: GoogleFonts.montserrat(
+                            style: GoogleFonts.inter(
                                 fontSize: 8, color: const Color(0xFF64748B))),
                       ]);
                     }).toList(),
@@ -5390,7 +6115,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ),
           const SizedBox(height: 10),
           Text(_generateInflammationHint(controls),
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF334155))),
@@ -5413,7 +6138,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const Icon(Icons.timeline_rounded, size: 14, color: Colors.purple),
             const SizedBox(width: 8),
             Text("Estado y brote últimos 6 controles",
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.inter(
                     fontSize: 10, fontWeight: FontWeight.w800))
           ]),
           const SizedBox(height: 18),
@@ -5455,7 +6180,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                                   ''),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.montserrat(
+                                          style: GoogleFonts.inter(
                                               fontSize: 8,
                                               fontWeight: FontWeight.w800,
                                               color: const Color(0xFF64748B))),
@@ -5493,7 +6218,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 7,
                                       fontWeight: FontWeight.w700,
                                       color: _stateColor(
@@ -5577,13 +6302,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("3. Inflamación y estado clínico",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
                 Text(
                     "Seguimiento del nivel de inflamación y actividad clínica a lo largo del tiempo",
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B))),
@@ -5616,11 +6341,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("Evolución de la inflamación (0-3)",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800)),
                               Text("Puntuación de inflamación por visita",
-                                  style: GoogleFonts.montserrat(
+                                  style: GoogleFonts.inter(
                                       fontSize: 9, color: Colors.blueGrey)),
                             ],
                           ),
@@ -5684,7 +6409,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                       interval: 1,
                                       getTitlesWidget: (v, meta) => Text(
                                           v.toInt().toString(),
-                                          style: GoogleFonts.montserrat(
+                                          style: GoogleFonts.inter(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w600,
                                               color:
@@ -5701,10 +6426,10 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                             padding:
                                                 const EdgeInsets.only(top: 4),
                                             child: Text(
-                                                _monthShort(controls[idx]
+                                                _monthLong(controls[idx]
                                                         ['fecha_control'] ??
                                                     ""),
-                                                style: GoogleFonts.montserrat(
+                                                style: GoogleFonts.inter(
                                                     fontSize: 9,
                                                     fontWeight: FontWeight.w600,
                                                     color: const Color(
@@ -5731,19 +6456,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                               TextSpan(
                                                   text:
                                                       "${_formatIsoDate(controls[it.x.toInt()]['fecha_control'])}\n",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 8,
                                                       color: const Color(
                                                           0xFF64748B))),
                                               TextSpan(
                                                   text: "Inflamación: ",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 9,
                                                       fontWeight:
                                                           FontWeight.w600)),
                                               TextSpan(
                                                   text: "${it.y.toInt()}/3",
-                                                  style: GoogleFonts.montserrat(
+                                                  style: GoogleFonts.inter(
                                                       fontSize: 10,
                                                       fontWeight:
                                                           FontWeight.w900,
@@ -5770,7 +6495,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(_generateInflammationHint(controls),
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF334155)))),
@@ -5802,7 +6527,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 size: 14, color: Color(0xFF004FC4)),
                             const SizedBox(width: 8),
                             Text("Estado de enfermedad",
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 10, fontWeight: FontWeight.w800))
                           ]),
                           const SizedBox(height: 12),
@@ -5841,17 +6566,17 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text("Último estado",
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.blueGrey)),
                                 Text(ultimoEstadoStr,
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w900,
                                         color: ultimoEstadoColor)),
                                 Text("Evaluación en $ultimoMes",
-                                    style: GoogleFonts.montserrat(
+                                    style: GoogleFonts.inter(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.blueGrey)),
@@ -5877,7 +6602,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 size: 14, color: Colors.purple),
                             const SizedBox(width: 8),
                             Text("Brote (últimas evaluaciones)",
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.inter(
                                     fontSize: 10, fontWeight: FontWeight.w800))
                           ]),
                           const SizedBox(height: 12),
@@ -5957,13 +6682,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Interpretación clínica",
-                        style: GoogleFonts.montserrat(
-                            fontSize: 11,
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0F172A))),
                     const SizedBox(height: 6),
                     Text(interpretacion,
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.inter(
                             fontSize: 10,
                             color: const Color(0xFF334155),
                             height: 1.4,
@@ -5993,7 +6718,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
         Text(text,
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF64748B)))
@@ -6012,7 +6737,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(width: 8),
           Expanded(
               child: Text(label,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF64748B)))),
@@ -6028,7 +6753,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       valueColor: AlwaysStoppedAnimation<Color>(color)))),
           const SizedBox(width: 8),
           Text("$count",
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 9, fontWeight: FontWeight.w800, color: color)),
         ],
       ),
@@ -6043,7 +6768,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             border: Border.all(
                 color: (isBrote ? Colors.red : Colors.green).withOpacity(0.1))),
         child: Text(isBrote ? "Sí" : "No",
-            style: GoogleFonts.montserrat(
+            style: GoogleFonts.inter(
                 fontSize: 8,
                 fontWeight: FontWeight.w800,
                 color: isBrote ? Colors.red : Colors.green)),
@@ -6068,14 +6793,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   Text(title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 7,
                           fontWeight: FontWeight.w700,
                           color: Colors.blueGrey)),
                   Text(value,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.montserrat(
+                      style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                           color: const Color(0xFF0F172A))),
@@ -6110,7 +6835,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text("Estado de enfermedad",
               style:
-                  GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+                  GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -6122,7 +6847,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(height: 12),
           Text("Brote",
               style:
-                  GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900)),
+                  GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -6161,7 +6886,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("4. Mapa de calor mensual", Icons.grid_view_rounded),
+        _sectionHeader("Mapa de calor mensual", Icons.grid_view_rounded),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -6190,7 +6915,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       children: [
                         Text(
                           "Resumen de indicadores de salud",
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF1E293B),
@@ -6518,11 +7243,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               Container(
                 width: cellWidth,
-                height: 32,
+                height: 22,
                 alignment: Alignment.center,
                 child: Text(
                   label,
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF1E293B),
@@ -6669,7 +7394,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("5. Crecimiento y nutrición", Icons.show_chart_rounded),
+        _sectionHeader("Crecimiento y nutrición", Icons.show_chart_rounded),
         const SizedBox(height: 12),
         LayoutBuilder(builder: (context, constraints) {
           final cardWidth = constraints.maxWidth >= 760
@@ -6922,7 +7647,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Text("Nivel de riesgo",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: riskColor)),
                     Text(risk,
@@ -6951,7 +7676,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(label,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: Colors.blueGrey)),
           Container(
@@ -6961,7 +7686,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 borderRadius: BorderRadius.circular(4)),
             child: Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                    fontSize: 10, fontWeight: FontWeight.w700, color: color)),
           ),
         ],
       ),
@@ -7115,7 +7840,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey)),
               ),
@@ -7125,7 +7850,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           SizedBox(
@@ -7151,7 +7876,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: GoogleFonts.montserrat(
+              style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Expanded(
@@ -7373,12 +8098,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey)),
+              style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey)),
           Row(
             children: [
               Text(value,
                   style: GoogleFonts.inter(
-                      fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                      fontSize: 10, fontWeight: FontWeight.w700, color: color)),
               const SizedBox(width: 6),
               Container(
                   width: 8,
@@ -7415,7 +8140,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 Text(label,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
                 Text(value,
-                    style: GoogleFonts.montserrat(
+                    style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: color)),
@@ -7543,7 +8268,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       return Center(
         child: Text(
           "Sin datos suficientes",
-          style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey),
+          style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
         ),
       );
     }
@@ -7619,7 +8344,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       child: SizedBox(
                         width: 40,
                         child: Text(
-                          _monthShort(controls[idx]['fecha_control']),
+                          _monthLong(controls[idx]['fecha_control']),
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -7664,19 +8389,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               TextSpan(
                   text:
-                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
-                  style: GoogleFonts.montserrat(
+                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                  style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
                       fontWeight: FontWeight.w600)),
               TextSpan(
                   text: "$label: ",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
                   text:
                       "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
-                  style: GoogleFonts.montserrat(
+                  style: GoogleFonts.inter(
                       fontSize: 10, color: color, fontWeight: FontWeight.w900)),
             ],
           );
@@ -7911,7 +8636,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(height: 4),
             Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+                    fontSize: 16, fontWeight: FontWeight.w800, color: color)),
           ],
         ),
       );
@@ -7925,7 +8650,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         child: RichText(
           text: TextSpan(
             style:
-                GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                GoogleFonts.inter(fontSize: 10, color: const Color(0xFF334155)),
             children: [
               TextSpan(
                   text: "$k: ",
@@ -7953,7 +8678,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Row(children: [
             Text("Diagnóstico nutricional OMS",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: Colors.blueGrey)),
             const SizedBox(width: 8),
@@ -7973,7 +8698,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Text(
               "IMC ideal ${_formatNum(pre['imc'] ?? c['imc_calculado'])} · Z-score ${_formatNum(pre['z_score_bmi'] ?? c['z_score_bmi'])}",
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
@@ -8003,7 +8728,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     Expanded(
                         child: Text(item,
                             style: GoogleFonts.inter(
-                                fontSize: 11,
+                                fontSize: 10,
                                 color: Colors.blueGrey.shade700,
                                 height: 1.35))),
                   ],
@@ -8099,7 +8824,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("6. Relación dolor - energía - brote",
+          _sectionHeader("Relación dolor - energía - brote",
               Icons.scatter_plot_rounded),
           const SizedBox(height: 12),
           Row(
@@ -8190,7 +8915,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             ? "Los controles con brote se concentran en mayor dolor y menor energía."
                             : "No se observa relación marcada entre dolor y energía en el período seleccionado.",
                         style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Colors.blueGrey.shade700,
                             height: 1.45),
@@ -8280,7 +9005,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(title,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A))),
           const SizedBox(height: 8),
@@ -8372,7 +9097,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           "${_formatIsoDate(c['fecha_control'])}\n${tooltipBuilder(c)}",
                           const TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600),
                         ),
                       ];
@@ -8420,7 +9145,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           Text(title,
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A))),
           const SizedBox(height: 8),
@@ -8466,7 +9191,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             if (idx < 0 || idx >= controls.length)
                               return const SizedBox.shrink();
                             return Text(
-                                _monthShort(controls[idx]['fecha_control']
+                                _monthLong(controls[idx]['fecha_control']
                                         ?.toString() ??
                                     ''),
                                 style: const TextStyle(fontSize: 9));
@@ -8636,7 +9361,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         child: RichText(
           text: TextSpan(
             style:
-                GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                GoogleFonts.inter(fontSize: 10, color: const Color(0xFF334155)),
             children: [
               TextSpan(
                   text: "$title: ",
@@ -8699,7 +9424,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           if ((c['nota_evolucion'] ?? '').toString().isNotEmpty)
             Text("Nota: ${c['nota_evolucion']}",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Colors.blueGrey.shade700)),
         ],
@@ -8757,13 +9482,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("7. Consumo alimentario y aceptación de recetas",
+        _sectionHeader("Consumo alimentario y aceptación de recetas",
             Icons.restaurant_menu_rounded),
         const SizedBox(height: 12),
         Text(
           "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
           style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 10,
               color: Colors.blueGrey,
               fontWeight: FontWeight.w600),
         ),
@@ -8899,7 +9624,6 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ],
         ),
         const SizedBox(height: 14),
-        _foodTableHeader(),
         if (visible.isEmpty)
           Container(
             width: double.infinity,
@@ -8916,19 +9640,70 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           )
         else
           Container(
+            width: double.infinity,
             decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade200)),
-            child: Column(
-              children: [
-                for (int i = 0; i < visible.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: Colors.grey.shade200),
-                  _foodTableRow(visible[i]),
-                ],
-              ],
+            clipBehavior: Clip.antiAlias,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.grey.shade200,
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+                    columnSpacing: 8,
+                    horizontalMargin: 12,
+                    dataRowMaxHeight: double.infinity,
+                    dataRowMinHeight: 52,
+                    columns: [
+                      _foodTableCol("FECHA"),
+                      _foodTableCol("MOMENTO"),
+                      _foodTableCol("RECETA", maxWidth: 220),
+                      _foodTableCol("CONSUMO"),
+                      _foodTableCol("ACCIONES", center: true),
+                    ],
+                    rows: visible.map((item) {
+                      final estado = (item['estado_consumo'] ?? "No marcada").toString();
+                      final color = _foodStatusColor(estado);
+                      final motivo = _foodReason(item);
+                      final badRating = _isBadFoodRating(item);
+                      
+                      return DataRow(
+                        color: WidgetStateProperty.all(badRating ? Colors.red.shade50 : Colors.white),
+                        cells: [
+                          DataCell(_foodCell(_formatIsoDate(item['fecha']))),
+                          DataCell(_foodCell(item['momento']?.toString() ?? "-")),
+                          DataCell(_foodCell(
+                              (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
+                              weight: FontWeight.w800,
+                              maxWidth: 220,
+                              color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
+                          DataCell(_foodBadge(estado, color)),
+                          DataCell(Center(
+                            child: TextButton.icon(
+                              onPressed: () => _showFoodRecipeModal(item),
+                              icon: const Icon(Icons.visibility_outlined, size: 15),
+                              label: const Text("Ver"),
+                              style: TextButton.styleFrom(
+                                  textStyle: GoogleFonts.inter(
+                                      fontSize: 9, fontWeight: FontWeight.w900)),
+                            ),
+                          )),
+                        ]
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+                ),
+              ),
             ),
-          ),
         const SizedBox(height: 10),
         _foodPagination(total, start, end, totalPages),
       ],
@@ -8979,7 +9754,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const SizedBox(height: 4),
               Text(subtitle,
                   style: GoogleFonts.inter(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Colors.blueGrey,
                       fontWeight: FontWeight.w600)),
             ],
@@ -9015,7 +9790,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     value: opt['value'] as String,
                     child: Text("${label}: ${opt['label']}",
                         style: GoogleFonts.inter(
-                            fontSize: 11, fontWeight: FontWeight.w700)),
+                            fontSize: 10, fontWeight: FontWeight.w700)),
                   ))
               .toList(),
           onChanged: (v) {
@@ -9112,13 +9887,13 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(height: 10),
           Text("El paciente consumió con mayor frecuencia:",
               style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           if (ingredients.isEmpty)
             Text("Sin consumo suficiente para generar hallazgos.",
-                style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey))
+                style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey))
           else
             Wrap(
               spacing: 8,
@@ -9133,7 +9908,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       border: Border.all(color: Colors.green.shade100)),
                   child: Text((ing['nombre'] ?? "-").toString(),
                       style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: Colors.green.shade800)),
                 );
@@ -9179,7 +9954,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             const SizedBox(height: 8),
             Text("Sin alertas para el periodo evaluado.",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: Colors.blueGrey,
                     fontWeight: FontWeight.w600)),
           ],
@@ -9242,7 +10017,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "${item['receta_consumida'] ?? item['receta_asignada'] ?? 'Receta'}: ${_starsText(item['estrellas'])} · ${_foodReason(item)}",
+                          "",
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
@@ -9262,99 +10037,39 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _foodTableHeader() => Container(
-        decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(flex: 2, child: _foodHeaderText("Fecha")),
-            Expanded(flex: 2, child: _foodHeaderText("Momento")),
-            Expanded(flex: 4, child: _foodHeaderText("Receta")),
-            Expanded(flex: 2, child: _foodHeaderText("Consumo")),
-            Expanded(flex: 2, child: _foodHeaderText("Calificación")),
-            Expanded(flex: 3, child: _foodHeaderText("Motivo")),
-            Expanded(flex: 2, child: Center(child: _foodHeaderText("Acción"))),
-          ],
+
+
+  DataColumn _foodTableCol(String label, {double? maxWidth, bool center = false}) {
+    return DataColumn(
+      label: Container(
+        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        alignment: center ? Alignment.center : Alignment.centerLeft,
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 8.5,
+              color: Colors.white,
+              letterSpacing: 0.2),
         ),
-      );
-
-  Widget _foodHeaderText(String t) => Text(t,
-      style: GoogleFonts.inter(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          color: const Color(0xFF334155)));
-
-  Widget _foodTableRow(Map<String, dynamic> item) {
-    final estado = (item['estado_consumo'] ?? "No marcada").toString();
-    final color = _foodStatusColor(estado);
-    final motivo = _foodReason(item);
-    final badRating = _isBadFoodRating(item);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: badRating ? Colors.red.shade50 : Colors.white,
-        border: Border(
-            bottom: BorderSide(
-                color:
-                    badRating ? Colors.red.shade100 : const Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: _foodCell(_formatIsoDate(item['fecha']))),
-          Expanded(
-              flex: 2, child: _foodCell(item['momento']?.toString() ?? "-")),
-          Expanded(
-              flex: 4,
-              child: _foodCell(
-                  (item['receta_consumida'] ?? item['receta_asignada'] ?? "-")
-                      .toString(),
-                  weight: FontWeight.w800,
-                  color: badRating
-                      ? Colors.red.shade800
-                      : const Color(0xFF334155))),
-          Expanded(flex: 2, child: _foodBadge(estado, color)),
-          Expanded(
-              flex: 2,
-              child: _foodCell(_starsText(item['estrellas']),
-                  color: _ratingColor(item['estrellas']),
-                  weight: badRating ? FontWeight.w900 : FontWeight.w700)),
-          Expanded(
-              flex: 3,
-              child: _foodCell(motivo,
-                  color:
-                      motivo == "-" ? Colors.blueGrey : Colors.red.shade700)),
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () => _showFoodRecipeModal(item),
-                icon: const Icon(Icons.visibility_outlined, size: 15),
-                label: const Text("Ver"),
-                style: TextButton.styleFrom(
-                    textStyle: GoogleFonts.inter(
-                        fontSize: 10, fontWeight: FontWeight.w900)),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   Widget _foodCell(String text,
-          {FontWeight weight = FontWeight.w600, Color? color}) =>
-      Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: weight,
-            color: color ?? const Color(0xFF334155),
-            height: 1.3),
+          {FontWeight weight = FontWeight.w600, Color? color, double? maxWidth}) =>
+      Container(
+        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        child: Text(
+          text,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+              fontSize: 8.5,
+              fontWeight: weight,
+              color: color ?? const Color(0xFF334155),
+              height: 1.2),
+        ),
       );
 
   Widget _foodBadge(String text, Color color) => Container(
@@ -9370,7 +10085,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   String _starsText(dynamic value) {
     final stars = int.tryParse(value?.toString() ?? "");
-    if (stars == null || stars <= 0) return "Sin calificación";
+    if (stars == null || stars <= 0) return "Sin calificaci├│n";
     return "$stars/5";
   }
 
@@ -9443,118 +10158,200 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final recipeName =
-        (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta")
-            .toString();
-    final description = (item['descripcion_receta'] ??
-            item['descripcion_larga'] ??
-            item['descripcion'] ??
-            "Sin descripción registrada.")
-        .toString();
-    final state = (item['estado_consumo'] ?? "No marcada").toString();
+    final recipeName = (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta").toString();
+    final String? imgUrl = item["imagen_url"];
+    
+    // Calorias y Proteinas
+    final caloriasTotales = item["calorias_totales"] ?? 0;
+    final proteinasTotales = item["proteinas_totales"] ?? 0;
 
     showDialog(
       context: context,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.restaurant_menu_rounded,
-                        color:
-                            _isBadFoodRating(item) ? Colors.red : greenBrand),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(recipeName,
-                          style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A))),
-                    ),
-                    IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded)),
-                  ],
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left side: Large Image
+              Expanded(
+                flex: 2,
+                child: Container(
+                  color: Colors.grey.shade100,
+                  child: imgUrl != null && imgUrl.isNotEmpty
+                      ? Image.network(
+                          imgUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
+                        )
+                      : const Center(
+                          child: Icon(Icons.restaurant, size: 80, color: Colors.grey)),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _foodBadge(state, _foodStatusColor(state)),
-                    _foodBadge(_starsText(item['estrellas']),
-                        _ratingColor(item['estrellas'])),
-                    if (_foodReason(item) != "-")
-                      _foodBadge(_foodReason(item), Colors.red),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text("Resumen",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.blueGrey)),
-                const SizedBox(height: 6),
-                Text(description,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        height: 1.45,
-                        color: const Color(0xFF334155),
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 18),
-                Text("Ingredientes",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.blueGrey)),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ingredientes.isEmpty
-                      ? Center(
-                          child: Text(
-                              "Sin ingredientes registrados para esta receta.",
-                              style: GoogleFonts.inter(
-                                  color: Colors.blueGrey,
-                                  fontWeight: FontWeight.w700)))
-                      : ListView.separated(
-                          itemCount: ingredientes.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final ing = ingredientes[i];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                  ing['es_principal'] == true
-                                      ? Icons.star_rounded
-                                      : Icons.circle_outlined,
-                                  size: 18,
-                                  color: ing['es_principal'] == true
-                                      ? Colors.orange
-                                      : Colors.blueGrey),
-                              title: Text(ing['nombre']?.toString() ?? "-",
+              ),
+              // Right side: Info
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          const Icon(Icons.restaurant_menu, color: Colors.green, size: 32),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  recipeName,
                                   style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13)),
-                            );
-                          },
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 22,
+                                      color: Colors.blueGrey.shade900),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  "Detalles Nutricionales",
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (int.tryParse(item['estrellas']?.toString() ?? "") != null && int.tryParse(item['estrellas']?.toString() ?? "")! > 0)
+                                      _foodBadge(_starsText(item['estrellas']), _ratingColor(item['estrellas'])),
+                                    if (_foodReason(item) != "-")
+                                      _foodBadge(_foodReason(item), Colors.red),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close),
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Macronutrients Cards
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Calorías", style: TextStyle(color: Colors.orange.shade700, fontSize: 12)),
+                                        Text("${caloriasTotales} kcal", style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.fitness_center, color: Colors.blue, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Proteínas", style: TextStyle(color: Colors.blue.shade700, fontSize: 12)),
+                                        Text("${proteinasTotales} g", style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      const Text("Ingredientes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      // Ingredients List
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.green.shade100),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: ingredientes.isEmpty 
+                              ? const Center(child: Text("Sin ingredientes registrados"))
+                              : ListView.separated(
+                            itemCount: ingredientes.length,
+                            separatorBuilder: (_, __) => const Divider(height: 16, color: Colors.black12),
+                            itemBuilder: (ctx, idx) {
+                              final i = ingredientes[idx];
+                              return Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
+                                    child: const Icon(Icons.eco, color: Colors.green, size: 16),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      i["nombre"] ?? "Ingrediente",
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                    ),
+                                  ),
+                                  Text(
+                                    "${i['cantidad'] ?? ''} ${i['unidad'] ?? ''}",
+                                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                  )
+                                ],
+                              );
+                            },
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
   Widget _foodPagination(int total, int start, int end, int totalPages) {
     final displayStart = total == 0 ? 0 : start + 1;
     final displayEnd = total == 0 ? 0 : end;
@@ -9573,18 +10370,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         Row(
           children: [
             IconButton(
-              tooltip: "Página anterior",
+              tooltip: "P├ígina anterior",
               onPressed:
                   _foodPage > 1 ? () => setState(() => _foodPage--) : null,
               icon: const Icon(Icons.chevron_left_rounded),
             ),
             Text("$_foodPage / $totalPages",
                 style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 9,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF334155))),
             IconButton(
-              tooltip: "Página siguiente",
+              tooltip: "P├ígina siguiente",
               onPressed: _foodPage < totalPages
                   ? () => setState(() => _foodPage++)
                   : null,
@@ -9726,7 +10523,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               .map((e) => Chip(
                   label: Text(e['nombre'] ?? "",
                       style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: Colors.blue)),
                   onDeleted: () =>
@@ -9773,3 +10570,6 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+
+
+

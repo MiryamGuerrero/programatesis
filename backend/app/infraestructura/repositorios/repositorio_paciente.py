@@ -471,14 +471,30 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 peso = float(salud.get("peso_kg") or 0)
                 talla_cm = float(salud.get("talla_cm") or 0)
                 
-                evaluacion = ServicioOMS.evaluar_paciente_integral(
-                    peso, talla_cm, int(paciente["id_sexo"]), fecha_nac, date.today()
-                )
-                edad_meses = evaluacion["edad_meses"]
+                evaluacion = {}
+                edad_meses = 0
+                heuristico_id = None
+                heuristico_id_talla = None
+                imc_val = 0
+                diag_comb = "Sin evaluación (Fuera de rango)"
                 
-                # 5. Insertar Control Inicial
-                heuristico_id = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
-                heuristico_id_talla = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
+                try:
+                    evaluacion = ServicioOMS.evaluar_paciente_integral(
+                        peso, talla_cm, int(paciente["id_sexo"]), fecha_nac, date.today()
+                    )
+                    edad_meses = evaluacion["edad_meses"]
+                    heuristico_id = ServicioOMS.mapear_oms_a_heuristico(evaluacion.get("id_condicion_nutricional_principal"), 110)
+                    heuristico_id_talla = ServicioOMS.mapear_oms_a_heuristico(evaluacion["talla_edad"].get("id_clasificacion"), 112)
+                    imc_val = evaluacion["imc"]
+                    diag_comb = evaluacion["diagnostico_combinado"]
+                except ValueError as e:
+                    import logging
+                    logging.warning(f"OMS out of bounds on save: {e}")
+                    from app.core.utils import calculate_age_months
+                    edad_meses = calculate_age_months(fecha_nac, date.today())
+                    imc_val = round(peso / ((talla_cm / 100) ** 2), 2) if talla_cm > 0 else 0
+                    # Notify nutri later in the code
+                    evaluacion = {"fuera_de_rango": True, "error": str(e)}
 
                 cur.execute("""
                     insert into clinico.control_paciente (
@@ -488,8 +504,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         articulaciones_dolorosas, en_brote, estado_enfermedad, nota_evolucion, id_medico, created_at, fecha_proxima_cita
                     ) values (%s, now(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), %s) returning id
                 """, (
-                    paciente_id, peso, talla_cm, edad_meses, evaluacion["imc"], heuristico_id, 
-                    evaluacion["diagnostico_combinado"],
+                    paciente_id, peso, talla_cm, edad_meses, imc_val, heuristico_id, 
+                    diag_comb,
                     int(salud.get("puntos_dolor") or 0), int(salud.get("escala_inflamacion") or 0), 
                     int(salud.get("fatiga") or 10), int(salud.get("minutos_rigidez") or 0), 
                     int(salud.get("articulaciones_inflamadas") or 0), int(salud.get("articulaciones_dolorosas") or 0), 
@@ -1092,7 +1108,9 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     join usuarios.usuario u on u.id = tp.id_usuario_tutor
                     where tp.id_paciente = %s and tp.es_principal = true
                 """, (id_paciente,))
+                
                 t_row = cur.fetchone()
+                
                 
                 if t_row:
                     current_tutor_id = t_row[0]
@@ -1101,6 +1119,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     
                     email_changed = (tutor.get("email") and tutor["email"].strip().lower() != (current_email or "").strip().lower())
                     cedula_changed = (tutor.get("cedula") and tutor["cedula"].strip() != (current_cedula or "").strip())
+                    
+                    
                     
                     if email_changed or cedula_changed:
                         cur.execute("""

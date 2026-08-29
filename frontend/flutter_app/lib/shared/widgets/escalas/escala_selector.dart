@@ -20,6 +20,7 @@ class EscalaSelector extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final String? puntajeLabel;
   final Widget headerIcon; // El icono grande del cuadro izquierdo
+  final IconData? titleIcon; // Icono para el titulo
   final Color backgroundColor;
   final EdgeInsetsGeometry margin;
   final bool showIdentityRow;
@@ -38,6 +39,7 @@ class EscalaSelector extends StatelessWidget {
     required this.onChanged,
     this.puntajeLabel,
     required this.headerIcon,
+    this.titleIcon,
     this.backgroundColor = const Color(0xFFF8FAFC),
     this.margin = EdgeInsets.zero,
     this.showIdentityRow = true,
@@ -50,32 +52,39 @@ class EscalaSelector extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  titulo.toUpperCase(),
-                  style: GoogleFonts.montserrat(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF64748B),
-                    letterSpacing: 0.5,
-                  ),
+                Row(
+                  children: [
+                    if (titleIcon != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(titleIcon, color: const Color(0xFF10B981), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Text(
+                      titulo,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
                 ),
                 if (puntajeLabel != null)
                   Container(
@@ -195,9 +204,10 @@ class EscalaSelector extends StatelessWidget {
                   child: GestureDetector(
                     onTap: () => onChanged(idx),
                     child: Center(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(6),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -207,7 +217,7 @@ class EscalaSelector extends StatelessWidget {
                         ),
                         child: Icon(
                           icons.length > i ? icons[i] : Icons.help_outline,
-                          size: 28,
+                          size: 24,
                           color:
                               selected ? colorActivo : const Color(0xFFCBD5E1),
                         ),

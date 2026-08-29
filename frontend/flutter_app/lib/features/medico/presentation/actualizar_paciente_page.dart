@@ -12,24 +12,24 @@ import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
+import '../../../shared/widgets/custom_date_picker.dart';
 import "_shared/medico_nav_providers.dart";
+import "../../../shared/widgets/role_shell.dart";
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
-import '../../../shared/widgets/role_shell.dart';
-import '../../../shared/widgets/custom_date_picker.dart';
 
-class RegistroPacientePage extends ConsumerStatefulWidget {
+class ActualizarPacientePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialData;
-  final bool fixedOnly;
-  const RegistroPacientePage(
-      {super.key, this.initialData, this.fixedOnly = false});
+  
+  const ActualizarPacientePage(
+      {super.key, this.initialData});
 
   @override
-  ConsumerState<RegistroPacientePage> createState() =>
-      _RegistroPacientePageState();
+  ConsumerState<ActualizarPacientePage> createState() =>
+      _ActualizarPacientePageState();
 }
 
-class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
+class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage> {
   int _currentStep = 0;
   bool _loading = false;
   bool _sending = false;
@@ -63,6 +63,10 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   final _pacFechaNacCtrl = TextEditingController();
   bool _validandoCedulaPaciente = false;
   String? _mensajeCedulaPaciente;
+  bool _validandoCedulaTutor = false;
+  String? _mensajeCedulaTutor;
+  Timer? _debounceCedulaTutor;
+  String? _cedulaTutorOriginal;
 
   // Clínico
   final _clinPeso = TextEditingController();
@@ -96,7 +100,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   bool _brote = false;
   bool? _lactosa;
   DateTime _proximaCita = DateTime.now().add(const Duration(days: 30));
-  late TextEditingController _proximaCitaCtrl;
 
   bool _tieneAlergiaSub = false;
   bool _tieneAlergiaIng = false;
@@ -134,32 +137,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(menuExpandedProvider.notifier).state = false;
+      ref.read(menuExpandedProvider.notifier).state = false;
     });
     _generatedPassword = _generateRandomPassword();
-    _proximaCitaCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
     _fetchCatalogos().then((_) => _loadInitialData());
     _ingFocus.addListener(() => setState(() {}));
   }
 
-  Future<void> _pickProximaCita() async {
-    final d = await showCustomDatePicker(
-      context,
-      initialDate: _proximaCita,
-      colorActivo: AppTema.azulPrincipal,
-      colorTexto: AppTema.azulOscuro,
-    );
-    if (d != null) {
-      setState(() {
-        _proximaCita = d;
-        _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(d);
-      });
-    }
-  }
-
   @override
   void dispose() {
-    _proximaCitaCtrl.dispose();
     _tutNombre.dispose();
     _tutCedula.dispose();
     _tutEmail.dispose();
@@ -181,6 +167,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     _ingredienteAlergiaFocus.dispose();
     _debounceOMS?.cancel();
     _debounceCedulaPaciente?.cancel();
+    _debounceCedulaTutor?.cancel();
     super.dispose();
   }
 
@@ -257,6 +244,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             _pacNombre.text = p['nombre_completo'] ?? "";
             _pacCedula.text = p['cedula'] ?? "";
             _pacFechaNac = DateTime.tryParse(p['fecha_nacimiento'] ?? "");
+            if (_pacFechaNac != null) {
+              _pacFechaNacCtrl.text = _formatFechaCompleta(_pacFechaNac!);
+            }
             _pacSexo = p['id_sexo'];
             _pacCanton = p['id_canton'];
             _pacParroquia = p['id_parroquia'];
@@ -265,6 +255,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             if (t.isNotEmpty) {
               _tutNombre.text = t['nombre_completo'] ?? "";
               _tutCedula.text = t['cedula'] ?? "";
+              _cedulaTutorOriginal = _tutCedula.text;
               _tutEmail.text = t['email'] ?? "";
               _tutTelefono.text = t['telefono'] ?? "";
               _tutDireccion.text = t['direccion'] ?? "";
@@ -328,7 +319,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                     .map((e) => Map<String, dynamic>.from(e))
                     .toList();
 
-            if (widget.fixedOnly) {
+            if (true) {
               _fixedInitialSnapshot = _buildFixedSnapshot();
             }
             _loading = false;
@@ -428,68 +419,39 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
   @override
   Widget build(BuildContext context) {
-
-    if (widget.fixedOnly) {
-      return _buildFixedOnlyPage();
-    }
-
-    return Stack(
-      children: [
-        Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(48),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _buildHeader(),
-              const SizedBox(height: 56),
-              Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 950), child: Theme(
-                data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(primary: greenBrand),
-                    inputDecorationTheme: const InputDecorationTheme(
-                        filled: true,
-                        fillColor: Color(0xFFF1F5F9),
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide.none),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: AppTema.azulPrincipal, width: 2)),
-                        labelStyle: TextStyle(fontWeight: FontWeight.w700, color: AppTema.azulPrincipal, fontSize: 13),
-                    )),
-                child: Stepper(
-                    type: StepperType.vertical,
-                    currentStep: _currentStep,
-                    physics: const NeverScrollableScrollPhysics(),
-                    onStepContinue: () {
-                      bool stepValid = false;
-                      if (_currentStep == 0) stepValid = _formKeyTutor.currentState?.validate() ?? false;
-                      else if (_currentStep == 1) stepValid = _formKeyPaciente.currentState?.validate() ?? false;
-                      else if (_currentStep == 2) stepValid = _formKeyClinico.currentState?.validate() ?? false;
-
-                      if (_validateCurrentStep(_currentStep) && stepValid) {
-                        if (_currentStep < 2)
-                          setState(() => _currentStep++);
-                        else
-                          _finish();
-                      }
-                    },
-                    onStepCancel: () => setState(
-                        () => _currentStep > 0 ? _currentStep-- : null),
-                    controlsBuilder: (context, details) =>
-                        _buildControls(details),
-                    steps: [_stepTutor(), _stepPaciente(), _stepClinico()],
-                  ),
+    if (_loading) {
+      return Stack(
+        children: [
+          Container(color: const Color(0xFFF8FAFC)), // background
+          Container(
+            color: Colors.black.withOpacity(0.6),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16)
                 ),
-              ),
-            ),
-            ]),
-          ),
-        ),
-        if (_sending) _buildSendingOverlay(),
-      ],
-    );
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: AppTema.azulPrincipal),
+                    const SizedBox(height: 16),
+                    Text("Cargando datos del paciente...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
+                  ]
+                )
+              )
+            )
+          )
+        ]
+      );
+    }
+    
+    
+    
+    return _buildFixedOnlyPage();
   }
-
+  
   Widget _buildFixedOnlyPage() {
     return Stack(
       children: [
@@ -502,72 +464,75 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               children: [
                 _buildHeader(),
                 const SizedBox(height: 32),
-                Theme(
-                  data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(primary: greenBrand),
-                      inputDecorationTheme: const InputDecorationTheme(
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(16)),
-                            borderSide: BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(16)),
-                            borderSide: BorderSide(color: Color(0xFFE2E8F0))),
-                        focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(16)),
-                            borderSide:
-                                BorderSide(color: greenBrand, width: 2)),
-                        labelStyle: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey,
-                            fontSize: 13),
-                      )),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
-                        const SizedBox(height: 24),
-                        Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
-                        const SizedBox(height: 24),
-                        Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 950),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(primary: AppTema.azulPrincipal),
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                            border: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide.none),
+                            enabledBorder: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide.none),
+                            focusedBorder: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide(color: AppTema.azulPrincipal, width: 2)),
+                            labelStyle: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                color: AppTema.azulPrincipal,
+                                fontSize: 14),
+                          )),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
                           const SizedBox(height: 24),
-                          _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 32),
-                            _buildAlergiasStepContent(),
+                          Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
+                          const SizedBox(height: 24),
+                          Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
+                            const SizedBox(height: 24),
+                            _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 32),
+                              _buildAlergiasStepContent(),
+                            ])),
                           ])),
-                          const SizedBox(height: 24),
-                          _fixedSection("Condiciones temporales", Icons.event_note_rounded, _buildSintomasTemporalesSelector()),
-                        ])),
-                        const SizedBox(height: 36),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: SizedBox(
-                            width: 320,
-                            child: FilledButton.icon(
-                              onPressed: () {
-                                final tOk = _formKeyTutor.currentState?.validate() ?? false;
-                                final pOk = _formKeyPaciente.currentState?.validate() ?? false;
-                                final cOk = _formKeyClinico.currentState?.validate() ?? false;
-                                if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
-                              },
-                              icon: const Icon(Icons.save_alt_rounded),
-                              label: const Text("Actualizar datos médicos"),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
-                                padding: const EdgeInsets.symmetric(vertical: 24),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                          const SizedBox(height: 36),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: SizedBox(
+                              width: 320,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  final tOk = _formKeyTutor.currentState?.validate() ?? false;
+                                  final pOk = _formKeyPaciente.currentState?.validate() ?? false;
+                                  final cOk = _formKeyClinico.currentState?.validate() ?? false;
+                                  if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
+                                },
+                                icon: const Icon(Icons.save_alt_rounded),
+                                label: const Text("Actualizar datos médicos"),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTema.azulPrincipal,
+                                  padding: const EdgeInsets.symmetric(vertical: 24),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
@@ -578,20 +543,53 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Widget _fixedSection(String title, IconData icon, Widget child) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(title, icon),
-          const SizedBox(height: 24),
-          child,
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppTema.azulPrincipal, size: 24),
+            const SizedBox(width: 12),
+            Text(title,
+                style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Container(
+              height: 4,
+              width: 48,
+              decoration: const BoxDecoration(
+                color: AppTema.azulPrincipal,
+                borderRadius: BorderRadius.horizontal(left: Radius.circular(2)),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.horizontal(right: Radius.circular(2)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: child,
+        ),
+      ],
     );
   }
 
@@ -599,109 +597,43 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Expanded(
-              child: _field(
-            _tutCedula,
-            "Cédula del tutor*",
-            Icons.assignment_ind_outlined,
-            hint: "Ingrese la cédula del tutor",
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10)
-            ],
-            onChanged: (v) {
-              final limpia = _soloDigitos(v);
-              if (limpia.length == 10) {
-                _buscarTutor(limpia);
-              } else if (_tutorExistente || _tutorNoEncontrado) {
-                setState(() {
-                  _tutorExistente = false;
-                  _tutorNoEncontrado = false;
-                  _tutNombre.clear();
-                  _tutEmail.clear();
-                  _tutTelefono.clear();
-                  _tutDireccion.clear();
-                });
-              }
-            },
-          )),
-          const SizedBox(width: 12),
-          IconButton.filled(
-              onPressed: () {
-                if (_cedulaValida(_tutCedula))
-                  _buscarTutor(_tutCedula.text);
+        _field(
+          _tutCedula,
+          "Cédula del tutor*",
+          Icons.assignment_ind_outlined,
+          hint: "Ingrese la cédula del tutor",
+          keyboardType: TextInputType.number,
+          onChanged: _onCedulaTutorChanged,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10)
+          ],
+        ),
+        if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 12),
+            child: Row(
+              children: [
+                if (_validandoCedulaTutor)
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 else
-                  NutriSnack.show(context,
-                      "La cédula del tutor debe tener exactamente 10 dígitos.",
-                      isError: true, ref: ref);
-              },
-              icon: const Icon(Icons.search),
-              style: IconButton.styleFrom(
-                  backgroundColor: greenBrand,
-                  padding: const EdgeInsets.all(20),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)))),
-        ]),
-        if (_buscandoTutor)
-          const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: LinearProgressIndicator()),
-        if (_tutorNoEncontrado)
-          Container(
-            margin: const EdgeInsets.only(top: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: Colors.orange, shape: BoxShape.circle),
-                  child: const Icon(Icons.priority_high_rounded,
-                      color: Colors.white, size: 14),
-                ),
-                const SizedBox(width: 12),
-                Text("Tutor no registrado. Por favor complete los datos.",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.orange.shade900)),
-              ],
-            ),
-          ),
-        if (_tutorExistente)
-          Container(
-            margin: const EdgeInsets.only(top: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: greenBrand, shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 14),
-                ),
-                const SizedBox(width: 12),
+                  const Icon(Icons.error_outline_rounded,
+                      size: 14, color: Colors.red),
+                const SizedBox(width: 6),
                 Text(
-                    "Tutor encontrado. Puede actualizar sus datos si es necesario.",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green.shade900)),
+                  _validandoCedulaTutor
+                      ? "Validando cédula..."
+                      : _mensajeCedulaTutor!,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _validandoCedulaTutor ? Colors.blueGrey : Colors.red,
+                  ),
+                ),
               ],
             ),
           ),
@@ -741,6 +673,79 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                   _tutDireccion, "Dirección del hogar", Icons.map_outlined,
                   hint: "Av. principal y calle secundaria")),
         ]),
+      ],
+    );
+  }
+
+ Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+              },
+              borderRadius: BorderRadius.circular(50),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTema.azulPrincipal.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              "Actualización de datos del paciente",
+              style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: const Color(0xFF334155)), 
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 52),
+          child: Text(
+            "Formulario para actualizar datos personales del paciente, información del tutor, alergias y su enfermedad principal.",
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF64748B)),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTema.verdeSalud, 
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
+                },
+                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+              ),
+              Text("Actualización de Datos", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            ],
+          )
+        ),
       ],
     );
   }
@@ -844,80 +849,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         hint: "Seleccione...");
   }
 
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            InkWell(
-              onTap: () {
-                ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
-              },
-              borderRadius: BorderRadius.circular(50),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTema.azulPrincipal.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 4.0),
-                  child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              "Registro del paciente",
-              style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: const Color(0xFF334155)), 
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Padding(
-          padding: const EdgeInsets.only(left: 52),
-          child: Text(
-            "Formulario para registrar los datos iniciales de un nuevo paciente, información del tutor, y enfermedad principal.",
-            style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF64748B)),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTema.verdeSalud, 
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
-                },
-                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
-              ),
-              Text("Nuevo Registro", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-            ],
-          )
-        ),
-      ],
-    );
-  }
-
-
   Widget _buildSendingOverlay() => Container(
       color: Colors.black.withOpacity(0.85),
       child: Center(
@@ -929,7 +860,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               color: Colors.green, size: 120),
         const SizedBox(height: 32),
         Text(
-            widget.fixedOnly
+            true
                 ? (_showSuccess
                     ? "Datos clínicos actualizados"
                     : "Actualizando datos clínicos...")
@@ -1008,6 +939,56 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     }
   }
 
+  void _onCedulaTutorChanged(String value) {
+    final limpia = _soloDigitos(value);
+    _debounceCedulaTutor?.cancel();
+    if (limpia.length != 10) {
+      setState(() {
+        _mensajeCedulaTutor = null;
+        _validandoCedulaTutor = false;
+      });
+      return;
+    }
+
+    if (limpia == _cedulaTutorOriginal) {
+      setState(() {
+        _mensajeCedulaTutor = null;
+        _validandoCedulaTutor = false;
+      });
+      return;
+    }
+
+    _debounceCedulaTutor = Timer(
+      const Duration(milliseconds: 250),
+      () => _verificarCedulaTutor(limpia),
+    );
+  }
+
+  Future<void> _verificarCedulaTutor(String cedula) async {
+    setState(() {
+      _validandoCedulaTutor = true;
+      _mensajeCedulaTutor = null;
+    });
+    try {
+      final res = await ref
+          .read(repositorioMedicoProvider)
+          .buscarTutorPorCedula(cedula);
+      if (!mounted) return;
+      
+      final existeOtro = res['existe'] == true;
+      setState(() {
+        _mensajeCedulaTutor = existeOtro
+            ? "Esta cédula ya pertenece a otro tutor registrado."
+            : null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _mensajeCedulaTutor = null);
+    } finally {
+      if (mounted) setState(() => _validandoCedulaTutor = false);
+    }
+  }
+
   bool _validateCurrentStep(int step) {
     if (step == 0) {
       final telefonoOk = _tutorExistente
@@ -1016,6 +997,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           : _telefonoMovilValido(_tutTelefono);
       return _tutNombre.text.trim().isNotEmpty &&
           _cedulaValida(_tutCedula) &&
+          !_validandoCedulaTutor &&
+          _mensajeCedulaTutor == null &&
           _tutParentesco != null &&
           _tutEmail.text.trim().isNotEmpty &&
           telefonoOk;
@@ -1095,6 +1078,8 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
     if (_tutNombre.text.trim().isEmpty ||
         !_cedulaValida(_tutCedula) ||
+        _validandoCedulaTutor ||
+        _mensajeCedulaTutor != null ||
         _tutEmail.text.trim().isEmpty ||
         _tutTelefono.text.trim().isEmpty ||
         _tutParentesco == null ||
@@ -1215,12 +1200,18 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         "before":
             label == null ? (oldValue?.toString() ?? "-") : label(oldValue),
         "after":
-            label == null ? (newValue?.toString() ?? "-") : label(newValue),
-      });
+            label == null ? (newValue?.toString() ?? "-") : label(newValue)});
     }
 
-    addText("cedula", "Cédula");
-    addText("nombre", "Nombre completo");
+    addText("tutCedula", "Cédula del Tutor");
+    addText("tutNombre", "Nombre del Tutor");
+    addText("tutEmail", "Correo del Tutor");
+    addText("tutTelefono", "Teléfono del Tutor");
+    addText("tutParentesco", "Parentesco del Tutor",
+        label: (value) => _nameById(_parentescos, (value as num?)?.toInt()));
+    addText("tutDireccion", "Dirección del Tutor");
+    addText("cedula", "Cédula del Paciente");
+    addText("nombre", "Nombre del Paciente");
     addText("fecha_nacimiento", "Fecha de nacimiento",
         label: (value) => _dateLabel(value?.toString() ?? ""));
     addText("sexo", "Sexo biológico",
@@ -1282,44 +1273,159 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text("Confirmar actualización",
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-        content: SizedBox(
-          width: 620,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
+      builder: (ctx) => Dialog(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          width: 780,
+          constraints: const BoxConstraints(maxWidth: 780, maxHeight: 680),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE5EAF2)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text("Se actualizarán los siguientes campos:",
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.blueGrey,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: changes
-                        .map((change) => _changePreviewRow(change))
-                        .toList(),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.sync_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      "Confirmar actualización",
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulOscuro,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    iconSize: 22,
+                    tooltip: "Cancelar",
+                    splashRadius: 20,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTema.pastelCeleste,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTema.azulPrincipal.withValues(alpha: 0.3),
+                    width: 1.2,
                   ),
                 ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_rounded,
+                      color: AppTema.azulPrincipal,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Se detectaron modificaciones en los siguientes campos. Por favor revisa antes de guardar los cambios en el expediente.",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Column(
+                      children: changes
+                          .map((change) => _changePreviewRow(change))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTema.azulPrincipal,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    child: const Text("Cancelar"),
+                  ),
+                  const SizedBox(width: 18),
+                  SizedBox(
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: const Text("Sí, actualizar"),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTema.azulPrincipal,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar")),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: greenBrand),
-              child: const Text("Sí, actualizar")),
-        ],
       ),
     );
 
@@ -1331,32 +1437,119 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Widget _changePreviewRow(Map<String, String> change) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(change["field"] ?? "",
-            style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppTema.azulOscuro)),
-        const SizedBox(height: 6),
-        Text("Antes: ${change["before"]}",
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.red.shade700)),
-        const SizedBox(height: 3),
-        Text("Después: ${change["after"]}",
-            style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.green.shade700)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Título del campo
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    change["field"] ?? "",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTema.azulOscuro,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Contenido Antes -> Después
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.remove_circle_outline, size: 16, color: Colors.red.shade700),
+                            const SizedBox(width: 6),
+                            Text("Antes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.red.shade700)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          change["before"] ?? "-",
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.red.shade900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade400, size: 28),
+                ),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 16, color: Colors.green.shade700),
+                            const SizedBox(width: 6),
+                            Text("Después", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          change["after"] ?? "-",
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1580,138 +1773,54 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   Step _stepTutor() => Step(
       isActive: _currentStep >= 0,
       state: _currentStep > 0 ? StepState.complete : StepState.editing,
-      title: Row(
-          children: [
-            const Icon(Icons.person_outline, color: AppTema.azulPrincipal, size: 24),
-            const SizedBox(width: 12),
-            Text(widget.fixedOnly ? "Referencia del tutor" : "Representante legal",
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulPrincipal)),
-          ]
-        ),
+      title: Text(
+          true ? "Referencia del tutor" : "Representante legal",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Form(key: _formKeyTutor, child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0))),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
-                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
+            const SizedBox(height: 8),
+            _field(
+              _tutCedula,
+              "Cédula del tutor*",
+              Icons.assignment_ind_outlined,
+              hint: "Ingrese la cédula del tutor",
+              keyboardType: TextInputType.number,
+              onChanged: _onCedulaTutorChanged,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10)
               ],
             ),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(
-                  child: _field(
-                _tutCedula,
-                "Cédula del tutor*",
-                Icons.assignment_ind_outlined,
-                hint: "Ingrese la cédula del tutor",
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10)
-                ],
-                onChanged: (v) {
-                  final limpia = _soloDigitos(v);
-                  if (limpia.length == 10) {
-                    _buscarTutor(limpia);
-                  } else if (_tutorExistente || _tutorNoEncontrado) {
-                    setState(() {
-                      _tutorExistente = false;
-                      _tutorNoEncontrado = false;
-                      _tutNombre.clear();
-                      _tutEmail.clear();
-                      _tutTelefono.clear();
-                      _tutDireccion.clear();
-                    });
-                  }
-                },
-              )),
-              const SizedBox(width: 12),
-              IconButton.filled(
-                  onPressed: () {
-                    if (_cedulaValida(_tutCedula))
-                      _buscarTutor(_tutCedula.text);
+            if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 12),
+                child: Row(
+                  children: [
+                    if (_validandoCedulaTutor)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     else
-                      NutriSnack.show(context,
-                          "La cédula del tutor debe tener exactamente 10 dígitos.",
-                          isError: true, ref: ref);
-                  },
-                  icon: const Icon(Icons.search),
-                  style: IconButton.styleFrom(
-                      backgroundColor: greenBrand,
-                      padding: const EdgeInsets.all(20),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)))),
-            ]),
-            if (_buscandoTutor)
-              const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: LinearProgressIndicator()),
-            if (_tutorNoEncontrado)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                          color: Colors.orange, shape: BoxShape.circle),
-                      child: const Icon(Icons.priority_high_rounded,
-                          color: Colors.white, size: 14),
-                    ),
-                    const SizedBox(width: 12),
-                    Text("Tutor no registrado. Por favor complete los datos.",
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.orange.shade900)),
-                  ],
-                ),
-              ),
-            if (_tutorExistente)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                          color: greenBrand, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded,
-                          color: Colors.white, size: 14),
-                    ),
-                    const SizedBox(width: 12),
+                      const Icon(Icons.error_outline_rounded,
+                          size: 14, color: Colors.red),
+                    const SizedBox(width: 6),
                     Text(
-                        "Tutor encontrado. Puede actualizar sus datos si es necesario.",
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade900)),
+                      _validandoCedulaTutor
+                          ? "Validando cédula..."
+                          : _mensajeCedulaTutor!,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _validandoCedulaTutor
+                            ? Colors.blueGrey
+                            : Colors.red,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1756,35 +1865,21 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       )));
 
   Step _stepPaciente() => Step(
-      isActive: _currentStep >= (widget.fixedOnly ? 0 : 1),
-      state: _currentStep > (widget.fixedOnly ? 0 : 1)
+      isActive: _currentStep >= (true ? 0 : 1),
+      state: _currentStep > (true ? 0 : 1)
           ? StepState.complete
           : StepState.editing,
-      title: Row(
-          children: [
-            const Icon(Icons.badge_outlined, color: AppTema.azulPrincipal, size: 24),
-            const SizedBox(width: 12),
-            Text(widget.fixedOnly ? "Referencia del paciente" : "Identidad del paciente",
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: AppTema.azulPrincipal)),
-          ]
-        ),
+      title: Text(
+          true
+              ? "Referencia del paciente"
+              : "Identidad del paciente",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Form(key: _formKeyPaciente, child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0))),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
-                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
-              ],
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             _field(
               _pacCedula,
               "Cédula del paciente*",
@@ -1879,30 +1974,16 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       )));
 
   Step _stepClinico() => Step(
-      isActive: _currentStep >= (widget.fixedOnly ? 1 : 2),
+      isActive: _currentStep >= (true ? 1 : 2),
       state: StepState.editing,
       title: Text(
-          widget.fixedOnly
+          true
               ? "Datos clínicos base"
               : "Protocolo de evaluación clínica",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
       content: Form(key: _formKeyClinico, child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(height: 4, width: 48, decoration: const BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.horizontal(left: Radius.circular(2)))),
-                Expanded(child: Container(height: 4, decoration: const BoxDecoration(color: AppTema.verdeSalud, borderRadius: BorderRadius.horizontal(right: Radius.circular(2))))),
-              ],
-            ),
-            const SizedBox(height: 24),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // ENFERMEDAD PRINCIPAL
           Container(
             padding: const EdgeInsets.all(24),
@@ -2082,7 +2163,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ]),
           ),
 
-          if (!widget.fixedOnly) ...[
+          if (!true) ...[
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(24),
@@ -2152,29 +2233,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
             ),
           ],
           const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _field(
-                  _clinNotas, 
-                  "Observaciones médicas iniciales",
-                  Icons.edit_note_rounded,
-                  maxLines: 4
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: _field(
-                  _proximaCitaCtrl,
-                  "Fecha de próxima consulta",
-                  Icons.event_note_rounded,
-                  readOnly: true,
-                  onTap: _pickProximaCita,
-                ),
-              ),
-            ],
-          ),
+          _field(_clinNotas, "Observaciones médicas iniciales",
+              Icons.edit_note_rounded,
+              maxLines: 4),
         ]),
       )));
 
@@ -2712,8 +2773,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     required Function(int id) onToggle,
     bool isIngredientes = false,
     bool showSearch = true,
-    void Function(List<Map<String, dynamic>> matches)? onMarkAll,
-  }) {
+    void Function(List<Map<String, dynamic>> matches)? onMarkAll}) {
     final q = searchCtrl.text.toLowerCase().trim();
     final filtered = items.where((e) {
       final id = (e['id'] as num?)?.toInt() ?? -1;
@@ -3216,8 +3276,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                               "fecha_fin": ini
                                   .add(Duration(days: duracionSugerida))
                                   .toIso8601String()
-                                  .split('T')[0],
-                            }));
+                                  .split('T')[0]}));
                       }
                     } else {
                       setState(() => _condicionesTemp.removeAt(index));
@@ -3386,59 +3445,109 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildMultiSelector(
-            title: "Recomendador de ingredientes (Opcional)",
-            subtitle: "Ingresa algún ingrediente, nosotros te recomendaremos el más adecuado según el paciente.",
-            enabled: true,
-            items: _ingredientes.map((i) => Map<String, dynamic>.from(i)).toList(),
-            selectedIds: _recomendacionesIng.map((e) => (e['id'] as num).toInt()).toList(),
-            searchCtrl: _ingRecomSearchCtrl,
-            focusNode: _ingRecomFocus,
-            blockedIds: {},
-            isIngredientes: true,
-            onToggle: (id) {
-              setState(() {
-                final idx = _recomendacionesIng.indexWhere((e) => e['id'] == id);
-                if (idx >= 0) {
-                  _recomendacionesIng.removeAt(idx);
-                } else {
-                  final item = _ingredientes.cast<Map<String, dynamic>?>().firstWhere(
-                        (e) => e != null && e['id'] == id,
-                        orElse: () => null,
-                      );
-                  if (item != null) {
-                    _recomendacionesIng.add(Map<String, dynamic>.from(item));
-                    _autoRecomendarDerivados(item['nombre'] ?? "");
-                  }
-                }
-              });
-            },
+        StatefulBuilder(
+          builder: (context, setInternalState) {
+            final q = _ingRecomSearchCtrl.text.toLowerCase().trim();
+            final matches = _ingredientes.where((e) {
+              if (q.isEmpty) return false;
+              final name = _norm(e['nombre']).toLowerCase();
+              final syns = (e['sinonimos'] as List? ?? [])
+                  .map((s) => s.toString().toLowerCase())
+                  .toList();
+              return name.contains(q) || syns.any((s) => s.contains(q));
+            }).toList();
+            return Column(
+              children: [
+                TextField(
+                  controller: _ingRecomSearchCtrl,
+                  focusNode: _ingRecomFocus,
+                  onChanged: (_) => setInternalState(() {}),
+                  decoration: InputDecoration(
+                    labelText: "Buscar ingrediente recomendado",
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _ingRecomSearchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded),
+                            onPressed: () {
+                              _ingRecomSearchCtrl.clear();
+                              setInternalState(() {});
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+                if (matches.isNotEmpty && _ingRecomFocus.hasFocus)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10)
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: min(matches.length, 60),
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final item = matches[i];
+                        final isSel = _recomendacionesIng
+                            .any((ing) => ing['id'] == item['id']);
+                        return ListTile(
+                          dense: true,
+                          title: Text(item['nombre'] ?? ""),
+                          trailing: Icon(
+                              isSel
+                                  ? Icons.check_circle
+                                  : Icons.add_circle_outline,
+                              color: isSel ? Colors.green : null),
+                          onTap: () {
+                            setState(() {
+                              if (!isSel) {
+                                _recomendacionesIng
+                                    .add(Map<String, dynamic>.from(item));
+                                _autoRecomendarDerivados(item['nombre'] ?? "");
+                              } else {
+                                _recomendacionesIng.removeWhere(
+                                    (ing) => ing['id'] == item['id']);
+                              }
+                            });
+                            setInternalState(() {});
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
-        if (_recomendacionesIng.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _recomendacionesIng
-                .map((e) => Chip(
-                      label: Text(
-                        e['nombre'] ?? "",
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700),
-                      ),
-                      onDeleted: () =>
-                          setState(() => _recomendacionesIng.remove(e)),
-                      backgroundColor: Colors.green.shade50,
-                      deleteIconColor: Colors.green.shade700,
-                      side: BorderSide(color: Colors.green.shade200),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ))
-                .toList(),
-          ),
-        ]
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _recomendacionesIng
+              .map((e) => Chip(
+                    label: Text(
+                      e['nombre'] ?? "",
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue),
+                    ),
+                    onDeleted: () =>
+                        setState(() => _recomendacionesIng.remove(e)),
+                    backgroundColor: Colors.blue.shade50,
+                    deleteIconColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ))
+              .toList(),
+        ),
       ],
     );
   }
@@ -3681,10 +3790,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         } else {
           setState(() {
             _tutorNoEncontrado = true;
-            _tutNombre.clear();
-            _tutEmail.clear();
-            _tutTelefono.clear();
-            _tutDireccion.clear();
           });
         }
       }
@@ -3765,7 +3870,6 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
     String? hint,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
     bool readOnly = false,
     VoidCallback? onTap,
   }) {
@@ -3778,7 +3882,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               controller: c,
               readOnly: readOnly,
               onTap: onTap,
-              validator: validator ?? (v) {
+              validator: (v) {
                 if (c == _pacFechaNacCtrl) {
                   if (_pacFechaNac == null) return "Campo requerido";
                   final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
@@ -3885,20 +3989,20 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_currentStep < (widget.fixedOnly ? 1 : 2)) ...[
-                      const Icon(Icons.chevron_right_rounded, size: 18),
-                      const SizedBox(width: 8),
-                    ],
                     Text(
-                        _currentStep == (widget.fixedOnly ? 1 : 2)
+                        _currentStep == (true ? 1 : 2)
                             ? (_idPacienteEditando == null
                                 ? "Registrar paciente"
-                                : widget.fixedOnly
+                                : true
                                     ? "Actualizar datos clínicos"
                                     : "Guardar cambios")
-                            : "Continuar",
+                            : "Siguiente paso",
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w800)),
+                    if (_currentStep < (true ? 1 : 2)) ...[
+                      const SizedBox(width: 12),
+                      const Icon(Icons.arrow_forward_rounded, size: 18),
+                    ]
                   ],
                 ))),
         if (_currentStep > 0) ...[
@@ -3907,7 +4011,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
               child: OutlinedButton(
                   onPressed: d.onStepCancel,
                   style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTema.azulPrincipal, width: 2),
+                      side: const BorderSide(color: greenBrand, width: 2),
                       foregroundColor: greenBrand,
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       shape: RoundedRectangleBorder(
@@ -3922,9 +4026,9 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
         Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-                color: AppTema.azulPrincipal.withOpacity(0.12),
+                color: greenBrand.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
-            child: Icon(i, size: 20, color: AppTema.azulPrincipal)),
+            child: Icon(i, size: 20, color: greenBrand)),
         const SizedBox(width: 18),
         Text(t,
             style: GoogleFonts.inter(
