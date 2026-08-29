@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/state/app_providers.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/app_sizes.dart';
@@ -23,6 +24,7 @@ class DashboardView extends ConsumerStatefulWidget {
 class _DashboardViewState extends ConsumerState<DashboardView> {
   final Map<int, bool> _expandedStates = {};
   Timer? _clockTimer;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
@@ -30,10 +32,47 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupRealtime();
+    });
+  }
+
+  void _setupRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('tutor_dashboard_rt_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'plan_nutricional',
+            callback: (_) {
+              if (widget.idPaciente != null) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                ref.invalidate(planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today)));
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'plan_item',
+            callback: (_) {
+              if (widget.idPaciente != null) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                ref.invalidate(planDiarioProvider((idPaciente: widget.idPaciente!, fecha: today)));
+              }
+            },
+          )
+          .subscribe();
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _clockTimer?.cancel();
     super.dispose();
   }

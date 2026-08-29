@@ -128,27 +128,29 @@ class RealtimeService {
           .subscribe();
     }
 
-    // PLANES NUTRICIONALES (Solo Médico)
-    if (role == AppRole.medico) {
+    // PLANES NUTRICIONALES (Médico y Tutor)
+    if (role == AppRole.medico || role == AppRole.tutor) {
       _nutricionChannel = supabase
           .channel('public:plan_nutricional')
           .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
+            event: PostgresChangeEvent.all,
             schema: 'interaccion',
             table: 'plan_nutricional',
             callback: (payload) async {
-              final pacienteId = payload.newRecord['id_paciente'];
+              final pacienteId = payload.newRecord['id_paciente'] ?? payload.oldRecord['id_paciente'];
               String nombre = "ID $pacienteId";
               try {
                 final res = await supabase.schema('usuarios').from('paciente').select('nombre_completo').eq('id', pacienteId).single();
                 nombre = res['nombre_completo'] ?? nombre;
               } catch (_) {}
               
-              _ref.read(notificationProvider.notifier).add(
-                    "Plan nutricional asignado",
-                    "Se ha creado un plan semanal para el paciente $nombre.",
-                    type: NutriNotificationType.success,
-                  );
+              if (payload.eventType == PostgresChangeEvent.insert) {
+                _ref.read(notificationProvider.notifier).add(
+                      "Plan nutricional asignado",
+                      "Se ha creado un nuevo plan semanal para el paciente $nombre.",
+                      type: NutriNotificationType.success,
+                    );
+              }
             },
           )
           .subscribe();

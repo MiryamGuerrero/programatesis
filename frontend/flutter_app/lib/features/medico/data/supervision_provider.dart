@@ -73,6 +73,21 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
     }
   }
 
+  Future<void> loadPageSilently() async {
+    try {
+      final repo = _ref.read(repositorioMedicoProvider);
+      final result = await repo.fetchPatientsPage(
+        query: state.searchQuery,
+        limit: pageSize,
+        offset: state.offset,
+      );
+      state = state.copyWith(
+        patients: result.items,
+        totalItems: result.total,
+      );
+    } catch (_) {}
+  }
+
   void setSearchQuery(String query) {
     if (state.searchQuery == query) return;
     state = state.copyWith(searchQuery: query, offset: 0);

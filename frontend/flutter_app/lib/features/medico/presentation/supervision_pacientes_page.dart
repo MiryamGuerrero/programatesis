@@ -4,6 +4,8 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
+import "package:supabase_flutter/supabase_flutter.dart";
+import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../shared/widgets/layout_components.dart";
 import "../../../shared/widgets/shimmer_components.dart";
@@ -59,17 +61,53 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   Timer? _searchDebounce;
   bool _archiving = false;
   bool _archiveSuccess = false;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(medicalPatientsProvider.notifier).loadPage();
+      _setupRealtime();
     });
+  }
+
+  void _setupRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('medico_pacientes_rt_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'usuarios',
+            table: 'paciente',
+            callback: (_) {
+              ref.read(medicalPatientsProvider.notifier).loadPageSilently();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'clinico',
+            table: 'control_paciente',
+            callback: (_) {
+              ref.read(medicalPatientsProvider.notifier).loadPageSilently();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'interaccion',
+            table: 'plan_nutricional',
+            callback: (_) {
+              ref.read(medicalPatientsProvider.notifier).loadPageSilently();
+            },
+          )
+          .subscribe();
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     _searchDebounce?.cancel();
     super.dispose();

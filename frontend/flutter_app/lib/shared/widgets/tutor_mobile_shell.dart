@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
+import "../../core/services/realtime_service.dart";
 import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 
@@ -20,6 +21,9 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(realtimeServiceProvider).init();
+    });
   }
 
   @override
