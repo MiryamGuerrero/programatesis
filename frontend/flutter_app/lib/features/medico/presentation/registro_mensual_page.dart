@@ -74,6 +74,7 @@ class RegistroMensualPage extends ConsumerStatefulWidget {
 
 class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     with SingleTickerProviderStateMixin {
+  String _tendenciaFilter = '1y';
   late TabController _tabController;
   int _activeDomainIndex = 0;
   int _activeFigureIndex = 0;
@@ -2598,29 +2599,197 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     Widget kpis = const SizedBox.shrink();
 
     if (_activeDomainIndex == 0) { // Reumatológica
+      DateTime latestControlDate = DateTime.now();
+      if (controls.isNotEmpty) {
+        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        if (parsed != null) latestControlDate = parsed;
+      }
+      final now = latestControlDate;
+      
+      DateTime threshold;
+      switch (_tendenciaFilter) {
+        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
+        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
+        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
+        default: threshold = DateTime(2000); break;
+      }
+      final filteredControls = controls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+
       if (_activeFigureIndex == 0) { // Síntomas
-        badgeText = "Figura 1";
-        title = "Evolución de Síntomas";
-        desc = "Seguimiento histórico de la Escala Visual Analógica (EVA) reportada por el paciente.";
-        kpis = Column(
+        final double? lastPain = filteredControls.isEmpty ? null : (filteredControls.last['puntos_dolor'] ?? 0).toDouble();
+        final double? prevPain = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['puntos_dolor'] ?? 0).toDouble() : null;
+        final double? lastFatigue = filteredControls.isEmpty ? null : (filteredControls.last['nivel_fatiga'] ?? 10).toDouble();
+        final double? prevFatigue = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['nivel_fatiga'] ?? 10).toDouble() : null;
+
+        String painInterp = "Información insuficiente para análisis clínico.";
+        if (lastPain != null) {
+          if (lastPain <= 2) painInterp = "Paciente en remisión o con dolor leve bien controlado. ";
+          else if (lastPain <= 6) painInterp = "Actividad sintomática moderada. Se sugiere monitoreo clínico continuo. ";
+          else painInterp = "Actividad severa aguda. Posible riesgo inminente de daño o brote activo. ";
+          
+          if (prevPain != null) {
+            if (lastPain > prevPain) painInterp += "Cuadro sintomático en deterioro respecto al último control.";
+            else if (lastPain < prevPain) painInterp += "Evolución favorable con reducción de sintomatología.";
+            else painInterp += "Estado clínico estacionario sin cambios agudos.";
+          }
+        }
+
+        String fatigueInterp = "Información insuficiente para análisis clínico.";
+        if (lastFatigue != null) {
+          if (lastFatigue <= 3) fatigueInterp = "Agotamiento crítico (astenia severa) que compromete la calidad de vida. ";
+          else if (lastFatigue <= 6) fatigueInterp = "Nivel de energía intermedio con episodios de fatiga recurrente. ";
+          else fatigueInterp = "Óptima vitalidad reportada, compatible con buen estado general. ";
+          
+          if (prevFatigue != null) {
+            if (lastFatigue < prevFatigue) fatigueInterp += "Incremento del cansancio basal frente a visita previa.";
+            else if (lastFatigue > prevFatigue) fatigueInterp += "Recuperación de la energía y funcionalidad.";
+            else fatigueInterp += "Condición basal estable.";
+          }
+        }
+
+        Widget buildBlock(String badge, String title, String valTitle, double? val, String interp) {
+          return Container(
+            constraints: const BoxConstraints(minHeight: 220),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+                const SizedBox(height: 16),
+                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                const SizedBox(height: 16),
+                Text(valTitle, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                const SizedBox(height: 4),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: val != null ? val.toInt().toString() : "-", style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+                      TextSpan(text: " / 10", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulPrincipal)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                const SizedBox(height: 16),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
+                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
+
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _opsKpi("Último Dolor", "${controls.isNotEmpty ? controls.last['puntos_dolor'] ?? '-' : '-'} / 10"),
-            const SizedBox(height: 16),
-            _opsKpi("Fatiga", "${controls.isNotEmpty ? controls.last['nivel_fatiga'] ?? '-' : '-'} / 10"),
-            
+            const SizedBox(height: 0),
+            buildBlock("Figura 1", "EVOLUCIÓN DEL DOLOR", "Último Dolor", lastPain, painInterp),
+            const SizedBox(height: 125),
+            buildBlock("Figura 2", "EVOLUCIÓN DE LA ENERGÍA DEL PACIENTE", "Último valor de nivel de energía", lastFatigue, fatigueInterp),
           ],
         );
       } else { // Mapa Articular
-        badgeText = "Figura 2";
-        title = "Inflamación Articular";
-        desc = "Conteo clínico de las 27 articulaciones para evaluar el estado físico actual.";
-        kpis = Column(
+        final int? lastInf = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_inflamadas'] ?? 0).toInt();
+        final int? lastDol = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_dolorosas'] ?? 0).toInt();
+        final int? lastRig = filteredControls.isEmpty ? null : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
+
+        String jointInterp = "Información insuficiente para análisis clínico.";
+        if (lastInf != null && lastDol != null) {
+          if (lastInf == 0 && lastDol == 0) jointInterp = "Ausencia de actividad inflamatoria articular. Excelente pronóstico actual. ";
+          else if (lastInf <= 2) jointInterp = "Actividad oligoarticular leve. Requiere seguimiento de las articulaciones afectadas. ";
+          else jointInterp = "Actividad poliarticular severa. Sugiere brote activo y riesgo de daño estructural. ";
+          
+          if (lastRig != null && lastRig > 30) {
+            jointInterp += "Rigidez matinal prolongada indica inflamación sistémica activa.";
+          } else if (lastRig != null && lastRig > 0) {
+            jointInterp += "Rigidez matinal leve a moderada presente.";
+          }
+        }
+
+        Widget buildMultiKpiBlock(String badge, String title, List<Map<String, dynamic>> kpis, String interp) {
+          return Container(
+            constraints: const BoxConstraints(minHeight: 220),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+                const SizedBox(height: 16),
+                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                const SizedBox(height: 16),
+                Column(
+                  children: kpis.map((k) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Text(k['title'], style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey, height: 1.2))),
+                        Text(k['val'].toString(), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                const SizedBox(height: 16),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
+                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
+                    ]
+                  )
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
+
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _opsKpi("Art. Inflamadas", "${controls.isNotEmpty ? controls.last['articulaciones_inflamadas'] ?? '-' : '-'}"),
-            const SizedBox(height: 16),
-            _opsKpi("Art. Dolorosas", "${controls.isNotEmpty ? controls.last['articulaciones_dolorosas'] ?? '-' : '-'}"),
+            const SizedBox(height: 0),
+            buildMultiKpiBlock("Figura 3", "ACTIVIDAD ARTICULAR", [
+              {'title': 'Articulaciones inflamadas actualmente', 'val': lastInf ?? '-'},
+              {'title': 'Articulaciones dolorosas actualmente', 'val': lastDol ?? '-'},
+              {'title': 'Rigidez actual en minutos', 'val': lastRig ?? '-'},
+            ], jointInterp),
+            const SizedBox(height: 10),
+            // Block for Figura 4
+            Container(
+              constraints: const BoxConstraints(minHeight: 220),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
+                    child: Text("Figura 4", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text("PENDIENTE", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                ]
+              )
+            )
           ],
         );
       }
@@ -2730,14 +2899,76 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial, Map<String, dynamic> stats, List<Map<String, dynamic>> monthlyControls) {
     if (_activeDomainIndex == 0) { // Reumatológica
+      DateTime latestControlDate = DateTime.now();
+      if (controls.isNotEmpty) {
+        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        if (parsed != null) latestControlDate = parsed;
+      }
+      final now = latestControlDate;
+      
+      DateTime threshold;
+      switch (_tendenciaFilter) {
+        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
+        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
+        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
+        default: threshold = DateTime(2000); break;
+      }
+      final filteredControls = controls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+      final filteredMonthlyControls = monthlyControls.where((c) {
+        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+
       if (_activeFigureIndex == 0) { // Síntomas y Dolor
-        return _redesignTendenciaClinica(monthlyControls, stats);
+        return _redesignTendenciaClinica(filteredMonthlyControls, stats);
       } else { // Mapa Articular
         return Column(
           children: [
-            _buildEvoActivitySection(controls),
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Evolución Clínica Articular",
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0F172A))),
+                  Container(
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _tendenciaFilter,
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
+                        style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                        items: const [
+                          DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
+                          DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
+                          DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
+                          DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _tendenciaFilter = val);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildEvoActivitySection(filteredControls),
             const SizedBox(height: 24),
-            _buildEvoInflammationSectionV2(controls),
+            _buildEvoInflammationSectionV2(filteredControls),
           ],
         );
       }
@@ -3757,7 +3988,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ? "no hay meses con brote registrado"
           : "hay brote en $mesesConBrote de $totalMeses meses";
       interpretacion =
-          "La gráfica mensual resume $totalControles controles en $totalMeses meses. El dolor es $dolorStr (promedio ${promedioDolor.toStringAsFixed(1)}/10) y la energía es $energiaStr (promedio ${promedioEnergia.toStringAsFixed(1)}/10). Frente al mes anterior, el dolor $tendenciaDolor y la energía $tendenciaEnergia; $broteLectura. Esto sugiere $patronClinico y debe correlacionarse con examen clínico, brotes y adherencia del paciente.";
+          "Las gráficas resumen $totalControles controles en $totalMeses meses. El dolor es $dolorStr (promedio ${promedioDolor.toStringAsFixed(1)}/10) y la energía es $energiaStr (promedio ${promedioEnergia.toStringAsFixed(1)}/10). Frente al mes anterior, el dolor $tendenciaDolor y la energía $tendenciaEnergia; $broteLectura. Esto sugiere $patronClinico y debe correlacionarse con examen clínico, brotes y adherencia del paciente.";
     }
 
     return {
@@ -3912,91 +4143,108 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   }
 
   Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls, Map<String, dynamic> stats) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Tendencia clínica",
+              Text("Tendencia clínica de Síntomas",
                   style: GoogleFonts.inter(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A))),
-              Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      size: 12, color: Color(0xFF64748B)),
-                  const SizedBox(width: 4),
-                  Text("Pase el cursor para ver detalle",
-                      style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B))),
-                ],
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _tendenciaFilter,
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                    items: const [
+                      DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
+                      DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
+                      DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
+                      DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _tendenciaFilter = val);
+                    },
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           _redesignSingleChart("Dolor EVA (0-10)", controls,
               (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, "pain"),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 24),
           _redesignSingleChart(
               "Energía (0-10)",
               controls,
               (c) => (c['nivel_fatiga'] ?? 10).toDouble(),
               Colors.green,
               "energy"),
-                    const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.description_outlined,
-                        size: 16, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Text("Interpretación de síntomas y dolor",
-                        style: GoogleFonts.inter(
-                            fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)))
-                  ]),
-                  const SizedBox(height: 12),
-                  Text(stats['interpretacion'] ?? 'Sin interpretación disponible.',
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: const Color(0xFF334155),
-                          height: 1.5,
-                          fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (stats['altaActividad'] == true)
-                        _interpretPill("Alta Actividad", Colors.red)
-                      else
-                        _interpretPill("Síntomas estables", Colors.green),
-                      _interpretPill(stats['patronClinico']?.toString().toUpperCase() ?? "SEGUIMIENTO", Colors.blue),
-                    ],
-                  ),
-                ],
-              ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ),
-      );
-    }
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(text: "Interpretación general: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF0369A1))),
+                  TextSpan(text: (() {
+                    if (controls.isEmpty) return "Información insuficiente en el período seleccionado.";
+                    final first = controls.first;
+                    final last = controls.last;
+                    final double initialPain = (first['puntos_dolor'] ?? 0).toDouble();
+                    final double finalPain = (last['puntos_dolor'] ?? 0).toDouble();
+                    final double initialFatigue = (first['nivel_fatiga'] ?? 10).toDouble();
+                    final double finalFatigue = (last['nivel_fatiga'] ?? 10).toDouble();
+                    
+                    String interp = "Las gráficas resumen " + controls.length.toString() + " controles médicos registrados en el período seleccionado. ";
+                    if (finalPain < initialPain) {
+                      interp += "Se observa una mejoría clínica con reducción del dolor. ";
+                    } else if (finalPain > initialPain) {
+                      interp += "El dolor ha empeorado en el período evaluado. ";
+                    } else {
+                      interp += "El dolor se ha mantenido estable. ";
+                    }
+                    
+                    if (finalFatigue > initialFatigue) {
+                      interp += "El nivel de energía ha mejorado. ";
+                    } else if (finalFatigue < initialFatigue) {
+                      interp += "Se evidencia un aumento en la fatiga del paciente. ";
+                    }
+                    
+                    if (finalPain <= 2 && finalFatigue >= 7) {
+                      interp += "El estado general sugiere un adecuado control de la enfermedad y buena calidad de vida.";
+                    } else if (finalPain >= 7 || finalFatigue <= 3) {
+                      interp += "El estado es de alerta clínica, requiriendo posible revisión del esquema terapéutico por alta carga sintomática.";
+                    } else {
+                      interp += "Se mantiene una actividad sintomática moderada bajo monitoreo.";
+                    }
+                    return interp;
+                  })(), style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF0369A1), fontWeight: FontWeight.normal, height: 1.4)),
+                ]
+              )
+            )
+          ),
+        ],
+    );
+  }
 
   Widget _redesignSingleChart(
       String title,
@@ -4009,56 +4257,29 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .entries
         .map((e) => FlSpot(e.key.toDouble(), getValue(e.value)))
         .toList();
-    final double maxVal =
-        spots.isEmpty ? 10 : spots.map((s) => s.y).reduce(max);
 
-    // Escala dinámica: se adapta pero mantiene bases lógicas para EVA (5 o 10)
     double calculatedMaxY = 10.0;
-    if (maxVal <= 5) {
-      calculatedMaxY = 5.0;
-    } else if (maxVal <= 10) {
-      calculatedMaxY = 10.0;
-    } else {
-      calculatedMaxY = (maxVal * 1.2).ceilToDouble();
-    }
 
     final bool isPain = type == "pain";
     final List<(double, double, Color)> bands = isPain
         ? const [
-            (0, 2, Color(0x0D2E7D32)),
-            (3, 6, Color(0x0DF59E0B)),
-            (7, 10, Color(0x0DF87171))
+            (0, 2.5, Color(0x082E7D32)),
+            (2.5, 6.5, Color(0x08F59E0B)),
+            (6.5, 10, Color(0x08F87171))
           ]
         : const [
-            (0, 3, Color(0x0DF87171)),
-            (4, 6, Color(0x0DF59E0B)),
-            (7, 10, Color(0x0D2E7D32))
+            (0, 3.5, Color(0x08F87171)),
+            (3.5, 6.5, Color(0x08F59E0B)),
+            (6.5, 10, Color(0x082E7D32))
           ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-                width: 8,
-                height: 8,
-                decoration:
-                    BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 6),
-            Text(title,
-                style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF334155))),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 140,
-          child: LineChart(
-            LineChartData(
-              minX: 0,
+    return Container(
+      height: 220,
+      padding: EdgeInsets.zero,
+      child: LineChart(
+        LineChartData(
+          clipData: const FlClipData.all(),
+          minX: 0,
               maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
               minY: 0,
               maxY: calculatedMaxY,
@@ -4111,8 +4332,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           return Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                  (controls[idx]['mes_label'] ??
-                                          _monthShort(controls[idx]
+                                  (controls[idx]['mes_label_largo'] ??
+                                          _monthLong(controls[idx]
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
@@ -4133,16 +4354,29 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     .map((i) => TouchedSpotIndicatorData(
                         FlLine(
                             color: color.withOpacity(0.15), strokeWidth: 1.5),
-                        FlDotData(show: true, getDotPainter: _getSmallDot)))
-                    .toList(),
-                touchTooltipData: _redesignTooltipData(controls, type),
-              ),
+                      FlDotData(show: true, getDotPainter: _getSmallDot)))
+                  .toList(),
+              touchTooltipData: _redesignTooltipData(controls, type),
             ),
           ),
         ),
-      ],
-    );
+      );
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   static FlDotPainter _getSmallDot(
           FlSpot spot, double xPercentage, LineChartBarData bar, int index) =>
@@ -4198,7 +4432,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               TextSpan(
                   text:
-                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
                   style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
@@ -5378,8 +5612,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               if (idx < 0 || idx >= controls.length)
                                 return const SizedBox.shrink();
                               return Text(
-                                  (controls[idx]['mes_label'] ??
-                                          _monthShort(controls[idx]
+                                  (controls[idx]['mes_label_largo'] ??
+                                          _monthLong(controls[idx]
                                                   ['fecha_control'] ??
                                               ""))
                                       .toString(),
@@ -5411,7 +5645,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             children: [
                               TextSpan(
                                   text:
-                                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
                                   style: GoogleFonts.inter(
                                       fontSize: 8,
                                       color: const Color(0xFF64748B))),
@@ -5824,8 +6058,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             return Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                    (controls[idx]['mes_label'] ??
-                                            _monthShort(controls[idx]
+                                    (controls[idx]['mes_label_largo'] ??
+                                            _monthLong(controls[idx]
                                                     ['fecha_control'] ??
                                                 ""))
                                         .toString(),
@@ -5854,7 +6088,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       return LineTooltipItem("", const TextStyle(), children: [
                         TextSpan(
                             text:
-                                "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                                "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
                             style: GoogleFonts.inter(
                                 fontSize: 8, color: const Color(0xFF64748B))),
                         TextSpan(
@@ -6192,7 +6426,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                             padding:
                                                 const EdgeInsets.only(top: 4),
                                             child: Text(
-                                                _monthShort(controls[idx]
+                                                _monthLong(controls[idx]
                                                         ['fecha_control'] ??
                                                     ""),
                                                 style: GoogleFonts.inter(
@@ -8110,7 +8344,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       child: SizedBox(
                         width: 40,
                         child: Text(
-                          _monthShort(controls[idx]['fecha_control']),
+                          _monthLong(controls[idx]['fecha_control']),
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -8155,7 +8389,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               TextSpan(
                   text:
-                      "${(c['mes_label_largo'] ?? _monthShort(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
                   style: GoogleFonts.inter(
                       fontSize: 8,
                       color: const Color(0xFF64748B),
@@ -8957,7 +9191,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             if (idx < 0 || idx >= controls.length)
                               return const SizedBox.shrink();
                             return Text(
-                                _monthShort(controls[idx]['fecha_control']
+                                _monthLong(controls[idx]['fecha_control']
                                         ?.toString() ??
                                     ''),
                                 style: const TextStyle(fontSize: 9));
