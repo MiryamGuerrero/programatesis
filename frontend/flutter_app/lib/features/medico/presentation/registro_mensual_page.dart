@@ -175,7 +175,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         setState(() {});
       }
     });
-    _proximaCitaCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
+    _proximaCitaCtrl = TextEditingController(
+        text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
     _cargarExpediente();
     _loadCatalogos();
   }
@@ -257,7 +258,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       final dio = ref.read(dioProvider);
       final patientIdStr = widget.paciente['id'].toString();
       final response =
-await dio.get("pacientes/$patientIdStr/expediente-completo");
+          await dio.get("pacientes/$patientIdStr/expediente-completo");
       final data = Map<String, dynamic>.from(response.data as Map);
 
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -265,28 +266,35 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       final evaluadoHoy = historial.any((c) => c['fecha_control'] == hoy);
       final estadoControlBackend = data['estado_control_mensual'];
       final estadoControlLocal = _evaluarEstadoControlMensual(historial);
-      
-      final bool yaHecho = (estadoControlBackend is Map && estadoControlBackend['ya_hecho'] != null)
+
+      final bool yaHecho = (estadoControlBackend is Map &&
+              estadoControlBackend['ya_hecho'] != null)
           ? estadoControlBackend['ya_hecho'] == true
           : estadoControlLocal['ya_hecho'] == true;
-          
-      final bool habilitado = (estadoControlBackend is Map && estadoControlBackend['habilitado'] != null)
+
+      final bool habilitado = (estadoControlBackend is Map &&
+              estadoControlBackend['habilitado'] != null)
           ? estadoControlBackend['habilitado'] == true
           : estadoControlLocal['habilitado'] == true;
 
-      String mensaje = (estadoControlBackend is Map && estadoControlBackend['mensaje'] != null && estadoControlBackend['mensaje'].toString().isNotEmpty)
+      String mensaje = (estadoControlBackend is Map &&
+              estadoControlBackend['mensaje'] != null &&
+              estadoControlBackend['mensaje'].toString().isNotEmpty)
           ? estadoControlBackend['mensaje'].toString()
           : "";
       if (mensaje.isEmpty) {
         final diff = estadoControlLocal['diff'] as int? ?? 0;
         final diffAbs = diff.abs();
-        final fechaFormateada = estadoControlLocal['fecha_formateada'] as String? ?? "";
+        final fechaFormateada =
+            estadoControlLocal['fecha_formateada'] as String? ?? "";
         if (yaHecho) {
-          mensaje = "Su registro ya fue realizado. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
+          mensaje =
+              "Su registro ya fue realizado. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
         } else if (habilitado) {
           mensaje = "Control mensual habilitado para registro.";
         } else {
-          mensaje = "Aún no corresponde el control mensual. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
+          mensaje =
+              "Aún no corresponde el control mensual. Su próximo control es en $diffAbs ${diffAbs == 1 ? 'día' : 'días'} ($fechaFormateada).";
         }
       }
 
@@ -385,7 +393,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     final referencia = ahora;
     final habilitado = !hechoEnMesActual;
 
-    final referenciaCero = DateTime(referencia.year, referencia.month, referencia.day);
+    final referenciaCero =
+        DateTime(referencia.year, referencia.month, referencia.day);
     final ahoraCero = DateTime(ahora.year, ahora.month, ahora.day);
     final diff = referenciaCero.difference(ahoraCero).inDays;
     final fechaFormateada = DateFormat('dd/MM/yyyy').format(referenciaReal);
@@ -421,8 +430,10 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     double t = double.tryParse(_talla.text) ?? 0;
     if (p < 1 || t < 30) return;
 
-    final fnac = _expediente?['paciente']?['fecha_nacimiento'] ?? widget.paciente['fecha_nacimiento'];
-    final idSexo = _expediente?['paciente']?['id_sexo'] ?? widget.paciente['id_sexo'];
+    final fnac = _expediente?['paciente']?['fecha_nacimiento'] ??
+        widget.paciente['fecha_nacimiento'];
+    final idSexo =
+        _expediente?['paciente']?['id_sexo'] ?? widget.paciente['id_sexo'];
 
     if (fnac == null || idSexo == null) return;
 
@@ -504,7 +515,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ??
           DateTime.now().add(const Duration(days: 30));
-      _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
+      _proximaCitaCtrl.text =
+          DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
 
       if (_expediente != null && _expediente!['recomendaciones'] != null) {
         _recomendacionesIng = List<Map<String, dynamic>>.from(
@@ -562,9 +574,10 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         "restricciones_alimentarias": sanitizedRestricciones,
         "es_intolerante_lactosa": _lactosa,
         if (_idControlEditando == null)
-          "fecha_control": _diasRestantesParaControl == 0 && _fechaProgramadaControl != null
-              ? _fechaProgramadaControl!.toIso8601String().split("T").first
-              : DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          "fecha_control":
+              _diasRestantesParaControl == 0 && _fechaProgramadaControl != null
+                  ? _fechaProgramadaControl!.toIso8601String().split("T").first
+                  : DateFormat('yyyy-MM-dd').format(DateTime.now()),
       };
       if (_idControlEditando == null) {
         await dio.post("pacientes/${widget.paciente['id']}/control-mensual",
@@ -696,11 +709,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         Expanded(
                             child:
                                 _buildExpSection("1. Identidad del paciente", [
-                           _expItem("Nombres completos", p['nombre_completo']),
+                          _expItem("Nombres completos", p['nombre_completo']),
                           _expItem("Cédula / ID", p['cedula']),
                           _expItem(
                               "Fecha de nacimiento", p['fecha_nacimiento']),
-                           _expItem("Sexo biológico", p['sexo_nombre']),
+                          _expItem("Sexo biológico", p['sexo_nombre']),
                           const SizedBox(height: 16),
                           const Text("Localización",
                               style: TextStyle(
@@ -709,14 +722,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                           _expItem("Cantón de residencia", p['canton_nombre']),
+                          _expItem("Cantón de residencia", p['canton_nombre']),
                           _expItem("Parroquia", p['parroquia_nombre']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
                             child: _buildExpSection("2. Representante legal", [
-                           _expItem("Nombre completo", t['nombre_completo']),
-                           _expItem("Cédula del tutor", t['cedula']),
+                          _expItem("Nombre completo", t['nombre_completo']),
+                          _expItem("Cédula del tutor", t['cedula']),
                           _expItem(
                               "Relación / Parentesco", t['parentesco_nombre'],
                               isBold: true),
@@ -728,25 +741,25 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                           _expItem("Correo electrónico", t['email']),
+                          _expItem("Correo electrónico", t['email']),
                           _expItem("Teléfono / Móvil", t['telefono']),
-                           _expItem("Dirección domiciliaria", t['direccion']),
+                          _expItem("Dirección domiciliaria", t['direccion']),
                         ])),
                         const SizedBox(width: 40),
                         Expanded(
                             child:
                                 _buildExpSection("3. Estado clínico actual", [
-                           _expItem("Enfermedad autoinmune",
+                          _expItem("Enfermedad autoinmune",
                               d['condicion_nombre'] ?? "No registrada",
                               isHighlight: true),
-                           _expItem("Estado nutricional (OMS)",
+                          _expItem("Estado nutricional (OMS)",
                               c['estado_nutricional'],
                               isBold: true),
-                           _expItem("Relación peso / talla / IMC",
+                          _expItem("Relación peso / talla / IMC",
                               "${c['peso_kg'] ?? '-'} kg / ${c['talla_cm'] ?? '-'} cm / ${c['imc_calculado'] ?? '-'}"),
-                           _expItem("Actividad clínica",
+                          _expItem("Actividad clínica",
                               "Dolor ${c['puntos_dolor'] ?? '-'} | Inflamación ${c['escala_inflamacion'] ?? '-'} | Fatiga ${c['nivel_fatiga'] ?? '-'} | Rigidez ${c['minutos_rigidez'] ?? '-'} min"),
-                           _expItem("Estado de enfermedad",
+                          _expItem("Estado de enfermedad",
                               c['estado_enfermedad'] ?? "Seguimiento"),
                           const SizedBox(height: 16),
                           const Text("Seguridad alimentaria",
@@ -804,8 +817,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                   color: Colors.blue,
                                   letterSpacing: 1)),
                           const SizedBox(height: 8),
-                           _expItem("Último registro", c['fecha_control']),
-                           _expItem("Cita programada", c['fecha_proxima_cita'],
+                          _expItem("Último registro", c['fecha_control']),
+                          _expItem("Cita programada", c['fecha_proxima_cita'],
                               isHighlight: true),
                           _expItem(
                               "Controles registrados",
@@ -892,7 +905,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         ],
       );
     }
-    
+
     return Stack(
       children: [
         Scaffold(
@@ -923,25 +936,23 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Colors.black.withOpacity(0.6),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16)
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: AppTema.azulPrincipal),
-              const SizedBox(height: 16),
-              Text("Cargando control mensual...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
-            ]
-          )
-        )
-      )
-    );
+        color: Colors.black.withOpacity(0.6),
+        child: Center(
+            child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16)),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const CircularProgressIndicator(color: AppTema.azulPrincipal),
+                  const SizedBox(height: 16),
+                  Text("Cargando control mensual...",
+                      style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1E293B)))
+                ]))));
   }
 
   Widget _buildTopBar() {
@@ -955,79 +966,88 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   Widget _buildHeaderBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  ref.read(medicoNavProvider.notifier).goBackToList();
-                },
-                borderRadius: BorderRadius.circular(50),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTema.azulPrincipal.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 4.0),
-                    child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                "Control mensual del paciente",
-                style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: const Color(0xFF334155)), 
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Padding(
-            padding: const EdgeInsets.only(left: 52),
-            child: Text(
-              "Formulario para registrar o editar el control mensual, evolución, datos antropométricos y estado nutricional del paciente.",
-              style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B)),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTema.verdeSalud, 
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
                 InkWell(
                   onTap: () {
                     ref.read(medicoNavProvider.notifier).goBackToList();
                   },
-                  child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
+                  borderRadius: BorderRadius.circular(50),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4.0),
+                      child: Icon(Icons.arrow_back_ios,
+                          size: 16, color: AppTema.azulPrincipal),
+                    ),
+                  ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+                const SizedBox(width: 16),
+                Text(
+                  "Control mensual del paciente",
+                  style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: const Color(0xFF334155)),
                 ),
-                Text("Control Mensual", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
               ],
-            )
-          ),
-        ],
-      )
-    );
+            ),
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.only(left: 52),
+              child: Text(
+                "Formulario para registrar o editar el control mensual, evolución, datos antropométricos y estado nutricional del paciente.",
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    InkWell(
+                        onTap: () {
+                          ref.read(medicoNavProvider.notifier).goBackToList();
+                        },
+                        child: Text("Gestión de Pacientes",
+                            style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                decoration: TextDecoration.none))),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Icon(Icons.chevron_right_rounded,
+                          size: 18, color: Colors.white),
+                    ),
+                    Text("Control Mensual",
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                  ],
+                )),
+          ],
+        ));
   }
 
   Widget _buildTabBar() => Container(
@@ -1055,17 +1075,16 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F172A).withOpacity(0.04),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            )
-          ]
-        ),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withOpacity(0.04),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              )
+            ]),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1073,14 +1092,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (_controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange).withOpacity(0.08),
+                color: (_controlMensualYaHecho
+                        ? AppTema.azulPrincipal
+                        : Colors.orange)
+                    .withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _controlMensualYaHecho
                     ? Icons.check_circle_rounded
                     : Icons.lock_outline_rounded,
-                color: _controlMensualYaHecho ? AppTema.azulPrincipal : Colors.orange.shade700,
+                color: _controlMensualYaHecho
+                    ? AppTema.azulPrincipal
+                    : Colors.orange.shade700,
                 size: 48,
               ),
             ),
@@ -1120,11 +1144,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 FilledButton.icon(
                   onPressed: () => _tabController.animateTo(1),
                   icon: const Icon(Icons.trending_up_rounded, size: 18),
-                  label: Text("Ir al monitor", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                  label: Text("Ir al monitor",
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700, fontSize: 13)),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF0F172A),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1137,11 +1164,14 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     ref.read(medicoNavProvider.notifier).goBackToList();
                   },
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: Text("Volver a Gestión", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                  label: Text("Volver a Gestión",
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF475569),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1166,8 +1196,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const Icon(Icons.check_circle_outline, color: Colors.green),
               const SizedBox(width: 12),
               Expanded(
-                  child: Text(
-                      "Hoy es el día de su control",
+                  child: Text("Hoy es el día de su control",
                       style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -1228,7 +1257,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         // 2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA
         _sectionHeader(
             "2. Evaluación de actividad reumática", Icons.healing_outlined),
-                const SizedBox(height: 24),
+        const SizedBox(height: 24),
         if (MediaQuery.of(context).size.width > 900) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1310,8 +1339,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   children: [
                     Row(children: [
                       Expanded(
-                          child: _buildCounterField("Art. Inflamadas", _artInflam,
-                              Icons.track_changes_outlined)),
+                          child: _buildCounterField("Art. Inflamadas",
+                              _artInflam, Icons.track_changes_outlined)),
                       const SizedBox(width: 16),
                       Expanded(
                           child: _buildCounterField("Art. Dolorosas", _artDolor,
@@ -1322,7 +1351,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       _rigidez,
                       "Rigidez en min",
                       Icons.timer_outlined,
-                      helper: "Minutos de rigidez al despertar o durante el día",
+                      helper:
+                          "Minutos de rigidez al despertar o durante el día",
                     ),
                     const SizedBox(height: 18),
                     _buildBroteToggle(),
@@ -1402,8 +1432,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         Icons.track_changes_outlined)),
                 const SizedBox(width: 16),
                 Expanded(
-                    child: _buildCounterField("Art. Dolorosas", _artDolor,
-                        Icons.back_hand_outlined)),
+                    child: _buildCounterField(
+                        "Art. Dolorosas", _artDolor, Icons.back_hand_outlined)),
               ]),
               const SizedBox(height: 24),
               _field(
@@ -1438,12 +1468,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _field(
-                _notas, 
-                "Observaciones médicas", 
-                Icons.edit_note, 
-                maxLines: 4
-              ),
+              child: _field(_notas, "Observaciones médicas", Icons.edit_note,
+                  maxLines: 4),
             ),
             const SizedBox(width: 24),
             Expanded(
@@ -1833,75 +1859,75 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
 
   Widget _buildOMSDiagnosisRow() {
     return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-          color: _omsColor.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
-            const SizedBox(width: 12),
-            Text("Diagnóstico nutricional OMS",
-                style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF475569))),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+            color: _omsColor.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _omsColor.withOpacity(0.2), width: 2)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Row(children: [
+              Icon(Icons.analytics_rounded, color: _omsColor, size: 22),
+              const SizedBox(width: 12),
+              Text("Diagnóstico nutricional OMS",
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF475569))),
+            ]),
+            if (_calculandoOMS)
+              const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: greenBrand))
+            else
+              IconButton(
+                  onPressed: _calculateOMS,
+                  icon: const Icon(Icons.refresh_rounded,
+                      size: 20, color: Colors.blueGrey))
           ]),
-          if (_calculandoOMS)
-            const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: greenBrand))
-          else
-            IconButton(
-                onPressed: _calculateOMS,
-                icon: const Icon(Icons.refresh_rounded,
-                    size: 20, color: Colors.blueGrey))
-        ]),
-        const SizedBox(height: 24),
-        Text(
-            "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
-            style: GoogleFonts.inter(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F172A))),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: _metricPill(
-                  "Peso ideal",
-                  _pesoIdeal > 0
-                      ? "${_pesoIdeal.toStringAsFixed(1)} kg"
-                      : "-"),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _metricPill(
-                  "Talla ideal",
-                  _tallaIdeal > 0
-                      ? "${_tallaIdeal.toStringAsFixed(1)} cm"
-                      : "-"),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        _buildObjetivosOmsRow(),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _omsColor.withOpacity(0.2)),
+          const SizedBox(height: 24),
+          Text(
+              "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
+              style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F172A))),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _metricPill(
+                    "Peso ideal",
+                    _pesoIdeal > 0
+                        ? "${_pesoIdeal.toStringAsFixed(1)} kg"
+                        : "-"),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _metricPill(
+                    "Talla ideal",
+                    _tallaIdeal > 0
+                        ? "${_tallaIdeal.toStringAsFixed(1)} cm"
+                        : "-"),
+              ),
+            ],
           ),
-          child: _buildClinicalSummaryBullets(),
-        ),
-      ]));
+          const SizedBox(height: 10),
+          _buildObjetivosOmsRow(),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _omsColor.withOpacity(0.2)),
+            ),
+            child: _buildClinicalSummaryBullets(),
+          ),
+        ]));
   }
 
   Widget _buildObjetivosOmsRow() {
@@ -2327,7 +2353,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: spans));
   }
 
-  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) => Row(children: [
+  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) =>
+      Row(children: [
         Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -2400,21 +2427,32 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.monitor_heart_outlined, size: 64, color: Colors.blueGrey.shade200),
+                  Icon(Icons.monitor_heart_outlined,
+                      size: 64, color: Colors.blueGrey.shade200),
                   const SizedBox(height: 24),
-                  Text("Aún no hay controles históricos", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                  Text("Aún no hay controles históricos",
+                      style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey.shade800)),
                   const SizedBox(height: 8),
-                  Text("No hay registros previos para graficar.\nRegistra el control de este mes para activar el monitor de evolución.", textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 14, color: Colors.blueGrey)),
+                  Text(
+                      "No hay registros previos para graficar.\nRegistra el control de este mes para activar el monitor de evolución.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                          fontSize: 14, color: Colors.blueGrey)),
                 ],
               ),
             ),
           ),
         ],
       );
-      if (isNested) return Padding(padding: const EdgeInsets.all(40), child: emptyContent);
-      return SingleChildScrollView(padding: const EdgeInsets.all(24), child: emptyContent);
+      if (isNested)
+        return Padding(padding: const EdgeInsets.all(40), child: emptyContent);
+      return SingleChildScrollView(
+          padding: const EdgeInsets.all(24), child: emptyContent);
     }
-    
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2443,7 +2481,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _buildOpsDashboard(Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
+  Widget _buildOpsDashboard(
+      Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
     final controls = _evoFilteredControls(evo);
     final monthlyControls = _groupEvoControlsByMonth(controls);
     final stats = _calculateEvoStats(monthlyControls);
@@ -2480,7 +2519,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               child: Container(
                 padding: const EdgeInsets.only(right: 16),
                 decoration: BoxDecoration(
-                  color: active ? AppTema.azulPrincipal.withOpacity(0.05) : Colors.transparent,
+                  color: active
+                      ? AppTema.azulPrincipal.withOpacity(0.05)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
@@ -2490,11 +2531,19 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade100,
+                        color: active
+                            ? AppTema.azulPrincipal
+                            : Colors.blueGrey.shade100,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Text("${index + 1}", style: GoogleFonts.inter(color: active ? Colors.white : Colors.blueGrey.shade600, fontWeight: FontWeight.bold, fontSize: 11)),
+                      child: Text("${index + 1}",
+                          style: GoogleFonts.inter(
+                              color: active
+                                  ? Colors.white
+                                  : Colors.blueGrey.shade600,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11)),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -2502,7 +2551,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                        color: active ? AppTema.azulPrincipal : Colors.blueGrey.shade400,
+                        color: active
+                            ? AppTema.azulPrincipal
+                            : Colors.blueGrey.shade400,
                       ),
                     ),
                   ],
@@ -2525,33 +2576,44 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             children: [
               // Pestañitas Nivel 2 (Dentro de la caja, arriba a la derecha)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                  border:
+                      Border(bottom: BorderSide(color: Colors.grey.shade200)),
                 ),
                 alignment: Alignment.centerRight,
                 child: Wrap(
                   spacing: 8,
-                  children: List.generate(figureTabs[_activeDomainIndex].length, (idx) {
+                  children: List.generate(figureTabs[_activeDomainIndex].length,
+                      (idx) {
                     final active = _activeFigureIndex == idx;
                     return InkWell(
                       onTap: () => setState(() => _activeFigureIndex = idx),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: active ? Colors.blueGrey.shade50 : Colors.transparent,
+                          color: active
+                              ? Colors.blueGrey.shade50
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: active ? Colors.blueGrey.shade200 : Colors.transparent,
+                            color: active
+                                ? Colors.blueGrey.shade200
+                                : Colors.transparent,
                           ),
                         ),
                         child: Text(
                           figureTabs[_activeDomainIndex][idx],
                           style: GoogleFonts.inter(
                             fontSize: 10,
-                            fontWeight: active ? FontWeight.bold : FontWeight.w500,
-                            color: active ? AppTema.azulPrincipal : Colors.blueGrey,
+                            fontWeight:
+                                active ? FontWeight.bold : FontWeight.w500,
+                            color: active
+                                ? AppTema.azulPrincipal
+                                : Colors.blueGrey,
                           ),
                         ),
                       ),
@@ -2566,23 +2628,26 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                 children: [
                   // Columna Izquierda
                   Container(
-                      width: 280,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        border: Border(right: BorderSide(color: Colors.grey.shade200)),
-                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16)),
-                      ),
-                      child: _buildOpsLeftPanel(stats, controls, evo),
+                    width: 280,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      border: Border(
+                          right: BorderSide(color: Colors.grey.shade200)),
+                      borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16)),
                     ),
+                    child: _buildOpsLeftPanel(stats, controls, evo),
+                  ),
 
-                    // Columna Derecha (Gráfica)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: _buildOpsRightPanel(controls, evo, historial, stats, monthlyControls),
-                      ),
+                  // Columna Derecha (Gráfica)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: _buildOpsRightPanel(
+                          controls, evo, historial, stats, monthlyControls),
                     ),
+                  ),
                 ],
               ),
             ],
@@ -2592,65 +2657,113 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _buildOpsLeftPanel(Map<String, dynamic> stats, List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
+  Widget _buildOpsLeftPanel(Map<String, dynamic> stats,
+      List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
     String badgeText = "";
     String title = "";
     String desc = "";
     Widget kpis = const SizedBox.shrink();
 
-    if (_activeDomainIndex == 0) { // Reumatológica
+    if (_activeDomainIndex == 0) {
+      // Reumatológica
       DateTime latestControlDate = DateTime.now();
       if (controls.isNotEmpty) {
-        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        final parsed =
+            DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
         if (parsed != null) latestControlDate = parsed;
       }
       final now = latestControlDate;
-      
+
       DateTime threshold;
       switch (_tendenciaFilter) {
-        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
-        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
-        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
-        default: threshold = DateTime(2000); break;
+        case '6m':
+          threshold = DateTime(now.year, now.month - 6, now.day);
+          break;
+        case '1y':
+          threshold = DateTime(now.year - 1, now.month, now.day);
+          break;
+        case '5y':
+          threshold = DateTime(now.year - 5, now.month, now.day);
+          break;
+        default:
+          threshold = DateTime(2000);
+          break;
       }
       final filteredControls = controls.where((c) {
-        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        final d =
+            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
         return d.isAfter(threshold);
       }).toList();
 
-      if (_activeFigureIndex == 0) { // Síntomas
-        final double? lastPain = filteredControls.isEmpty ? null : (filteredControls.last['puntos_dolor'] ?? 0).toDouble();
-        final double? prevPain = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['puntos_dolor'] ?? 0).toDouble() : null;
-        final double? lastFatigue = filteredControls.isEmpty ? null : (filteredControls.last['nivel_fatiga'] ?? 10).toDouble();
-        final double? prevFatigue = filteredControls.length > 1 ? (filteredControls[filteredControls.length - 2]['nivel_fatiga'] ?? 10).toDouble() : null;
+      if (_activeFigureIndex == 0) {
+        // Síntomas
+        final double? lastPain = filteredControls.isEmpty
+            ? null
+            : (filteredControls.last['puntos_dolor'] ?? 0).toDouble();
+        final double? prevPain = filteredControls.length > 1
+            ? (filteredControls[filteredControls.length - 2]['puntos_dolor'] ??
+                    0)
+                .toDouble()
+            : null;
+        final double? lastFatigue = filteredControls.isEmpty
+            ? null
+            : (filteredControls.last['nivel_fatiga'] ?? 10).toDouble();
+        final double? prevFatigue = filteredControls.length > 1
+            ? (filteredControls[filteredControls.length - 2]['nivel_fatiga'] ??
+                    10)
+                .toDouble()
+            : null;
 
         String painInterp = "Información insuficiente para análisis clínico.";
         if (lastPain != null) {
-          if (lastPain <= 2) painInterp = "Paciente en remisión o con dolor leve bien controlado. ";
-          else if (lastPain <= 6) painInterp = "Actividad sintomática moderada. Se sugiere monitoreo clínico continuo. ";
-          else painInterp = "Actividad severa aguda. Posible riesgo inminente de daño o brote activo. ";
-          
+          if (lastPain <= 2)
+            painInterp =
+                "Paciente en remisión o con dolor leve bien controlado. ";
+          else if (lastPain <= 6)
+            painInterp =
+                "Actividad sintomática moderada. Se sugiere monitoreo clínico continuo. ";
+          else
+            painInterp =
+                "Actividad severa aguda. Posible riesgo inminente de daño o brote activo. ";
+
           if (prevPain != null) {
-            if (lastPain > prevPain) painInterp += "Cuadro sintomático en deterioro respecto al último control.";
-            else if (lastPain < prevPain) painInterp += "Evolución favorable con reducción de sintomatología.";
-            else painInterp += "Estado clínico estacionario sin cambios agudos.";
+            if (lastPain > prevPain)
+              painInterp +=
+                  "Cuadro sintomático en deterioro respecto al último control.";
+            else if (lastPain < prevPain)
+              painInterp +=
+                  "Evolución favorable con reducción de sintomatología.";
+            else
+              painInterp += "Estado clínico estacionario sin cambios agudos.";
           }
         }
 
-        String fatigueInterp = "Información insuficiente para análisis clínico.";
+        String fatigueInterp =
+            "Información insuficiente para análisis clínico.";
         if (lastFatigue != null) {
-          if (lastFatigue <= 3) fatigueInterp = "Agotamiento crítico (astenia severa) que compromete la calidad de vida. ";
-          else if (lastFatigue <= 6) fatigueInterp = "Nivel de energía intermedio con episodios de fatiga recurrente. ";
-          else fatigueInterp = "Óptima vitalidad reportada, compatible con buen estado general. ";
-          
+          if (lastFatigue <= 3)
+            fatigueInterp =
+                "Agotamiento crítico (astenia severa) que compromete la calidad de vida. ";
+          else if (lastFatigue <= 6)
+            fatigueInterp =
+                "Nivel de energía intermedio con episodios de fatiga recurrente. ";
+          else
+            fatigueInterp =
+                "Óptima vitalidad reportada, compatible con buen estado general. ";
+
           if (prevFatigue != null) {
-            if (lastFatigue < prevFatigue) fatigueInterp += "Incremento del cansancio basal frente a visita previa.";
-            else if (lastFatigue > prevFatigue) fatigueInterp += "Recuperación de la energía y funcionalidad.";
-            else fatigueInterp += "Condición basal estable.";
+            if (lastFatigue < prevFatigue)
+              fatigueInterp +=
+                  "Incremento del cansancio basal frente a visita previa.";
+            else if (lastFatigue > prevFatigue)
+              fatigueInterp += "Recuperación de la energía y funcionalidad.";
+            else
+              fatigueInterp += "Condición basal estable.";
           }
         }
 
-        Widget buildBlock(String badge, String title, String valTitle, double? val, String interp) {
+        Widget buildBlock(String badge, String title, String valTitle,
+            double? val, String interp) {
           return Container(
             constraints: const BoxConstraints(minHeight: 220),
             child: Column(
@@ -2658,34 +2771,66 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge,
+                      style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
                 ),
                 const SizedBox(height: 16),
-                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulPrincipal,
+                        letterSpacing: -0.5)),
                 const SizedBox(height: 16),
-                Text(valTitle, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                Text(valTitle,
+                    style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blueGrey)),
                 const SizedBox(height: 4),
                 RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(text: val != null ? val.toInt().toString() : "-", style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
-                      TextSpan(text: " / 10", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTema.azulPrincipal)),
-                    ]
-                  )
-                ),
+                    text: TextSpan(children: [
+                  TextSpan(
+                      text: val != null ? val.toInt().toString() : "-",
+                      style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppTema.azulPrincipal)),
+                  TextSpan(
+                      text: " / 10",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTema.azulPrincipal)),
+                ])),
                 const SizedBox(height: 16),
-                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                const Row(children: [
+                  Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
+                ]),
                 const SizedBox(height: 16),
                 RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
-                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
-                    ]
-                  )
-                ),
+                    text: TextSpan(children: [
+                  TextSpan(
+                      text: "Interpretación: ",
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.blueGrey.shade800)),
+                  TextSpan(
+                      text: interp,
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.blueGrey.shade700,
+                          height: 1.4)),
+                ])),
                 const SizedBox(height: 16),
               ],
             ),
@@ -2696,30 +2841,121 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 0),
-            buildBlock("Figura 1", "EVOLUCIÓN DEL DOLOR", "Último Dolor", lastPain, painInterp),
+            buildBlock("Figura 1", "EVOLUCIÓN DEL DOLOR", "Último Dolor",
+                lastPain, painInterp),
             const SizedBox(height: 125),
-            buildBlock("Figura 2", "EVOLUCIÓN DE LA ENERGÍA DEL PACIENTE", "Último valor de nivel de energía", lastFatigue, fatigueInterp),
+            buildBlock("Figura 2", "EVOLUCIÓN DE LA ENERGÍA DEL PACIENTE",
+                "Último valor de nivel de energía", lastFatigue, fatigueInterp),
           ],
         );
-      } else { // Mapa Articular
-        final int? lastInf = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_inflamadas'] ?? 0).toInt();
-        final int? lastDol = filteredControls.isEmpty ? null : (filteredControls.last['articulaciones_dolorosas'] ?? 0).toInt();
-        final int? lastRig = filteredControls.isEmpty ? null : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
+      } else {
+        // Mapa Articular
+        final int? lastInf = filteredControls.isEmpty
+            ? null
+            : (filteredControls.last['articulaciones_inflamadas'] ?? 0).toInt();
+        final int? lastDol = filteredControls.isEmpty
+            ? null
+            : (filteredControls.last['articulaciones_dolorosas'] ?? 0).toInt();
+        final int? lastRig = filteredControls.isEmpty
+            ? null
+            : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
 
         String jointInterp = "Información insuficiente para análisis clínico.";
-        if (lastInf != null && lastDol != null) {
-          if (lastInf == 0 && lastDol == 0) jointInterp = "Ausencia de actividad inflamatoria articular. Excelente pronóstico actual. ";
-          else if (lastInf <= 2) jointInterp = "Actividad oligoarticular leve. Requiere seguimiento de las articulaciones afectadas. ";
-          else jointInterp = "Actividad poliarticular severa. Sugiere brote activo y riesgo de daño estructural. ";
-          
-          if (lastRig != null && lastRig > 30) {
-            jointInterp += "Rigidez matinal prolongada indica inflamación sistémica activa.";
-          } else if (lastRig != null && lastRig > 0) {
-            jointInterp += "Rigidez matinal leve a moderada presente.";
+        if (filteredControls.isNotEmpty) {
+          final orderedControls = _sortControlsByDate(filteredControls);
+          final chartControls = _groupActivityControlsByMonth(orderedControls);
+          final last = orderedControls.last;
+          final prev = orderedControls.length > 1
+              ? orderedControls[orderedControls.length - 2]
+              : null;
+          final int inflActual =
+              _numValue(last['articulaciones_inflamadas'], 0).round();
+          final int dolActual =
+              _numValue(last['articulaciones_dolorosas'], 0).round();
+          final int rigActual = _numValue(last['minutos_rigidez'], 0).round();
+          final int inflPrev = prev == null
+              ? inflActual
+              : _numValue(prev['articulaciones_inflamadas'], 0).round();
+          final int dolPrev = prev == null
+              ? dolActual
+              : _numValue(prev['articulaciones_dolorosas'], 0).round();
+          final int rigPrev = prev == null
+              ? rigActual
+              : _numValue(prev['minutos_rigidez'], 0).round();
+          final int inflMax = orderedControls
+              .map((c) => _numValue(c['articulaciones_inflamadas'], 0))
+              .reduce(max)
+              .round();
+          final int dolMax = orderedControls
+              .map((c) => _numValue(c['articulaciones_dolorosas'], 0))
+              .reduce(max)
+              .round();
+          final int rigMax = orderedControls
+              .map((c) => _numValue(c['minutos_rigidez'], 0))
+              .reduce(max)
+              .round();
+          final double rigAvg = orderedControls
+                  .map((c) => _numValue(c['minutos_rigidez'], 0))
+                  .reduce((a, b) => a + b) /
+              orderedControls.length;
+          final int rigCambio = rigActual - rigPrev;
+          final int inflCambio = inflActual - inflPrev;
+          final int dolCambio = dolActual - dolPrev;
+          String cambioTexto(String label, int delta, String unit) {
+            if (prev == null) return "$label sin control previo";
+            if (delta == 0) return "$label sin cambios";
+            return "$label ${delta < 0 ? 'mejoró' : 'empeoró'} ${delta.abs()} $unit";
           }
+
+          final int actividadActual = inflActual + dolActual;
+          final int actividadPrevia = inflPrev + dolPrev;
+          final int actividadCambio = actividadActual - actividadPrevia;
+          final String actividadLectura = actividadActual == 0
+              ? "sin actividad articular registrada en el último control"
+              : "$inflActual articulaciones inflamadas y $dolActual dolorosas en el último control";
+          final String tendenciaLectura = prev == null
+              ? "No hay control previo para establecer tendencia inmediata."
+              : (actividadCambio == 0 && rigCambio == 0
+                  ? "No hubo cambios frente al control anterior."
+                  : [
+                      cambioTexto("inflamadas", inflCambio, "art."),
+                      cambioTexto("dolorosas", dolCambio, "art."),
+                      cambioTexto("rigidez", rigCambio, "min")
+                    ].join("; "));
+          final String rigidezLectura = rigCambio < 0
+              ? "La rigidez mejoró ${rigCambio.abs()} minutos frente al control previo."
+              : (rigCambio > 0
+                  ? "La rigidez empeoró $rigCambio minutos frente al control previo."
+                  : "La rigidez no cambió frente al control previo.");
+          jointInterp =
+              "En el periodo evaluado se analizaron ${orderedControls.length} controles en ${chartControls.length} meses. El último control muestra $actividadLectura, con rigidez matutina de $rigActual min. El máximo del periodo fue $inflMax inflamadas, $dolMax dolorosas y $rigMax min de rigidez; el promedio de rigidez fue ${rigAvg.toStringAsFixed(1)} min. $tendenciaLectura $rigidezLectura";
         }
 
-        Widget buildMultiKpiBlock(String badge, String title, List<Map<String, dynamic>> kpis, String interp) {
+        Widget buildMultiKpiBlock(String badge, String title,
+            List<Map<String, dynamic>> kpis, String interp) {
+          Widget kpiWidget(int i) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(kpis[i]['title'],
+                      style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blueGrey,
+                          height: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(kpis[i]['val'].toString(),
+                      style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppTema.azulPrincipal)),
+                ],
+              ),
+            );
+          }
+
           return Container(
             constraints: const BoxConstraints(minHeight: 220),
             child: Column(
@@ -2727,36 +2963,59 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-                  child: Text(badge, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge,
+                      style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
                 ),
                 const SizedBox(height: 16),
-                Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+                Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulPrincipal,
+                        letterSpacing: -0.5)),
                 const SizedBox(height: 16),
-                Column(
-                  children: kpis.map((k) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: Text(k['title'], style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey, height: 1.2))),
-                        Text(k['val'].toString(), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal)),
-                      ],
-                    ),
-                  )).toList(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: kpiWidget(0)),
+                    Expanded(child: kpiWidget(1)),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                const Row(children: [Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))]),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: kpiWidget(2)),
+                    const Expanded(child: SizedBox()),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Row(children: [
+                  Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
+                ]),
                 const SizedBox(height: 16),
                 RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(text: "Interpretación: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey.shade800)),
-                      TextSpan(text: interp, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, height: 1.4)),
-                    ]
-                  )
-                ),
+                    text: TextSpan(children: [
+                  TextSpan(
+                      text: "Interpretación: ",
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.blueGrey.shade800)),
+                  TextSpan(
+                      text: interp,
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.blueGrey.shade700,
+                          height: 1.4)),
+                ])),
                 const SizedBox(height: 16),
               ],
             ),
@@ -2767,49 +3026,79 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 0),
-            buildMultiKpiBlock("Figura 3", "ACTIVIDAD ARTICULAR", [
-              {'title': 'Articulaciones inflamadas actualmente', 'val': lastInf ?? '-'},
-              {'title': 'Articulaciones dolorosas actualmente', 'val': lastDol ?? '-'},
-              {'title': 'Rigidez actual en minutos', 'val': lastRig ?? '-'},
-            ], jointInterp),
+            buildMultiKpiBlock(
+                "Figura 3",
+                "EVOLUCIÓN ARTICULAR",
+                [
+                  {
+                    'title': 'Articulaciones\ninflamadas\nactualmente',
+                    'val': lastInf ?? '-'
+                  },
+                  {
+                    'title': 'Articulaciones\ndolorosas\nactualmente',
+                    'val': lastDol ?? '-'
+                  },
+                  {
+                    'title': 'Rigidez actual en\nminutos',
+                    'val': lastRig ?? '-'
+                  },
+                ],
+                jointInterp),
             const SizedBox(height: 10),
             // Block for Figura 4
             Container(
-              constraints: const BoxConstraints(minHeight: 220),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-                    child: Text("Figura 4", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text("PENDIENTE", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
-                ]
-              )
-            )
+                constraints: const BoxConstraints(minHeight: 220),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: AppTema.azulPrincipal,
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text("Figura 4",
+                            style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text("PENDIENTE",
+                          style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppTema.azulPrincipal,
+                              letterSpacing: -0.5)),
+                    ]))
           ],
         );
       }
-    } else if (_activeDomainIndex == 1) { // Nutricional
-      if (_activeFigureIndex == 0) { // Antropometría
+    } else if (_activeDomainIndex == 1) {
+      // Nutricional
+      if (_activeFigureIndex == 0) {
+        // Antropometría
         badgeText = "Figura 3";
         title = "Crecimiento y Estado";
-        desc = "Evolución antropométrica frente a los estándares de crecimiento de la OMS.";
+        desc =
+            "Evolución antropométrica frente a los estándares de crecimiento de la OMS.";
         kpis = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _opsKpi("IMC Actual", "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
+            _opsKpi("IMC Actual",
+                "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
             const SizedBox(height: 16),
-            _opsKpi("Talla Actual", "${controls.isNotEmpty ? controls.last['talla_cm'] ?? '-' : '-'} cm"),
+            _opsKpi("Talla Actual",
+                "${controls.isNotEmpty ? controls.last['talla_cm'] ?? '-' : '-'} cm"),
           ],
         );
-      } else { // Consumo
+      } else {
+        // Consumo
         badgeText = "Figura 4";
         title = "Adherencia a la Dieta";
-        desc = "Registro del consumo alimentario y aceptación de las recomendaciones dietéticas.";
+        desc =
+            "Registro del consumo alimentario y aceptación de las recomendaciones dietéticas.";
         final data = _consumoAlimentario;
         final resumen = Map<String, dynamic>.from(data?['resumen'] ?? {});
         final adh = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
@@ -2822,20 +3111,25 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ],
         );
       }
-    } else if (_activeDomainIndex == 2) { // Resumen
+    } else if (_activeDomainIndex == 2) {
+      // Resumen
       badgeText = "Figura 5";
       title = "Impacto Global";
-      desc = "Panorama general de la efectividad del tratamiento médico y nutricional combinado.";
+      desc =
+          "Panorama general de la efectividad del tratamiento médico y nutricional combinado.";
       kpis = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _opsKpi("Meses Controlados", "${controls.length}"),
           const SizedBox(height: 16),
-          _opsKpi("Tendencia Clínica", stats['tendencia_clinica'] ?? "-", isText: true),
+          _opsKpi("Tendencia Clínica", stats['tendencia_clinica'] ?? "-",
+              isText: true),
         ],
       );
-    } else { // Historial
-      if (_activeFigureIndex == 0) { // Timeline
+    } else {
+      // Historial
+      if (_activeFigureIndex == 0) {
+        // Timeline
         badgeText = "Figura 6";
         title = "Línea Temporal";
         desc = "Vista gráfica de eventos clínicos a lo largo del tiempo.";
@@ -2845,10 +3139,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             _opsKpi("Meses Registrados", "${controls.length}"),
           ],
         );
-      } else { // Registros Detallados
+      } else {
+        // Registros Detallados
         badgeText = "Figura 7";
         title = "Registros Detallados";
-        desc = "Lista cronológica completa de todas las consultas y sus variables clínicas.";
+        desc =
+            "Lista cronológica completa de todas las consultas y sus variables clínicas.";
         kpis = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2863,17 +3159,30 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: AppTema.azulPrincipal, borderRadius: BorderRadius.circular(6)),
-          child: Text(badgeText, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+          decoration: BoxDecoration(
+              color: AppTema.azulPrincipal,
+              borderRadius: BorderRadius.circular(6)),
+          child: Text(badgeText,
+              style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11)),
         ),
         const SizedBox(height: 16),
-        Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -0.5)),
+        Text(title,
+            style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppTema.azulPrincipal,
+                letterSpacing: -0.5)),
         const SizedBox(height: 32),
         kpis,
         const SizedBox(height: 32),
         const Divider(),
         const SizedBox(height: 8),
-        Text(desc, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey, height: 1.5)),
+        Text(desc,
+            style: GoogleFonts.inter(
+                fontSize: 10, color: Colors.blueGrey, height: 1.5)),
       ],
     );
   }
@@ -2882,49 +3191,71 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Text(title,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueGrey)),
         const SizedBox(height: 4),
         Text(
           value,
           style: GoogleFonts.inter(
-            fontSize: isText ? 13 : 24,
-            fontWeight: isText ? FontWeight.w700 : FontWeight.w900,
-            color: AppTema.azulPrincipal,
-            height: 1.2
-          ),
+              fontSize: isText ? 13 : 24,
+              fontWeight: isText ? FontWeight.w700 : FontWeight.w900,
+              color: AppTema.azulPrincipal,
+              height: 1.2),
         ),
       ],
     );
   }
 
-  Widget _buildOpsRightPanel(List<Map<String, dynamic>> controls, Map<String, dynamic> evo, List<Map<String, dynamic>> historial, Map<String, dynamic> stats, List<Map<String, dynamic>> monthlyControls) {
-    if (_activeDomainIndex == 0) { // Reumatológica
+  Widget _buildOpsRightPanel(
+      List<Map<String, dynamic>> controls,
+      Map<String, dynamic> evo,
+      List<Map<String, dynamic>> historial,
+      Map<String, dynamic> stats,
+      List<Map<String, dynamic>> monthlyControls) {
+    if (_activeDomainIndex == 0) {
+      // Reumatológica
       DateTime latestControlDate = DateTime.now();
       if (controls.isNotEmpty) {
-        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        final parsed =
+            DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
         if (parsed != null) latestControlDate = parsed;
       }
       final now = latestControlDate;
-      
+
       DateTime threshold;
       switch (_tendenciaFilter) {
-        case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
-        case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
-        case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
-        default: threshold = DateTime(2000); break;
+        case '6m':
+          threshold = DateTime(now.year, now.month - 6, now.day);
+          break;
+        case '1y':
+          threshold = DateTime(now.year - 1, now.month, now.day);
+          break;
+        case '5y':
+          threshold = DateTime(now.year - 5, now.month, now.day);
+          break;
+        default:
+          threshold = DateTime(2000);
+          break;
       }
       final filteredControls = controls.where((c) {
-        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        final d =
+            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
         return d.isAfter(threshold);
       }).toList();
       final filteredMonthlyControls = monthlyControls.where((c) {
-        final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+        final d =
+            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
         return d.isAfter(threshold);
       }).toList();
 
-      if (_activeFigureIndex == 0) { // Síntomas y Dolor
+      if (_activeFigureIndex == 0) {
+        // Síntomas y Dolor
         return _redesignTendenciaClinica(filteredMonthlyControls, stats);
-      } else { // Mapa Articular
+      } else {
+        // Mapa Articular
         return Column(
           children: [
             Padding(
@@ -2932,7 +3263,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Evolución Clínica Articular",
+                  Text("Salud articular e inflamatoria",
                       style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -2948,16 +3279,25 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _tendenciaFilter,
-                        icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
-                        style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                        icon: const Icon(Icons.keyboard_arrow_down,
+                            size: 14, color: Colors.blueGrey),
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: Colors.blueGrey.shade700,
+                            fontWeight: FontWeight.w600),
                         items: const [
-                          DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
-                          DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
-                          DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
-                          DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
+                          DropdownMenuItem(
+                              value: '6m', child: Text("Últimos 6 meses")),
+                          DropdownMenuItem(
+                              value: '1y', child: Text("Último 1 año")),
+                          DropdownMenuItem(
+                              value: '5y', child: Text("Últimos 5 años")),
+                          DropdownMenuItem(
+                              value: 'all', child: Text("Histórico completo")),
                         ],
                         onChanged: (val) {
-                          if (val != null) setState(() => _tendenciaFilter = val);
+                          if (val != null)
+                            setState(() => _tendenciaFilter = val);
                         },
                       ),
                     ),
@@ -2972,13 +3312,16 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           ],
         );
       }
-    } else if (_activeDomainIndex == 1) { // Nutricional
+    } else if (_activeDomainIndex == 1) {
+      // Nutricional
       if (_activeFigureIndex == 0) {
-        return _buildEvoGrowthSection(controls, Map<String, dynamic>.from(evo['paciente'] ?? {}));
+        return _buildEvoGrowthSection(
+            controls, Map<String, dynamic>.from(evo['paciente'] ?? {}));
       } else {
         return _buildFoodIntakeSection();
       }
-    } else if (_activeDomainIndex == 2) { // Resumen Clínico
+    } else if (_activeDomainIndex == 2) {
+      // Resumen Clínico
       return Column(
         children: [
           _redesignSummaryCards(stats),
@@ -2986,14 +3329,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 5, child: _buildEvoHeatmapSection(controls)), // Heatmap is the visual Lectura Rápida
+              Expanded(
+                  flex: 5,
+                  child: _buildEvoHeatmapSection(
+                      controls)), // Heatmap is the visual Lectura Rápida
               const SizedBox(width: 14),
               Expanded(flex: 4, child: _redesignLecturaRapida(stats)),
             ],
           ),
         ],
       );
-    } else { // Historial
+    } else {
+      // Historial
       if (_activeFigureIndex == 0) {
         return _buildClinicalTimeline(historial);
       } else {
@@ -3002,7 +3349,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           physics: const NeverScrollableScrollPhysics(),
           itemCount: historial.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _buildHistoryItem(historial[historial.length - 1 - index]),
+          itemBuilder: (context, index) =>
+              _buildHistoryItem(historial[historial.length - 1 - index]),
         );
       }
     }
@@ -4015,7 +4363,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   Widget _redesignHeader() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("Evolución mensual de síntomas", Icons.show_chart_rounded),
+          _sectionHeader(
+              "Evolución mensual de síntomas", Icons.show_chart_rounded),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.only(left: 58),
@@ -4142,59 +4491,67 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-  Widget _redesignTendenciaClinica(List<Map<String, dynamic>> controls, Map<String, dynamic> stats) {
+  Widget _redesignTendenciaClinica(
+      List<Map<String, dynamic>> controls, Map<String, dynamic> stats) {
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Tendencia clínica de Síntomas",
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Tendencia clínica de Síntomas",
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A))),
+            Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _tendenciaFilter,
+                  icon: const Icon(Icons.keyboard_arrow_down,
+                      size: 14, color: Colors.blueGrey),
                   style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A))),
-              Container(
-                height: 30,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _tendenciaFilter,
-                    icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.blueGrey),
-                    style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
-                    items: const [
-                      DropdownMenuItem(value: '6m', child: Text("Últimos 6 meses")),
-                      DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
-                      DropdownMenuItem(value: '5y', child: Text("Últimos 5 años")),
-                      DropdownMenuItem(value: 'all', child: Text("Histórico completo")),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _tendenciaFilter = val);
-                    },
-                  ),
+                      fontSize: 10,
+                      color: Colors.blueGrey.shade700,
+                      fontWeight: FontWeight.w600),
+                  items: const [
+                    DropdownMenuItem(
+                        value: '6m', child: Text("Últimos 6 meses")),
+                    DropdownMenuItem(value: '1y', child: Text("Último 1 año")),
+                    DropdownMenuItem(
+                        value: '5y', child: Text("Últimos 5 años")),
+                    DropdownMenuItem(
+                        value: 'all', child: Text("Histórico completo")),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _tendenciaFilter = val);
+                  },
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _redesignSingleChart("Dolor EVA (0-10)", controls,
-              (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, "pain"),
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
-          const SizedBox(height: 24),
-          _redesignSingleChart(
-              "Energía (0-10)",
-              controls,
-              (c) => (c['nivel_fatiga'] ?? 10).toDouble(),
-              Colors.green,
-              "energy"),
-          const SizedBox(height: 24),
-          Container(
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _redesignSingleChart("Dolor EVA (0-10)", controls,
+            (c) => (c['puntos_dolor'] ?? 0).toDouble(), Colors.red, "pain"),
+        const SizedBox(height: 24),
+        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+        const SizedBox(height: 24),
+        _redesignSingleChart(
+            "Energía (0-10)",
+            controls,
+            (c) => (c['nivel_fatiga'] ?? 10).toDouble(),
+            Colors.green,
+            "energy"),
+        const SizedBox(height: 24),
+        Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -4202,47 +4559,67 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               borderRadius: BorderRadius.circular(8),
             ),
             child: RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(text: "Interpretación general: ", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF0369A1))),
-                  TextSpan(text: (() {
-                    if (controls.isEmpty) return "Información insuficiente en el período seleccionado.";
+                text: TextSpan(children: [
+              TextSpan(
+                  text: "Interpretación general: ",
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0369A1))),
+              TextSpan(
+                  text: (() {
+                    if (controls.isEmpty)
+                      return "Información insuficiente en el período seleccionado.";
                     final first = controls.first;
                     final last = controls.last;
-                    final double initialPain = (first['puntos_dolor'] ?? 0).toDouble();
-                    final double finalPain = (last['puntos_dolor'] ?? 0).toDouble();
-                    final double initialFatigue = (first['nivel_fatiga'] ?? 10).toDouble();
-                    final double finalFatigue = (last['nivel_fatiga'] ?? 10).toDouble();
-                    
-                    String interp = "Las gráficas resumen " + controls.length.toString() + " controles médicos registrados en el período seleccionado. ";
+                    final double initialPain =
+                        (first['puntos_dolor'] ?? 0).toDouble();
+                    final double finalPain =
+                        (last['puntos_dolor'] ?? 0).toDouble();
+                    final double initialFatigue =
+                        (first['nivel_fatiga'] ?? 10).toDouble();
+                    final double finalFatigue =
+                        (last['nivel_fatiga'] ?? 10).toDouble();
+
+                    String interp = "Las gráficas resumen " +
+                        controls.length.toString() +
+                        " controles médicos registrados en el período seleccionado. ";
                     if (finalPain < initialPain) {
-                      interp += "Se observa una mejoría clínica con reducción del dolor. ";
+                      interp +=
+                          "Se observa una mejoría clínica con reducción del dolor. ";
                     } else if (finalPain > initialPain) {
-                      interp += "El dolor ha empeorado en el período evaluado. ";
+                      interp +=
+                          "El dolor ha empeorado en el período evaluado. ";
                     } else {
                       interp += "El dolor se ha mantenido estable. ";
                     }
-                    
+
                     if (finalFatigue > initialFatigue) {
                       interp += "El nivel de energía ha mejorado. ";
                     } else if (finalFatigue < initialFatigue) {
-                      interp += "Se evidencia un aumento en la fatiga del paciente. ";
+                      interp +=
+                          "Se evidencia un aumento en la fatiga del paciente. ";
                     }
-                    
+
                     if (finalPain <= 2 && finalFatigue >= 7) {
-                      interp += "El estado general sugiere un adecuado control de la enfermedad y buena calidad de vida.";
+                      interp +=
+                          "El estado general sugiere un adecuado control de la enfermedad y buena calidad de vida.";
                     } else if (finalPain >= 7 || finalFatigue <= 3) {
-                      interp += "El estado es de alerta clínica, requiriendo posible revisión del esquema terapéutico por alta carga sintomática.";
+                      interp +=
+                          "El estado es de alerta clínica, requiriendo posible revisión del esquema terapéutico por alta carga sintomática.";
                     } else {
-                      interp += "Se mantiene una actividad sintomática moderada bajo monitoreo.";
+                      interp +=
+                          "Se mantiene una actividad sintomática moderada bajo monitoreo.";
                     }
                     return interp;
-                  })(), style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF0369A1), fontWeight: FontWeight.normal, height: 1.4)),
-                ]
-              )
-            )
-          ),
-        ],
+                  })(),
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      color: const Color(0xFF0369A1),
+                      fontWeight: FontWeight.normal,
+                      height: 1.4)),
+            ]))),
+      ],
     );
   }
 
@@ -4280,103 +4657,85 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         LineChartData(
           clipData: const FlClipData.all(),
           minX: 0,
-              maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
-              minY: 0,
-              maxY: calculatedMaxY,
-              rangeAnnotations: RangeAnnotations(horizontalRangeAnnotations: [
-                for (final b in bands)
-                  HorizontalRangeAnnotation(y1: b.$1, y2: b.$2, color: b.$3)
-              ]),
-              gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (v) => FlLine(
-                      color: const Color(0xFFE2E8F0),
-                      strokeWidth: 1,
-                      dashArray: [4, 4])),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: true,
-                  color: color,
-                  barWidth: 2.5,
-                  dotData:
-                      const FlDotData(show: true, getDotPainter: _getSmallDot),
-                  belowBarData: BarAreaData(show: false),
-                ),
-              ],
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 24,
-                        interval: calculatedMaxY / 2,
-                        getTitlesWidget: (v, meta) => Text(v.toInt().toString(),
-                            style: GoogleFonts.inter(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF94A3B8))))),
-                bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 24,
-                        interval: 1,
-                        getTitlesWidget: (v, meta) {
-                          final idx = v.round();
-                          if ((v - idx).abs() > 0.01) {
-                            return const SizedBox.shrink();
-                          }
-                          if (idx < 0 || idx >= controls.length)
-                            return const SizedBox.shrink();
-                          return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                  (controls[idx]['mes_label_largo'] ??
-                                          _monthLong(controls[idx]
-                                                  ['fecha_control'] ??
-                                              ""))
-                                      .toString(),
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF94A3B8))));
-                        })),
-                rightTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              lineTouchData: LineTouchData(
-                enabled: true,
-                handleBuiltInTouches: true,
-                getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes
-                    .map((i) => TouchedSpotIndicatorData(
-                        FlLine(
-                            color: color.withOpacity(0.15), strokeWidth: 1.5),
-                      FlDotData(show: true, getDotPainter: _getSmallDot)))
-                  .toList(),
-              touchTooltipData: _redesignTooltipData(controls, type),
+          maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
+          minY: 0,
+          maxY: calculatedMaxY,
+          rangeAnnotations: RangeAnnotations(horizontalRangeAnnotations: [
+            for (final b in bands)
+              HorizontalRangeAnnotation(y1: b.$1, y2: b.$2, color: b.$3)
+          ]),
+          gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              getDrawingHorizontalLine: (v) => FlLine(
+                  color: const Color(0xFFE2E8F0),
+                  strokeWidth: 1,
+                  dashArray: [4, 4])),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: color,
+              barWidth: 2.5,
+              dotData: const FlDotData(show: true, getDotPainter: _getSmallDot),
+              belowBarData: BarAreaData(show: false),
             ),
+          ],
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: calculatedMaxY / 2,
+                    getTitlesWidget: (v, meta) => Text(v.toInt().toString(),
+                        style: GoogleFonts.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF94A3B8))))),
+            bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: 1,
+                    getTitlesWidget: (v, meta) {
+                      final idx = v.round();
+                      if ((v - idx).abs() > 0.01) {
+                        return const SizedBox.shrink();
+                      }
+                      if (idx < 0 || idx >= controls.length)
+                        return const SizedBox.shrink();
+                      return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                              (controls[idx]['mes_label_largo'] ??
+                                      _monthLong(
+                                          controls[idx]['fecha_control'] ?? ""))
+                                  .toString(),
+                              style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF94A3B8))));
+                    })),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          lineTouchData: LineTouchData(
+            enabled: true,
+            handleBuiltInTouches: true,
+            getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes
+                .map((i) => TouchedSpotIndicatorData(
+                    FlLine(color: color.withOpacity(0.15), strokeWidth: 1.5),
+                    FlDotData(show: true, getDotPainter: _getSmallDot)))
+                .toList(),
+            touchTooltipData: _redesignTooltipData(controls, type),
           ),
         ),
-      );
+      ),
+    );
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   static FlDotPainter _getSmallDot(
           FlSpot spot, double xPercentage, LineChartBarData bar, int index) =>
@@ -4806,7 +5165,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                  flex: 2, child: _redesignTendenciaClinica(monthlyControls, stats)),
+                  flex: 2,
+                  child: _redesignTendenciaClinica(monthlyControls, stats)),
               const SizedBox(width: 14),
               Expanded(
                   flex: 1,
@@ -5290,200 +5650,37 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Encabezado
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.green.shade100)),
-              child: const Icon(Icons.accessibility_new_rounded,
-                  color: Color(0xFF2E7D32), size: 20),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("2. Actividad articular",
-                    style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A))),
-                Text(
-                    "Seguimiento de articulaciones inflamadas, dolorosas y rigidez matutina del paciente",
-                    style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF64748B))),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
+        // 1. Inflamadas
+        _jointRowChart(
+            "Articulaciones\ninflamadas",
+            chartControls,
+            (c) => (c['articulaciones_inflamadas'] ?? 0).toDouble(),
+            Colors.green,
+            inflActual,
+            inflMax,
+            "inflamadas"),
+        const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
-        // Área principal de gráficas
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.show_chart_rounded,
-                      size: 14, color: Color(0xFF2563EB)),
-                  const SizedBox(width: 8),
-                  Text("Evolución articular",
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A))),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFF0F7FF),
-                    borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline,
-                        size: 12, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 8),
-                    Text(
-                        "Cada gráfica ajusta automáticamente su escala según el rango de valores del paciente.",
-                        style: GoogleFonts.inter(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF334155))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+        // 2. Dolorosas
+        _jointRowChart(
+            "Articulaciones\ndolorosas",
+            chartControls,
+            (c) => (c['articulaciones_dolorosas'] ?? 0).toDouble(),
+            Colors.orange,
+            dolActual,
+            dolMax,
+            "dolorosas"),
+        const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
-              // 1. Inflamadas
-              _jointRowChart(
-                  "Articulaciones inflamadas",
-                  chartControls,
-                  (c) => (c['articulaciones_inflamadas'] ?? 0).toDouble(),
-                  Colors.green,
-                  inflActual,
-                  inflMax,
-                  "inflamadas"),
-              const Divider(height: 22, color: Color(0xFFF1F5F9)),
-
-              // 2. Dolorosas
-              _jointRowChart(
-                  "Articulaciones dolorosas",
-                  chartControls,
-                  (c) => (c['articulaciones_dolorosas'] ?? 0).toDouble(),
-                  Colors.orange,
-                  dolActual,
-                  dolMax,
-                  "dolorosas"),
-              const Divider(height: 22, color: Color(0xFFF1F5F9)),
-
-              // 3. Rigidez
-              _jointRowChart(
-                  "Rigidez matutina (min)",
-                  chartControls,
-                  (c) => (c['minutos_rigidez'] ?? 0).toDouble(),
-                  Colors.blue,
-                  rigActual,
-                  rigMax,
-                  "rigidez"),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 14),
-
-        // Footer de Resumen e Interpretación
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Resumen del periodo
-            Expanded(
-              flex: 1,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0))),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Icon(Icons.assignment_outlined,
-                          size: 14, color: Color(0xFF2563EB)),
-                      const SizedBox(width: 8),
-                      Text("Resumen del periodo",
-                          style: GoogleFonts.inter(
-                              fontSize: 10, fontWeight: FontWeight.w800))
-                    ]),
-                    const SizedBox(height: 16),
-                    _footerStatItem(Icons.analytics_outlined, "Prom. rigidez",
-                        "${rigAvg.toStringAsFixed(1)} min"),
-                    _footerStatItem(Icons.timer_outlined, "Última rigidez",
-                        "$rigActual min"),
-                    _footerStatItem(Icons.compare_arrows_rounded,
-                        "Cambio vs anterior", rigCambioTexto),
-                    _footerStatItem(Icons.fact_check_outlined,
-                        "Controles analizados", "${orderedControls.length}"),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            // Interpretación
-            Expanded(
-              flex: 1,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0))),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Icon(Icons.description_outlined,
-                          size: 14, color: Colors.green),
-                      const SizedBox(width: 8),
-                      Text("Interpretación de la actividad articular",
-                          style: GoogleFonts.inter(
-                              fontSize: 10, fontWeight: FontWeight.w800))
-                    ]),
-                    const SizedBox(height: 10),
-                    Text(interpretacion,
-                        style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: const Color(0xFF334155),
-                            height: 1.4,
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        if (inflActual > 0 || dolActual > 0)
-                          _interpretPill("Actividad persistente", Colors.green),
-                        _interpretPill("Seguimiento clínico", Colors.blue),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        // 3. Rigidez
+        _jointRowChart(
+            "Rigidez matutina\n(min)",
+            chartControls,
+            (c) => (c['minutos_rigidez'] ?? 0).toDouble(),
+            Colors.blue,
+            rigActual,
+            rigMax,
+            "rigidez"),
       ],
     );
   }
@@ -5529,11 +5726,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         children: [
           // Etiqueta lateral
           Container(
-            width: 100,
-            padding: const EdgeInsets.all(10),
+            width: 110,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
                 color: color.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(16)),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -5679,11 +5876,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           const SizedBox(width: 16),
           // Indicadores Actual/Máximo
           Container(
-            width: 70,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            width: 80,
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10)),
+                color: color.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16)),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -5779,56 +5976,18 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     if (monthlyControls.isEmpty) return const SizedBox.shrink();
 
     final last = orderedControls.last;
-    final prev = orderedControls.length > 1
-        ? orderedControls[orderedControls.length - 2]
-        : null;
     final lastSix = orderedControls.length <= 6
         ? orderedControls
         : orderedControls.sublist(orderedControls.length - 6);
 
     final inflActual = _numValue(last['escala_inflamacion'], 0);
-    final inflPrev =
-        prev == null ? inflActual : _numValue(prev['escala_inflamacion'], 0);
-    final inflCambio = inflActual - inflPrev;
-    final inflMax = orderedControls
-        .map((c) => _numValue(c['escala_inflamacion'], 0))
-        .reduce(max);
-    final inflAvg = orderedControls
-            .map((c) => _numValue(c['escala_inflamacion'], 0))
-            .reduce((a, b) => a + b) /
-        orderedControls.length;
-    final brotesTotal =
-        orderedControls.where((c) => c['en_brote'] == true).length;
     final brotesUltimos6 = lastSix.where((c) => c['en_brote'] == true).length;
     final ultimoEstado =
         (last['estado_enfermedad'] ?? 'Seguimiento').toString();
-    final ultimoMes =
-        _monthFullFromRaw(last['fecha_control']?.toString() ?? '');
-    final primerMes = _monthFullFromRaw(
-        monthlyControls.first['fecha_control']?.toString() ?? '');
-    final ultimoMesGrafica = _monthFullFromRaw(
-        monthlyControls.last['fecha_control']?.toString() ?? '');
-    final monthlyDelta =
-        _numValue(monthlyControls.last['escala_inflamacion'], 0) -
-            _numValue(monthlyControls.first['escala_inflamacion'], 0);
 
-    final tendenciaTexto = monthlyControls.length < 2
-        ? "no permite definir tendencia mensual"
-        : (monthlyDelta < 0
-            ? "muestra disminución mensual de la inflamación"
-            : (monthlyDelta > 0
-                ? "muestra aumento mensual de la inflamación"
-                : "se mantiene estable entre $primerMes y $ultimoMesGrafica"));
-    final broteTexto = brotesUltimos6 == 0
-        ? "no se registran brotes en los últimos ${lastSix.length} controles"
-        : "se registran $brotesUltimos6 brotes en los últimos ${lastSix.length} controles";
-    final cambioClinicoTexto = inflCambio == 0
-        ? "no hubo cambios"
-        : (inflCambio > 0
-            ? "empeoró ${_pointsText(inflCambio.abs())}"
-            : "mejoró ${_pointsText(inflCambio.abs())}");
-    final interpretacion =
-        "La gráfica mensual $tendenciaTexto. La inflamación actual es ${inflActual.toStringAsFixed(0)}/3, con promedio del periodo ${inflAvg.toStringAsFixed(1)}/3 y máximo ${inflMax.toStringAsFixed(0)}/3. Frente al control anterior, $cambioClinicoTexto. En todo el periodo hay $brotesTotal controles con brote; en las últimas evaluaciones, $broteTexto. El estado clínico actual es $ultimoEstado en $ultimoMes.";
+    // Use a red tone for the brotes metric if there are brotes, else green/grey
+    final colorBrotes = brotesUltimos6 > 0 ? Colors.red : Colors.green;
+    final textBrotes = brotesUltimos6 > 0 ? "Hubo brotes" : "Sin brotes";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5848,13 +6007,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("3. Inflamación y estado clínico",
+                Text("EVOLUCIÓN DE INFLAMACIÓN Y ESTADO CLÍNICO",
                     style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0F172A))),
-                Text(
-                    "Seguimiento mensual de inflamación, estado clínico y brote",
+                Text("Seguimiento mensual de inflamación y brotes unificados",
                     style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -5878,82 +6036,21 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               const SizedBox(width: 10),
               SizedBox(
                   width: 190,
-                  child: _footerMetricCard(
-                      "Brotes últimos 6",
-                      "$brotesUltimos6/${lastSix.length}",
-                      Colors.red,
-                      Icons.warning_amber_rounded)),
-              const SizedBox(width: 10),
-              SizedBox(
-                  width: 190,
-                  child: _footerMetricCard("Estado actual", ultimoEstado,
-                      _stateColor(ultimoEstado), Icons.verified_user_rounded)),
+                  child: _footerMetricCard("Estado de brotes (6m)", textBrotes,
+                      colorBrotes, Icons.warning_amber_rounded)),
               const SizedBox(width: 10),
               SizedBox(
                   width: 190,
                   child: _footerMetricCard(
-                      "Evaluaciones",
-                      "${orderedControls.length}",
-                      Colors.blueGrey,
-                      Icons.fact_check_outlined)),
+                      "Estado clínico actual",
+                      ultimoEstado,
+                      _stateColor(ultimoEstado),
+                      Icons.verified_user_rounded)),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 2,
-              child: _inflammationMonthlyChart(monthlyControls),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              flex: 1,
-              child: _clinicalStateBroteTimeline(lastSix),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: const Color(0xFFFBFDFF),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A).withOpacity(0.05),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.assignment_outlined,
-                      size: 18, color: Color(0xFF0F172A))),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Interpretación clínica",
-                        style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A))),
-                    const SizedBox(height: 6),
-                    Text(interpretacion,
-                        style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: const Color(0xFF334155),
-                            height: 1.4,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        _inflammationMonthlyChart(monthlyControls),
       ],
     );
   }
@@ -5983,16 +6080,21 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Evolución mensual de inflamación (0-3)",
+                  Text("Gráfica unificada de Inflamación y Brotes",
                       style: GoogleFonts.inter(
                           fontSize: 12, fontWeight: FontWeight.w800)),
-                  Text(
-                      "Un punto por mes; valores agregados por promedio mensual",
+                  Text("Puntos rojos indican presencia de brote en el mes",
                       style: GoogleFonts.inter(
                           fontSize: 9, color: Colors.blueGrey)),
                 ],
               ),
-              _legendItem("Inflamación", Colors.purple),
+              Row(
+                children: [
+                  _legendItem("Inflamación", Colors.purple),
+                  const SizedBox(width: 12),
+                  _legendItem("Brote", Colors.red),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -6018,8 +6120,16 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                     isCurved: true,
                     color: Colors.purple,
                     barWidth: 3,
-                    dotData: const FlDotData(
-                        show: true, getDotPainter: _getInflammationDot),
+                    dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          final isBrote = controls[index]['en_brote'] == true;
+                          return FlDotCirclePainter(
+                              radius: isBrote ? 6 : 4,
+                              color: isBrote ? Colors.red : Colors.purple,
+                              strokeWidth: 2,
+                              strokeColor: Colors.white);
+                        }),
                     belowBarData: BarAreaData(
                         show: true,
                         gradient: LinearGradient(
@@ -6085,6 +6195,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       final idx = it.x.round();
                       if (idx < 0 || idx >= controls.length) return null;
                       final c = controls[idx];
+                      final isBrote = c['en_brote'] == true;
                       return LineTooltipItem("", const TextStyle(), children: [
                         TextSpan(
                             text:
@@ -6102,10 +6213,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 fontWeight: FontWeight.w900,
                                 color: Colors.purple)),
                         TextSpan(
-                            text:
-                                "Brotes del mes: ${c['brotes_mes'] ?? 0} | Controles: ${c['controles_mes'] ?? 1}",
+                            text: isBrote ? "🔴 Hubo Brote" : "✅ Sin Brote",
                             style: GoogleFonts.inter(
-                                fontSize: 8, color: const Color(0xFF64748B))),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isBrote ? Colors.red : Colors.green)),
                       ]);
                     }).toList(),
                   ),
@@ -6113,12 +6225,6 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(_generateInflammationHint(controls),
-              style: GoogleFonts.inter(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF334155))),
         ],
       ),
     );
@@ -7850,8 +7956,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
-                  fontSize: 18, fontWeight: FontWeight.w800)),
+              style:
+                  GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           SizedBox(
               height: 24,
@@ -7876,8 +7982,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: GoogleFonts.inter(
-                  fontSize: 14, fontWeight: FontWeight.w700)),
+              style:
+                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Expanded(
             child: Padding(
@@ -8824,8 +8930,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader("Relación dolor - energía - brote",
-              Icons.scatter_plot_rounded),
+          _sectionHeader(
+              "Relación dolor - energía - brote", Icons.scatter_plot_rounded),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -9656,54 +9762,65 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
-                    columnSpacing: 8,
-                    horizontalMargin: 12,
-                    dataRowMaxHeight: double.infinity,
-                    dataRowMinHeight: 52,
-                    columns: [
-                      _foodTableCol("FECHA"),
-                      _foodTableCol("MOMENTO"),
-                      _foodTableCol("RECETA", maxWidth: 220),
-                      _foodTableCol("CONSUMO"),
-                      _foodTableCol("ACCIONES", center: true),
-                    ],
-                    rows: visible.map((item) {
-                      final estado = (item['estado_consumo'] ?? "No marcada").toString();
-                      final color = _foodStatusColor(estado);
-                      final motivo = _foodReason(item);
-                      final badRating = _isBadFoodRating(item);
-                      
-                      return DataRow(
-                        color: WidgetStateProperty.all(badRating ? Colors.red.shade50 : Colors.white),
-                        cells: [
-                          DataCell(_foodCell(_formatIsoDate(item['fecha']))),
-                          DataCell(_foodCell(item['momento']?.toString() ?? "-")),
-                          DataCell(_foodCell(
-                              (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
-                              weight: FontWeight.w800,
-                              maxWidth: 220,
-                              color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
-                          DataCell(_foodBadge(estado, color)),
-                          DataCell(Center(
-                            child: TextButton.icon(
-                              onPressed: () => _showFoodRecipeModal(item),
-                              icon: const Icon(Icons.visibility_outlined, size: 15),
-                              label: const Text("Ver"),
-                              style: TextButton.styleFrom(
-                                  textStyle: GoogleFonts.inter(
-                                      fontSize: 9, fontWeight: FontWeight.w900)),
-                            ),
-                          )),
-                        ]
-                      );
-                    }).toList(),
+                      headingRowColor:
+                          WidgetStateProperty.all(AppTema.azulPrincipal),
+                      columnSpacing: 8,
+                      horizontalMargin: 12,
+                      dataRowMaxHeight: double.infinity,
+                      dataRowMinHeight: 52,
+                      columns: [
+                        _foodTableCol("FECHA"),
+                        _foodTableCol("MOMENTO"),
+                        _foodTableCol("RECETA", maxWidth: 220),
+                        _foodTableCol("CONSUMO"),
+                        _foodTableCol("ACCIONES", center: true),
+                      ],
+                      rows: visible.map((item) {
+                        final estado =
+                            (item['estado_consumo'] ?? "No marcada").toString();
+                        final color = _foodStatusColor(estado);
+                        final motivo = _foodReason(item);
+                        final badRating = _isBadFoodRating(item);
+
+                        return DataRow(
+                            color: WidgetStateProperty.all(
+                                badRating ? Colors.red.shade50 : Colors.white),
+                            cells: [
+                              DataCell(
+                                  _foodCell(_formatIsoDate(item['fecha']))),
+                              DataCell(_foodCell(
+                                  item['momento']?.toString() ?? "-")),
+                              DataCell(_foodCell(
+                                  (item['receta_consumida'] ??
+                                          item['receta_asignada'] ??
+                                          "-")
+                                      .toString(),
+                                  weight: FontWeight.w800,
+                                  maxWidth: 220,
+                                  color: badRating
+                                      ? Colors.red.shade800
+                                      : const Color(0xFF334155))),
+                              DataCell(_foodBadge(estado, color)),
+                              DataCell(Center(
+                                child: TextButton.icon(
+                                  onPressed: () => _showFoodRecipeModal(item),
+                                  icon: const Icon(Icons.visibility_outlined,
+                                      size: 15),
+                                  label: const Text("Ver"),
+                                  style: TextButton.styleFrom(
+                                      textStyle: GoogleFonts.inter(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900)),
+                                ),
+                              )),
+                            ]);
+                      }).toList(),
+                    ),
                   ),
                 ),
               ),
-                ),
-              ),
             ),
+          ),
         const SizedBox(height: 10),
         _foodPagination(total, start, end, totalPages),
       ],
@@ -10037,12 +10154,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
     );
   }
 
-
-
-  DataColumn _foodTableCol(String label, {double? maxWidth, bool center = false}) {
+  DataColumn _foodTableCol(String label,
+      {double? maxWidth, bool center = false}) {
     return DataColumn(
       label: Container(
-        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        constraints:
+            maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
         alignment: center ? Alignment.center : Alignment.centerLeft,
         child: Text(
           label,
@@ -10057,9 +10174,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
   }
 
   Widget _foodCell(String text,
-          {FontWeight weight = FontWeight.w600, Color? color, double? maxWidth}) =>
+          {FontWeight weight = FontWeight.w600,
+          Color? color,
+          double? maxWidth}) =>
       Container(
-        constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        constraints:
+            maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
         child: Text(
           text,
           maxLines: 2,
@@ -10158,9 +10278,11 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final recipeName = (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta").toString();
+    final recipeName =
+        (item['receta_consumida'] ?? item['receta_asignada'] ?? "Receta")
+            .toString();
     final String? imgUrl = item["imagen_url"];
-    
+
     // Calorias y Proteinas
     final caloriasTotales = item["calorias_totales"] ?? 0;
     final proteinasTotales = item["proteinas_totales"] ?? 0;
@@ -10186,10 +10308,12 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           imgUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
+                              child: Icon(Icons.broken_image,
+                                  size: 60, color: Colors.grey)),
                         )
                       : const Center(
-                          child: Icon(Icons.restaurant, size: 80, color: Colors.grey)),
+                          child: Icon(Icons.restaurant,
+                              size: 80, color: Colors.grey)),
                 ),
               ),
               // Right side: Info
@@ -10203,7 +10327,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                       // Header
                       Row(
                         children: [
-                          const Icon(Icons.restaurant_menu, color: Colors.green, size: 32),
+                          const Icon(Icons.restaurant_menu,
+                              color: Colors.green, size: 32),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -10220,15 +10345,25 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                                 ),
                                 Text(
                                   "Detalles Nutricionales",
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13),
                                 ),
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    if (int.tryParse(item['estrellas']?.toString() ?? "") != null && int.tryParse(item['estrellas']?.toString() ?? "")! > 0)
-                                      _foodBadge(_starsText(item['estrellas']), _ratingColor(item['estrellas'])),
+                                    if (int.tryParse(
+                                                item['estrellas']?.toString() ??
+                                                    "") !=
+                                            null &&
+                                        int.tryParse(
+                                                item['estrellas']?.toString() ??
+                                                    "")! >
+                                            0)
+                                      _foodBadge(_starsText(item['estrellas']),
+                                          _ratingColor(item['estrellas'])),
                                     if (_foodReason(item) != "-")
                                       _foodBadge(_foodReason(item), Colors.red),
                                   ],
@@ -10248,22 +10383,33 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 color: Colors.orange.shade50,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.orange.shade100),
+                                border:
+                                    Border.all(color: Colors.orange.shade100),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+                                  Icon(Icons.local_fire_department,
+                                      color: Colors.orange, size: 28),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text("Calorías", style: TextStyle(color: Colors.orange.shade700, fontSize: 12)),
-                                        Text("${caloriasTotales} kcal", style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                        Text("Calorías",
+                                            style: TextStyle(
+                                                color: Colors.orange.shade700,
+                                                fontSize: 12)),
+                                        Text("${caloriasTotales} kcal",
+                                            style: TextStyle(
+                                                color: Colors.orange.shade900,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16)),
                                       ],
                                     ),
                                   ),
@@ -10274,7 +10420,8 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                           const SizedBox(width: 16),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(12),
@@ -10282,14 +10429,23 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.fitness_center, color: Colors.blue, size: 28),
+                                  Icon(Icons.fitness_center,
+                                      color: Colors.blue, size: 28),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text("Proteínas", style: TextStyle(color: Colors.blue.shade700, fontSize: 12)),
-                                        Text("${proteinasTotales} g", style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                                        Text("Proteínas",
+                                            style: TextStyle(
+                                                color: Colors.blue.shade700,
+                                                fontSize: 12)),
+                                        Text("${proteinasTotales} g",
+                                            style: TextStyle(
+                                                color: Colors.blue.shade900,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16)),
                                       ],
                                     ),
                                   ),
@@ -10300,7 +10456,9 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                         ],
                       ),
                       const SizedBox(height: 32),
-                      const Text("Ingredientes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text("Ingredientes",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       // Ingredients List
                       Expanded(
@@ -10311,35 +10469,44 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
                             border: Border.all(color: Colors.green.shade100),
                           ),
                           padding: const EdgeInsets.all(16),
-                          child: ingredientes.isEmpty 
-                              ? const Center(child: Text("Sin ingredientes registrados"))
+                          child: ingredientes.isEmpty
+                              ? const Center(
+                                  child: Text("Sin ingredientes registrados"))
                               : ListView.separated(
-                            itemCount: ingredientes.length,
-                            separatorBuilder: (_, __) => const Divider(height: 16, color: Colors.black12),
-                            itemBuilder: (ctx, idx) {
-                              final i = ingredientes[idx];
-                              return Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
-                                    child: const Icon(Icons.eco, color: Colors.green, size: 16),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      i["nombre"] ?? "Ingrediente",
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                    ),
-                                  ),
-                                  Text(
-                                    "${i['cantidad'] ?? ''} ${i['unidad'] ?? ''}",
-                                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                                  )
-                                ],
-                              );
-                            },
-                          ),
+                                  itemCount: ingredientes.length,
+                                  separatorBuilder: (_, __) => const Divider(
+                                      height: 16, color: Colors.black12),
+                                  itemBuilder: (ctx, idx) {
+                                    final i = ingredientes[idx];
+                                    return Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              shape: BoxShape.circle),
+                                          child: const Icon(Icons.eco,
+                                              color: Colors.green, size: 16),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            i["nombre"] ?? "Ingrediente",
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14),
+                                          ),
+                                        ),
+                                        Text(
+                                          "${i['cantidad'] ?? ''} ${i['unidad'] ?? ''}",
+                                          style: TextStyle(
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500),
+                                        )
+                                      ],
+                                    );
+                                  },
+                                ),
                         ),
                       ),
                     ],
@@ -10352,6 +10519,7 @@ await dio.get("pacientes/$patientIdStr/expediente-completo");
       ),
     );
   }
+
   Widget _foodPagination(int total, int start, int end, int totalPages) {
     final displayStart = total == 0 ? 0 : start + 1;
     final displayEnd = total == 0 ? 0 : end;
@@ -10570,6 +10738,3 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-
-
-
