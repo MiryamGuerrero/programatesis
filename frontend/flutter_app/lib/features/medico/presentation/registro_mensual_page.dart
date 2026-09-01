@@ -2659,13 +2659,97 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Widget _buildOpsLeftPanel(Map<String, dynamic> stats,
       List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
-    String badgeText = "";
-    String title = "";
-    String desc = "";
-    Widget kpis = const SizedBox.shrink();
+        Widget buildMultiKpiBlock(String badge, String title,
+            List<Map<String, dynamic>> kpis, String interp) {
+          Widget kpiWidget(int i) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(kpis[i]['title'],
+                      style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blueGrey,
+                          height: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(kpis[i]['val'].toString(),
+                      style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppTema.azulPrincipal)),
+                ],
+              ),
+            );
+          }
 
-    if (_activeDomainIndex == 0) {
-      // Reumatológica
+          return Container(
+            constraints: const BoxConstraints(minHeight: 220),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Text(badge,
+                      style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
+                ),
+                const SizedBox(height: 16),
+                Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulPrincipal,
+                        letterSpacing: -0.5)),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: kpiWidget(0)),
+                    Expanded(child: kpiWidget(1)),
+                  ],
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: kpiWidget(2)),
+                    const Expanded(child: SizedBox()),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Row(children: [
+                  Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
+                ]),
+                const SizedBox(height: 16),
+                RichText(
+                    text: TextSpan(children: [
+                  TextSpan(
+                      text: "Interpretación: ",
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.blueGrey.shade800)),
+                  TextSpan(
+                      text: interp,
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.blueGrey.shade700,
+                          height: 1.4)),
+                ])),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }
+
       DateTime latestControlDate = DateTime.now();
       if (controls.isNotEmpty) {
         final parsed =
@@ -2695,6 +2779,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         return d.isAfter(threshold);
       }).toList();
 
+    String badgeText = "";
+    String title = "";
+    String desc = "";
+    Widget kpis = const SizedBox.shrink();
+
+    if (_activeDomainIndex == 0) {
+      // Reumatológica
       if (_activeFigureIndex == 0) {
         // Síntomas
         final double? lastPain = filteredControls.isEmpty
@@ -2946,97 +3037,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               "En el periodo evaluado se analizaron ${orderedControls.length} controles en ${chartControls.length} meses. El último control muestra $actividadLectura, con rigidez matutina de $rigActual min. El máximo del periodo fue $inflMax inflamadas, $dolMax dolorosas y $rigMax min de rigidez; el promedio de rigidez fue ${rigAvg.toStringAsFixed(1)} min. $tendenciaLectura $rigidezLectura";
         }
 
-        Widget buildMultiKpiBlock(String badge, String title,
-            List<Map<String, dynamic>> kpis, String interp) {
-          Widget kpiWidget(int i) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 8, bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(kpis[i]['title'],
-                      style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.blueGrey,
-                          height: 1.2)),
-                  const SizedBox(height: 4),
-                  Text(kpis[i]['val'].toString(),
-                      style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTema.azulPrincipal)),
-                ],
-              ),
-            );
-          }
-
-          return Container(
-            constraints: const BoxConstraints(minHeight: 220),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                      color: AppTema.azulPrincipal,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text(badge,
-                      style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11)),
-                ),
-                const SizedBox(height: 16),
-                Text(title,
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppTema.azulPrincipal,
-                        letterSpacing: -0.5)),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: kpiWidget(0)),
-                    Expanded(child: kpiWidget(1)),
-                  ],
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: kpiWidget(2)),
-                    const Expanded(child: SizedBox()),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Row(children: [
-                  Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
-                ]),
-                const SizedBox(height: 16),
-                RichText(
-                    text: TextSpan(children: [
-                  TextSpan(
-                      text: "Interpretación: ",
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.blueGrey.shade800)),
-                  TextSpan(
-                      text: interp,
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: Colors.blueGrey.shade700,
-                          height: 1.4)),
-                ])),
-                const SizedBox(height: 16),
-              ],
-            ),
-          );
-        }
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3088,18 +3088,60 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       // Nutricional
       if (_activeFigureIndex == 0) {
         // Antropometría
-        badgeText = "Figura 3";
-        title = "Crecimiento y Estado";
-        desc =
-            "Evolución antropométrica frente a los estándares de crecimiento de la OMS.";
-        kpis = Column(
+        if (filteredControls.isEmpty) return const SizedBox();
+        final first = filteredControls.first;
+        final last = filteredControls.last;
+        final latestImc = _controlImc(last);
+        final latestZScore = _controlZScoreBmi(last);
+        final tallaInicial = _growthValue(first, 'talla_cm');
+        final tallaActual = _growthValue(last, 'talla_cm');
+        final ganancia = (tallaInicial != null && tallaActual != null) ? tallaActual - tallaInicial : 0.0;
+        
+        final interp5 = "En los controles recientes, el paciente presenta un IMC de ${latestImc?.toStringAsFixed(1) ?? '-'}, con un Z-Score de ${latestZScore?.toStringAsFixed(1) ?? '-'}, reflejando su estado nutricional actual.";
+        final interp6 = "El paciente ha alcanzado una talla de ${tallaActual ?? '-'} cm, demostrando una variación de ${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm respecto al control inicial mostrado.";
+
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _opsKpi("IMC Actual",
-                "${controls.isNotEmpty ? controls.last['imc_calculado'] ?? '-' : '-'}"),
-            const SizedBox(height: 16),
-            _opsKpi("Talla Actual",
-                "${controls.isNotEmpty ? controls.last['talla_cm'] ?? '-' : '-'} cm"),
+            buildMultiKpiBlock(
+                "Figura 5",
+                "EVOLUCIÓN DE IMC Y PESO",
+                [
+                  {
+                    'title': 'IMC\nActual',
+                    'val': latestImc == null ? "-" : latestImc.toStringAsFixed(1)
+                  },
+                  {
+                    'title': 'Z-Score\nActual',
+                    'val': latestZScore == null ? "-" : latestZScore.toStringAsFixed(1)
+                  },
+                  {
+                    'title': 'Estado\nNutricional',
+                    'val': latestZScore == null ? "-" : (latestZScore > 1 ? "Riesgo" : (latestZScore < -1 ? "Bajo" : "Normal"))
+                  },
+                ],
+                interp5),
+            
+            const SizedBox(height: 80),
+
+            buildMultiKpiBlock(
+                "Figura 6",
+                "EVOLUCIÓN DE TALLA",
+                [
+                  {
+                    'title': 'Talla\nActual',
+                    'val': '${tallaActual ?? '-'} cm'
+                  },
+                  {
+                    'title': 'Ganancia\nTotal',
+                    'val': '${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm'
+                  },
+                  {
+                    'title': 'Tendencia',
+                    'val': ganancia > 0 ? "Positiva" : "Estable"
+                  },
+                ],
+                interp6),
           ],
         );
       } else {
@@ -7400,57 +7442,99 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("Crecimiento y nutrición", Icons.show_chart_rounded),
-        const SizedBox(height: 12),
-        LayoutBuilder(builder: (context, constraints) {
-          final cardWidth = constraints.maxWidth >= 760
-              ? (constraints.maxWidth - 36) / 4
-              : constraints.maxWidth >= 520
-                  ? (constraints.maxWidth - 12) / 2
-                  : constraints.maxWidth;
-
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SizedBox(
-                width: cardWidth,
-                child: _growthSummaryCard(
-                    "Peso actual",
-                    "${latest['peso_kg'] ?? '-'} kg",
-                    _getHistoryValues(controls, 'peso_kg'),
-                    Colors.green),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _growthSummaryCard(
-                    "Talla actual",
-                    "${latest['talla_cm'] ?? '-'} cm",
-                    _getHistoryValues(controls, 'talla_cm'),
-                    Colors.blue),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _growthSummaryCard(
-                    "IMC actual",
-                    latestImc == null ? "-" : latestImc.toStringAsFixed(1),
-                    _getHistoryValues(controls, 'bmi'),
-                    Colors.purple),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _growthSummaryCard(
-                    "Z-score IMC",
-                    latestZScore == null
-                        ? "-"
-                        : latestZScore.toStringAsFixed(1),
-                    _getHistoryValues(controls, 'z_score_bmi'),
-                    Colors.orange),
+              Text("Crecimiento y peso",
+                  style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A))),
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _tendenciaFilter,
+                    icon: const Icon(Icons.keyboard_arrow_down,
+                        size: 14, color: Colors.blueGrey),
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: Colors.blueGrey.shade700,
+                        fontWeight: FontWeight.w600),
+                    items: ['6m', '1y', '5y', 'Todo'].map((v) {
+                      return DropdownMenuItem<String>(
+                        value: v,
+                        child: Text(v == '6m'
+                            ? 'Últimos 6 meses'
+                            : v == '1y'
+                                ? 'Último año'
+                                : v == '5y'
+                                    ? 'Últimos 5 años'
+                                    : 'Todos los controles'),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() {
+                          _tendenciaFilter = v;
+                        });
+                      }
+                    },
+                  ),
+                ),
               ),
             ],
-          );
-        }),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _growthSummaryCard(
+                  "Peso actual",
+                  "${latest['peso_kg'] ?? '-'} kg",
+                  _getHistoryValues(controls, 'peso_kg'),
+                  Colors.green),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _growthSummaryCard(
+                  "Talla actual",
+                  "${latest['talla_cm'] ?? '-'} cm",
+                  _getHistoryValues(controls, 'talla_cm'),
+                  Colors.blue),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _growthSummaryCard(
+                  "IMC actual",
+                  latestImc == null ? "-" : latestImc.toStringAsFixed(1),
+                  _getHistoryValues(controls, 'bmi'),
+                  Colors.purple),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _growthSummaryCard(
+                  "Z-score IMC",
+                  latestZScore == null
+                      ? "-"
+                      : latestZScore.toStringAsFixed(1),
+                  _getHistoryValues(controls, 'z_score_bmi'),
+                  Colors.orange),
+            ),
+          ],
+        ),
         const SizedBox(height: 20),
+        // FIGURA 5: Evolución de IMC y Peso
         Row(
           children: [
             Expanded(
@@ -7462,18 +7546,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     "Datos reales de peso registrados")),
             const SizedBox(width: 16),
             Expanded(
-                child: _growthChartCard(
-                    "Talla mensual (cm)",
-                    controls,
-                    'talla_cm',
-                    Colors.blue,
-                    "Datos reales de talla registrados")),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
                 child: _growthChartCard("IMC mensual", controls, 'bmi',
                     Colors.purple, "Referencia IMC/edad (OMS)")),
             const SizedBox(width: 16),
@@ -7482,8 +7554,25 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     Colors.orange, "Interpretación Z-score (OMS)")),
           ],
         ),
-        const SizedBox(height: 24),
-        _buildGrowthInterpretationCards(controls),
+        const SizedBox(height: 32),
+        const Divider(color: Color(0xFFE2E8F0), thickness: 1),
+        const SizedBox(height: 32),
+        // FIGURA 6: Evolución de Talla
+        Row(
+          children: [
+            Expanded(
+                child: _growthChartCard(
+                    "Talla mensual (cm)",
+                    controls,
+                    'talla_cm',
+                    Colors.blue,
+                    "Datos reales de talla registrados")),
+            const SizedBox(width: 16),
+            const Expanded(child: SizedBox()),
+            const SizedBox(width: 16),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
       ],
     );
   }
@@ -7870,14 +7959,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
   Widget _growthChartCard(String title, List<Map<String, dynamic>> controls,
       String key, Color color, String refText) {
-    return Container(
+    return SizedBox(
       height: 250,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade100)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -7922,63 +8005,53 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ? imcActual - imcInicial
         : null;
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final cardWidth = constraints.maxWidth >= 760
-          ? (constraints.maxWidth - 30) / 4
-          : constraints.maxWidth >= 520
-              ? (constraints.maxWidth - 10) / 2
-              : constraints.maxWidth;
-
-      return Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          SizedBox(
-            width: cardWidth,
-            child: _interpretationGrowthCard(
-                "Peso",
-                pesoDelta == null
-                    ? "Sin datos suficientes para comparar peso."
-                    : "${pesoDelta >= 0 ? '+' : ''}${pesoDelta.toStringAsFixed(1)} kg en el periodo.",
-                _trendLabel(pesoDelta,
-                    positiveLabel: "Ganancia", negativeLabel: "Descenso"),
-                Colors.green),
-          ),
-          SizedBox(
-            width: cardWidth,
-            child: _interpretationGrowthCard(
-                "Talla",
-                tallaDelta == null
-                    ? "Sin datos suficientes para comparar talla."
-                    : "${tallaDelta >= 0 ? '+' : ''}${tallaDelta.toStringAsFixed(1)} cm en el periodo.",
-                _trendLabel(tallaDelta,
-                    positiveLabel: "Crecimiento",
-                    negativeLabel: "Revisar dato"),
-                Colors.blue),
-          ),
-          SizedBox(
-            width: cardWidth,
-            child: _interpretationGrowthCard(
-                "IMC",
-                imcActual == null
-                    ? "No hay peso/talla suficiente para calcular IMC."
-                    : "IMC actual ${imcActual.toStringAsFixed(1)}${imcDelta == null ? '' : ' (${imcDelta >= 0 ? '+' : ''}${imcDelta.toStringAsFixed(1)})'}.",
-                _imcTrendLabel(imcDelta),
-                Colors.purple),
-          ),
-          SizedBox(
-            width: cardWidth,
-            child: _interpretationGrowthCard(
-                "Z-score",
-                zActual == null
-                    ? "Z-score IMC no disponible en los datos OMS."
-                    : _zScoreInterpretation(zActual),
-                _zScoreTrendLabel(zActual),
-                _zScoreColor(zActual ?? 0)),
-          ),
-        ],
-      );
-    });
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _interpretationGrowthCard(
+              "Peso",
+              pesoDelta == null
+                  ? "Sin datos suficientes para comparar peso."
+                  : "${pesoDelta >= 0 ? '+' : ''}${pesoDelta.toStringAsFixed(1)} kg en el periodo.",
+              _trendLabel(pesoDelta,
+                  positiveLabel: "Ganancia", negativeLabel: "Descenso"),
+              Colors.green),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _interpretationGrowthCard(
+              "Talla",
+              tallaDelta == null
+                  ? "Sin datos suficientes para comparar talla."
+                  : "${tallaDelta >= 0 ? '+' : ''}${tallaDelta.toStringAsFixed(1)} cm en el periodo.",
+              _trendLabel(tallaDelta,
+                  positiveLabel: "Crecimiento",
+                  negativeLabel: "Revisar dato"),
+              Colors.blue),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _interpretationGrowthCard(
+              "IMC",
+              imcActual == null
+                  ? "No hay peso/talla suficiente para calcular IMC."
+                  : "IMC actual ${imcActual.toStringAsFixed(1)}${imcDelta == null ? '' : ' (${imcDelta >= 0 ? '+' : ''}${imcDelta.toStringAsFixed(1)})'}.",
+              _imcTrendLabel(imcDelta),
+              Colors.purple),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _interpretationGrowthCard(
+              "Z-score",
+              zActual == null
+                  ? "Z-score IMC no disponible en los datos OMS."
+                  : _zScoreInterpretation(zActual),
+              _zScoreTrendLabel(zActual),
+              _zScoreColor(zActual ?? 0)),
+        ),
+      ],
+    );
   }
 
   String _trendLabel(double? delta,
@@ -8389,26 +8462,36 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           final label = _growthTooltipLabel(key);
           final unit = _growthTooltipUnit(key);
 
+          final dateStr = c['fecha_control']?.toString() ?? '';
+          String mes = "";
+          if (dateStr.isNotEmpty) {
+            final dt = DateTime.tryParse(dateStr);
+            if (dt != null) {
+              const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+              mes = "${meses[dt.month - 1]} ${dt.year}";
+            }
+          }
+
           return LineTooltipItem(
             "",
             const TextStyle(),
             children: [
               TextSpan(
-                  text:
-                      "${(c['mes_label_largo'] ?? _monthLong(c['fecha_control']?.toString() ?? '')).toString()}\n",
+                  text: "$mes\n",
                   style: GoogleFonts.inter(
-                      fontSize: 8,
+                      fontSize: 10,
                       color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w700)),
               TextSpan(
                   text: "$label: ",
                   style: GoogleFonts.inter(
-                      fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+                      fontSize: 12, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
-                  text:
-                      "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
+                  text: "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
                   style: GoogleFonts.inter(
-                      fontSize: 10, color: color, fontWeight: FontWeight.w900)),
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: FontWeight.w900)),
             ],
           );
         }).toList();
