@@ -2860,7 +2860,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             ? null
             : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
 
-        String jointInterp = "Información insuficiente para análisis clínico.";
+        
+        double fig4Infl = 0;
+        int fig4BrotesGrafica = 0;
+        bool existeBroteActual = false;
+        String fig4Estado = "-";
+        String fig4Interp = "Información insuficiente para análisis clínico.";
+String jointInterp = "Información insuficiente para análisis clínico.";
         if (filteredControls.isNotEmpty) {
           final orderedControls = _sortControlsByDate(filteredControls);
           final chartControls = _groupActivityControlsByMonth(orderedControls);
@@ -2927,6 +2933,15 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               : (rigCambio > 0
                   ? "La rigidez empeoró $rigCambio minutos frente al control previo."
                   : "La rigidez no cambió frente al control previo.");
+          
+          final monthlyInflControls = _groupInflammationControlsByMonth(orderedControls);
+          fig4BrotesGrafica = monthlyInflControls.where((c) => c['en_brote'] == true).length;
+          fig4Infl = _numValue(last['escala_inflamacion'], 0);
+          fig4Estado = (last['estado_enfermedad'] ?? 'Seguimiento').toString();
+          existeBroteActual = last['en_brote'] == true;
+          fig4Interp = "En los últimos controles, la escala de inflamación actual es de ${fig4Infl.toStringAsFixed(0)} sobre 3. " +
+              (fig4BrotesGrafica > 0 ? "Se han registrado brotes en $fig4BrotesGrafica meses dentro del periodo mostrado. " : "No se han detectado brotes en el periodo mostrado. ") +
+              "El estado clínico actual del paciente es $fig4Estado.";
           jointInterp =
               "En el periodo evaluado se analizaron ${orderedControls.length} controles en ${chartControls.length} meses. El último control muestra $actividadLectura, con rigidez matutina de $rigActual min. El máximo del periodo fue $inflMax inflamadas, $dolMax dolorosas y $rigMax min de rigidez; el promedio de rigidez fue ${rigAvg.toStringAsFixed(1)} min. $tendenciaLectura $rigidezLectura";
         }
@@ -3044,34 +3059,28 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   },
                 ],
                 jointInterp),
+            const SizedBox(height: 120),
+            buildMultiKpiBlock(
+                "Figura 4",
+                "EVOLUCIÓN DE INFLAMACIÓN Y BROTES",
+                [
+                  {
+                    'title': 'Inflamación\nactual',
+                    'val': '${fig4Infl.toStringAsFixed(0)}/3'
+                  },
+                  {
+                    'title': '¿Existen brotes\nactualmente?',
+                    'val': existeBroteActual ? "Sí" : "No"
+                  },
+                  {
+                    'title': 'Número de brotes\nen la gráfica',
+                    'val': fig4BrotesGrafica.toString()
+                  },
+                ],
+                fig4Interp),
+
             const SizedBox(height: 10),
-            // Block for Figura 4
-            Container(
-                constraints: const BoxConstraints(minHeight: 220),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                            color: AppTema.azulPrincipal,
-                            borderRadius: BorderRadius.circular(6)),
-                        child: Text("Figura 4",
-                            style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11)),
-                      ),
-                      const SizedBox(height: 16),
-                      Text("PENDIENTE",
-                          style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: AppTema.azulPrincipal,
-                              letterSpacing: -0.5)),
-                    ]))
+            
           ],
         );
       }
@@ -3307,6 +3316,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             ),
             const SizedBox(height: 16),
             _buildEvoActivitySection(filteredControls),
+            const SizedBox(height: 24),
+            const Divider(color: Color(0xFFE2E8F0), thickness: 1),
             const SizedBox(height: 24),
             _buildEvoInflammationSectionV2(filteredControls),
           ],
@@ -5970,89 +5981,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Widget _buildEvoInflammationSectionV2(List<Map<String, dynamic>> controls) {
     if (controls.isEmpty) return const SizedBox.shrink();
-
     final orderedControls = _sortControlsByDate(controls);
     final monthlyControls = _groupInflammationControlsByMonth(orderedControls);
     if (monthlyControls.isEmpty) return const SizedBox.shrink();
-
-    final last = orderedControls.last;
-    final lastSix = orderedControls.length <= 6
-        ? orderedControls
-        : orderedControls.sublist(orderedControls.length - 6);
-
-    final inflActual = _numValue(last['escala_inflamacion'], 0);
-    final brotesUltimos6 = lastSix.where((c) => c['en_brote'] == true).length;
-    final ultimoEstado =
-        (last['estado_enfermedad'] ?? 'Seguimiento').toString();
-
-    // Use a red tone for the brotes metric if there are brotes, else green/grey
-    final colorBrotes = brotesUltimos6 > 0 ? Colors.red : Colors.green;
-    final textBrotes = brotesUltimos6 > 0 ? "Hubo brotes" : "Sin brotes";
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.purple.shade100)),
-              child: const Icon(Icons.coronavirus_outlined,
-                  color: Colors.purple, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("EVOLUCIÓN DE INFLAMACIÓN Y ESTADO CLÍNICO",
-                    style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A))),
-                Text("Seguimiento mensual de inflamación y brotes unificados",
-                    style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF64748B))),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              SizedBox(
-                  width: 190,
-                  child: _footerMetricCard(
-                      "Inflamación actual",
-                      "${inflActual.toStringAsFixed(0)}/3",
-                      _inflammationColor(inflActual.round()),
-                      Icons.local_fire_department_rounded)),
-              const SizedBox(width: 10),
-              SizedBox(
-                  width: 190,
-                  child: _footerMetricCard("Estado de brotes (6m)", textBrotes,
-                      colorBrotes, Icons.warning_amber_rounded)),
-              const SizedBox(width: 10),
-              SizedBox(
-                  width: 190,
-                  child: _footerMetricCard(
-                      "Estado clínico actual",
-                      ultimoEstado,
-                      _stateColor(ultimoEstado),
-                      Icons.verified_user_rounded)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        _inflammationMonthlyChart(monthlyControls),
-      ],
-    );
+    return _inflammationMonthlyChart(monthlyControls);
   }
 
   Widget _inflammationMonthlyChart(List<Map<String, dynamic>> controls) {
@@ -6066,28 +5998,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         .toList();
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Gráfica unificada de Inflamación y Brotes",
-                      style: GoogleFonts.inter(
-                          fontSize: 12, fontWeight: FontWeight.w800)),
-                  Text("Puntos rojos indican presencia de brote en el mes",
-                      style: GoogleFonts.inter(
-                          fontSize: 9, color: Colors.blueGrey)),
-                ],
-              ),
+              
               Row(
                 children: [
                   _legendItem("Inflamación", Colors.purple),
@@ -6105,7 +6022,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 minX: 0,
                 maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
                 minY: 0,
-                maxY: max(3.0, maxInfl + 0.5),
+                maxY: 3.01,
                 gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
@@ -6147,12 +6064,15 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                           showTitles: true,
                           reservedSize: 30,
                           interval: 1,
-                          getTitlesWidget: (v, meta) => Text(
-                              v.toInt().toString(),
-                              style: GoogleFonts.inter(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF94A3B8))))),
+                          getTitlesWidget: (v, meta) {
+                            if ((v % 1).abs() > 0.01) return const SizedBox.shrink();
+                            return Text(
+                                v.toInt().toString(),
+                                style: GoogleFonts.inter(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF94A3B8)));
+                          })),
                   bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                           showTitles: true,
@@ -6232,11 +6152,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Widget _clinicalStateBroteTimeline(List<Map<String, dynamic>> controls) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -6432,11 +6347,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               Expanded(
                 flex: 2,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0))),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -6620,11 +6530,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   children: [
                     // Distribución de estado
                     Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -6767,11 +6672,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
         // Interpretación Final
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: const Color(0xFFFBFDFF),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
