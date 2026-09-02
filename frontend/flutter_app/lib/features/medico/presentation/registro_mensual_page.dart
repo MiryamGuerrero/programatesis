@@ -8282,20 +8282,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
   Widget _buildMainGrowthChart(
       List<Map<String, dynamic>> controls, String key, Color color) {
-    List<HorizontalRangeAnnotation> bands = [];
-    if (key == 'z_score_bmi') {
-      bands = [
-        HorizontalRangeAnnotation(
-            y1: -3, y2: -2, color: Colors.red.withOpacity(0.05)),
-        HorizontalRangeAnnotation(
-            y1: -2, y2: 1, color: Colors.green.withOpacity(0.05)),
-        HorizontalRangeAnnotation(
-            y1: 1, y2: 2, color: Colors.orange.withOpacity(0.05)),
-        HorizontalRangeAnnotation(
-            y1: 2, y2: 3, color: Colors.red.withOpacity(0.05)),
-      ];
-    }
-
     final spots = controls.asMap().entries.fold<List<FlSpot>>([], (acc, e) {
       final value = _growthValue(e.value, key);
       if (value != null) acc.add(FlSpot(e.key.toDouble(), value));
@@ -8318,6 +8304,22 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     final padding = range == 0 ? rawMax.abs() * 0.08 + 1 : range * 0.16;
     final minY = rawMin - padding;
     final maxY = rawMax + padding;
+
+    List<HorizontalRangeAnnotation> bands = [];
+    if (key == 'z_score_bmi') {
+      double cap(double val) => val.clamp(minY, maxY);
+      bands = [
+        HorizontalRangeAnnotation(
+            y1: cap(-3), y2: cap(-2), color: Colors.red.withOpacity(0.05)),
+        HorizontalRangeAnnotation(
+            y1: cap(-2), y2: cap(1), color: Colors.green.withOpacity(0.05)),
+        HorizontalRangeAnnotation(
+            y1: cap(1), y2: cap(2), color: Colors.orange.withOpacity(0.05)),
+        HorizontalRangeAnnotation(
+            y1: cap(2), y2: cap(3), color: Colors.red.withOpacity(0.05)),
+      ];
+      bands.removeWhere((b) => b.y1 >= b.y2); // Remove empty bands
+    }
 
     return LineChart(
       LineChartData(
@@ -8354,15 +8356,22 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 36,
-                  getTitlesWidget: (v, m) => Padding(
+                  getTitlesWidget: (v, m) {
+                    String text = (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(2);
+                    if (text.contains('.')) {
+                      text = text.replaceAll(RegExp(r'0+$'), '');
+                      if (text.endsWith('.')) text = text.substring(0, text.length - 1);
+                    }
+                    return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
-                          (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(2).replaceAll(RegExp(r'0+\$'), ''),
+                          text,
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                               fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
-                      ))),
+                      );
+                  })),
           bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
