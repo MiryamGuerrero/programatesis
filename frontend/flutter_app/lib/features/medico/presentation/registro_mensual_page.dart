@@ -7496,20 +7496,24 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         Row(
           children: [
             Expanded(
-                child: _growthChartCard(
-                    "Peso mensual (kg)",
-                    controls,
-                    'peso_kg',
-                    Colors.green,
-                    "Datos reales de peso registrados")),
-            const SizedBox(width: 16),
-            Expanded(
                 child: _growthChartCard("IMC mensual", controls, 'bmi',
                     Colors.purple, "Referencia IMC/edad (OMS)")),
             const SizedBox(width: 16),
             Expanded(
                 child: _growthChartCard("Z-score IMC", controls, 'z_score_bmi',
                     Colors.orange, "Interpretación Z-score (OMS)")),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+                child: _growthChartCard(
+                    "Peso mensual (kg)",
+                    controls,
+                    'peso_kg',
+                    Colors.green,
+                    "Datos reales de peso registrados")),
           ],
         ),
         const SizedBox(height: 32),
@@ -7525,10 +7529,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     'talla_cm',
                     Colors.blue,
                     "Datos reales de talla registrados")),
-            const SizedBox(width: 16),
-            const Expanded(child: SizedBox()),
-            const SizedBox(width: 16),
-            const Expanded(child: SizedBox()),
           ],
         ),
       ],
@@ -7936,7 +7936,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
           const SizedBox(height: 8),
           Text(refText,
-              style: GoogleFonts.inter(fontSize: 9, color: Colors.grey)),
+              style: GoogleFonts.inter(fontSize: 8, color: Colors.blueGrey.shade400, fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -8352,16 +8352,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           leftTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 38,
-                  getTitlesWidget: (v, m) => SizedBox(
-                        width: 34,
+                  reservedSize: 46,
+                  getTitlesWidget: (v, m) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
                         child: Text(
                           v.toStringAsFixed(key == 'z_score_bmi' ? 1 : 0),
                           textAlign: TextAlign.right,
-                          maxLines: 1,
-                          overflow: TextOverflow.clip,
                           style: const TextStyle(
-                              fontSize: 8, color: Color(0xFF64748B)),
+                              fontSize: 9, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
                       ))),
           bottomTitles: AxisTitles(
