@@ -7434,7 +7434,26 @@ String jointInterp = "Información insuficiente para análisis clínico.";
   Widget _buildEvoGrowthSection(
       List<Map<String, dynamic>> controls, Map<String, dynamic> paciente) {
     if (controls.isEmpty) return const SizedBox();
-    final latest = controls.last;
+
+    DateTime latestControlDate = DateTime.now();
+    final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+    if (parsed != null) latestControlDate = parsed;
+    final now = latestControlDate;
+
+    DateTime threshold;
+    switch (_tendenciaFilter) {
+      case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
+      case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
+      case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
+      default: threshold = DateTime(2000); break;
+    }
+    
+    List<Map<String, dynamic>> filteredControls = controls.where((c) {
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+      return d.isAfter(threshold);
+    }).toList();
+    if (filteredControls.isEmpty) filteredControls = controls; // Fallback if filtered is empty
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7496,11 +7515,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         Row(
           children: [
             Expanded(
-                child: _growthChartCard("IMC mensual", controls, 'bmi',
+                child: _growthChartCard("IMC mensual", filteredControls, 'bmi',
                     Colors.purple, "Referencia IMC/edad (OMS)")),
             const SizedBox(width: 16),
             Expanded(
-                child: _growthChartCard("Z-score IMC", controls, 'z_score_bmi',
+                child: _growthChartCard("Z-score IMC", filteredControls, 'z_score_bmi',
                     Colors.orange, "Interpretación Z-score (OMS)")),
           ],
         ),
@@ -7510,7 +7529,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             Expanded(
                 child: _growthChartCard(
                     "Peso mensual (kg)",
-                    controls,
+                    filteredControls,
                     'peso_kg',
                     Colors.green,
                     "Datos reales de peso registrados")),
@@ -7525,7 +7544,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             Expanded(
                 child: _growthChartCard(
                     "Talla mensual (cm)",
-                    controls,
+                    filteredControls,
                     'talla_cm',
                     Colors.blue,
                     "Datos reales de talla registrados")),
