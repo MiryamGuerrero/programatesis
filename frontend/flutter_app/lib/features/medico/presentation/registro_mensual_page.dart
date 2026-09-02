@@ -8325,7 +8325,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         maxX: (controls.length - 1).toDouble().clamp(0, double.infinity),
         minY: minY,
         maxY: maxY,
-        clipData: const FlClipData.none(),
+        clipData: const FlClipData.all(),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
@@ -8357,7 +8357,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   getTitlesWidget: (v, m) => Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
-                          (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(1),
+                          (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(2).replaceAll(RegExp(r'0+\$'), ''),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                               fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
