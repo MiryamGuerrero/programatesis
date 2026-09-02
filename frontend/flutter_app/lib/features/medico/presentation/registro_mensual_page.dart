@@ -3145,19 +3145,60 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         );
       } else {
         // Consumo
-        badgeText = "Figura 4";
-        title = "Adherencia a la Dieta";
-        desc =
-            "Registro del consumo alimentario y aceptación de las recomendaciones dietéticas.";
+        badgeText = "Tabla 1";
+        title = "CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS";
+        desc = ""; // Se reemplaza por el resumen clínico
+        
         final data = _consumoAlimentario;
         final resumen = Map<String, dynamic>.from(data?['resumen'] ?? {});
+        final items = _foodFilteredItems();
         final adh = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
+        final badCount = (resumen['total_mala_aceptacion'] as num?)?.toInt() ?? 0;
+        final hasItems = items.isNotEmpty;
+        final impact = _foodRiskLabel(adh, hasItems);
+        final impactColor = _foodRiskColor(impact);
+        
+        Widget _bullet(String t) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("• ", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              Expanded(child: Text(t, style: GoogleFonts.inter(fontSize: 11, height: 1.4, color: Colors.blueGrey.shade700))),
+            ]
+          )
+        );
+
         kpis = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _opsKpi("% de Adherencia", "${adh.toStringAsFixed(1)}%"),
-            const SizedBox(height: 16),
-            _opsKpi("Total de Registros", "${_foodFilteredItems().length}"),
+            Text("Resumen clínico", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+            const SizedBox(height: 12),
+            _bullet("Adherencia general: ${adh.toStringAsFixed(0)}% durante el periodo evaluado."),
+            _bullet(badCount > 0 ? "Se registran $badCount recetas con mala aceptación." : "No se registran recetas con mala aceptación en el periodo."),
+            _bullet("Correlacione con síntomas, brote y tolerancia alimentaria en la siguiente consulta."),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: impactColor.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: impactColor.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Posible impacto clínico:", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: impactColor)),
+                  const SizedBox(height: 6),
+                  Text(
+                    "$impact
+${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
+                    style: GoogleFonts.inter(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
       }
@@ -9563,9 +9604,18 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("Consumo alimentario y aceptación de recetas",
-            Icons.restaurant_menu_rounded),
-        const SizedBox(height: 12),
+        Text("Consumo alimentario y aceptación de recetas",
+            style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F172A))),
+        const SizedBox(height: 24),
+        Text("TABLA 1: ADHERENCIA A LA DIETA",
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: Colors.blueGrey.shade800)),
+        const SizedBox(height: 6),
         Text(
           "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
           style: GoogleFonts.inter(
@@ -9574,73 +9624,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.blueGrey.shade100),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Resumen clínico",
-                        style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0F172A))),
-                    const SizedBox(height: 10),
-                    _foodSummaryBullet(
-                        "Adherencia general: ${adherence.toStringAsFixed(0)}% durante el periodo evaluado."),
-                    _foodSummaryBullet(badCount > 0
-                        ? "Se registran $badCount recetas con mala aceptación."
-                        : "No se registran recetas con mala aceptación en el periodo."),
-                    _foodSummaryBullet(
-                        "Correlacione con síntomas, brote y tolerancia alimentaria en la siguiente consulta."),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 280),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: impactColor.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: impactColor.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Posible impacto clínico:",
-                          style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: impactColor)),
-                      const SizedBox(height: 6),
-                      Text(
-                        "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            height: 1.35,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF334155)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
@@ -9676,33 +9659,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       })),
             ],
           ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-                child: _foodMetricCard(
-                    "Adherencia",
-                    "${adherence.toStringAsFixed(0)}%",
-                    _foodAdherenceColor(adherence, hasItems),
-                    subtitle: _foodStateLabel(adherence, hasItems))),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _foodMetricCard(
-                    "Mala aceptación", badCount.toString(), Colors.red,
-                    subtitle: badCount == 0
-                        ? "Sin alertas"
-                        : "Recetas con calificación baja")),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _foodHallazgosCard(resumen)),
-            const SizedBox(width: 12),
-            Expanded(child: _foodAlertsCard(resumen)),
-          ],
         ),
         const SizedBox(height: 14),
         if (visible.isEmpty)
@@ -9798,6 +9754,34 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
         const SizedBox(height: 10),
         _foodPagination(total, start, end, totalPages),
+        const SizedBox(height: 14);
+        Row(
+          children: [
+            Expanded(
+                child: _foodMetricCard(
+                    "Adherencia",
+                    "${adherence.toStringAsFixed(0)}%",
+                    _foodAdherenceColor(adherence, hasItems),
+                    subtitle: _foodStateLabel(adherence, hasItems))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _foodMetricCard(
+                    "Mala aceptación", badCount.toString(), Colors.red,
+                    subtitle: badCount == 0
+                        ? "Sin alertas"
+                        : "Recetas con calificación baja")),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _foodHallazgosCard(resumen)),
+            const SizedBox(width: 12),
+            Expanded(child: _foodAlertsCard(resumen)),
+          ],
+        ),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -10269,7 +10253,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          constraints: const BoxConstraints(maxWidth: 650, maxHeight: 500),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -10282,6 +10266,17 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       ? Image.network(
                           imgUrl,
                           fit: BoxFit.cover,
+                          loadingBuilder: (ctx, child, progress) {
+                            if (progress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: AppTema.azulPrincipal,
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
                           errorBuilder: (_, __, ___) => const Center(
                               child: Icon(Icons.broken_image,
                                   size: 60, color: Colors.grey)),
@@ -10295,7 +10290,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               Expanded(
                 flex: 3,
                 child: Padding(
-                  padding: const EdgeInsets.all(40),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
