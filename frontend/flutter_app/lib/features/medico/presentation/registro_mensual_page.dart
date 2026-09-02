@@ -8353,11 +8353,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           leftTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 32,
+                  reservedSize: 36,
                   getTitlesWidget: (v, m) => Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
-                          v.toStringAsFixed(key == 'z_score_bmi' ? 1 : 0),
+                          (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(1),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                               fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
