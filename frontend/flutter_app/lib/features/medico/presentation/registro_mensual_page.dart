@@ -7923,8 +7923,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style:
-                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.blueGrey.shade800)),
           const SizedBox(height: 12),
           Expanded(
             child: Padding(
@@ -8365,7 +8368,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 30,
+                  reservedSize: 65,
                   interval: 1,
                   getTitlesWidget: (v, m) {
                     final idx = v.round();
@@ -8374,17 +8377,24 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         idx >= controls.length) {
                       return const SizedBox();
                     }
+                    String monthStr = "";
+                    final dateStr = controls[idx]['fecha_control']?.toString() ?? '';
+                    if (dateStr.isNotEmpty) {
+                      final dt = DateTime.tryParse(dateStr);
+                      if (dt != null) {
+                        const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                        monthStr = "${meses[dt.month - 1]} ${dt.year}";
+                      }
+                    }
                     return Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: SizedBox(
-                        width: 40,
+                      child: RotatedBox(
+                        quarterTurns: 3,
                         child: Text(
-                          _monthLong(controls[idx]['fecha_control']),
+                          monthStr.isEmpty ? _monthLong(dateStr) : monthStr,
                           textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 8, color: Color(0xFF64748B)),
+                              fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
                       ),
                     );
