@@ -3192,8 +3192,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   Text("Posible impacto clínico:", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: impactColor)),
                   const SizedBox(height: 6),
                   Text(
-                    "$impact
-${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
+                    "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
                     style: GoogleFonts.inter(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
                   ),
                 ],
@@ -9754,7 +9753,7 @@ ${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : imp
           ),
         const SizedBox(height: 10),
         _foodPagination(total, start, end, totalPages),
-        const SizedBox(height: 14);
+        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
