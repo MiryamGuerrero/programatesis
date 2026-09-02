@@ -2710,20 +2710,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                         color: AppTema.azulPrincipal,
                         letterSpacing: -0.5)),
                 const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: kpiWidget(0)),
-                    Expanded(child: kpiWidget(1)),
-                  ],
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: kpiWidget(2)),
-                    const Expanded(child: SizedBox()),
-                  ],
-                ),
+                for (int i = 0; i < kpis.length; i += 2)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: kpiWidget(i)),
+                      Expanded(child: i + 1 < kpis.length ? kpiWidget(i + 1) : const SizedBox()),
+                    ],
+                  ),
                 const SizedBox(height: 8),
                 const Row(children: [
                   Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
@@ -3093,11 +3087,12 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         final last = filteredControls.last;
         final latestImc = _controlImc(last);
         final latestZScore = _controlZScoreBmi(last);
+        final pesoActual = _growthValue(last, 'peso_kg');
         final tallaInicial = _growthValue(first, 'talla_cm');
         final tallaActual = _growthValue(last, 'talla_cm');
         final ganancia = (tallaInicial != null && tallaActual != null) ? tallaActual - tallaInicial : 0.0;
         
-        final interp5 = "En los controles recientes, el paciente presenta un IMC de ${latestImc?.toStringAsFixed(1) ?? '-'}, con un Z-Score de ${latestZScore?.toStringAsFixed(1) ?? '-'}, reflejando su estado nutricional actual.";
+        final interp5 = "En los controles recientes, el paciente presenta un Peso de ${pesoActual ?? '-'} kg y una Talla de ${tallaActual ?? '-'} cm. Además, mantiene un IMC de ${latestImc?.toStringAsFixed(1) ?? '-'} con un Z-Score de ${latestZScore?.toStringAsFixed(1) ?? '-'}, reflejando su evolución antropométrica.";
         final interp6 = "El paciente ha alcanzado una talla de ${tallaActual ?? '-'} cm, demostrando una variación de ${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm respecto al control inicial mostrado.";
 
         return Column(
@@ -3116,8 +3111,12 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     'val': latestZScore == null ? "-" : latestZScore.toStringAsFixed(1)
                   },
                   {
-                    'title': 'Estado\nNutricional',
-                    'val': latestZScore == null ? "-" : (latestZScore > 1 ? "Riesgo" : (latestZScore < -1 ? "Bajo" : "Normal"))
+                    'title': 'Peso\nActual',
+                    'val': '${pesoActual ?? '-'} kg'
+                  },
+                  {
+                    'title': 'Talla\nActual',
+                    'val': '${tallaActual ?? '-'} cm'
                   },
                 ],
                 interp5),
@@ -7436,9 +7435,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       List<Map<String, dynamic>> controls, Map<String, dynamic> paciente) {
     if (controls.isEmpty) return const SizedBox();
     final latest = controls.last;
-    final latestImc = _controlImc(latest);
-    final latestZScore = _controlZScoreBmi(latest);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7495,45 +7491,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _growthSummaryCard(
-                  "Peso actual",
-                  "${latest['peso_kg'] ?? '-'} kg",
-                  _getHistoryValues(controls, 'peso_kg'),
-                  Colors.green),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _growthSummaryCard(
-                  "Talla actual",
-                  "${latest['talla_cm'] ?? '-'} cm",
-                  _getHistoryValues(controls, 'talla_cm'),
-                  Colors.blue),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _growthSummaryCard(
-                  "IMC actual",
-                  latestImc == null ? "-" : latestImc.toStringAsFixed(1),
-                  _getHistoryValues(controls, 'bmi'),
-                  Colors.purple),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _growthSummaryCard(
-                  "Z-score IMC",
-                  latestZScore == null
-                      ? "-"
-                      : latestZScore.toStringAsFixed(1),
-                  _getHistoryValues(controls, 'z_score_bmi'),
-                  Colors.orange),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
+
         // FIGURA 5: Evolución de IMC y Peso
         Row(
           children: [
