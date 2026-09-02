@@ -3121,7 +3121,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 ],
                 interp5),
             
-            const SizedBox(height: 120), // 5 saltos de linea (izquierdo)
+            const SizedBox(height: 312), // 13 saltos de linea (5 anteriores + 8 nuevos)
 
             buildMultiKpiBlock(
                 "Figura 6",
