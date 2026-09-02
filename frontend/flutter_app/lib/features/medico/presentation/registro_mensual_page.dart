@@ -7931,10 +7931,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           const SizedBox(height: 12),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(right: 4, bottom: 2),
-              child: ClipRect(
-                child: _buildMainGrowthChart(controls, key, color),
-              ),
+              padding: const EdgeInsets.only(right: 18, bottom: 2, top: 10),
+              child: _buildMainGrowthChart(controls, key, color),
             ),
           ),
           const SizedBox(height: 8),
@@ -8327,13 +8325,13 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         maxX: (controls.length - 1).toDouble().clamp(0, double.infinity),
         minY: minY,
         maxY: maxY,
-        clipData: const FlClipData.all(),
+        clipData: const FlClipData.none(),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
             color: color,
-            barWidth: 3,
+            barWidth: 2.2,
             belowBarData:
                 BarAreaData(show: true, color: color.withOpacity(0.05)),
             dotData: const FlDotData(show: true),
@@ -8355,14 +8353,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           leftTitles: AxisTitles(
               sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 46,
+                  reservedSize: 32,
                   getTitlesWidget: (v, m) => Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
                           v.toStringAsFixed(key == 'z_score_bmi' ? 1 : 0),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
-                              fontSize: 9, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                              fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
                       ))),
           bottomTitles: AxisTitles(
@@ -8383,7 +8381,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       final dt = DateTime.tryParse(dateStr);
                       if (dt != null) {
                         const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-                        monthStr = "${meses[dt.month - 1]} ${dt.year}";
+                        monthStr = "${meses[dt.month - 1]} '${dt.year.toString().substring(2)}";
                       }
                     }
                     return Padding(
@@ -8394,7 +8392,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                           monthStr.isEmpty ? _monthLong(dateStr) : monthStr,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                              fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
                       ),
                     );
