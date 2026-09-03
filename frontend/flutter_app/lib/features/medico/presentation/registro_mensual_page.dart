@@ -9713,8 +9713,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       columns: [
                         _foodTableCol("FECHA", maxWidth: 60),
                         _foodTableCol("MOMENTO", maxWidth: 60),
-                        _foodTableCol("RECETA", maxWidth: 160),
-                        _foodTableCol("CONSUMIDA?", maxWidth: 85),
+                        _foodTableCol("RECETA", maxWidth: 130),
+                        _foodTableCol("CONSUMIDA?", maxWidth: 75),
                         _foodTableCol("ACCIONES", center: true, maxWidth: 60),
                       ],
                       rows: visible.map((item) {
@@ -9733,11 +9733,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                               DataCell(_foodCell(
                                   (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
                                   weight: FontWeight.w800,
-                                  maxWidth: 160,
+                                  maxWidth: 130,
                                   color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
                               DataCell(Container(
-                                constraints: const BoxConstraints(maxWidth: 85),
-                                child: _foodBadge(estado, color)
+                                width: 75,
+                                child: _foodBadge(estado, color, abbreviate: true)
                               )),
                               DataCell(Center(
                                 child: IconButton(
@@ -10122,8 +10122,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       {double? maxWidth, bool center = false}) {
     return DataColumn(
       label: Container(
-        constraints:
-            maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        width: maxWidth, // FIXED WIDTH
         alignment: center ? Alignment.center : Alignment.centerLeft,
         child: Text(
           label,
@@ -10142,8 +10141,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           Color? color,
           double? maxWidth}) =>
       Container(
-        constraints:
-            maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
+        width: maxWidth, // FIXED WIDTH
         child: Text(
           text,
           maxLines: 2,
@@ -10181,12 +10179,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     );
   }
 
-  Widget _foodBadge(String text, Color color) {
+  Widget _foodBadge(String text, Color color, {bool abbreviate = false}) {
     String display = text;
-    if (text == "Sin registro") display = "S/N";
-    if (text == "Consumida") display = "Sí";
-    if (text == "Rechazada") display = "No";
-    if (text == "Consumo parcial") display = "Parcial";
+    if (abbreviate) {
+      if (text == "Sin registro") display = "S/N";
+      if (text == "Consumida") display = "Sí";
+      if (text == "Rechazada") display = "No";
+      if (text == "Consumo parcial") display = "Parcial";
+    }
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
