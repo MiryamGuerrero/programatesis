@@ -3,6 +3,7 @@
 import "dart:async";
 import "dart:math";
 import "package:flutter/material.dart";
+import "package:shimmer/shimmer.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:intl/intl.dart";
@@ -10326,24 +10327,50 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                       fontSize: 13),
                                 ),
                                 const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    if (int.tryParse(
-                                                item['estrellas']?.toString() ??
-                                                    "") !=
-                                            null &&
-                                        int.tryParse(
-                                                item['estrellas']?.toString() ??
-                                                    "")! >
-                                            0)
-                                      _foodBadge(_starsText(item['estrellas']),
-                                          _ratingColor(item['estrellas'])),
-                                    if (_foodReason(item) != "-")
-                                      _foodBadge(_foodReason(item), Colors.red),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _foodBadge(estadoConsumo, _foodStatusColor(estadoConsumo)),
+                                      if (motivoRechazo != "-")
+                                        _foodBadge(motivoRechazo, Colors.red),
+                                    ],
+                                  ),
+                                  if (estrellas > 0 || comentario.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.amber.shade200)
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (estrellas > 0)
+                                            Row(
+                                              children: List.generate(5, (index) => Icon(
+                                                index < estrellas ? Icons.star_rounded : Icons.star_outline_rounded,
+                                                color: Colors.amber.shade600,
+                                                size: 18,
+                                              )),
+                                            ),
+                                          if (estrellas > 0 && comentario.isNotEmpty)
+                                            const SizedBox(height: 6),
+                                          if (comentario.isNotEmpty)
+                                            Text(
+                                              '"$comentario"',
+                                              style: TextStyle(
+                                                color: Colors.amber.shade900,
+                                                fontStyle: FontStyle.italic,
+                                                fontSize: 11
+                                              ),
+                                            )
+                                        ],
+                                      ),
+                                    ),
                                   ],
-                                ),
                               ],
                             ),
                           ),
