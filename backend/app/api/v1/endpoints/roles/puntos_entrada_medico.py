@@ -311,7 +311,7 @@ def consumo_alimentario_paciente(
                         round(coalesce((ri.peso_en_gramos::numeric / 100) * ic.proteinas_g, 0)::numeric, 1) as proteinas_g
                     from nutricion.receta_ingrediente ri
                     join nutricion.ingrediente i on i.id = ri.id_ingrediente
-                    left join nutricion.composicion_alimento ic on ic.id_ingrediente = i.id
+                    left join nutricion.ingrediente_composicion ic on ic.id_ingrediente = i.id
                     where ri.id_receta = any(%s)
                     order by i.nombre asc
                     """,
