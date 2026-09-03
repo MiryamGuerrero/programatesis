@@ -9913,6 +9913,26 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+        
+    // --- INICIO MOCK (Solo demostración visual del modal completo) ---
+    if (items.isNotEmpty) {
+      items[0]['estrellas'] = 4;
+      items[0]['comentario'] = "Estuvo muy rico, pero le faltó un poco de sal para mi gusto. Sin embargo, Fran se lo comió casi todo.";
+      items[0]['estado_consumo'] = "Consumo parcial";
+      items[0]['motivo_rechazo'] = "Porción muy grande";
+      items[0]['imagen_url'] = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600&auto=format&fit=crop"; 
+      items[0]['calorias_totales'] = 350;
+      items[0]['proteinas_totales'] = 25;
+      items[0]['fecha'] = "2026-09-02T12:00:00Z";
+      items[0]['momento'] = "Almuerzo";
+      items[0]['receta_consumida'] = "Ensalada César con Pollo (Ficticio)";
+      items[0]['ingredientes'] = [
+        {"nombre": "Pechuga de Pollo", "cantidad": 150, "unidad": "g", "calorias_kcal": 165, "proteinas_g": 31},
+        {"nombre": "Lechuga Romana", "cantidad": 100, "unidad": "g", "calorias_kcal": 15, "proteinas_g": 1},
+        {"nombre": "Crutones Integrales", "cantidad": 30, "unidad": "g", "calorias_kcal": 120, "proteinas_g": 4},
+      ];
+    }
+    // --- FIN MOCK ---
     return items.where((item) {
       final planId = item['id_plan']?.toString() ?? "";
       final momento = (item['momento'] ?? "").toString();
@@ -10320,11 +10340,18 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                Text(
-                                  "Detalles Nutricionales",
-                                  style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 13),
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.blueGrey.shade400),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "${_formatIsoDate(item['fecha'])} • ${item['momento'] ?? 'Sin especificar'}",
+                                      style: TextStyle(
+                                          color: Colors.blueGrey.shade600,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                   Wrap(
