@@ -303,24 +303,30 @@ def consumo_alimentario_paciente(
                 cur.execute(
                     """
                     select
-                        pi.id_receta::text as id_receta,
-                        i.nombre as nombre
-                    from interaccion.plan_nutricional p
-                    join interaccion.plan_item pi on pi.id_plan = p.id
-                    join nutricion.receta_ingrediente ri on ri.id_receta = pi.id_receta
+                        ri.id_receta::text as id_receta,
+                        i.nombre as nombre,
+                        ri.peso_en_gramos as cantidad,
+                        'g' as unidad,
+                        round(coalesce((ri.peso_en_gramos::numeric / 100) * ic.energia_kcal, 0)::numeric, 1) as calorias_kcal,
+                        round(coalesce((ri.peso_en_gramos::numeric / 100) * ic.proteinas_g, 0)::numeric, 1) as proteinas_g
+                    from nutricion.receta_ingrediente ri
                     join nutricion.ingrediente i on i.id = ri.id_ingrediente
-                    where p.id_paciente = %s
-                      and pi.fecha_programada >= %s
-                      and pi.fecha_programada <= %s
-                      and coalesce(pi.consumida, false) = true
+                    left join nutricion.composicion_alimento ic on ic.id_ingrediente = i.id
+                    where ri.id_receta = any(%s)
                     order by i.nombre asc
                     """,
-                    (id_paciente, fecha_inicio, fecha_fin),
+                    (list(set(ids_receta)),),
                 )
                 ingredientes_por_receta: dict[str, list[dict[str, Any]]] = {}
-                for id_receta, nombre in cur.fetchall():
-                    ingredientes_por_receta.setdefault(str(id_receta), []).append(
-                        {"nombre": nombre}
+                for row in cur.fetchall():
+                    ingredientes_por_receta.setdefault(str(row[0]), []).append(
+                        {
+                            "nombre": row[1],
+                            "cantidad": float(row[2]) if row[2] else 0,
+                            "unidad": row[3],
+                            "calorias_kcal": float(row[4]) if row[4] else 0,
+                            "proteinas_g": float(row[5]) if row[5] else 0
+                        }
                     )
 
             for item in items:
