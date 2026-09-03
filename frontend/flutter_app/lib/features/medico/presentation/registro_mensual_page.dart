@@ -9703,7 +9703,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         _foodTableCol("FECHA", maxWidth: 60),
                         _foodTableCol("MOMENTO", maxWidth: 60),
                         _foodTableCol("RECETA", maxWidth: 160),
-                        _foodTableCol("ESTADO", maxWidth: 85),
+                        _foodTableCol("CONSUMIDA?", maxWidth: 85),
                         _foodTableCol("ACCIONES", center: true, maxWidth: 60),
                       ],
                       rows: visible.map((item) {
@@ -9729,15 +9729,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 child: _foodBadge(estado, color)
                               )),
                               DataCell(Center(
-                                child: TextButton.icon(
+                                child: IconButton(
                                   onPressed: () => _showFoodRecipeModal(item),
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 15),
-                                  label: const Text("Ver"),
-                                  style: TextButton.styleFrom(
-                                      textStyle: GoogleFonts.inter(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900)),
+                                  icon: const Icon(Icons.visibility_outlined, size: 20),
+                                  color: AppTema.azulPrincipal,
+                                  tooltip: "Ver detalles",
                                 ),
                               )),
                             ]);
@@ -10150,9 +10146,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       );
 
   Widget _foodBadge(String text, Color color) {
-    // Abreviar textos largos si es necesario para evitar desbordamiento
     String display = text;
-    if (text == "Sin registro") display = "N/R";
+    if (text == "Sin registro") display = "S/N";
+    if (text == "Consumida") display = "Sí";
+    if (text == "Rechazada") display = "No";
     if (text == "Consumo parcial") display = "Parcial";
     
     return Container(
