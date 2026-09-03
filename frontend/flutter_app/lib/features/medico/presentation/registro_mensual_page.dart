@@ -9699,11 +9699,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       dataRowMaxHeight: double.infinity,
                       dataRowMinHeight: 52,
                       columns: [
-                        _foodTableCol("FECHA"),
-                        _foodTableCol("MOMENTO"),
-                        _foodTableCol("RECETA", maxWidth: 220),
-                        _foodTableCol("CONSUMO"),
-                        _foodTableCol("ACCIONES", center: true),
+                        _foodTableCol("FECHA", maxWidth: 60),
+                        _foodTableCol("MOMENTO", maxWidth: 60),
+                        _foodTableCol("RECETA", maxWidth: 160),
+                        _foodTableCol("CONSUMO", maxWidth: 75),
+                        _foodTableCol("ACCIONES", center: true, maxWidth: 60),
                       ],
                       rows: visible.map((item) {
                         final estado =
@@ -9716,21 +9716,17 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                             color: WidgetStateProperty.all(
                                 badRating ? Colors.red.shade50 : Colors.white),
                             cells: [
-                              DataCell(
-                                  _foodCell(_formatIsoDate(item['fecha']))),
+                              DataCell(_foodCell(_formatIsoDate(item['fecha']), maxWidth: 60)),
+                              DataCell(_foodCell(item['momento']?.toString() ?? "-", maxWidth: 60)),
                               DataCell(_foodCell(
-                                  item['momento']?.toString() ?? "-")),
-                              DataCell(_foodCell(
-                                  (item['receta_consumida'] ??
-                                          item['receta_asignada'] ??
-                                          "-")
-                                      .toString(),
+                                  (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
                                   weight: FontWeight.w800,
-                                  maxWidth: 220,
-                                  color: badRating
-                                      ? Colors.red.shade800
-                                      : const Color(0xFF334155))),
-                              DataCell(_foodBadge(estado, color)),
+                                  maxWidth: 160,
+                                  color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
+                              DataCell(Container(
+                                constraints: const BoxConstraints(maxWidth: 75),
+                                child: _foodBadge(estado, color)
+                              )),
                               DataCell(Center(
                                 child: TextButton.icon(
                                   onPressed: () => _showFoodRecipeModal(item),
@@ -10242,8 +10238,22 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     final String? imgUrl = item["imagen_url"];
 
     // Calorias y Proteinas
-    final caloriasTotales = item["calorias_totales"] ?? 0;
-    final proteinasTotales = item["proteinas_totales"] ?? 0;
+    double cal = (item['calorias_por_porcion'] ?? item['calorias_kcal'] ?? item['calorias_totales'] ?? 0).toDouble();
+    double prot = (item['proteinas_por_porcion'] ?? item['proteinas_g'] ?? item['proteinas_totales'] ?? 0).toDouble();
+    if (cal == 0 || prot == 0) {
+      for (final ing in ingredientes) {
+        cal += (ing['calorias_kcal'] ?? ing['calorias'] ?? 0).toDouble();
+        prot += (ing['proteinas_g'] ?? ing['proteinas'] ?? 0).toDouble();
+      }
+    }
+    final caloriasTotales = cal.toInt();
+    final proteinasTotales = prot.toInt();
+    
+    final int estrellas = int.tryParse(item['estrellas']?.toString() ?? "") ?? 0;
+    final String comentario = (item['comentario'] ?? "").toString().trim();
+    final String motivoRechazo = _foodReason(item);
+    final String estadoConsumo = (item['estado_consumo'] ?? "No marcada").toString();
+
 
     showDialog(
       context: context,
@@ -10267,13 +10277,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                           fit: BoxFit.cover,
                           loadingBuilder: (ctx, child, progress) {
                             if (progress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: AppTema.azulPrincipal,
-                                value: progress.expectedTotalBytes != null
-                                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                                    : null,
-                              ),
+                            return Shimmer.fromColors(
+                              baseColor: Colors.grey.shade300,
+                              highlightColor: Colors.grey.shade100,
+                              child: Container(color: Colors.white),
                             );
                           },
                           errorBuilder: (_, __, ___) => const Center(
