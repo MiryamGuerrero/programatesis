@@ -9703,7 +9703,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         _foodTableCol("FECHA", maxWidth: 60),
                         _foodTableCol("MOMENTO", maxWidth: 60),
                         _foodTableCol("RECETA", maxWidth: 160),
-                        _foodTableCol("CONSUMO", maxWidth: 75),
+                        _foodTableCol("ESTADO", maxWidth: 85),
                         _foodTableCol("ACCIONES", center: true, maxWidth: 60),
                       ],
                       rows: visible.map((item) {
@@ -9725,7 +9725,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                   maxWidth: 160,
                                   color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
                               DataCell(Container(
-                                constraints: const BoxConstraints(maxWidth: 75),
+                                constraints: const BoxConstraints(maxWidth: 85),
                                 child: _foodBadge(estado, color)
                               )),
                               DataCell(Center(
@@ -10149,16 +10149,27 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ),
       );
 
-  Widget _foodBadge(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: color.withValues(alpha: 0.2))),
-        child: Text(text,
-            style: GoogleFonts.inter(
-                fontSize: 10, fontWeight: FontWeight.w800, color: color)),
-      );
+  Widget _foodBadge(String text, Color color) {
+    // Abreviar textos largos si es necesario para evitar desbordamiento
+    String display = text;
+    if (text == "Sin registro") display = "N/R";
+    if (text == "Consumo parcial") display = "Parcial";
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.2))),
+      child: Text(
+        display,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.inter(
+            fontSize: 9, fontWeight: FontWeight.w800, color: color),
+      ),
+    );
+  }
 
   String _starsText(dynamic value) {
     final stars = int.tryParse(value?.toString() ?? "");
