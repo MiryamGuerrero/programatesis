@@ -9661,6 +9661,17 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
         ),
         const SizedBox(height: 14),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _buildFoodLegendItem("Sí", "Consumida", AppTema.verdeSalud),
+            _buildFoodLegendItem("No", "Rechazada", Colors.red.shade700),
+            _buildFoodLegendItem("Parcial", "Consumo parcial", Colors.orange.shade700),
+            _buildFoodLegendItem("S/N", "Sin registro", Colors.grey.shade600),
+          ],
+        ),
+        const SizedBox(height: 14),
         if (visible.isEmpty)
           Container(
             width: double.infinity,
@@ -10144,6 +10155,31 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               height: 1.2),
         ),
       );
+
+  Widget _buildFoodLegendItem(String abbr, String description, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Text(
+            abbr,
+            style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.bold, color: color),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          description,
+          style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700),
+        ),
+      ],
+    );
+  }
 
   Widget _foodBadge(String text, Color color) {
     String display = text;
