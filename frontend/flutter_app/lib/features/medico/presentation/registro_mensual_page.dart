@@ -9604,35 +9604,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Consumo alimentario y aceptación de recetas",
-            style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F172A))),
-        const SizedBox(height: 24),
-        Text("TABLA 1: ADHERENCIA A LA DIETA",
-            style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                color: Colors.blueGrey.shade800)),
-        const SizedBox(height: 6),
-        Text(
-          "Resumen clínico para relacionar adherencia, aceptación alimentaria y posibles impactos en la evolución del paciente.",
-          style: GoogleFonts.inter(
-              fontSize: 10,
-              color: Colors.blueGrey,
-              fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.green.shade100),
-          ),
-          child: Wrap(
+
+        Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
@@ -9659,7 +9632,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       })),
             ],
           ),
-        ),
         const SizedBox(height: 14),
         Wrap(
           spacing: 16,
