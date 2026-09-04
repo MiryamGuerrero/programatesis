@@ -9643,7 +9643,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 3,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -9703,7 +9703,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    flex: 6,
+                    flex: 7,
                     child: _buildChoiceChipRow(
                       "Filtrar por momento",
                       _foodMomentFilter,
