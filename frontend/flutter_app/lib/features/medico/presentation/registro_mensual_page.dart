@@ -3160,7 +3160,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         
         for (var item in items) {
           final ec = (item['estado_consumo'] ?? "").toString().toLowerCase();
-          if (ec == "completo") consumidas++;
+          if (ec == "consumida") consumidas++;
           else if (ec == "rechazado") rechazadas++;
           else if (ec == "parcial") parciales++;
           else sinRegistro++;
