@@ -9605,33 +9605,35 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _foodPlanFilterChip(
-                  "Plan",
-                  _foodPlanFilter,
-                  (value) => setState(() {
-                        _foodPlanFilter = value;
-                        _foodPage = 1;
-                      })),
-              _foodPlanFilterChip(
-                  "Momento",
-                  _foodMomentFilter,
-                  (value) => setState(() {
-                        _foodMomentFilter = value;
-                        _foodPage = 1;
-                      })),
-              _foodPlanFilterChip(
-                  "Estado",
-                  _foodStateFilter,
-                  (value) => setState(() {
-                        _foodStateFilter = value;
-                        _foodPage = 1;
-                      })),
-            ],
-          ),
+        _buildChoiceChipRow(
+          "Plan",
+          _foodPlanFilter,
+          _foodOptionsFor("Plan"),
+          (value) => setState(() {
+            _foodPlanFilter = value;
+            _foodPage = 1;
+          }),
+        ),
+        const SizedBox(height: 12),
+        _buildChoiceChipRow(
+          "Momento",
+          _foodMomentFilter,
+          _foodOptionsFor("Momento"),
+          (value) => setState(() {
+            _foodMomentFilter = value;
+            _foodPage = 1;
+          }),
+        ),
+        const SizedBox(height: 12),
+        _buildChoiceChipRow(
+          "Estado",
+          _foodStateFilter,
+          _foodOptionsFor("Estado"),
+          (value) => setState(() {
+            _foodStateFilter = value;
+            _foodPage = 1;
+          }),
+        ),
         const SizedBox(height: 14),
         Wrap(
           spacing: 16,
