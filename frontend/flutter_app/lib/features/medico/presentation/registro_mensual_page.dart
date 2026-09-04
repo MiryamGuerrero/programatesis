@@ -1915,7 +1915,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildObjetivosOmsRow(),
           const SizedBox(height: 12),
           Container(
@@ -3074,7 +3074,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 ],
                 fig4Interp),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             
           ],
         );
@@ -3178,7 +3178,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             _bullet("Adherencia general: ${adh.toStringAsFixed(0)}% durante el periodo evaluado."),
             _bullet(badCount > 0 ? "Se registran $badCount recetas con mala aceptación." : "No se registran recetas con mala aceptación en el periodo."),
             _bullet("Correlacione con síntomas, brote y tolerancia alimentaria en la siguiente consulta."),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -3655,7 +3655,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     color: Colors.blueGrey,
                     letterSpacing: 0.5))
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Container(
                 width: 40,
@@ -5211,7 +5211,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF334155),
                   height: 1.3)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               if (stats['altaActividad'] == true)
@@ -5277,14 +5277,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         _redesignUltimosControles(controls),
         const SizedBox(height: 32),
         _buildEvoActivitySection(controls),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _buildEvoInflammationSectionV2(controls),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _buildEvoHeatmapSection(controls),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _buildEvoGrowthSection(
             controls, Map<String, dynamic>.from(evo['paciente'] ?? {})),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _buildEvoImpactSection(controls),
       ],
     );
@@ -5632,7 +5632,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   ])),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _evoSummaryRow(controls, type: "symptoms"),
         ],
       ),
@@ -7235,7 +7235,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Row(
           children: [
             _interpretationCardCompact("Picos síntomas", picosResumen,
@@ -7638,7 +7638,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 Icons.coronavirus_rounded, Colors.red),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
 
         Container(
           padding: const EdgeInsets.all(24),
@@ -7700,7 +7700,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         Row(
           children: [
             _actionCard("Hallazgo principal", _impactMainFinding(impactData),
@@ -7959,7 +7959,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -8134,7 +8134,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
               maxLines: 3,
               overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -8823,7 +8823,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -8835,7 +8835,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             ],
           ),
           if (resumenClinico.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             for (final item in resumenClinico.take(4))
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -9022,7 +9022,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   children: [
                     _legendChip(
                         "Tamaño: Art. inflamadas", Colors.blueGrey, "0 - 3"),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _legendChip("Color: Brote", Colors.red, "Sí"),
                     _legendChip("", Colors.green, "No"),
                     const SizedBox(height: 14),
@@ -9542,7 +9542,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   "Nutrición", c['estado_nutricional']?.toString() ?? "-"),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           if ((c['nota_evolucion'] ?? '').toString().isNotEmpty)
             Text("Nota: ${c['nota_evolucion']}",
                 style: GoogleFonts.inter(
@@ -9607,54 +9607,55 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueGrey.shade100.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.blueGrey.withOpacity(0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               )
             ],
-            border: Border.all(color: Colors.blue.shade50),
+            border: Border.all(color: Colors.grey.shade200, width: 0.8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 20),
+                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 16),
                   const SizedBox(width: 8),
                   Text("Filtros",
                       style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
                           color: AppTema.azulPrincipal)),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Text("Filtrar por plan nutricional",
                   style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blueGrey.shade400)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blueGrey.shade500)),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300, width: 0.8),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
                     value: _foodPlanFilter,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey, size: 18),
+                    isDense: true,
                     style: GoogleFonts.inter(
-                        fontSize: 13,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Colors.blueGrey.shade800),
                     onChanged: (v) {
@@ -9674,7 +9675,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               _buildChoiceChipRow(
                 "Filtrar por momento",
                 _foodMomentFilter,
@@ -9684,7 +9685,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   _foodPage = 1;
                 }),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               _buildChoiceChipRow(
                 "Filtrar por estado",
                 _foodStateFilter,
@@ -9792,7 +9793,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               ),
             ),
           ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _foodPagination(total, start, end, totalPages),
         const SizedBox(height: 14),
         Row(
@@ -9894,16 +9895,16 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     
     IconData? getIcon(String val) {
       if (title == "Filtrar por estado") {
-        if (val == "solo_rechazadas") return Icons.cancel_rounded;
-        if (val == "posible_reaccion") return Icons.warning_rounded;
+        if (val == "solo_rechazadas") return Icons.thumb_down_rounded;
+        if (val == "posible_reaccion") return Icons.health_and_safety_rounded;
         if (val == "sin_registro") return Icons.help_outline_rounded;
-        if (val == "todo") return Icons.groups_rounded; // like image
+        if (val == "todo") return Icons.grid_view_rounded;
       }
       if (title == "Filtrar por momento") {
-        if (val.toLowerCase().contains("desayuno")) return Icons.wb_twilight_rounded;
-        if (val.toLowerCase().contains("almuerzo")) return Icons.wb_sunny_rounded;
+        if (val.toLowerCase().contains("desayuno")) return Icons.free_breakfast_rounded;
+        if (val.toLowerCase().contains("almuerzo")) return Icons.restaurant_rounded;
         if (val.toLowerCase().contains("merienda") || val.toLowerCase().contains("cena")) return Icons.nights_stay_rounded;
-        if (val == "todo") return Icons.groups_rounded; // like image
+        if (val == "todo") return Icons.grid_view_rounded;
       }
       return null;
     }
@@ -9922,10 +9923,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       children: [
         Text(title,
             style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.blueGrey.shade400)),
-        const SizedBox(height: 10),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueGrey.shade500)),
+        const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -9937,20 +9938,20 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               final color = getColor(val);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 16, color: isSelected ? color : Colors.blueGrey.shade400),
-                        const SizedBox(width: 6),
+                        Icon(icon, size: 13, color: isSelected ? color : Colors.blueGrey.shade400),
+                        const SizedBox(width: 4),
                       ],
                       Text(
                         label,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? color : Colors.blueGrey.shade600,
                         ),
                       ),
@@ -9963,13 +9964,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   selectedColor: color.withOpacity(0.08),
                   backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     side: BorderSide(
                       color: isSelected ? color : Colors.grey.shade300,
-                      width: isSelected ? 1.5 : 1.0,
+                      width: 0.8,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   showCheckmark: false,
                 ),
               );
@@ -10104,13 +10106,13 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F2A5F))),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text("El paciente consumió con mayor frecuencia:",
               style: GoogleFonts.inter(
                   fontSize: 10,
                   color: Colors.blueGrey,
                   fontWeight: FontWeight.w600)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           if (ingredients.isEmpty)
             Text("Sin consumo suficiente para generar hallazgos.",
                 style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey))
