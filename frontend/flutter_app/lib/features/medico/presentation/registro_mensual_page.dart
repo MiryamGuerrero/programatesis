@@ -9815,6 +9815,110 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ),
       );
 
+  Widget _buildChoiceChipRow(
+      String title,
+      String currentValue,
+      List<Map<String, String>> options,
+      void Function(String) onChanged) {
+    if (title == "Estado") {
+      options = const [
+        {"value": "todo", "label": "Todos"},
+        {"value": "solo_rechazadas", "label": "Solo rechazadas"},
+        {"value": "posible_reaccion", "label": "Posible reacción"},
+        {"value": "sin_registro", "label": "Sin registro"},
+      ];
+    }
+    
+    IconData? getIcon(String val) {
+      if (title == "Estado") {
+        if (val == "solo_rechazadas") return Icons.cancel_rounded;
+        if (val == "posible_reaccion") return Icons.warning_rounded;
+        if (val == "sin_registro") return Icons.help_outline_rounded;
+        if (val == "todo") return Icons.all_inclusive_rounded;
+      }
+      if (title == "Momento") {
+        if (val.toLowerCase().contains("desayuno")) return Icons.wb_twilight_rounded;
+        if (val.toLowerCase().contains("almuerzo")) return Icons.wb_sunny_rounded;
+        if (val.toLowerCase().contains("merienda") || val.toLowerCase().contains("cena")) return Icons.nights_stay_rounded;
+        if (val == "todo") return Icons.restaurant_menu_rounded;
+      }
+      if (title == "Plan") {
+        return Icons.calendar_month_rounded;
+      }
+      return null;
+    }
+
+    Color getColor(String val) {
+      if (title == "Estado") {
+        if (val == "solo_rechazadas") return Colors.red.shade700;
+        if (val == "posible_reaccion") return Colors.orange.shade700;
+        if (val == "sin_registro") return Colors.grey.shade600;
+      }
+      return AppTema.azulPrincipal;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Colors.blueGrey.shade400)),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: options.map((opt) {
+              final val = opt['value']!;
+              final label = opt['label']!;
+              final isSelected = currentValue == val;
+              final icon = getIcon(val);
+              final color = getColor(val);
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 14, color: isSelected ? Colors.white : color),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        label,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                          color: isSelected ? Colors.white : Colors.blueGrey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) onChanged(val);
+                  },
+                  selectedColor: color,
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isSelected ? color : Colors.grey.shade300,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  showCheckmark: false,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _foodPlanFilterChip(
       String label, String value, void Function(String) onChanged) {
     final options = label == "Estado"
