@@ -3160,14 +3160,17 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         
         for (var item in items) {
           final ec = (item['estado_consumo'] ?? "").toString().toLowerCase();
-          if (ec == "consumida") consumidas++;
-          else if (ec == "rechazado") rechazadas++;
-          else if (ec == "parcial") parciales++;
+          if (ec.contains("consumida")) consumidas++;
+          else if (ec.contains("rechazada") || ec.contains("rechazado")) rechazadas++;
+          else if (ec.contains("parcial")) parciales++;
           else sinRegistro++;
         }
         
-        final validForAdherence = consumidas + parciales + rechazadas;
-        final dynAdh = validForAdherence > 0 ? ((consumidas + (parciales * 0.5)) / validForAdherence) * 100 : 0.0;
+        // La fórmula estricta (igual al backend): 
+        // Adherencia = (Consumidas / Total de comidas) * 100
+        // Las comidas "Sin registro" penalizan la adherencia.
+        final validForAdherence = items.length;
+        final dynAdh = validForAdherence > 0 ? (consumidas / validForAdherence) * 100 : 0.0;
         final impact = _foodRiskLabel(dynAdh, validForAdherence > 0);
         final impactColor = _foodRiskColor(impact);
 
