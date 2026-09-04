@@ -3150,15 +3150,27 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         title = "CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS";
         desc = ""; // Se reemplaza por el resumen clínico
         
-        final data = _consumoAlimentario;
-        final resumen = Map<String, dynamic>.from(data?['resumen'] ?? {});
         final items = _foodFilteredItems();
-        final adh = (resumen['adherencia_porcentaje'] as num?)?.toDouble() ?? 0;
-        final badCount = (resumen['total_mala_aceptacion'] as num?)?.toInt() ?? 0;
         final hasItems = items.isNotEmpty;
-        final impact = _foodRiskLabel(adh, hasItems);
-        final impactColor = _foodRiskColor(impact);
         
+        int consumidas = 0;
+        int rechazadas = 0;
+        int sinRegistro = 0;
+        int parciales = 0;
+        
+        for (var item in items) {
+          final ec = (item['estado_consumo'] ?? "").toString().toLowerCase();
+          if (ec == "completo") consumidas++;
+          else if (ec == "rechazado") rechazadas++;
+          else if (ec == "parcial") parciales++;
+          else sinRegistro++;
+        }
+        
+        final validForAdherence = consumidas + parciales + rechazadas;
+        final dynAdh = validForAdherence > 0 ? ((consumidas + (parciales * 0.5)) / validForAdherence) * 100 : 0.0;
+        final impact = _foodRiskLabel(dynAdh, validForAdherence > 0);
+        final impactColor = _foodRiskColor(impact);
+
         Widget _bullet(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
@@ -3173,11 +3185,23 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         kpis = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Resumen clínico", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+            Text("Resumen dinámico (Filtros activos)", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
             const SizedBox(height: 12),
-            _bullet("Adherencia general: ${adh.toStringAsFixed(0)}% durante el periodo evaluado."),
-            _bullet(badCount > 0 ? "Se registran $badCount recetas con mala aceptación." : "No se registran recetas con mala aceptación en el periodo."),
-            _bullet("Correlacione con síntomas, brote y tolerancia alimentaria en la siguiente consulta."),
+            if (!hasItems)
+              _bullet("No hay comidas que coincidan con los filtros actuales.")
+            else ...[
+              _bullet("Se muestran ${items.length} comidas en el filtro actual."),
+              if (validForAdherence > 0)
+                _bullet("Adherencia calculada: ${dynAdh.toStringAsFixed(0)}% (Completas: $consumidas, Parciales: $parciales).")
+              else
+                _bullet("No hay suficientes datos con registro para calcular adherencia en esta vista."),
+              if (rechazadas > 0)
+                _bullet("Atención: Hay $rechazadas recetas rechazadas bajo estas condiciones.")
+              else if (validForAdherence > 0)
+                _bullet("Buena aceptación: No se registran rechazos en este filtro."),
+              if (sinRegistro > 0)
+                _bullet("Falta registro en $sinRegistro de las comidas mostradas."),
+            ],
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -3190,10 +3214,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Posible impacto clínico:", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: impactColor)),
+                  Text("Posible impacto clínico (sobre la vista actual):", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: impactColor)),
                   const SizedBox(height: 6),
                   Text(
-                    "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto." : impact == "Alto" ? "baja adherencia con riesgo de afectar la evolución nutricional y clínica." : impact == "Medio" ? "requiere seguimiento estrecho para evitar deterioro nutricional." : "adherencia aceptable, solo vigilancia rutinaria."}",
+                    "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto en esta vista." : impact == "Alto" ? "baja adherencia en estos filtros con posible riesgo nutricional." : impact == "Medio" ? "requiere seguimiento en estas comidas para evitar deterioro." : "adherencia aceptable en esta selección."}",
                     style: GoogleFonts.inter(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
                   ),
                 ],
