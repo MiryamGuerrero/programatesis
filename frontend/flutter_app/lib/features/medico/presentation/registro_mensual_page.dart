@@ -2663,6 +2663,53 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         Widget buildMultiKpiBlock(String badge, String title,
             List<Map<String, dynamic>> kpis, String interp) {
           Widget kpiWidget(int i) {
+            final valStr = kpis[i]['val'].toString().trim();
+            final Widget valueWidget;
+            if (valStr.contains('/') && valStr.split('/').length == 2) {
+              final parts = valStr.split('/');
+              valueWidget = RichText(
+                  text: TextSpan(children: [
+                TextSpan(
+                    text: parts[0].trim(),
+                    style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppTema.azulPrincipal)),
+                TextSpan(
+                    text: " / ${parts[1].trim()}",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTema.azulPrincipal)),
+              ]));
+            } else {
+              final unitMatch =
+                  RegExp(r'^([^\s]+)\s+([a-zA-Z%°]+.*)$').firstMatch(valStr);
+              if (unitMatch != null) {
+                valueWidget = RichText(
+                    text: TextSpan(children: [
+                  TextSpan(
+                      text: unitMatch.group(1),
+                      style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppTema.azulPrincipal)),
+                  TextSpan(
+                      text: " ${unitMatch.group(2)}",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTema.azulPrincipal)),
+                ]));
+              } else {
+                valueWidget = Text(valStr,
+                    style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppTema.azulPrincipal));
+              }
+            }
+
             return Padding(
               padding: const EdgeInsets.only(right: 8, bottom: 16),
               child: Column(
@@ -2675,11 +2722,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                           color: Colors.blueGrey,
                           height: 1.2)),
                   const SizedBox(height: 4),
-                  Text(kpis[i]['val'].toString(),
-                      style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTema.azulPrincipal)),
+                  valueWidget,
                 ],
               ),
             );
@@ -3061,7 +3104,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 [
                   {
                     'title': 'Inflamación\nactual',
-                    'val': '${fig4Infl.toStringAsFixed(0)}/3'
+                    'val': filteredControls.isEmpty
+                        ? '-/3'
+                        : '${fig4Infl.toStringAsFixed(0)}/3'
                   },
                   {
                     'title': '¿Existen brotes\nactualmente?',
@@ -4773,10 +4818,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
     return Container(
       height: 220,
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(top: 6, right: 6),
       child: LineChart(
         LineChartData(
-          clipData: const FlClipData.all(),
+          clipData: const FlClipData.none(),
           minX: 0,
           maxX: spots.length <= 1 ? 1 : (spots.length - 1).toDouble(),
           minY: 0,
@@ -4789,7 +4834,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               show: true,
               drawVerticalLine: false,
               getDrawingHorizontalLine: (v) => FlLine(
-                  color: const Color(0xFFE2E8F0),
+                  color: const Color(0xFFB6C3CA),
                   strokeWidth: 1,
                   dashArray: [4, 4])),
           borderData: FlBorderData(show: false),
@@ -4813,11 +4858,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF94A3B8))))),
+                            color: const Color(0xFF64748B))))),
             bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                     showTitles: true,
-                    reservedSize: 24,
+                    reservedSize: 36,
                     interval: 1,
                     getTitlesWidget: (v, meta) {
                       final idx = v.round();
@@ -4828,15 +4873,19 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         return const SizedBox.shrink();
                       return Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                              (controls[idx]['mes_label_largo'] ??
-                                      _monthLong(
-                                          controls[idx]['fecha_control'] ?? ""))
-                                  .toString(),
-                              style: GoogleFonts.inter(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF94A3B8))));
+                          child: RotatedBox(
+                            quarterTurns: 3,
+                            child: Text(
+                                (controls[idx]['mes_label_largo'] ??
+                                        _monthShort(
+                                            controls[idx]['fecha_control'] ?? ""))
+                                    .toString(),
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                    fontSize: 7.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B))),
+                          ));
                     })),
             rightTitles:
                 const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -5874,7 +5923,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           // Gráfica
           Expanded(
             child: SizedBox(
-              height: 120,
+              height: 125,
               child: LineChart(
                 LineChartData(
                   minX: 0,
@@ -5885,7 +5934,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       show: true,
                       drawVerticalLine: false,
                       getDrawingHorizontalLine: (v) => FlLine(
-                          color: const Color(0xFFF1F5F9), strokeWidth: 1)),
+                          color: const Color(0xFFB6C3CA), strokeWidth: 1)),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
                     LineChartBarData(
@@ -5916,11 +5965,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 style: GoogleFonts.inter(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF94A3B8))))),
+                                    color: const Color(0xFF64748B))))),
                     bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                             showTitles: true,
-                            reservedSize: 20,
+                            reservedSize: 32,
                             interval: 1,
                             getTitlesWidget: (v, meta) {
                               final idx = v.round();
@@ -5929,16 +5978,22 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                               }
                               if (idx < 0 || idx >= controls.length)
                                 return const SizedBox.shrink();
-                              return Text(
-                                  (controls[idx]['mes_label_largo'] ??
-                                          _monthLong(controls[idx]
-                                                  ['fecha_control'] ??
-                                              ""))
-                                      .toString(),
-                                  style: GoogleFonts.inter(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF94A3B8)));
+                              return Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: RotatedBox(
+                                    quarterTurns: 3,
+                                    child: Text(
+                                        (controls[idx]['mes_label_largo'] ??
+                                                _monthShort(controls[idx]
+                                                        ['fecha_control'] ??
+                                                    ""))
+                                            .toString(),
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.inter(
+                                            fontSize: 7.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF64748B))),
+                                  ));
                             })),
                     rightTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false)),
@@ -6126,7 +6181,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 210,
+            height: 215,
             child: LineChart(
               LineChartData(
                 minX: 0,
@@ -6137,7 +6192,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (v) => FlLine(
-                        color: const Color(0xFFF1F5F9),
+                        color: const Color(0xFFB6C3CA),
                         strokeWidth: 1,
                         dashArray: [4, 4])),
                 borderData: FlBorderData(show: false),
@@ -6181,12 +6236,12 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 style: GoogleFonts.inter(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF94A3B8)));
+                                    color: const Color(0xFF64748B)));
                           })),
                   bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 24,
+                          reservedSize: 36,
                           interval: 1,
                           getTitlesWidget: (v, meta) {
                             final idx = v.round();
@@ -6197,16 +6252,20 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                             }
                             return Padding(
                                 padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                    (controls[idx]['mes_label_largo'] ??
-                                            _monthLong(controls[idx]
-                                                    ['fecha_control'] ??
-                                                ""))
-                                        .toString(),
-                                    style: GoogleFonts.inter(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF94A3B8))));
+                                child: RotatedBox(
+                                  quarterTurns: 3,
+                                  child: Text(
+                                      (controls[idx]['mes_label_largo'] ??
+                                              _monthShort(controls[idx]
+                                                      ['fecha_control'] ??
+                                                  ""))
+                                          .toString(),
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF64748B))),
+                                ));
                           })),
                   rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false)),
@@ -6496,7 +6555,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 show: true,
                                 drawVerticalLine: false,
                                 getDrawingHorizontalLine: (v) => FlLine(
-                                    color: const Color(0xFFF1F5F9),
+                                    color: const Color(0xFFB6C3CA),
                                     strokeWidth: 1,
                                     dashArray: [4, 4])),
                             borderData: FlBorderData(show: false),
@@ -6539,11 +6598,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                               fontSize: 9,
                                               fontWeight: FontWeight.w600,
                                               color:
-                                                  const Color(0xFF94A3B8))))),
+                                                  const Color(0xFF64748B))))),
                               bottomTitles: AxisTitles(
                                   sideTitles: SideTitles(
                                       showTitles: true,
-                                      reservedSize: 24,
+                                      reservedSize: 36,
                                       getTitlesWidget: (v, meta) {
                                         int idx = v.toInt();
                                         if (idx < 0 || idx >= controls.length)
@@ -6551,15 +6610,19 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                         return Padding(
                                             padding:
                                                 const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                                _monthLong(controls[idx]
-                                                        ['fecha_control'] ??
-                                                    ""),
-                                                style: GoogleFonts.inter(
-                                                    fontSize: 9,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: const Color(
-                                                        0xFF94A3B8))));
+                                            child: RotatedBox(
+                                              quarterTurns: 3,
+                                              child: Text(
+                                                  _monthShort(controls[idx]
+                                                          ['fecha_control'] ??
+                                                      ""),
+                                                  textAlign: TextAlign.center,
+                                                  style: GoogleFonts.inter(
+                                                      fontSize: 7.5,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: const Color(
+                                                          0xFF64748B))),
+                                            ));
                                       })),
                               rightTitles: const AxisTitles(
                                   sideTitles: SideTitles(showTitles: false)),
@@ -8265,11 +8328,33 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               children: [
                 Text(label,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
-                Text(value,
-                    style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
+                Builder(builder: (_) {
+                  final unitMatch = RegExp(r'^([^\s]+)\s+([a-zA-Z%°]+.*)$')
+                      .firstMatch(value.trim());
+                  if (unitMatch != null) {
+                    return RichText(
+                      text: TextSpan(children: [
+                        TextSpan(
+                            text: unitMatch.group(1),
+                            style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: color)),
+                        TextSpan(
+                            text: " ${unitMatch.group(2)}",
+                            style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: color)),
+                      ]),
+                    );
+                  }
+                  return Text(value,
+                      style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: color));
+                }),
               ],
             ),
           ],
@@ -8415,7 +8500,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         maxX: (controls.length - 1).toDouble().clamp(0, double.infinity),
         minY: minY,
         maxY: maxY,
-        clipData: const FlClipData.all(),
+        clipData: const FlClipData.none(),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
@@ -8635,9 +8720,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     final inflMinY = max(-0.35, minInfl - inflPadding);
     final inflMaxY = min(3.35, maxInfl + inflPadding);
 
-    return ClipRect(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -8699,7 +8783,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             Positioned.fill(
               child: LineChart(
                 LineChartData(
-                  clipData: const FlClipData.all(),
+                  clipData: const FlClipData.none(),
                   lineBarsData: [
                     LineChartBarData(
                       spots: impactData.asMap().entries.map((e) {
@@ -8760,8 +8844,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _sideStatCard(
@@ -9175,7 +9258,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (v) => FlLine(
-                        color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+                        color: const Color(0xFFB6C3CA), strokeWidth: 1)),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
@@ -9198,22 +9281,32 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                               : 1,
                           getTitlesWidget: (v, meta) => Text(
                               v.toInt().toString(),
-                              style: const TextStyle(fontSize: 9)))),
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600)))),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 26,
+                      reservedSize: 32,
                       getTitlesWidget: (v, meta) {
                         final idx = v.toInt();
                         if (idx < 0 || idx >= controls.length)
                           return const SizedBox.shrink();
                         return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                              _monthShort(
-                                  controls[idx]['fecha_control']?.toString() ??
-                                      ''),
-                              style: const TextStyle(fontSize: 9)),
+                          padding: const EdgeInsets.only(top: 2),
+                          child: RotatedBox(
+                            quarterTurns: 3,
+                            child: Text(
+                                _monthShort(
+                                    controls[idx]['fecha_control']?.toString() ??
+                                        ''),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 7.5,
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w600)),
+                          ),
                         );
                       },
                     ),
@@ -9313,7 +9406,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (v) => FlLine(
-                        color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+                        color: const Color(0xFFB6C3CA), strokeWidth: 1)),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
@@ -9335,16 +9428,26 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 26,
+                          reservedSize: 32,
                           getTitlesWidget: (v, meta) {
                             final idx = v.toInt();
                             if (idx < 0 || idx >= controls.length)
                               return const SizedBox.shrink();
-                            return Text(
-                                _monthLong(controls[idx]['fecha_control']
-                                        ?.toString() ??
-                                    ''),
-                                style: const TextStyle(fontSize: 9));
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: RotatedBox(
+                                quarterTurns: 3,
+                                child: Text(
+                                    _monthShort(controls[idx]['fecha_control']
+                                            ?.toString() ??
+                                        ''),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        fontSize: 7.5,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            );
                           })),
                   rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false)),
