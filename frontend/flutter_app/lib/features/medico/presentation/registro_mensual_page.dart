@@ -3262,7 +3262,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         const SizedBox(height: 16),
         Text(title,
             style: GoogleFonts.inter(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppTema.azulPrincipal,
                 letterSpacing: -0.5)),
@@ -9625,67 +9625,98 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             children: [
               Row(
                 children: [
-                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 16),
+                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 18),
                   const SizedBox(width: 8),
                   Text("Filtros",
                       style: GoogleFonts.inter(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: AppTema.azulPrincipal)),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Divider(height: 1, thickness: 0.8),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text("Filtrar por plan nutricional",
-                  style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.blueGrey.shade500)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300, width: 0.8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _foodPlanFilter,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey, size: 18),
-                    isDense: true,
-                    style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blueGrey.shade800),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() {
-                          _foodPlanFilter = v;
-                          _foodPage = 1;
-                        });
-                      }
-                    },
-                    items: _foodOptionsFor("Plan")
-                        .map((e) => DropdownMenuItem(
-                              value: e['value'],
-                              child: Text(e['label']!),
-                            ))
-                        .toList(),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Filtrar por plan nutricional",
+                            style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blueGrey.shade500)),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300, width: 0.8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _foodPlanFilter,
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey, size: 18),
+                              isDense: true,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blueGrey.shade800),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setState(() {
+                                    _foodPlanFilter = v;
+                                    _foodPage = 1;
+                                  });
+                                }
+                              },
+                              items: _foodOptionsFor("Plan")
+                                  .map((e) => DropdownMenuItem(
+                                        value: e['value'],
+                                        child: Row(
+                                          children: [
+                                            if (e['value'] != "todo") ...[
+                                              Icon(Icons.calendar_month_rounded, size: 13, color: Colors.blueGrey.shade400),
+                                              const SizedBox(width: 6),
+                                            ],
+                                            Expanded(
+                                              child: Text(e['label']!,
+                                                  overflow: TextOverflow.ellipsis),
+                                            ),
+                                          ],
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 6,
+                    child: _buildChoiceChipRow(
+                      "Filtrar por momento",
+                      _foodMomentFilter,
+                      _foodOptionsFor("Momento"),
+                      (value) => setState(() {
+                        _foodMomentFilter = value;
+                        _foodPage = 1;
+                      }),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              _buildChoiceChipRow(
-                "Filtrar por momento",
-                _foodMomentFilter,
-                _foodOptionsFor("Momento"),
-                (value) => setState(() {
-                  _foodMomentFilter = value;
-                  _foodPage = 1;
-                }),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildChoiceChipRow(
                 "Filtrar por estado",
                 _foodStateFilter,
