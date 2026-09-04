@@ -89,6 +89,13 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
   static const int pageSize = 5;
   Future<void>? _formDataRequest;
 
+  Future<void> loadPageIfNeeded({int? offset}) async {
+    if (state.rules.isNotEmpty && !state.isLoading) {
+      return;
+    }
+    return loadPage(offset: offset);
+  }
+
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
     state = state.copyWith(
@@ -303,6 +310,13 @@ class MedicalConditionsNotifier extends StateNotifier<MedicalConditionsState> {
   final Ref _ref;
   static const int pageSize = 5;
 
+  Future<void> loadPageIfNeeded({int? offset}) async {
+    if (state.conditions.isNotEmpty && !state.isLoading) {
+      return;
+    }
+    return loadPage(offset: offset);
+  }
+
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
     state = state.copyWith(
@@ -336,6 +350,7 @@ class MedicalConditionsNotifier extends StateNotifier<MedicalConditionsState> {
   }
 
   void setTipo(int? tipo) {
+    if (state.selectedTipo == tipo && state.conditions.isNotEmpty) return;
     state = state.copyWith(selectedTipo: tipo, offset: 0);
     loadPage(offset: 0);
   }

@@ -1339,6 +1339,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               onVerExpediente: _mostrarExpedienteMaestroDialog,
               onBack: () {
                 setState(() => _isAssigningSingleMeal = false);
+              },
+              onSaved: () {
+                setState(() => _isAssigningSingleMeal = false);
                 _onPatientSelected(_selectedPatient!);
                 _fetchPatientsSilently();
               },

@@ -48,6 +48,13 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
   final Ref _ref;
   static const int pageSize = 5;
 
+  Future<void> loadPageIfNeeded({int? offset}) async {
+    if (state.patients.isNotEmpty && !state.isLoading) {
+      return;
+    }
+    return loadPage(offset: offset);
+  }
+
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
     state = state.copyWith(isLoading: true, offset: nextOffset, clearErrorMessage: true);

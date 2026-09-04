@@ -30,7 +30,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(adminUsersProvider.notifier).loadPage();
+      ref.read(adminUsersProvider.notifier).loadPageIfNeeded();
     });
   }
 

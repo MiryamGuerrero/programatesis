@@ -180,7 +180,6 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Future<void> _fetchCatalogos() async {
-    setState(() => _loading = true);
     try {
       final catalogos = await ref
           .read(repositorioMedicoProvider)
@@ -201,11 +200,10 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           _parroquiasCat = catalogos["parroquias"] ?? [];
           _subgrupos = catalogos["subgrupos"] ?? [];
           _updateParroquiasFiltradas(resetSelection: false);
-          _loading = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      debugPrint("Error cargando catálogos: $e");
     }
   }
 
@@ -227,12 +225,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
 
   Future<void> _loadInitialData() async {
     if (widget.initialData == null) return;
-    setState(() => _loading = true);
+    final repo = ref.read(repositorioMedicoProvider);
+    final idStr = widget.initialData!['id'].toString();
+    final hasCache = repo.hasCachedExpediente(idStr);
+    if (!hasCache) {
+      setState(() => _loading = true);
+    }
     Future.microtask(() async {
       try {
-        final data = await ref
-            .read(repositorioMedicoProvider)
-            .obtenerExpedienteCompleto(widget.initialData!['id'].toString());
+        final data = await repo.obtenerExpedienteCompleto(idStr);
         final p = data['paciente'] ?? {};
         final t = data['tutor'] ?? {};
         final d = data['diagnostico'] ?? {};

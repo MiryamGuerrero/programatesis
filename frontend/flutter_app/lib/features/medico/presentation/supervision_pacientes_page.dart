@@ -24,10 +24,31 @@ class SupervisionPacientesPage extends ConsumerWidget {
     final navState = ref.watch(medicoNavProvider);
     final currentView = navState.currentView;
     final selectedPatient = navState.selectedPatient;
+    final isList = currentView == MedicoView.list;
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: _buildBody(currentView, selectedPatient),
+    return Stack(
+      children: [
+        // Mantener viva la lista en segundo plano para preservar scroll, filtros y estado sin recargas
+        FocusScope(
+          node: FocusScopeNode(canRequestFocus: isList),
+          child: IgnorePointer(
+            ignoring: !isList,
+            child: const _ListaPacientesView(),
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: isList
+              ? const SizedBox.shrink()
+              : KeyedSubtree(
+                  key: ValueKey('${currentView}_${selectedPatient?['id']}'),
+                  child: Material(
+                    color: AppTema.grisLienzo,
+                    child: _buildBody(currentView, selectedPatient),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -38,13 +59,13 @@ class SupervisionPacientesPage extends ConsumerWidget {
             key: ValueKey(patient?['id'] ?? 'new'), initialData: patient);
       case MedicoView.fixedEdit:
         return ActualizarPacientePage(
-            key: ValueKey('fixed_'),
+            key: ValueKey('fixed_${patient?['id']}'),
             initialData: patient);
       case MedicoView.control:
-        if (patient == null) return const _ListaPacientesView();
+        if (patient == null) return const SizedBox.shrink();
         return RegistroMensualPage(paciente: patient);
       case MedicoView.list:
-        return const _ListaPacientesView();
+        return const SizedBox.shrink();
     }
   }
 }
@@ -67,7 +88,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(medicalPatientsProvider.notifier).loadPage();
+      ref.read(medicalPatientsProvider.notifier).loadPageIfNeeded();
       _setupRealtime();
     });
   }
@@ -81,7 +102,13 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             event: PostgresChangeEvent.all,
             schema: 'usuarios',
             table: 'paciente',
-            callback: (_) {
+            callback: (payload) {
+              final newRecord = payload.newRecord;
+              if (newRecord != null && newRecord['id'] != null) {
+                ref.read(repositorioMedicoProvider).invalidateExpediente(newRecord['id'].toString());
+              } else {
+                ref.read(repositorioMedicoProvider).invalidateAllExpedientes();
+              }
               ref.read(medicalPatientsProvider.notifier).loadPageSilently();
             },
           )
@@ -89,7 +116,13 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             event: PostgresChangeEvent.all,
             schema: 'clinico',
             table: 'control_paciente',
-            callback: (_) {
+            callback: (payload) {
+              final newRecord = payload.newRecord;
+              if (newRecord != null && newRecord['id_paciente'] != null) {
+                ref.read(repositorioMedicoProvider).invalidateExpediente(newRecord['id_paciente'].toString());
+              } else {
+                ref.read(repositorioMedicoProvider).invalidateAllExpedientes();
+              }
               ref.read(medicalPatientsProvider.notifier).loadPageSilently();
             },
           )

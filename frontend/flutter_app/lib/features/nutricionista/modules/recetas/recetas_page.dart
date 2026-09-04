@@ -33,7 +33,10 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(recetasProvider.notifier).loadRecetas(reload: true);
+      final state = ref.read(recetasProvider);
+      if (state.recetas.isEmpty && !state.isLoading) {
+        ref.read(recetasProvider.notifier).loadRecetas(reload: false);
+      }
     });
   }
 
@@ -50,6 +53,12 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
       return RecetaFormPage(
         recetaInicial: _recetaParaEditar,
         onBack: () {
+          setState(() {
+            _isEditing = false;
+            _recetaParaEditar = null;
+          });
+        },
+        onSaved: () {
           setState(() {
             _isEditing = false;
             _recetaParaEditar = null;

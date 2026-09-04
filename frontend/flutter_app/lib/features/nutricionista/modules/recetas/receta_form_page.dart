@@ -13,6 +13,7 @@ import 'widgets/selector_ingrediente_dialog.dart';
 class RecetaFormPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? recetaInicial;
   final VoidCallback onBack;
+  final VoidCallback? onSaved;
   final int? idReceta;
 
   const RecetaFormPage({
@@ -20,6 +21,7 @@ class RecetaFormPage extends ConsumerStatefulWidget {
     this.idReceta,
     this.recetaInicial,
     required this.onBack,
+    this.onSaved,
   });
 
   @override
@@ -351,7 +353,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
       if (!mounted) return;
       NutriSnack.show(context, 'Receta guardada con éxito');
-      widget.onBack();
+      if (widget.onSaved != null) {
+        widget.onSaved!();
+      } else {
+        widget.onBack();
+      }
     } catch (e) {
       await _manejarErrorGuardar(e);
     } finally {

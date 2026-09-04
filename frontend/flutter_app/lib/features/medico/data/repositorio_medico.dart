@@ -110,11 +110,71 @@ class RepositorioMedico {
     return _toRows(response.data);
   }
 
+  final Map<String, Map<String, dynamic>> _expedienteCache = {};
+  Map<String, List<Map<String, dynamic>>>? _catalogosCache;
+  List<dynamic>? _condicionesCache;
+  List<dynamic>? _ingredientesSimpleCache;
+  List<dynamic>? _subgruposSimpleCache;
+
+  bool hasCachedExpediente(String idPaciente) => _expedienteCache.containsKey(idPaciente);
+
+  Map<String, dynamic>? getCachedExpediente(String idPaciente) => _expedienteCache[idPaciente];
+
+  void invalidateExpediente(String idPaciente) {
+    _expedienteCache.remove(idPaciente);
+  }
+
+  void invalidateAllExpedientes() {
+    _expedienteCache.clear();
+  }
+
+  void invalidateCatalogos() {
+    _catalogosCache = null;
+    _condicionesCache = null;
+    _ingredientesSimpleCache = null;
+    _subgruposSimpleCache = null;
+  }
+
   Future<Map<String, dynamic>> obtenerExpedienteCompleto(
-      String idPaciente) async {
+      String idPaciente, {bool forceReload = false}) async {
+    if (!forceReload && _expedienteCache.containsKey(idPaciente)) {
+      return _expedienteCache[idPaciente]!;
+    }
     final response =
         await _dio.get("pacientes/$idPaciente/expediente-completo");
-    return Map<String, dynamic>.from(response.data);
+    final data = Map<String, dynamic>.from(response.data);
+    _expedienteCache[idPaciente] = data;
+    return data;
+  }
+
+  Future<List<dynamic>> obtenerCondicionesCatalogo({bool forceReload = false}) async {
+    if (!forceReload && _condicionesCache != null) {
+      return _condicionesCache!;
+    }
+    final response = await _dio.get("catalogos/condiciones");
+    final data = response.data as List? ?? [];
+    _condicionesCache = data;
+    return data;
+  }
+
+  Future<List<dynamic>> obtenerIngredientesCatalogoSimple({bool forceReload = false}) async {
+    if (!forceReload && _ingredientesSimpleCache != null) {
+      return _ingredientesSimpleCache!;
+    }
+    final response = await _dio.get("nutricionista/ingredientes/catalogo-simple");
+    final data = response.data as List? ?? [];
+    _ingredientesSimpleCache = data;
+    return data;
+  }
+
+  Future<List<dynamic>> obtenerSubgruposCatalogoSimple({bool forceReload = false}) async {
+    if (!forceReload && _subgruposSimpleCache != null) {
+      return _subgruposSimpleCache!;
+    }
+    final response = await _dio.get("nutricionista/subgrupos/catalogo-simple");
+    final data = response.data as List? ?? [];
+    _subgruposSimpleCache = data;
+    return data;
   }
 
   Future<Map<String, dynamic>> obtenerEvolucionMensual(
@@ -155,6 +215,7 @@ class RepositorioMedico {
 
   Future<void> registrarPacienteIntegral(Map<String, dynamic> payload) async {
     await _dio.post("registro/paciente-integral", data: payload);
+    invalidateAllExpedientes();
   }
 
   Future<void> actualizarExpedienteMaestro(
@@ -162,10 +223,12 @@ class RepositorioMedico {
     Map<String, dynamic> payload,
   ) async {
     await _dio.put("pacientes/$idPaciente/expediente-maestro", data: payload);
+    invalidateExpediente(idPaciente);
   }
 
   Future<void> archivarPaciente(String idPaciente) async {
     await _dio.patch("pacientes/$idPaciente/archivar");
+    invalidateExpediente(idPaciente);
   }
 
   Future<void> eliminarPaciente(String idPaciente) async {
@@ -183,10 +246,15 @@ class RepositorioMedico {
   }
 
   Future<Map<String, List<Map<String, dynamic>>>>
-      obtenerCatalogosRegistroPaciente() async {
+      obtenerCatalogosRegistroPaciente({bool forceReload = false}) async {
+    if (!forceReload && _catalogosCache != null) {
+      return _catalogosCache!;
+    }
     final response = await _dio.get("registro/paciente-integral/catalogos");
     final data = Map<String, dynamic>.from(response.data as Map);
-    return data.map((key, value) => MapEntry(key, _toRows(value)));
+    final mapped = data.map((key, value) => MapEntry(key, _toRows(value)));
+    _catalogosCache = mapped;
+    return mapped;
   }
 
   Future<Map<String, dynamic>> preDiagnosticoNutricional(

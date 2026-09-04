@@ -184,30 +184,28 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Future<void> _loadCatalogos() async {
     try {
-      final dio = ref.read(dioProvider);
+      final repo = ref.read(repositorioMedicoProvider);
 
       final results = await Future.wait([
-        dio.get("catalogos/condiciones"),
-        dio.get("registro/paciente-integral/catalogos"),
-        dio.get("nutricionista/ingredientes/catalogo-simple"),
-        dio.get("nutricionista/subgrupos/catalogo-simple"),
+        repo.obtenerCondicionesCatalogo(),
+        repo.obtenerCatalogosRegistroPaciente(),
+        repo.obtenerIngredientesCatalogoSimple(),
+        repo.obtenerSubgruposCatalogoSimple(),
       ]);
 
       if (mounted) {
         setState(() {
-          final allCond = results[0].data as List;
+          final allCond = results[0] as List;
           _condicionesTemporalesCat = allCond
               .where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 2)
               .toList();
           _patologiasCat = allCond
               .where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1)
               .toList();
-          _restriccionesAlimentariasCat = (results[1].data
-                      as Map<String, dynamic>)["restricciones_alimentarias"]
-                  as List? ??
-              [];
-          _ingredientesCat = results[2].data as List? ?? [];
-          _subgruposCat = results[3].data as List? ?? [];
+          final catalogosRegistro = results[1] as Map<String, List<Map<String, dynamic>>>;
+          _restriccionesAlimentariasCat = catalogosRegistro["restricciones_alimentarias"] ?? [];
+          _ingredientesCat = results[2] as List? ?? [];
+          _subgruposCat = results[3] as List? ?? [];
         });
       }
     } catch (e) {
@@ -253,14 +251,15 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     }
   }
 
-  Future<void> _cargarExpediente() async {
-    setState(() => _loading = true);
+  Future<void> _cargarExpediente({bool forceReload = false}) async {
+    final repo = ref.read(repositorioMedicoProvider);
+    final patientIdStr = widget.paciente['id'].toString();
+    final hasCache = !forceReload && repo.hasCachedExpediente(patientIdStr);
+    if (!hasCache) {
+      setState(() => _loading = true);
+    }
     try {
-      final dio = ref.read(dioProvider);
-      final patientIdStr = widget.paciente['id'].toString();
-      final response =
-          await dio.get("pacientes/$patientIdStr/expediente-completo");
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = await repo.obtenerExpedienteCompleto(patientIdStr, forceReload: forceReload);
 
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
@@ -595,10 +594,11 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             "Se han actualizado los campos de peso, talla y evaluación correctamente",
             ref: ref);
 
+      ref.read(repositorioMedicoProvider).invalidateExpediente(widget.paciente['id'].toString());
       ref.invalidate(medicalPatientsProvider);
 
       _limpiarForm();
-      _cargarExpediente();
+      _cargarExpediente(forceReload: true);
     } catch (e) {
       if (mounted)
         NutriSnack.show(context, "Error: $e", isError: true, ref: ref);

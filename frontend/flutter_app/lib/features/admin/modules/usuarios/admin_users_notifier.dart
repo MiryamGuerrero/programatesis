@@ -95,6 +95,13 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     return Map<int, int>.fromEntries(entries);
   }
 
+  Future<void> loadPageIfNeeded({int? offset}) async {
+    if (state.users.isNotEmpty && !state.isLoading) {
+      return;
+    }
+    return loadPage(offset: offset);
+  }
+
   Future<void> loadPage({int? offset}) async {
     final nextOffset = offset ?? state.offset;
     state = state.copyWith(

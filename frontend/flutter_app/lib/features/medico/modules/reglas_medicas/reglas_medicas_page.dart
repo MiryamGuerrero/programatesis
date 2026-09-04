@@ -25,7 +25,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(medicalRulesProvider.notifier).loadPage();
+      ref.read(medicalRulesProvider.notifier).loadPageIfNeeded();
     });
   }
 

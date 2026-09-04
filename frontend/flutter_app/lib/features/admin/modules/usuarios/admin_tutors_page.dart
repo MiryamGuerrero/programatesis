@@ -26,7 +26,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(adminTutorsProvider.notifier).loadPage();
+      ref.read(adminTutorsProvider.notifier).loadPageIfNeeded();
     });
   }
 

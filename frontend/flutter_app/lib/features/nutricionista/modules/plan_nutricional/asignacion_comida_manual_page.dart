@@ -13,6 +13,7 @@ class AsignacionComidaManualPage extends ConsumerStatefulWidget {
   final String Function(String?) formatEdad;
   final VoidCallback onVerExpediente;
   final VoidCallback onBack;
+  final VoidCallback? onSaved;
 
   const AsignacionComidaManualPage({
     super.key,
@@ -22,6 +23,7 @@ class AsignacionComidaManualPage extends ConsumerStatefulWidget {
     required this.formatEdad,
     required this.onVerExpediente,
     required this.onBack,
+    this.onSaved,
   });
 
   @override
@@ -121,7 +123,11 @@ class _AsignacionComidaManualPageState
         await Future.delayed(const Duration(milliseconds: 1200));
         if (mounted) {
           setState(() => _isLoading = false);
-          widget.onBack();
+          if (widget.onSaved != null) {
+            widget.onSaved!();
+          } else {
+            widget.onBack();
+          }
         }
       }
     } catch (e) {

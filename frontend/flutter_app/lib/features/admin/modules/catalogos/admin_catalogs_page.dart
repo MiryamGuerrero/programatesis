@@ -1,3 +1,5 @@
+import "dart:math";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -319,7 +321,7 @@ class _CatalogDataSource extends DataTableSource {
                       color: const Color(0xFF1E293B),
                       fontWeight: FontWeight.w500)),
             ),
-          )),
+          ))),
       ],
     );
   }
