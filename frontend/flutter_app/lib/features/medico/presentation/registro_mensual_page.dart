@@ -9605,34 +9605,97 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        _buildChoiceChipRow(
-          "Plan",
-          _foodPlanFilter,
-          _foodOptionsFor("Plan"),
-          (value) => setState(() {
-            _foodPlanFilter = value;
-            _foodPage = 1;
-          }),
-        ),
-        const SizedBox(height: 12),
-        _buildChoiceChipRow(
-          "Momento",
-          _foodMomentFilter,
-          _foodOptionsFor("Momento"),
-          (value) => setState(() {
-            _foodMomentFilter = value;
-            _foodPage = 1;
-          }),
-        ),
-        const SizedBox(height: 12),
-        _buildChoiceChipRow(
-          "Estado",
-          _foodStateFilter,
-          _foodOptionsFor("Estado"),
-          (value) => setState(() {
-            _foodStateFilter = value;
-            _foodPage = 1;
-          }),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blueGrey.shade100.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+            border: Border.all(color: Colors.blue.shade50),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 20),
+                  const SizedBox(width: 8),
+                  Text("Filtros",
+                      style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: AppTema.azulPrincipal)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text("Filtrar por plan nutricional",
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blueGrey.shade400)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _foodPlanFilter,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueGrey.shade800),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() {
+                          _foodPlanFilter = v;
+                          _foodPage = 1;
+                        });
+                      }
+                    },
+                    items: _foodOptionsFor("Plan")
+                        .map((e) => DropdownMenuItem(
+                              value: e['value'],
+                              child: Text(e['label']!),
+                            ))
+                        .toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildChoiceChipRow(
+                "Filtrar por momento",
+                _foodMomentFilter,
+                _foodOptionsFor("Momento"),
+                (value) => setState(() {
+                  _foodMomentFilter = value;
+                  _foodPage = 1;
+                }),
+              ),
+              const SizedBox(height: 20),
+              _buildChoiceChipRow(
+                "Filtrar por estado",
+                _foodStateFilter,
+                _foodOptionsFor("Estado"),
+                (value) => setState(() {
+                  _foodStateFilter = value;
+                  _foodPage = 1;
+                }),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 14),
         Wrap(
@@ -9820,7 +9883,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       String currentValue,
       List<Map<String, String>> options,
       void Function(String) onChanged) {
-    if (title == "Estado") {
+    if (title == "Filtrar por estado") {
       options = const [
         {"value": "todo", "label": "Todos"},
         {"value": "solo_rechazadas", "label": "Solo rechazadas"},
@@ -9830,26 +9893,23 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     }
     
     IconData? getIcon(String val) {
-      if (title == "Estado") {
+      if (title == "Filtrar por estado") {
         if (val == "solo_rechazadas") return Icons.cancel_rounded;
         if (val == "posible_reaccion") return Icons.warning_rounded;
         if (val == "sin_registro") return Icons.help_outline_rounded;
-        if (val == "todo") return Icons.all_inclusive_rounded;
+        if (val == "todo") return Icons.groups_rounded; // like image
       }
-      if (title == "Momento") {
+      if (title == "Filtrar por momento") {
         if (val.toLowerCase().contains("desayuno")) return Icons.wb_twilight_rounded;
         if (val.toLowerCase().contains("almuerzo")) return Icons.wb_sunny_rounded;
         if (val.toLowerCase().contains("merienda") || val.toLowerCase().contains("cena")) return Icons.nights_stay_rounded;
-        if (val == "todo") return Icons.restaurant_menu_rounded;
-      }
-      if (title == "Plan") {
-        return Icons.calendar_month_rounded;
+        if (val == "todo") return Icons.groups_rounded; // like image
       }
       return null;
     }
 
     Color getColor(String val) {
-      if (title == "Estado") {
+      if (title == "Filtrar por estado") {
         if (val == "solo_rechazadas") return Colors.red.shade700;
         if (val == "posible_reaccion") return Colors.orange.shade700;
         if (val == "sin_registro") return Colors.grey.shade600;
@@ -9862,10 +9922,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       children: [
         Text(title,
             style: GoogleFonts.inter(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.blueGrey.shade400)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -9877,21 +9937,21 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               final color = getColor(val);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: 12),
                 child: ChoiceChip(
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 14, color: isSelected ? Colors.white : color),
+                        Icon(icon, size: 16, color: isSelected ? color : Colors.blueGrey.shade400),
                         const SizedBox(width: 6),
                       ],
                       Text(
                         label,
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                          color: isSelected ? Colors.white : Colors.blueGrey.shade700,
+                          color: isSelected ? color : Colors.blueGrey.shade600,
                         ),
                       ),
                     ],
@@ -9900,15 +9960,16 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   onSelected: (selected) {
                     if (selected) onChanged(val);
                   },
-                  selectedColor: color,
+                  selectedColor: color.withOpacity(0.08),
                   backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
                       color: isSelected ? color : Colors.grey.shade300,
+                      width: isSelected ? 1.5 : 1.0,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   showCheckmark: false,
                 ),
               );
