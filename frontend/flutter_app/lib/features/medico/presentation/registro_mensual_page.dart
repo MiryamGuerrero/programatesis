@@ -3275,7 +3275,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (badgeText == "Tabla 1") const SizedBox(height: 150), // ~10 saltos de línea para alinear con la tabla derecha
+        if (badgeText == "Tabla 1") const SizedBox(height: 230), // ~10 saltos de línea para alinear con la tabla derecha
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
