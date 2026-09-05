@@ -4866,14 +4866,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     final bool isPain = type == "pain";
     final List<(double, double, Color)> bands = isPain
         ? [
-            (0, 2.5, Colors.green.withValues(alpha: 0.15)),
-            (2.5, 6.5, Colors.orange.withValues(alpha: 0.15)),
-            (6.5, 10, Colors.red.withValues(alpha: 0.15))
+            (0, 2.5, Colors.green.withValues(alpha: 0.2)),
+            (2.5, 6.5, Colors.orange.withValues(alpha: 0.2)),
+            (6.5, 10, Colors.red.withValues(alpha: 0.2))
           ]
         : [
-            (0, 3.5, Colors.red.withValues(alpha: 0.15)),
-            (3.5, 6.5, Colors.orange.withValues(alpha: 0.15)),
-            (6.5, 10, Colors.green.withValues(alpha: 0.15))
+            (0, 3.5, Colors.red.withValues(alpha: 0.2)),
+            (3.5, 6.5, Colors.orange.withValues(alpha: 0.2)),
+            (6.5, 10, Colors.green.withValues(alpha: 0.2))
           ];
 
     return Container(
@@ -5685,7 +5685,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withValues(alpha: 0.15))),
+            border: Border.all(color: color.withValues(alpha: 0.2))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
