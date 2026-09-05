@@ -7050,149 +7050,163 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.01),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Resumen de indicadores de salud",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1E293B),
-                          ),
-                        ),
-                        Text(
-                          "Seguimiento de evolución mensual por indicadores",
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: Colors.blueGrey.shade400,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: _buildHeatmapLegend(),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LayoutBuilder(builder: (context, constraints) {
-                final double labelWidth =
-                    constraints.maxWidth < 520 ? 108.0 : 140.0;
-                const double minColumnWidth = 92.0;
-                final double availableWidth =
-                    (constraints.maxWidth - labelWidth)
-                        .clamp(0.0, double.infinity);
-                final double columnWidth = controls.isNotEmpty
-                    ? (availableWidth / controls.length)
-                        .clamp(minColumnWidth, double.infinity)
-                    : minColumnWidth;
-                final double heatmapWidth = controls.isNotEmpty
-                    ? columnWidth * controls.length
-                    : availableWidth;
-                final double scrollContentWidth =
-                    max(availableWidth, heatmapWidth);
-
-                return SizedBox(
-                  height: 298,
-                  child: Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: labelWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            SizedBox(height: 32),
-                            _HeatLabel(
-                                "Dolor", Icons.sick_rounded, Colors.pinkAccent),
-                            _HeatLabel("Energía", Icons.bolt_rounded,
-                                Colors.orangeAccent),
-                            _HeatLabel(
-                                "Inflamación",
-                                Icons.local_fire_department_rounded,
-                                Colors.deepOrangeAccent),
-                            _HeatLabel("Brote", Icons.coronavirus_rounded,
-                                Colors.redAccent),
-                            _HeatLabel("E. Nutricional",
-                                Icons.monitor_weight_outlined, Colors.green),
-                          ],
+                      Text(
+                        "Resumen de indicadores de salud",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1E293B),
                         ),
                       ),
-                      Expanded(
-                        child: Scrollbar(
-                          controller: _heatmapScrollCtrl,
-                          thumbVisibility: controls.length > 1,
-                          trackVisibility: controls.length > 1,
-                          notificationPredicate: (notification) =>
-                              notification.metrics.axis == Axis.horizontal,
-                          child: SingleChildScrollView(
-                            controller: _heatmapScrollCtrl,
-                            scrollDirection: Axis.horizontal,
-                            child: SizedBox(
-                              width: scrollContentWidth,
-                              child: Row(
-                                children: [
-                                  for (final c in controls)
-                                    _heatColumn(c, width: columnWidth),
-                                ],
-                              ),
-                            ),
-                          ),
+                      Text(
+                        "Seguimiento de evolución mensual por indicadores",
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.blueGrey.shade400,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                );
-              }),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 12, color: Colors.blueGrey.shade400),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      "Colores reflejan el estado clínico: Verde (Favorable), Naranja (Medio), Rojo (Riesgo/Alto).",
-                      style: GoogleFonts.inter(
-                        fontSize: 9,
-                        color: Colors.blueGrey.shade400,
-                        fontStyle: FontStyle.italic,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chevron_left, color: AppTema.azulPrincipal),
+                      onPressed: () {
+                        if (_heatmapScrollCtrl.hasClients) {
+                          _heatmapScrollCtrl.animateTo(
+                            (_heatmapScrollCtrl.offset - 300).clamp(0.0, _heatmapScrollCtrl.position.maxScrollExtent),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      }
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.chevron_right, color: AppTema.azulPrincipal),
+                      onPressed: () {
+                        if (_heatmapScrollCtrl.hasClients) {
+                          _heatmapScrollCtrl.animateTo(
+                            (_heatmapScrollCtrl.offset + 300).clamp(0.0, _heatmapScrollCtrl.position.maxScrollExtent),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      }
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: _buildHeatmapLegend(),
                       ),
                     ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(builder: (context, constraints) {
+              final double labelWidth =
+                  constraints.maxWidth < 520 ? 108.0 : 140.0;
+              const double minColumnWidth = 92.0;
+              final double availableWidth =
+                  (constraints.maxWidth - labelWidth)
+                      .clamp(0.0, double.infinity);
+              final double columnWidth = controls.isNotEmpty
+                  ? (availableWidth / controls.length)
+                      .clamp(minColumnWidth, double.infinity)
+                  : minColumnWidth;
+              final double heatmapWidth = controls.isNotEmpty
+                  ? columnWidth * controls.length
+                  : availableWidth;
+              final double scrollContentWidth =
+                  max(availableWidth, heatmapWidth);
+
+              return SizedBox(
+                height: 298,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: labelWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          SizedBox(height: 32),
+                          _HeatLabel(
+                              "Dolor", Icons.sick_rounded, Colors.pinkAccent),
+                          _HeatLabel("Energía", Icons.bolt_rounded,
+                              Colors.orangeAccent),
+                          _HeatLabel(
+                              "Inflamación",
+                              Icons.local_fire_department_rounded,
+                              Colors.deepOrangeAccent),
+                          _HeatLabel("Brote", Icons.coronavirus_rounded,
+                              Colors.redAccent),
+                          _HeatLabel("E. Nutricional",
+                              Icons.monitor_weight_outlined, Colors.green),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Scrollbar(
+                        controller: _heatmapScrollCtrl,
+                        thumbVisibility: controls.length > 1,
+                        trackVisibility: controls.length > 1,
+                        notificationPredicate: (notification) =>
+                            notification.metrics.axis == Axis.horizontal,
+                        child: SingleChildScrollView(
+                          controller: _heatmapScrollCtrl,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: scrollContentWidth,
+                            child: Row(
+                              children: [
+                                for (final c in controls)
+                                  _heatColumn(c, width: columnWidth),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 12, color: Colors.blueGrey.shade400),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    "Colores reflejan el estado clínico: Verde (Favorable), Naranja (Medio), Rojo (Riesgo/Alto).",
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      color: Colors.blueGrey.shade400,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
@@ -7378,7 +7392,13 @@ String jointInterp = "Información insuficiente para análisis clínico.";
   }
 
   Widget _heatColumn(Map<String, dynamic> c, {double? width}) {
-    final label = _monthShort(c['fecha_control']?.toString() ?? '');
+    String label = "-";
+    try {
+      final dt = DateTime.parse(c['fecha_control']?.toString() ?? '');
+      label = "${_monthLabel(dt)} ${dt.year}";
+    } catch (_) {
+      label = _monthShort(c['fecha_control']?.toString() ?? '');
+    }
     final cellWidth = ((width ?? 85) - 4).clamp(80.0, double.infinity);
 
     // Estado nutricional resumido para que la celda sea legible.
