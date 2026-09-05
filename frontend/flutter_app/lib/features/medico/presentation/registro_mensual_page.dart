@@ -4130,24 +4130,43 @@ String jointInterp = "Información insuficiente para análisis clínico.";
   Widget _buildHistoryItem(Map<String, dynamic> h) {
     bool isHovered = false;
 
-    Widget metricTextInfo(String label, String value) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            "$label: ",
-            style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade500, fontWeight: FontWeight.w600),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade800, fontWeight: FontWeight.w800),
-          ),
-        ],
+    Widget metricPill(String label, String value, Color baseColor) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: baseColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: baseColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label + ": ", style: GoogleFonts.inter(fontSize: 10, color: baseColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+            Text(value, style: GoogleFonts.inter(fontSize: 10, color: baseColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
       );
     }
 
     return StatefulBuilder(
       builder: (context, setStateItem) {
+        final bool isBrote = (h['en_brote'] ?? false) == true;
+        
+        // Colores de fondo que combinen y no sean blanco.
+        // Si hay brote usamos un fondo rojizo super tenue. Si no, un azul grisaceo claro.
+        final Color normalBg = const Color(0xFFF3F7FA);
+        final Color hoverBg = const Color(0xFFE5EDF4);
+        final Color broteBg = const Color(0xFFFEF2F2);
+        final Color broteHoverBg = const Color(0xFFFEE2E2);
+        
+        final Color currentBg = isBrote 
+            ? (isHovered ? broteHoverBg : broteBg) 
+            : (isHovered ? hoverBg : normalBg);
+            
+        final Color currentBorder = isBrote 
+            ? Colors.red.shade200 
+            : (isHovered ? AppTema.azulPrincipal.withValues(alpha: 0.3) : Colors.transparent);
+
         return MouseRegion(
           onEnter: (_) => setStateItem(() => isHovered = true),
           onExit: (_) => setStateItem(() => isHovered = false),
@@ -4157,17 +4176,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isHovered ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
+                color: currentBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: (h['en_brote'] ?? false)
-                        ? Colors.red.shade200
-                        : (isHovered ? Colors.blue.shade200 : Colors.transparent)),
+                border: Border.all(color: currentBorder),
                 boxShadow: isHovered ? [
                   BoxShadow(
-                      color: Colors.blueGrey.shade200.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4))
+                      color: Colors.blueGrey.shade900.withValues(alpha: 0.08),
+                      blurRadius: 15,
+                      offset: const Offset(0, 6))
                 ] : [],
               ),
               child: Row(
@@ -4181,44 +4197,43 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                         Text(
                           h['estado_nutricional'] ?? "Sin diagnóstico",
                           style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
                               fontSize: 14,
-                              color: const Color(0xFF0F172A)),
+                              color: AppTema.azulPrincipal),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            metricPill("Peso", "${h['peso_kg']} kg", Colors.blueGrey),
+                            metricPill("Talla", "${h['talla_cm']} cm", Colors.blueGrey),
+                            metricPill("IMC", "${h['imc_calculado'] ?? '-'}", Colors.blueGrey),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Wrap(
-                          spacing: 16,
-                          runSpacing: 6,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            metricTextInfo("Peso", "${h['peso_kg']} kg"),
-                            metricTextInfo("Talla", "${h['talla_cm']} cm"),
-                            metricTextInfo("IMC", "${h['imc_calculado'] ?? '-'}"),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 6,
-                          children: [
-                            metricTextInfo("Dolor", "${h['puntos_dolor'] ?? '-'}"),
-                            metricTextInfo("Inflamación", "${h['escala_inflamacion'] ?? '-'}"),
-                            metricTextInfo("Fatiga", "${h['nivel_fatiga'] ?? '-'}"),
-                            metricTextInfo("Rigidez", "${h['minutos_rigidez'] ?? '-'}m"),
+                            metricPill("Dolor", "${h['puntos_dolor'] ?? '-'}", const Color(0xFFE74C3C)),
+                            metricPill("Inflamación", "${h['escala_inflamacion'] ?? '-'}", const Color(0xFFE67E22)),
+                            metricPill("Fatiga", "${h['nivel_fatiga'] ?? '-'}", const Color(0xFFF39C12)),
+                            metricPill("Rigidez", "${h['minutos_rigidez'] ?? '-'}m", const Color(0xFF3498DB)),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  if (h['en_brote'] == true)
+                  if (isBrote)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          border: Border.all(color: Colors.red.shade200),
-                          borderRadius: BorderRadius.circular(8)),
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(20)),
                       child: Text("Brote",
                           style: GoogleFonts.inter(
-                              color: Colors.red.shade700,
+                              color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold)),
                     ),
