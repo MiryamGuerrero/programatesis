@@ -3275,102 +3275,49 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         );
       }
     } else if (_activeDomainIndex == 2) {
-      // Resumen
-      badgeText = "Figura 5";
-      title = "MAPA MENSUAL DE IMPACTO GLOBAL";
-      desc = "Panorama general de la efectividad del tratamiento médico y nutricional combinado.";
+      // Resumen Clínico
+      String kpiInterp = "Indicadores basados en el historial reportado por el paciente. La efectividad del tratamiento se evidencia en la estabilidad de estos parámetros.";
       
-      Widget _leftCard(String label, String value, Color c, IconData icon) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Icon(icon, color: c, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
-                    const SizedBox(height: 2),
-                    Text(value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
-                  ],
-                ),
-              )
-            ],
-          ),
-        );
-      }
-
-      Widget _lecturaItem(IconData icon, String label, String value, Color c) {
+      Widget _lecturaItem(String label, String value) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 14, color: c),
-              const SizedBox(width: 6),
               Expanded(flex: 2, child: Text(label, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade600))),
               Expanded(flex: 3, child: Text(value, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800))),
             ],
           ),
         );
       }
-
-      kpis = Column(
+      
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _leftCard("Dolor mensual", "${(stats['ultimoDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10", _severityColor((stats['ultimoDolor'] as num?)?.round() ?? 0, 0, 2, 6), Icons.track_changes_outlined),
-          _leftCard("Energía mensual", "${(stats['ultimaEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10", (stats['ultimaEnergia'] as num? ?? 0) >= 7 ? Colors.green : ((stats['ultimaEnergia'] as num? ?? 0) >= 4 ? Colors.orange : Colors.red), Icons.bolt),
-          _leftCard("Periodo", "${stats['totalMeses']} meses", AppTema.azulPrincipal, Icons.assignment_outlined),
-          _leftCard("Brote", stats['ultimoBrote'] == true ? "Sí" : "No", stats['ultimoBrote'] == true ? Colors.red : Colors.green, Icons.warning_amber_rounded),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTema.azulPrincipal.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppTema.azulPrincipal,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                  ),
-                  child: Text("LECTURA CLÍNICA RÁPIDA", style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    children: [
-                      _lecturaItem(Icons.track_changes_outlined, "Prom. dolor:", (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0', Colors.red),
-                      _lecturaItem(Icons.bolt, "Prom. energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0', Colors.green),
-                      _lecturaItem(Icons.warning_amber_rounded, "Brotes:", "${stats['mesesConBrote'] ?? 0} meses", Colors.orange),
-                      _lecturaItem(Icons.calendar_today_outlined, "Último:", _monthShort(stats['ultimoControlFecha']?.toString() ?? ''), AppTema.azulPrincipal),
-                      _lecturaItem(Icons.show_chart_rounded, "Patrón:", stats['patronClinico']?.toString() ?? '-', AppTema.azulPrincipal),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )
+          const SizedBox(height: 0),
+          buildMultiKpiBlock(
+            "Figura 5", 
+            "MAPA MENSUAL DE IMPACTO GLOBAL", 
+            [
+              {'title': 'Dolor\nmensual', 'val': '${(stats['ultimoDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'},
+              {'title': 'Energía\nmensual', 'val': '${(stats['ultimaEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'},
+              {'title': 'Periodo\nevaluado', 'val': '${stats['totalMeses']} meses'},
+              {'title': 'Presencia\nde brote', 'val': stats['ultimoBrote'] == true ? "Sí" : "No"},
+            ],
+            kpiInterp
+          ),
+          const SizedBox(height: 24),
+          Text("LECTURA CLÍNICA RÁPIDA", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          const SizedBox(height: 12),
+          _lecturaItem("Prom. dolor:", (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Prom. energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Brotes:", "${stats['mesesConBrote'] ?? 0} meses"),
+          _lecturaItem("Último mes:", _monthShort(stats['ultimoControlFecha']?.toString() ?? '')),
+          _lecturaItem("Patrón:", stats['patronClinico']?.toString() ?? '-'),
         ],
       );
     }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7103,8 +7050,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader("Mapa de calor mensual", Icons.grid_view_rounded),
-        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
