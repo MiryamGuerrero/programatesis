@@ -19,7 +19,7 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
     return GestureDetector(
       onTap: () => setState(() => _activeTab = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppTema.azulPrincipal.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -28,8 +28,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 color: isActive ? AppTema.azulPrincipal : const Color(0xFFE2E8F0),
                 shape: BoxShape.circle,
@@ -40,7 +40,7 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                 style: GoogleFonts.inter(
                   color: isActive ? Colors.white : const Color(0xFF64748B),
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -50,7 +50,7 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               style: GoogleFonts.inter(
                 color: isActive ? AppTema.azulPrincipal : const Color(0xFF64748B),
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
           ],
@@ -61,10 +61,11 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
 
   Widget _buildCard(IconData icon, String label, String value, {Color? valueColor}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -72,13 +73,13 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: const Color(0xFF64748B)),
+              Icon(icon, size: 12, color: const Color(0xFF64748B)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF64748B),
                   ),
@@ -87,54 +88,13 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: valueColor ?? AppTema.azulOscuro,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFullWidthCard(IconData icon, String label, String value) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: const Color(0xFF64748B)),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppTema.azulOscuro,
-              height: 1.5,
             ),
           ),
         ],
@@ -146,51 +106,59 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
     final p = widget.data['paciente'] ?? {};
     final t = widget.data['tutor'] ?? {};
     return SingleChildScrollView(
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Identidad del Paciente", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.person_outline, "Nombres Completos", p['nombre_completo'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.badge_outlined, "Cédula / ID", p['cedula'] ?? '-')),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Identidad del Paciente", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+                const SizedBox(height: 12),
+                _buildCard(Icons.person_outline, "Nombres Completos", p['nombre_completo'] ?? '-'),
+                const SizedBox(height: 10),
+                _buildCard(Icons.badge_outlined, "Cédula / ID", p['cedula'] ?? '-'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildCard(Icons.cake_outlined, "F. Nacimiento", p['fecha_nacimiento'] ?? '-')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildCard(Icons.wc_outlined, "Sexo Biológico", p['sexo_nombre'] ?? '-')),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildCard(Icons.map_outlined, "Cantón", p['canton_nombre'] ?? '-')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildCard(Icons.location_on_outlined, "Parroquia", p['parroquia_nombre'] ?? '-')),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.cake_outlined, "Fecha de Nacimiento", p['fecha_nacimiento'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.wc_outlined, "Sexo Biológico", p['sexo_nombre'] ?? '-')),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.map_outlined, "Cantón", p['canton_nombre'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.location_on_outlined, "Parroquia", p['parroquia_nombre'] ?? '-')),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Text("Representante Legal", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.supervisor_account_outlined, "Nombre Tutor", t['nombre_completo'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.family_restroom_outlined, "Parentesco", t['parentesco_nombre'] ?? '-')),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.phone_outlined, "Teléfono", t['telefono'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.email_outlined, "Correo", t['email'] ?? '-')),
-            ],
+          const SizedBox(width: 32),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Representante Legal", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+                const SizedBox(height: 12),
+                _buildCard(Icons.supervisor_account_outlined, "Nombre del Tutor", t['nombre_completo'] ?? '-'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildCard(Icons.badge_outlined, "Cédula Tutor", t['cedula'] ?? '-')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildCard(Icons.family_restroom_outlined, "Parentesco", t['parentesco_nombre'] ?? '-')),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildCard(Icons.phone_outlined, "Teléfono / Móvil", t['telefono'] ?? '-'),
+                const SizedBox(height: 10),
+                _buildCard(Icons.email_outlined, "Correo Electrónico", t['email'] ?? '-'),
+              ],
+            ),
           ),
         ],
       ),
@@ -200,34 +168,90 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
   Widget _buildDiagnostico() {
     final d = widget.data['diagnostico'] ?? {};
     final c = widget.data['ultimo_control'] ?? {};
+    
+    Widget actChip(IconData icon, String label, String val, Color cBg, Color cText) {
+      return Container(
+         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+         decoration: BoxDecoration(color: cBg, borderRadius: BorderRadius.circular(6)),
+         child: Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Icon(icon, size: 10, color: cText),
+             const SizedBox(width: 4),
+             Text("$label: ", style: GoogleFonts.inter(fontSize: 10, color: cText.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
+             Text(val, style: GoogleFonts.inter(fontSize: 10, color: cText, fontWeight: FontWeight.bold)),
+           ]
+         )
+      );
+    }
+
     return SingleChildScrollView(
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Diagnóstico Reumatológico", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-          const SizedBox(height: 16),
-          _buildFullWidthCard(Icons.medical_services_outlined, "Enfermedad Autoinmune", d['condicion_nombre'] ?? 'No registrada'),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.event_outlined, "Fecha de Diagnóstico", d['fecha_diagnostico'] ?? '-')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.healing_outlined, "Severidad (Opcional)", d['severidad_inicial'] ?? 'No especificada')),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Diagnóstico Reumatológico", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+                const SizedBox(height: 12),
+                _buildCard(Icons.medical_services_outlined, "Enfermedad Autoinmune Principal", d['condicion_nombre'] ?? 'No registrada'),
+                const SizedBox(height: 10),
+                _buildCard(Icons.event_outlined, "Fecha de Diagnóstico", d['fecha_diagnostico'] ?? '-'),
+                const SizedBox(height: 10),
+                _buildCard(Icons.healing_outlined, "Severidad (Opcional)", d['severidad_inicial'] ?? 'No especificada'),
+              ],
+            ),
           ),
-          const SizedBox(height: 32),
-          Text("Último Estado Clínico", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildCard(Icons.favorite_border_rounded, "Estado Nutricional", c['estado_nutricional'] ?? '-', valueColor: Colors.teal)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildCard(Icons.monitor_weight_outlined, "Relación Peso/IMC", "${c['peso_kg'] ?? '-'} kg / IMC: ${c['imc_calculado'] ?? '-'}")),
-            ],
+          const SizedBox(width: 32),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Último Estado Clínico", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildCard(Icons.favorite_border_rounded, "Estado Nutricional", c['estado_nutricional'] ?? '-', valueColor: Colors.teal)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildCard(Icons.monitor_weight_outlined, "Peso / IMC", "${c['peso_kg'] ?? '-'} kg / ${c['imc_calculado'] ?? '-'}")),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.query_stats_rounded, size: 12, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text("Actividad Clínica (Última Medición)", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8, runSpacing: 8,
+                        children: [
+                           actChip(Icons.sick_outlined, "Dolor", "${c['puntos_dolor'] ?? '-'}", Colors.red.shade50, Colors.red.shade700),
+                           actChip(Icons.local_fire_department_outlined, "Inflam.", "${c['escala_inflamacion'] ?? '-'}", Colors.orange.shade50, Colors.orange.shade800),
+                           actChip(Icons.bolt_outlined, "Fatiga", "${c['nivel_fatiga'] ?? '-'}", Colors.amber.shade50, Colors.amber.shade900),
+                           actChip(Icons.timer_outlined, "Rigidez", "${c['minutos_rigidez'] ?? '-'}m", Colors.blue.shade50, Colors.blue.shade700),
+                        ]
+                      )
+                    ]
+                  )
+                )
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          _buildFullWidthCard(Icons.query_stats_rounded, "Actividad Clínica (Última medición)", 
-              "Dolor ${c['puntos_dolor'] ?? '-'} | Inflamación ${c['escala_inflamacion'] ?? '-'} | Fatiga ${c['nivel_fatiga'] ?? '-'} | Rigidez ${c['minutos_rigidez'] ?? '-'} min"),
         ],
       ),
     );
@@ -243,8 +267,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Alergias e Intolerancias", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-          const SizedBox(height: 16),
+          Text("Alergias e Intolerancias", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -266,20 +290,20 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
           if (hasLacteos)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.red.shade200),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                  Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 16),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       "ALERTA: Paciente con intolerancia severa/sensibilidad a Lácteos reportada. Ajustar plan dietético.",
-                      style: GoogleFonts.inter(color: Colors.red.shade900, fontWeight: FontWeight.w600, fontSize: 13),
+                      style: GoogleFonts.inter(color: Colors.red.shade900, fontWeight: FontWeight.w600, fontSize: 11),
                     ),
                   ),
                 ],
@@ -298,11 +322,11 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: 850,
-        height: 650,
-        padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
+        height: 600,
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5EAF2)),
           boxShadow: [
             BoxShadow(
@@ -318,16 +342,16 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: AppTema.azulPrincipal.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.assignment_ind_outlined,
                     color: AppTema.azulPrincipal,
-                    size: 22,
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -338,22 +362,22 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                       Text(
                         "Expediente Maestro Integral",
                         style: GoogleFonts.inter(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF0F172A),
                           letterSpacing: -0.5,
                         ),
                       ),
                       Text(
-                          "Registro oficial del paciente y soporte legal en el sistema ReumaNutri",
+                          "Registro oficial del paciente y soporte legal en el sistema",
                           style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12)),
+                              color: Colors.grey.shade600, fontSize: 11)),
                     ],
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Icons.close_rounded, size: 20),
                   color: const Color(0xFF64748B),
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFFF1F5F9),
@@ -362,18 +386,18 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                _buildTab(0, "Identidad"),
-                const SizedBox(width: 16),
-                _buildTab(1, "Diagnóstico"),
-                const SizedBox(width: 16),
-                _buildTab(2, "Alergias"),
+                _buildTab(0, "Identidad y Contacto"),
+                const SizedBox(width: 8),
+                _buildTab(1, "Diagnóstico y Estado Clínico"),
+                const SizedBox(width: 8),
+                _buildTab(2, "Alergias e Intolerancias"),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Expanded(
               child: IndexedStack(
                 index: _activeTab,
@@ -384,22 +408,22 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 48,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0275D8), // A beautiful primary blue like the image
+                  backgroundColor: const Color(0xFF0275D8), // A beautiful primary blue
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: Text(
                   "Cerrar Expediente Maestro",
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 14,
                     color: Colors.white,
                   ),
                 ),
