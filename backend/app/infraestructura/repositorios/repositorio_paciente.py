@@ -460,7 +460,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("""
                     insert into usuarios.paciente (nombre_completo, fecha_nacimiento, id_sexo, id_canton, id_parroquia, cedula, activo) 
                     values (%s, %s, %s, %s, %s, %s, true) returning id
-                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], paciente.get("id_canton", 1), paciente.get("id_parroquia"), cedula_paciente))
+                """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], (paciente.get("id_canton") or 1), paciente.get("id_parroquia"), cedula_paciente))
                 paciente_id = cur.fetchone()[0]
                 
                 # 3. RelaciÃ³n Tutor-Paciente
@@ -1099,7 +1099,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         id_canton = %s, id_parroquia = %s, cedula = %s
                     where id = %s
                 """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], 
-                      paciente.get("id_canton", 1), paciente.get("id_parroquia"), paciente.get("cedula"), id_paciente))
+                      (paciente.get("id_canton") or 1), paciente.get("id_parroquia"), paciente.get("cedula"), id_paciente))
 
                 # 2. Actualizar Tutor (Relacionado)
                 cur.execute("""
