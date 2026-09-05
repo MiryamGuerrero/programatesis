@@ -185,17 +185,17 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle(Icons.supervisor_account, "Representante legal"),
-                _buildField(Icons.badge_outlined, "Cédula del tutor*", t['cedula'] ?? '-'),
-                const SizedBox(height: 16),
-                _buildField(Icons.person_outline, "Nombres y apellidos*", t['nombre_completo'] ?? '-'),
-                const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.email_outlined, "Correo electrónico*", t['email'] ?? '-')),
+                    Expanded(child: _buildField(Icons.badge_outlined, "Cédula del tutor*", t['cedula'] ?? '-')),
                     const SizedBox(width: 16),
                     Expanded(child: _buildField(Icons.family_restroom_outlined, "Parentesco*", t['parentesco_nombre'] ?? '-')),
                   ],
                 ),
+                const SizedBox(height: 16),
+                _buildField(Icons.person_outline, "Nombres y apellidos*", t['nombre_completo'] ?? '-'),
+                const SizedBox(height: 16),
+                _buildField(Icons.email_outlined, "Correo electrónico*", t['email'] ?? '-'),
                 const SizedBox(height: 16),
                 Row(
                   children: [

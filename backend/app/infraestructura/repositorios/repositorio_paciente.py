@@ -1499,9 +1499,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             # Cast all fields to text to avoid binary decode issues during JSON serialization
             cur.execute("""
                 select p.id::text, p.nombre_completo::text, p.fecha_nacimiento::text, p.cedula::text, p.id_sexo, 
-                       p.id_canton, p.id_parroquia, s.descripcion::text as sexo_nombre 
+                       p.id_canton, p.id_parroquia, s.descripcion::text as sexo_nombre, c.nombre::text as canton_nombre, pq.nombre::text as parroquia_nombre 
                 from usuarios.paciente p 
                 left join usuarios.catalogo_sexo s on s.id = p.id_sexo 
+                left join usuarios.canton c on c.id = p.id_canton 
+                left join usuarios.parroquia pq on pq.id = p.id_parroquia 
                 where p.id = %s
             """, (id_paciente,))
             pac_row = cur.fetchone()
@@ -1510,9 +1512,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("""
                 select u.id::text, u.nombre_completo::text, u.email::text, u.cedula::text, 
-                       u.telefono::text, u.direccion::text, tp.id_parentesco 
+                       u.telefono::text, u.direccion::text, tp.id_parentesco, par.nombre::text as parentesco_nombre 
                 from usuarios.tutor_paciente tp 
                 join usuarios.usuario u on u.id = tp.id_usuario_tutor 
+                left join usuarios.parentesco par on par.id = tp.id_parentesco 
                 where tp.id_paciente = %s and tp.es_principal = true 
                 limit 1
             """, (id_paciente,))
@@ -1521,7 +1524,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("""
                 select dp.id::text, dp.id_condicion, dp.fecha_diagnostico::text, dp.es_cronico, 
-                       c.nombre::text as condicion_nombre 
+                       c.nombre::text as condicion_nombre, dp.severidad_inicial::text 
                 from clinico.diagnostico_paciente dp 
                 join heuristico.condicion c on c.id = dp.id_condicion 
                 where dp.id_paciente = %s and dp.esta_activo = true 
