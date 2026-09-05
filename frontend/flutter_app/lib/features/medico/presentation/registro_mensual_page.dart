@@ -2484,8 +2484,32 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Widget _buildOpsDashboard(
       Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
-    final controls = _evoFilteredControls(evo);
-    final monthlyControls = _groupEvoControlsByMonth(controls);
+    final rawControls = _evoFilteredControls(evo);
+    final rawMonthlyControls = _groupEvoControlsByMonth(rawControls);
+    
+    DateTime latestControlDate = DateTime.now();
+    if (rawControls.isNotEmpty) {
+      final parsed = DateTime.tryParse(rawControls.last['fecha_control']?.toString() ?? "");
+      if (parsed != null) latestControlDate = parsed;
+    }
+    DateTime threshold;
+    switch (_tendenciaFilter) {
+      case '6m': threshold = DateTime(latestControlDate.year, latestControlDate.month - 6, latestControlDate.day); break;
+      case '1y': threshold = DateTime(latestControlDate.year - 1, latestControlDate.month, latestControlDate.day); break;
+      case '5y': threshold = DateTime(latestControlDate.year - 5, latestControlDate.month, latestControlDate.day); break;
+      default: threshold = DateTime(2000); break;
+    }
+    
+    final controls = rawControls.where((c) {
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? latestControlDate;
+      return d.isAfter(threshold);
+    }).toList();
+    
+    final monthlyControls = rawMonthlyControls.where((c) {
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? latestControlDate;
+      return d.isAfter(threshold);
+    }).toList();
+
     final stats = _calculateEvoStats(monthlyControls);
 
     final domains = [
@@ -3404,43 +3428,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       List<Map<String, dynamic>> monthlyControls) {
     if (_activeDomainIndex == 0) {
       // Reumatológica
-      DateTime latestControlDate = DateTime.now();
-      if (controls.isNotEmpty) {
-        final parsed =
-            DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
-        if (parsed != null) latestControlDate = parsed;
-      }
-      final now = latestControlDate;
-
-      DateTime threshold;
-      switch (_tendenciaFilter) {
-        case '6m':
-          threshold = DateTime(now.year, now.month - 6, now.day);
-          break;
-        case '1y':
-          threshold = DateTime(now.year - 1, now.month, now.day);
-          break;
-        case '5y':
-          threshold = DateTime(now.year - 5, now.month, now.day);
-          break;
-        default:
-          threshold = DateTime(2000);
-          break;
-      }
-      final filteredControls = controls.where((c) {
-        final d =
-            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
-        return d.isAfter(threshold);
-      }).toList();
-      final filteredMonthlyControls = monthlyControls.where((c) {
-        final d =
-            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
-        return d.isAfter(threshold);
-      }).toList();
-
       if (_activeFigureIndex == 0) {
         // Síntomas y Dolor
-        return _redesignTendenciaClinica(filteredMonthlyControls, stats);
+        return _redesignTendenciaClinica(monthlyControls, stats);
       } else {
         // Mapa Articular
         return Column(
@@ -3493,11 +3483,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               ),
             ),
             const SizedBox(height: 16),
-            _buildEvoActivitySection(filteredControls),
+            _buildEvoActivitySection(controls),
             const SizedBox(height: 24),
             const Divider(color: Color(0xFFE2E8F0), thickness: 1),
             const SizedBox(height: 24),
-            _buildEvoInflammationSectionV2(filteredControls),
+            _buildEvoInflammationSectionV2(controls),
           ],
         );
       }
@@ -3515,11 +3505,23 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     } else {
       // Historial
       List<Map<String,dynamic>> filteredHist = List.from(historial);
-      final now = DateTime.now();
-      final threshold = _tendenciaFilter == '6m' ? now.subtract(const Duration(days: 180)) : (_tendenciaFilter == '1y' ? now.subtract(const Duration(days: 365)) : DateTime(2000));
+      
+      DateTime latestControlDate = DateTime.now();
+      if (controls.isNotEmpty) {
+        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        if (parsed != null) latestControlDate = parsed;
+      }
+      DateTime thresholdDate;
+      switch (_tendenciaFilter) {
+        case '6m': thresholdDate = DateTime(latestControlDate.year, latestControlDate.month - 6, latestControlDate.day); break;
+        case '1y': thresholdDate = DateTime(latestControlDate.year - 1, latestControlDate.month, latestControlDate.day); break;
+        case '5y': thresholdDate = DateTime(latestControlDate.year - 5, latestControlDate.month, latestControlDate.day); break;
+        default: thresholdDate = DateTime(2000); break;
+      }
+
       filteredHist = filteredHist.where((h) {
-        final d = DateTime.tryParse(h['fecha']?.toString() ?? "") ?? now;
-        return d.isAfter(threshold);
+        final d = DateTime.tryParse(h['fecha']?.toString() ?? "") ?? latestControlDate;
+        return d.isAfter(thresholdDate);
       }).toList();
 
       return Column(
