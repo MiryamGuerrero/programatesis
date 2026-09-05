@@ -7137,7 +7137,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   max(availableWidth, heatmapWidth);
 
               return SizedBox(
-                height: 350,
+                height: 360,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
