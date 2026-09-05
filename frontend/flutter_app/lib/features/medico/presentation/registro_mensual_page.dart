@@ -7121,7 +7121,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             const SizedBox(height: 12),
             LayoutBuilder(builder: (context, constraints) {
               final double labelWidth =
-                  constraints.maxWidth < 520 ? 108.0 : 140.0;
+                  constraints.maxWidth < 520 ? 120.0 : 140.0;
               const double minColumnWidth = 60.0;
               final double availableWidth =
                   (constraints.maxWidth - labelWidth)
@@ -7137,7 +7137,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   max(availableWidth, heatmapWidth);
 
               return SizedBox(
-                height: 230,
+                height: 350,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -7145,19 +7145,17 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       width: labelWidth,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          SizedBox(height: 32),
-                          _HeatLabel(
-                              "Dolor", Icons.sick_rounded, Colors.pinkAccent),
-                          _HeatLabel("Energía", Icons.bolt_rounded,
-                              Colors.orangeAccent),
-                          _HeatLabel(
-                              "Inflamación",
-                              Icons.local_fire_department_rounded,
-                              Colors.deepOrangeAccent),
-                          _HeatLabel("Brote", Icons.coronavirus_rounded,
-                              Colors.redAccent),
-                        ],
+                          children: const [
+                            SizedBox(height: 32),
+                            _HeatLabel("Dolor", Icons.sick_rounded, Colors.pinkAccent),
+                            _HeatLabel("Energía", Icons.bolt_rounded, Colors.orangeAccent),
+                            _HeatLabel("Inflamación", Icons.local_fire_department_rounded, Colors.deepOrangeAccent),
+                            _HeatLabel("Articulaciones", Icons.back_hand_rounded, Colors.purpleAccent),
+                            _HeatLabel("Rigidez (min)", Icons.timer_rounded, Colors.blueAccent),
+                            _HeatLabel("IMC", Icons.monitor_weight_outlined, Colors.teal),
+                            _HeatLabel("Actividad", Icons.analytics_outlined, Colors.indigoAccent),
+                            _HeatLabel("Brote", Icons.coronavirus_rounded, Colors.redAccent),
+                          ],
                       ),
                     ),
                     Expanded(
@@ -7187,21 +7185,21 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               );
             }),
             const SizedBox(height: 6),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 12, color: Colors.blueGrey.shade400),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    "Colores reflejan el estado clínico: Verde (Favorable), Naranja (Medio), Rojo (Riesgo/Alto).",
-                    style: GoogleFonts.inter(
-                      fontSize: 9,
-                      color: Colors.blueGrey.shade400,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 14, color: Colors.blueGrey.shade700),
+                    const SizedBox(width: 6),
+                    Text("Guía de Interpretación de Indicadores:", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                  ],
                 ),
+                const SizedBox(height: 6),
+                Text("• Articulaciones (D/I): Dolorosas / Inflamadas. Verde (0). Naranja (1-4). Rojo (>4).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text("• Rigidez: Verde (<15m). Naranja (15-60m). Rojo (>60m).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text("• IMC: Verde (18.5-24.9 Normal). Naranja (25-29.9 Sobrepeso). Rojo (<18.5 o ≥30).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text("• Actividad: REM (Remisión). BAJ (Baja). MOD (Moderada). ALT (Alta).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
               ],
             ),
           ],
@@ -7429,10 +7427,35 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   width: cellWidth),
               _heatCell(
                   (c['escala_inflamacion'] ?? 0).toString(),
-                  _heatColor(
-                      'inflamacion', _numValue(c['escala_inflamacion'], 0)),
+                  _heatColor('inflamacion', _numValue(c['escala_inflamacion'], 0)),
                   width: cellWidth),
-              _heatCell(c['en_brote'] == true ? "Sí" : "No",
+              Builder(builder: (context) {
+                int dol = _numValue(c['articulaciones_dolorosas'], 0).round();
+                int inf = _numValue(c['articulaciones_inflamadas'], 0).round();
+                Color cArt = (dol == 0 && inf == 0) ? Colors.green : ((dol <= 4 && inf <= 4) ? Colors.orange : Colors.red);
+                return _heatCell("$dol/$inf", cArt, width: cellWidth);
+              }),
+              Builder(builder: (context) {
+                int rig = _numValue(c['minutos_rigidez'], 0).round();
+                Color cRig = rig < 15 ? Colors.green : (rig <= 60 ? Colors.orange : Colors.red);
+                return _heatCell("${rig}m", cRig, width: cellWidth);
+              }),
+              Builder(builder: (context) {
+                double imc = _numValue(c['imc_calculado'], 0).toDouble();
+                Color cImc = (imc >= 18.5 && imc < 25) ? Colors.green : ((imc >= 25 && imc < 30) ? Colors.orange : Colors.red);
+                return _heatCell(imc > 0 ? imc.toStringAsFixed(1) : "-", cImc, width: cellWidth);
+              }),
+              Builder(builder: (context) {
+                String act = (c['estado_enfermedad'] ?? "-").toString();
+                String actShort = act.length > 3 ? act.substring(0,3).toUpperCase() : act.toUpperCase();
+                Color actColor = Colors.grey;
+                String actLower = act.toLowerCase();
+                if(actLower.contains("remis") || actLower.contains("estable")) actColor = Colors.green;
+                else if(actLower.contains("baja")) actColor = Colors.orange;
+                else if(actLower.contains("alta") || actLower.contains("moderada")) actColor = Colors.red;
+                return _heatCell(actShort, actColor, width: cellWidth);
+              }),
+              _heatCell(c['en_brote'] == true ? "SÍ" : "NO",
                   c['en_brote'] == true ? Colors.red : Colors.green,
                   width: cellWidth),
             ],
