@@ -2499,7 +2499,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       ["Síntomas y Dolor", "Mapa Articular"],
       ["Antropometría", "Consumo Alimentario"],
       ["Lectura Rápida"],
-      ["Línea Temporal", "Registros Detallados"],
+      ["Registros Detallados"],
     ];
 
     return Column(
@@ -3290,13 +3290,26 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
         );
       }
+
+      String _mesCompleto(String raw) {
+        try {
+          final dt = DateTime.parse(raw);
+          final meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+          return "${meses[dt.month - 1]} ${dt.year}";
+        } catch (_) {
+          return raw;
+        }
+      }
       
+      int brotes = stats['mesesConBrote'] ?? 0;
+      String textoBrotes = brotes == 1 ? "1 mes" : "$brotes meses";
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 0),
           buildMultiKpiBlock(
-            "Figura 5", 
+            "Tabla 2", 
             "MAPA MENSUAL DE IMPACTO GLOBAL", 
             [
               {'title': 'Dolor\nmensual', 'val': '${(stats['ultimoDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'},
@@ -3309,11 +3322,11 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           const SizedBox(height: 24),
           Text("LECTURA CLÍNICA RÁPIDA", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
           const SizedBox(height: 12),
-          _lecturaItem("Prom. dolor:", (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'),
-          _lecturaItem("Prom. energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
-          _lecturaItem("Brotes:", "${stats['mesesConBrote'] ?? 0} meses"),
-          _lecturaItem("Último mes:", _monthShort(stats['ultimoControlFecha']?.toString() ?? '')),
-          _lecturaItem("Patrón:", stats['patronClinico']?.toString() ?? '-'),
+          _lecturaItem("Promedio de dolor:", (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Promedio de energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Cantidad de brotes:", textoBrotes),
+          _lecturaItem("Última evaluación:", _mesCompleto(stats['ultimoControlFecha']?.toString() ?? '')),
+          _lecturaItem("Patrón clínico:", stats['patronClinico']?.toString() ?? '-'),
         ],
       );
     }
@@ -3492,18 +3505,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       return _buildEvoHeatmapSection(controls);
     } else {
       // Historial
-      if (_activeFigureIndex == 0) {
-        return _buildClinicalTimeline(historial);
-      } else {
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: historial.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) =>
-              _buildHistoryItem(historial[historial.length - 1 - index]),
-        );
-      }
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: historial.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) =>
+            _buildHistoryItem(historial[historial.length - 1 - index]),
+      );
     }
   }
 
