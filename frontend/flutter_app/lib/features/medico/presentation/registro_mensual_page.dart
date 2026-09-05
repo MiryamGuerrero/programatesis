@@ -2628,18 +2628,19 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Columna Izquierda
-                  Container(
-                    width: 280,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      border: Border(
-                          right: BorderSide(color: Colors.grey.shade200)),
-                      borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(16)),
+                  if (_activeDomainIndex != 3)
+                    Container(
+                      width: 280,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border(
+                            right: BorderSide(color: Colors.grey.shade200)),
+                        borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(16)),
+                      ),
+                      child: _buildOpsLeftPanel(stats, controls, evo),
                     ),
-                    child: _buildOpsLeftPanel(stats, controls, evo),
-                  ),
 
                   // Columna Derecha (Gráfica)
                   Expanded(
@@ -3326,7 +3327,15 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           _lecturaItem("Promedio de energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
           _lecturaItem("Cantidad de brotes:", textoBrotes),
           _lecturaItem("Última evaluación:", _mesCompleto(stats['ultimoControlFecha']?.toString() ?? '')),
-          _lecturaItem("Patrón clínico:", stats['patronClinico']?.toString() ?? '-'),
+          Builder(
+            builder: (context) {
+              String patronStr = stats['patronClinico']?.toString() ?? '-';
+              if (patronStr.isNotEmpty && patronStr != '-') {
+                patronStr = patronStr[0].toUpperCase() + patronStr.substring(1);
+              }
+              return _lecturaItem("Patrón clínico:", patronStr);
+            },
+          ),
         ],
       );
     }
@@ -3505,13 +3514,70 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       return _buildEvoHeatmapSection(controls);
     } else {
       // Historial
-      return ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: historial.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) =>
-            _buildHistoryItem(historial[historial.length - 1 - index]),
+      List<Map<String,dynamic>> filteredHist = List.from(historial);
+      final now = DateTime.now();
+      final threshold = _tendenciaFilter == '6m' ? now.subtract(const Duration(days: 180)) : (_tendenciaFilter == '1y' ? now.subtract(const Duration(days: 365)) : DateTime(2000));
+      filteredHist = filteredHist.where((h) {
+        final d = DateTime.tryParse(h['fecha']?.toString() ?? "") ?? now;
+        return d.isAfter(threshold);
+      }).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16, bottom: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Historial Clínico",
+                    style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A))),
+                Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _tendenciaFilter,
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          size: 14, color: Colors.blueGrey),
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.blueGrey.shade700,
+                          fontWeight: FontWeight.w600),
+                      items: const [
+                        DropdownMenuItem(
+                            value: '6m', child: Text("Últimos 6 meses")),
+                        DropdownMenuItem(
+                            value: '1y', child: Text("Último año")),
+                        DropdownMenuItem(
+                            value: 'all', child: Text("Todo el historial")),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _tendenciaFilter = v);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredHist.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) =>
+                _buildHistoryItem(filteredHist[filteredHist.length - 1 - index]),
+          ),
+        ],
       );
     }
   }
@@ -4799,15 +4865,15 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
     final bool isPain = type == "pain";
     final List<(double, double, Color)> bands = isPain
-        ? const [
-            (0, 2.5, Color(0x082E7D32)),
-            (2.5, 6.5, Color(0x08F59E0B)),
-            (6.5, 10, Color(0x08F87171))
+        ? [
+            (0, 2.5, Colors.green.withValues(alpha: 0.15)),
+            (2.5, 6.5, Colors.orange.withValues(alpha: 0.15)),
+            (6.5, 10, Colors.red.withValues(alpha: 0.15))
           ]
-        : const [
-            (0, 3.5, Color(0x08F87171)),
-            (3.5, 6.5, Color(0x08F59E0B)),
-            (6.5, 10, Color(0x082E7D32))
+        : [
+            (0, 3.5, Colors.red.withValues(alpha: 0.15)),
+            (3.5, 6.5, Colors.orange.withValues(alpha: 0.15)),
+            (6.5, 10, Colors.green.withValues(alpha: 0.15))
           ];
 
     return Container(
