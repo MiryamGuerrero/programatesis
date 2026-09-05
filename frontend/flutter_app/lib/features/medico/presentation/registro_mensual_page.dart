@@ -7122,7 +7122,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             LayoutBuilder(builder: (context, constraints) {
               final double labelWidth =
                   constraints.maxWidth < 520 ? 108.0 : 140.0;
-              const double minColumnWidth = 92.0;
+              const double minColumnWidth = 60.0;
               final double availableWidth =
                   (constraints.maxWidth - labelWidth)
                       .clamp(0.0, double.infinity);
@@ -7137,7 +7137,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   max(availableWidth, heatmapWidth);
 
               return SizedBox(
-                height: 298,
+                height: 230,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -7157,8 +7157,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                               Colors.deepOrangeAccent),
                           _HeatLabel("Brote", Icons.coronavirus_rounded,
                               Colors.redAccent),
-                          _HeatLabel("E. Nutricional",
-                              Icons.monitor_weight_outlined, Colors.green),
                         ],
                       ),
                     ),
@@ -7399,22 +7397,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     } catch (_) {
       label = _monthShort(c['fecha_control']?.toString() ?? '');
     }
-    final cellWidth = ((width ?? 85) - 4).clamp(80.0, double.infinity);
+    final cellWidth = ((width ?? 85) - 4).clamp(50.0, double.infinity);
 
     // Estado nutricional resumido para que la celda sea legible.
-    String rawNutri = (c['prediagnostico']?['diagnostico_combinado'] ??
-            c['estado_nutricional'] ??
-            "-")
-        .toString();
-    String nutriDisplay = rawNutri;
-    String lower = rawNutri.toLowerCase();
-
-    if (lower.contains("normal") ||
-        lower.contains("eutrófico") ||
-        lower.contains("eutrofico")) {
-      nutriDisplay = "Normal";
-    }
-
     return GestureDetector(
       onTap: () => setState(() => _controlSeleccionadoEvo = c),
       child: SizedBox(
@@ -7450,12 +7435,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               _heatCell(c['en_brote'] == true ? "Sí" : "No",
                   c['en_brote'] == true ? Colors.red : Colors.green,
                   width: cellWidth),
-              _heatCell(
-                nutriDisplay,
-                _nutriColor(rawNutri),
-                isTextCell: true,
-                width: cellWidth,
-              ),
             ],
           ),
         ),
