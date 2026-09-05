@@ -4127,72 +4127,114 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ]));
   }
 
-  Widget _buildHistoryItem(Map<String, dynamic> h) => InkWell(
-        onTap: () => _mostrarDetalleModal(h),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-                color: (h['en_brote'] ?? false)
-                    ? Colors.red.shade100
-                    : Colors.grey.shade200),
+  Widget _buildHistoryItem(Map<String, dynamic> h) {
+    Widget metricIconInfo(IconData icon, String label, String value, Color color) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            "$label: ",
+            style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade500, fontWeight: FontWeight.w500),
           ),
-          child: Row(
-            children: [
-              _dateBadge(DateTime.parse(h['fecha_control'])),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            value,
+            style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey.shade800, fontWeight: FontWeight.w800),
+          ),
+        ],
+      );
+    }
+
+    return InkWell(
+      onTap: () => _mostrarDetalleModal(h),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: (h['en_brote'] ?? false)
+                  ? Colors.red.shade200
+                  : Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Row(
+          children: [
+            _dateBadge(DateTime.parse(h['fecha_control'])),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    h['estado_nutricional'] ?? "Sin diagnóstico",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: const Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 6,
+                    children: [
+                      metricIconInfo(Icons.monitor_weight_outlined, "Peso", "${h['peso_kg']} kg", Colors.teal),
+                      metricIconInfo(Icons.height, "Talla", "${h['talla_cm']} cm", Colors.teal),
+                      metricIconInfo(Icons.calculate_outlined, "IMC", "${h['imc_calculado'] ?? '-'}", Colors.teal.shade700),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 6,
+                    children: [
+                      metricIconInfo(Icons.sick_outlined, "Dolor", "${h['puntos_dolor'] ?? '-'}", Colors.redAccent),
+                      metricIconInfo(Icons.local_fire_department_outlined, "Inflam.", "${h['escala_inflamacion'] ?? '-'}", Colors.deepOrangeAccent),
+                      metricIconInfo(Icons.bolt_outlined, "Fatiga", "${h['nivel_fatiga'] ?? '-'}", Colors.orange),
+                      metricIconInfo(Icons.timer_outlined, "Rigidez", "${h['minutos_rigidez'] ?? '-'}m", Colors.blueAccent),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (h['en_brote'] == true)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Row(
                   children: [
-                    Text(
-                      h['estado_nutricional'] ?? "Sin diagnóstico",
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: const Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Peso: ${h['peso_kg']} kg | Talla: ${h['talla_cm']} cm | IMC: ${h['imc_calculado'] ?? '-'}",
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.blueGrey),
-                    ),
-                    Text(
-                      "Dolor: ${h['puntos_dolor'] ?? '-'} | Inflamación: ${h['escala_inflamacion'] ?? '-'} | Fatiga: ${h['nivel_fatiga'] ?? '-'} | Rigidez: ${h['minutos_rigidez'] ?? '-'} min",
-                      style:
-                          const TextStyle(fontSize: 10, color: Colors.blueGrey),
-                    ),
+                    Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red.shade700),
+                    const SizedBox(width: 4),
+                    Text("Brote",
+                        style: GoogleFonts.inter(
+                            color: Colors.red.shade700,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-              if (h['en_brote'] == true)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(8)),
-                  child: const Text("Brote",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold)),
-                ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: "Editar",
-                onPressed: () => _prepararEdicion(h),
-                icon: const Icon(Icons.edit_note_rounded, color: greenBrand),
-              ),
-              const Icon(Icons.arrow_forward_ios_rounded,
-                  size: 14, color: Colors.grey),
-            ],
-          ),
+            const SizedBox(width: 12),
+            IconButton(
+              tooltip: "Editar",
+              onPressed: () => _prepararEdicion(h),
+              icon: const Icon(Icons.edit_note_rounded, color: greenBrand),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                size: 14, color: Colors.grey),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   void _mostrarDetalleModal(Map<String, dynamic> h) => showDialog(
         context: context,
