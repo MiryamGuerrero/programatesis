@@ -3349,41 +3349,85 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Container(
-          width: 900,
-          padding: const EdgeInsets.all(40),
+          width: 1000,
+          constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 850),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE5EAF2)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
           child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  const Icon(Icons.assignment_ind_outlined,
-                      color: greenBrand, size: 32),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Expediente maestro integral",
-                          style: GoogleFonts.montserrat(
-                              fontWeight: FontWeight.w900, fontSize: 20)),
-                      Text(
-                          "Registro oficial del paciente en el sistema ReumaNutri",
-                          style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12)),
-                    ],
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.assignment_ind_outlined,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
-                  const Spacer(),
-                  IconButton.filledTonal(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close))
-                ]),
-                const Divider(height: 48),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Row(
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          "Expediente Maestro Integral",
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        Text(
+                            "Registro oficial del paciente y soporte legal en el sistema ReumaNutri",
+                            style: TextStyle(
+                                color: Colors.grey.shade600, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      hoverColor: const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Divider(height: 1, color: Color(0xFFE5EAF2)),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                         Expanded(
                             child:
                                 _buildExpSection("1. Identidad del paciente", [
