@@ -41,6 +41,7 @@ class PlanManualPage extends ConsumerStatefulWidget {
 }
 
 class _PlanManualPageState extends ConsumerState<PlanManualPage> {
+  String _filtroTiempo = "Todo";
   static const Color greenBrand = Color(0xFF2E7D32);
 
   String _capitalize(String text) {
@@ -115,11 +116,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(menuExpandedProvider.notifier).state = false;
-      }
-    });
+
     Future.microtask(() {
       _fetchPatients("");
       _setupRealtimeSubscription();
@@ -327,6 +324,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Future<void> _onPatientSelected(Map<String, dynamic> patient) async {
+    ref.read(menuExpandedProvider.notifier).state = false;
     setState(() {
       _selectedPatient = patient;
       _viewingHistory = true;
@@ -1879,28 +1877,31 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           Padding(
             padding: const EdgeInsets.only(left: 52),
             child: Text(
-              "Historial y análisis clínico de los planes nutricionales asignados. Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
+              "Historial y asignación de planes nutricionales.",
               style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFF64748B)),
             ),
           ),
-          const SizedBox(height: 24),
+                    const SizedBox(height: 24),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
-              color: greenBrand,
+              color: AppTema.verdeSalud,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               children: [
-                Text("Gestión de Pacientes",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
+                InkWell(
+                  onTap: () => setState(() => _selectedPatient = null),
+                  child: Text("Gestión de Pacientes",
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                ),
                 const SizedBox(width: 12),
                 const Icon(Icons.arrow_forward_ios,
                     size: 10, color: Colors.white),
@@ -1912,6 +1913,29 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         color: Colors.white)),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.filter_alt_outlined, size: 18, color: Colors.blueGrey),
+              const SizedBox(width: 8),
+              Text("Filtro por fecha: ", style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700)),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: _filtroTiempo,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                items: ['Todo', 'Últimos 3 meses', 'Últimos 6 meses', 'Este Año'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value, style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey.shade800)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _filtroTiempo = val);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -1997,12 +2021,36 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   }
 
   Widget _buildHistoryList() {
+    final filtered = _patientPlans.where((p) {
+      if (_filtroTiempo == 'Todo') return true;
+      final fInicio = p['fecha_inicio'];
+      if (fInicio == null) return true;
+      try {
+        final d = DateTime.parse(fInicio.toString());
+        final now = DateTime.now();
+        if (_filtroTiempo == 'Últimos 3 meses') {
+          return now.difference(d).inDays <= 90;
+        } else if (_filtroTiempo == 'Últimos 6 meses') {
+          return now.difference(d).inDays <= 180;
+        } else if (_filtroTiempo == 'Este Año') {
+          return d.year == now.year;
+        }
+      } catch (_) {}
+      return true;
+    }).toList();
+    
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text("No hay planes en este rango de tiempo.", style: GoogleFonts.inter(color: Colors.blueGrey)),
+      );
+    }
+    
     return ListView.builder(
       controller: _historyScrollController,
       padding: const EdgeInsets.all(40),
-      itemCount: _patientPlans.length,
+      itemCount: filtered.length,
       itemBuilder: (context, idx) {
-        final p = _patientPlans[idx];
+        final p = filtered[idx];
         final pId = (p['id'] as num?)?.toInt();
         final bool isLoadingThis = _loadingPlanId == pId;
 
@@ -3380,12 +3428,32 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return uniqueMap.values.toList();
   }
 
-  void _mostrarExpedienteMaestroDialog() {
-    if (_patientProfile == null) return;
+  Future<void> _mostrarExpedienteMaestroDialog() async {
+    if (_selectedPatient == null) return;
+    
     showDialog(
       context: context,
-      builder: (ctx) => ExpedienteMaestroModal(data: _patientProfile!),
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator(color: AppTema.azulPrincipal)),
     );
+    
+    try {
+      final dio = ref.read(dioProvider);
+      final idPaciente = _selectedPatient!['id'];
+      final res = await dio.get("pacientes/$idPaciente/expediente-completo");
+      
+      if (mounted) Navigator.pop(context); 
+      
+      if (mounted && res.data != null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => ExpedienteMaestroModal(data: res.data!),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); 
+      debugPrint("Error fetching expediente: $e");
+    }
   }
 }
 

@@ -245,7 +245,7 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                 const SizedBox(height: 16),
                 _buildField(Icons.event_outlined, "Fecha de Diagnóstico*", d['fecha_diagnostico'] ?? '-'),
                 const SizedBox(height: 16),
-                _buildField(Icons.healing_outlined, "Severidad (Opcional)", d['severidad_inicial'] ?? 'No especificada'),
+                _buildField(Icons.healing_outlined, "Estado Actual de Enfermedad", c['estado_enfermedad']?.toString().toUpperCase() ?? 'No especificado'),
               ],
             ),
           ),
@@ -304,57 +304,88 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
 
   Widget _buildAlergias() {
     final al = widget.data['alergias'] ?? {};
-    final hasMeds = (al['medicamentos'] as List?)?.isNotEmpty ?? false;
-    final medsList = hasMeds ? (al['medicamentos'] as List).map((e) => e['nombre']).join(", ") : "Ninguna registrada";
+    final restricciones = widget.data['restricciones_alimentarias_detalle'] as List? ?? [];
     
-    final hasAliments = (al['subgrupos'] as List?)?.isNotEmpty ?? false;
-    final alimentsList = hasAliments ? (al['subgrupos'] as List).map((e) => e['nombre']).join(", ") : "Ninguna registrada";
+    final hasRestricciones = restricciones.isNotEmpty;
+    final restriccionesList = hasRestricciones 
+        ? restricciones.map((e) => e['nombre']).join(", ") 
+        : "Ninguna registrada";
+    
+    final hasSubgrupos = (al['subgrupos'] as List?)?.isNotEmpty ?? false;
+    final subgruposList = hasSubgrupos 
+        ? (al['subgrupos'] as List).map((e) => e['nombre']).join(", ") 
+        : "Ninguna registrada";
 
-    final hasLacteos = (al['subgrupos'] as List? ?? []).any((a) => {98, 100, 101, 104, 105, 108, 111, 114, 117, 119}.contains(a['id']));
+    final hasIngredientes = (al['ingredientes'] as List?)?.isNotEmpty ?? false;
+    final ingredientesList = hasIngredientes 
+        ? (al['ingredientes'] as List).map((e) => e['nombre']).join(", ") 
+        : "Ninguno registrado";
+
+    final esIntoleranteLactosa = widget.data['es_intolerante_lactosa'] == true;
     
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle(Icons.warning_amber_rounded, "Alergias e Intolerancias"),
+          _buildSectionTitle(Icons.warning_amber_rounded, "Alergias y Restricciones Clínicas"),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildField(Icons.medication_outlined, "Alergias a Medicamentos", 
-                  medsList,
-                  valueColor: hasMeds ? Colors.red.shade700 : const Color(0xFF1E293B)
+                child: _buildField(
+                  Icons.health_and_safety_outlined, 
+                  "Intolerancias y Dietas Especiales", 
+                  restriccionesList,
+                  valueColor: hasRestricciones ? Colors.red.shade700 : const Color(0xFF1E293B)
                 ),
               ),
               const SizedBox(width: 24),
               Expanded(
-                child: _buildField(Icons.restaurant_outlined, "Intolerancias Alimentarias", 
-                  alimentsList,
-                  valueColor: hasAliments ? Colors.red.shade700 : const Color(0xFF1E293B)
+                child: _buildField(
+                  Icons.restaurant_outlined, 
+                  "Alergia a Grupos de Alimentos", 
+                  subgruposList,
+                  valueColor: hasSubgrupos ? Colors.red.shade700 : const Color(0xFF1E293B)
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          if (hasLacteos)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildField(
+                  Icons.egg_alt_outlined, 
+                  "Alergia a Ingredientes Específicos", 
+                  ingredientesList,
+                  valueColor: hasIngredientes ? Colors.red.shade700 : const Color(0xFF1E293B)
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(child: const SizedBox.shrink()),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (esIntoleranteLactosa)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: Colors.red.shade100),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 16),
+                  Icon(Icons.info_outline, color: Colors.red.shade700, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      "ALERTA: Paciente con intolerancia severa/sensibilidad a Lácteos reportada. Ajustar plan dietético estrictamente.",
-                      style: GoogleFonts.inter(color: Colors.red.shade900, fontWeight: FontWeight.w600, fontSize: 11),
+                      "El paciente tiene registrada una INTOLERANCIA A LA LACTOSA severa. El motor nutricional ha suprimido automáticamente los lácteos.",
+                      style: GoogleFonts.inter(fontSize: 11, color: Colors.red.shade900, fontWeight: FontWeight.w600),
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
