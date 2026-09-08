@@ -573,6 +573,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
+                if id_medico:
+                    cur.execute("SELECT id FROM usuarios.usuario WHERE auth_user_id::text = %s OR id::text = %s LIMIT 1", (str(id_medico), str(id_medico)))
+                    row_m = cur.fetchone()
+                    if row_m: id_medico = row_m[0]
+                if id_nutricionista:
+                    cur.execute("SELECT id FROM usuarios.usuario WHERE auth_user_id::text = %s OR id::text = %s LIMIT 1", (str(id_nutricionista), str(id_nutricionista)))
+                    row_n = cur.fetchone()
+                    if row_n: id_nutricionista = row_n[0]
                 cur.execute("select fecha_nacimiento, id_sexo from usuarios.paciente where id = %s", (id_paciente,))
                 p = cur.fetchone()
                 if not p: raise Exception("Paciente no encontrado")
@@ -1524,7 +1532,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             
             cur.execute("""
                 select dp.id::text, dp.id_condicion, dp.fecha_diagnostico::text, dp.es_cronico, 
-                       c.nombre::text as condicion_nombre, dp.severidad_inicial::text 
+                       c.nombre::text as condicion_nombre, null as severidad_inicial 
                 from clinico.diagnostico_paciente dp 
                 join heuristico.condicion c on c.id = dp.id_condicion 
                 where dp.id_paciente = %s and dp.esta_activo = true 

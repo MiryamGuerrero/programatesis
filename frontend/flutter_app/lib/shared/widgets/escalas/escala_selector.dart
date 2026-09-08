@@ -95,7 +95,7 @@ class EscalaSelector extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      puntajeLabel!,
+                      "",
                       style: GoogleFonts.montserrat(
                         color: colorActivo,
                         fontWeight: FontWeight.w900,

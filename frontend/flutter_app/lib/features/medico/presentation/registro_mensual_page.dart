@@ -4,6 +4,7 @@ import "dart:async";
 import '../../../../shared/widgets/expediente_maestro_modal.dart';
 import "dart:math";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:shimmer/shimmer.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -18,7 +19,7 @@ import "../data/repositorio_medico.dart";
 import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 import '../../../shared/widgets/role_shell.dart';
-import '../../../shared/widgets/custom_date_picker.dart';
+
 
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
@@ -92,6 +93,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   Map<String, dynamic>? _controlSeleccionadoEvo;
   Map<String, dynamic>? _consumoAlimentario;
   String? _idControlEditando;
+  String _fechaControlEditando = "";
   Timer? _debounceOMS;
   final ScrollController _heatmapScrollCtrl = ScrollController();
 
@@ -235,21 +237,6 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     _rigidez.dispose();
     _notas.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickProximaCita() async {
-    final d = await showCustomDatePicker(
-      context,
-      initialDate: _proximaCita,
-      colorActivo: AppTema.azulPrincipal,
-      colorTexto: AppTema.azulOscuro,
-    );
-    if (d != null) {
-      setState(() {
-        _proximaCita = d;
-        _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(d);
-      });
-    }
   }
 
   Future<void> _cargarExpediente({bool forceReload = false}) async {
@@ -503,6 +490,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
     setState(() {
       _idControlEditando = h['id']?.toString();
+        try {
+          final dt = DateTime.parse(h['fecha_control'] ?? "");
+          _fechaControlEditando = DateFormat('dd/MM/yyyy').format(dt);
+        } catch (_) {
+          _fechaControlEditando = h['fecha_control'] ?? "";
+        }
       _peso.text = h['peso_kg']?.toString() ?? "";
       _talla.text = h['talla_cm']?.toString() ?? "";
       _artInflam.text = h['articulaciones_inflamadas']?.toString() ?? "0";
@@ -513,7 +506,16 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       _inflamacion = _asDouble(h['escala_inflamacion']);
       _fatiga = _asDouble(h['nivel_fatiga'], fallback: 10);
       _brote = h['en_brote'] ?? false;
-      _estadoEnfermedad = h['estado_enfermedad'] ?? "Seguimiento";
+      final savedEstado = (h['estado_enfermedad'] ?? "").toString().trim().toLowerCase();
+        _estadoEnfermedad = _estadosClinicos.firstWhere(
+            (e) {
+                String stripAccents(String str) {
+                    return str.replaceAll('á','a').replaceAll('é','e').replaceAll('í','i').replaceAll('ó','o').replaceAll('ú','u');
+                }
+                return stripAccents(e.toLowerCase()) == stripAccents(savedEstado);
+            },
+            orElse: () => "Seguimiento"
+        );
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ??
           DateTime.now().add(const Duration(days: 30));
       _proximaCitaCtrl.text =
@@ -590,10 +592,40 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         await dio.put("pacientes/control-mensual/$_idControlEditando",
             data: payload);
       }
-      if (mounted)
-        NutriSnack.show(context,
-            "Se han actualizado los campos de peso, talla y evaluación correctamente",
-            ref: ref);
+      final bool esActualizacion = _idControlEditando != null;
+        final String mensajeExito = esActualizacion ? "Datos actualizados" : "Registro mensual completado";
+        
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierColor: Colors.black54,
+            builder: (ctx) => Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, color: Colors.greenAccent, size: 64),
+                      const SizedBox(height: 16),
+                      Text(mensajeExito, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+          Future.delayed(const Duration(milliseconds: 1800), () {
+            if (mounted && Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          });
+        }
 
       ref.read(repositorioMedicoProvider).invalidateExpediente(widget.paciente['id'].toString());
       ref.invalidate(medicalPatientsProvider);
@@ -838,6 +870,29 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             Tab(text: "Monitor de evolución")
           ]));
 
+
+  Widget _estadoDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _estadosClinicos.contains(_estadoEnfermedad) ? _estadoEnfermedad : null,
+      items: _estadosClinicos.map((estado) {
+        return DropdownMenuItem(
+          value: estado,
+          child: Text(estado)
+        );
+      }).toList(),
+      onChanged: (v) {
+        if (v != null) {
+          setState(() => _estadoEnfermedad = v);
+        }
+      },
+      decoration: InputDecoration(
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      hint: const Text("Seleccione el estado actual"),
+    );
+  }
+
   Widget _buildFormTab({bool isNested = false}) {
     final bloqueado = !_controlMensualHabilitado && _idControlEditando == null;
     Widget content;
@@ -954,331 +1009,397 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         ),
       );
     } else {
-      content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_diasRestantesParaControl == 0 && _idControlEditando == null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 24),
-            decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.green.withOpacity(0.3))),
-            child: Row(children: [
-              const Icon(Icons.check_circle_outline, color: Colors.green),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Text("Hoy es el día de su control",
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green))),
-            ]),
-          ),
-        ],
-        if (_yaEvaluadoHoy && _idControlEditando == null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 24),
-            decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.orange.withOpacity(0.3))),
-            child: Row(children: [
-              const Icon(Icons.info_outline, color: Colors.orange),
-              const SizedBox(width: 12),
-              const Expanded(
-                  child: Text(
-                      "PACIENTE YA EVALUADO HOY. Si registra una nueva valoración, se sobreescribirá el control de esta fecha.",
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange))),
-            ]),
-          ),
-        ],
-
-        // 1. SIGNOS VITALES Y ANTROPOMETRÍA
-        _sectionHeader(
-            "Signos vitales y antropometría", Icons.monitor_weight_outlined),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: Column(children: [
-            Row(children: [
-              Expanded(
-                  child: _field(
-                      _peso, "Peso actual (kg)*", Icons.scale_outlined,
-                      onChanged: (_) => _debouncedOMS())),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _field(
-                      _talla, "Talla actual (cm)*", Icons.height_rounded,
-                      onChanged: (_) => _debouncedOMS())),
-            ]),
-            const SizedBox(height: 24),
-            _buildOMSDiagnosisRow(),
-          ]),
+      content = Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+          ]
         ),
-        const SizedBox(height: 48),
-
-        // 2. EVALUACIÓN DE ACTIVIDAD REUMÁTICA
-        _sectionHeader(
-            "2. Evaluación de actividad reumática", Icons.healing_outlined),
-        const SizedBox(height: 24),
-        if (MediaQuery.of(context).size.width > 900) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: EscalaSelector(
-                  titulo: "Dolor",
-                  descripcion: "",
-                  min: 0,
-                  max: 10,
-                  value: _dolor.toInt(),
-                  icons: const [
-                    Icons.sentiment_very_satisfied_rounded,
-                    Icons.sentiment_satisfied_rounded,
-                    Icons.sentiment_satisfied_rounded,
-                    Icons.sentiment_neutral_rounded,
-                    Icons.sentiment_neutral_rounded,
-                    Icons.sentiment_dissatisfied_rounded,
-                    Icons.sentiment_dissatisfied_rounded,
-                    Icons.sentiment_very_dissatisfied_rounded,
-                    Icons.sentiment_very_dissatisfied_rounded,
-                    Icons.sick_rounded,
-                    Icons.sick_rounded
-                  ],
-                  etiquetas: [
-                    EscalaEtiqueta("Leve", 3),
-                    EscalaEtiqueta("Moderado", 4),
-                    EscalaEtiqueta("Severo", 4)
-                  ],
-                  colorActivo: Colors.red,
-                  colorFondoActivo: Colors.red,
-                  backgroundColor: const Color(0xFFF8FAFC),
-                  showIdentityRow: false,
-                  onChanged: (v) => setState(() => _dolor = v.toDouble()),
-                  puntajeLabel: "${_dolor.toInt()}/10",
-                  headerIcon: const Icon(Icons.healing_rounded,
-                      color: Colors.red, size: 28),
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: _buildEVACard(
-                  "Inflamación",
-                  _inflamacion,
-                  3,
-                  (v) => setState(() => _inflamacion = v),
-                  icon: Icons.verified_user_outlined,
-                  labels: [
-                    "0 = Sin inflamación",
-                    "1 = Leve",
-                    "2 = Moderada",
-                    "3 = Severa / Activa"
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildEVACard(
-                  "Fatiga",
-                  _fatiga,
-                  10,
-                  (v) => setState(() => _fatiga = v),
-                  icon: Icons.battery_full_rounded,
-                  labels: [
-                    "0-3 = Agotamiento",
-                    "4-7 = Intermedio",
-                    "8-10 = Alta energía"
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(children: [
-                      Expanded(
-                          child: _buildCounterField("Art. Inflamadas",
-                              _artInflam, Icons.track_changes_outlined)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _buildCounterField("Art. Dolorosas", _artDolor,
-                              Icons.back_hand_outlined)),
-                    ]),
-                    const SizedBox(height: 24),
-                    _field(
-                      _rigidez,
-                      "Rigidez en min",
-                      Icons.timer_outlined,
-                      helper:
-                          "Minutos de rigidez al despertar o durante el día",
-                    ),
-                    const SizedBox(height: 18),
-                    _buildBroteToggle(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ] else ...[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              EscalaSelector(
-                titulo: "Dolor",
-                descripcion: "",
-                min: 0,
-                max: 10,
-                value: _dolor.toInt(),
-                icons: const [
-                  Icons.sentiment_very_satisfied_rounded,
-                  Icons.sentiment_satisfied_rounded,
-                  Icons.sentiment_satisfied_rounded,
-                  Icons.sentiment_neutral_rounded,
-                  Icons.sentiment_neutral_rounded,
-                  Icons.sentiment_dissatisfied_rounded,
-                  Icons.sentiment_dissatisfied_rounded,
-                  Icons.sentiment_very_dissatisfied_rounded,
-                  Icons.sentiment_very_dissatisfied_rounded,
-                  Icons.sick_rounded,
-                  Icons.sick_rounded
-                ],
-                etiquetas: [
-                  EscalaEtiqueta("Leve", 3),
-                  EscalaEtiqueta("Moderado", 4),
-                  EscalaEtiqueta("Severo", 4)
-                ],
-                colorActivo: Colors.red,
-                colorFondoActivo: Colors.red,
-                backgroundColor: const Color(0xFFF8FAFC),
-                showIdentityRow: false,
-                onChanged: (v) => setState(() => _dolor = v.toDouble()),
-                puntajeLabel: "${_dolor.toInt()}/10",
-                headerIcon: const Icon(Icons.healing_rounded,
-                    color: Colors.red, size: 28),
-              ),
-              const SizedBox(height: 24),
-              _buildEVACard(
-                "Inflamación",
-                _inflamacion,
-                3,
-                (v) => setState(() => _inflamacion = v),
-                icon: Icons.verified_user_outlined,
-                labels: [
-                  "0 = Sin inflamación",
-                  "1 = Leve",
-                  "2 = Moderada",
-                  "3 = Severa / Activa"
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildEVACard(
-                "Fatiga",
-                _fatiga,
-                10,
-                (v) => setState(() => _fatiga = v),
-                icon: Icons.battery_full_rounded,
-                labels: [
-                  "0-3 = Agotamiento",
-                  "4-7 = Intermedio",
-                  "8-10 = Alta energía"
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(children: [
-                Expanded(
-                    child: _buildCounterField("Art. Inflamadas", _artInflam,
-                        Icons.track_changes_outlined)),
-                const SizedBox(width: 16),
-                Expanded(
-                    child: _buildCounterField(
-                        "Art. Dolorosas", _artDolor, Icons.back_hand_outlined)),
-              ]),
-              const SizedBox(height: 24),
-              _field(
-                _rigidez,
-                "Rigidez en min",
-                Icons.timer_outlined,
-                helper: "Minutos de rigidez al despertar o durante el día",
-              ),
-              const SizedBox(height: 18),
-              _buildBroteToggle(),
-            ],
-          ),
-        ],
-        const SizedBox(height: 32),
-        const SizedBox(height: 48),
-
-        _sectionHeader(
-            "3. Síntomas agudos temporales", Icons.event_note_rounded),
-        const SizedBox(height: 24),
-        _buildSintomasTemporalesGrid(),
-        const SizedBox(height: 48),
-
-        _sectionHeader(
-            "4. Recomendación de ingredientes", Icons.thumb_up_alt_outlined),
-        const SizedBox(height: 24),
-        _buildRecomendacionesSelector(),
-        const SizedBox(height: 48),
-
-        _sectionHeader("Seguimiento y observaciones", Icons.event_note_rounded),
-        const SizedBox(height: 24),
-        Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _field(_notas, "Observaciones médicas", Icons.edit_note,
-                  maxLines: 4),
+            // HEADER
+              Text(
+                _idControlEditando != null 
+                  ? "Actualización de Control Mensual de la fecha $_fechaControlEditando"
+                  : "Registro Mensual", 
+                style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -1)
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _idControlEditando != null
+                  ? "Actualiza los datos del control previamente registrado. Todos los campos con * son obligatorios."
+                  : "Anotar los cambios notados en el mes o revisión mensual. Todos los campos con * son obligatorios.", 
+                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))
+              ),
+              const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              margin: const EdgeInsets.only(bottom: 32),
+              decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.3))),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Text("Hoy le toca revisión mensual a este paciente",
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.green.shade800))),
+              ]),
             ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: _field(
-                _proximaCitaCtrl,
-                "Fecha de próxima consulta",
-                Icons.event_note_rounded,
-                readOnly: true,
-                onTap: _pickProximaCita,
+
+            if (_yaEvaluadoHoy && _idControlEditando == null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3))),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, color: Colors.orange),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                      child: Text(
+                          "PACIENTE YA EVALUADO HOY. Si registra una nueva valoración, se sobreescribirá el control de esta fecha.",
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange))),
+                ]),
+              ),
+            ],
+
+            // ENFERMEDAD Y DIAGNOSTICO
+            _sectionHeader("Enfermedad y diagnóstico*", Icons.coronavirus_outlined, isSub: true),
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Estado de la enfermedad*", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: _estadoDropdown(),
+                  ),
+                  const SizedBox(width: 24),
+                  const Spacer(),
+                ]),
+              ],
+            ),
+            const SizedBox(height: 40),
+
+            // ACTIVIDAD DE LA ENFERMEDAD
+            _sectionHeader("Actividad de la enfermedad*", Icons.analytics_outlined, isSub: true),
+            const SizedBox(height: 20),
+            if (MediaQuery.of(context).size.width > 900) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: EscalaSelector(
+                      key: ValueKey(_dolor),
+                      titulo: "Dolor",
+                      descripcion: "Escala EVA dolor",
+                      min: 0,
+                      max: 10,
+                      value: _dolor.toInt(),
+                      icons: const [
+                        Icons.sentiment_very_satisfied_rounded,
+                        Icons.sentiment_satisfied_rounded,
+                        Icons.sentiment_satisfied_rounded,
+                        Icons.sentiment_neutral_rounded,
+                        Icons.sentiment_neutral_rounded,
+                        Icons.sentiment_dissatisfied_rounded,
+                        Icons.sentiment_dissatisfied_rounded,
+                        Icons.sentiment_very_dissatisfied_rounded,
+                        Icons.sentiment_very_dissatisfied_rounded,
+                        Icons.sick_rounded,
+                        Icons.sick_rounded
+                      ],
+                      etiquetas: [
+                        EscalaEtiqueta("Leve", 3),
+                        EscalaEtiqueta("Moderado", 4),
+                        EscalaEtiqueta("Severo", 4)
+                      ],
+                      colorActivo: AppTema.verdeSalud,
+                      colorFondoActivo: AppTema.verdeSalud,
+                      backgroundColor: const Color(0xFFF8FAFC),
+                      showIdentityRow: false,
+                      onChanged: (v) => setState(() => _dolor = v.toDouble()),
+                      puntajeLabel: "/10",
+                      headerIcon: const Text("😣", style: TextStyle(fontSize: 26))
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: _buildEVACard("Inflamación", _inflamacion, 3,
+                      (v) => setState(() => _inflamacion = v),
+                      icon: Icons.verified_user_outlined,
+                      labels: [
+                        "0 = Sin inflamación",
+                        "1 = Leve",
+                        "2 = Moderada",
+                        "3 = Severa / Activa"
+                      ]
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildEVACard("Energía", _fatiga, 10,
+                      (v) => setState(() => _fatiga = v),
+                      icon: Icons.battery_full_rounded,
+                      labels: [
+                        "0-3 = Agotamiento",
+                        "4-7 = Intermedio",
+                        "8-10 = Alta energía"
+                      ]
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Row(children: [
+                          Expanded(
+                            child: _buildCounterField("Art. Inflamadas", _artInflam, Icons.track_changes_outlined)
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)
+                          ),
+                        ]),
+                        const SizedBox(height: 24),
+                        _buildRigidezCard(),
+                        const SizedBox(height: 24),
+                        _buildBroteToggle(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EscalaSelector(
+                    key: ValueKey(_dolor),
+                    titulo: "Dolor",
+                    descripcion: "",
+                    min: 0,
+                    max: 10,
+                    value: _dolor.toInt(),
+                    icons: const [
+                      Icons.sentiment_very_satisfied_rounded,
+                      Icons.sentiment_satisfied_rounded,
+                      Icons.sentiment_satisfied_rounded,
+                      Icons.sentiment_neutral_rounded,
+                      Icons.sentiment_neutral_rounded,
+                      Icons.sentiment_dissatisfied_rounded,
+                      Icons.sentiment_dissatisfied_rounded,
+                      Icons.sentiment_very_dissatisfied_rounded,
+                      Icons.sentiment_very_dissatisfied_rounded,
+                      Icons.sick_rounded,
+                      Icons.sick_rounded
+                    ],
+                    etiquetas: [
+                      EscalaEtiqueta("Leve", 3),
+                      EscalaEtiqueta("Moderado", 4),
+                      EscalaEtiqueta("Severo", 4)
+                    ],
+                    colorActivo: AppTema.verdeSalud,
+                    colorFondoActivo: AppTema.verdeSalud,
+                    backgroundColor: const Color(0xFFF8FAFC),
+                    showIdentityRow: false,
+                    onChanged: (v) => setState(() => _dolor = v.toDouble()),
+                    puntajeLabel: "/10",
+                    headerIcon: const Icon(Icons.healing_rounded, color: AppTema.verdeSalud, size: 28),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildEVACard("Inflamación", _inflamacion, 3,
+                    (v) => setState(() => _inflamacion = v),
+                    icon: Icons.verified_user_outlined,
+                    labels: [
+                      "0 = Sin inflamación",
+                      "1 = Leve",
+                      "2 = Moderada",
+                      "3 = Severa / Activa"
+                    ]
+                  ),
+                  const SizedBox(height: 24),
+                  _buildEVACard("Energía", _fatiga, 10,
+                    (v) => setState(() => _fatiga = v),
+                    icon: Icons.battery_full_rounded,
+                    labels: [
+                      "0-3 = Agotamiento",
+                      "4-7 = Intermedio",
+                      "8-10 = Alta energía"
+                    ]
+                  ),
+                  const SizedBox(height: 24),
+                  Row(children: [
+                    Expanded(
+                      child: _buildCounterField("Art. Inflamadas", _artInflam, Icons.track_changes_outlined)
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildRigidezCard(),
+                  const SizedBox(height: 24),
+                  _buildBroteToggle(),
+                ],
+              ),
+            ],
+            const SizedBox(height: 40),
+
+            // CONDICION NUTRICIONAL Y RECOMENDADOR
+            if (MediaQuery.of(context).size.width > 900) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader("Condición nutricional*", Icons.hourglass_top_rounded, isSub: true),
+                        const SizedBox(height: 20),
+                        Row(children: [
+                          Expanded(
+                            child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
+                                onChanged: (_) => _debouncedOMS())
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
+                                onChanged: (_) => _debouncedOMS())
+                          ),
+                        ]),
+                        const SizedBox(height: 20),
+                        _buildOMSDiagnosisRow(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 32),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader("Recomendador de ingredientes", Icons.thumb_up_alt_outlined, isSub: true),
+                        const SizedBox(height: 20),
+                        _buildRecomendacionesSelector(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sectionHeader("Condición nutricional*", Icons.hourglass_top_rounded, isSub: true),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(
+                      child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
+                          onChanged: (_) => _debouncedOMS())
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
+                          onChanged: (_) => _debouncedOMS())
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildOMSDiagnosisRow(),
+                  const SizedBox(height: 40),
+                  _sectionHeader("Recomendador de ingredientes", Icons.thumb_up_alt_outlined, isSub: true),
+                  const SizedBox(height: 20),
+                  _buildRecomendacionesSelector(),
+                ],
+              )
+            ],
+            const SizedBox(height: 40),
+
+            // SINTOMAS AGUDOS TEMPORALES
+            _sectionHeader("Síntomas agudos temporales", Icons.event_note_rounded, isSub: true),
+            const SizedBox(height: 20),
+            _buildSintomasTemporalesSelector(),
+            const SizedBox(height: 40),
+
+            // OBSERVACIONES
+                        _sectionHeader("Observaciones", Icons.edit_note_rounded, isSub: true),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _notas,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: "Escribe las observaciones aquí...",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 48),
+            const SizedBox(height: 40),
 
-        SizedBox(
-            width: double.infinity,
-            height: 60,
-            child: FilledButton.icon(
-                onPressed: _loading ? null : _guardarConsulta,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.save_rounded),
-                label: Text(
-                    _idControlEditando == null
-                        ? "Registrar valoración"
-                        : "Guardar cambios",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14)),
-                style: FilledButton.styleFrom(
-                    backgroundColor: greenBrand,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16))))),
-      ]);
+            // BOTON GUARDAR
+            Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                width: 300,
+                height: 56,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : () {
+                    bool esUltimo = true;
+                    if (_idControlEditando != null) {
+                      final hist = _expediente?['historial_controles'] as List?;
+                      if (hist != null && hist.isNotEmpty) {
+                        if (hist.last['id']?.toString() != _idControlEditando) {
+                          esUltimo = false;
+                        }
+                      }
+                    }
+                    if (esUltimo) {
+                      _mostrarModalProximaCita();
+                    } else {
+                      _guardarConsulta();
+                    }
+                  },
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.save_rounded),
+                  label: Text(
+                      _idControlEditando == null
+                          ? "Registrar valoración"
+                          : "Guardar cambios",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.verdeSalud,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)))),
+              ),
+            )
+          ]
+        )
+      );
     }
 
     if (isNested)
@@ -1583,45 +1704,49 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             .add(Duration(days: duracionSugerida))
             .toIso8601String()
             .split('T')[0];
+            
     final finDate = DateTime.tryParse(fin) ?? DateTime.now();
     final restantes = finDate.difference(DateTime.now()).inDays;
     final diasRestantes = restantes < 0 ? 0 : restantes;
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _datePickerSmall(
-              "Inicio",
-              inicio,
-              (d) => setState(() {
-                    _condicionesTemp[index]['fecha_inicio'] =
-                        d.toIso8601String().split('T')[0];
-                    _condicionesTemp[index]['fecha_fin'] = d
-                        .add(Duration(days: duracionSugerida))
-                        .toIso8601String()
-                        .split('T')[0];
-                  })),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _dateStaticSmall("Fin", fin),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+        Row(
+          children: [
+            Expanded(
+              child: _datePickerSmall(
+                  "Inicio",
+                  inicio,
+                  (d) => setState(() {
+                        _condicionesTemp[index]['fecha_inicio'] =
+                            d.toIso8601String().split('T')[0];
+                        _condicionesTemp[index]['fecha_fin'] = d
+                            .add(Duration(days: duracionSugerida))
+                            .toIso8601String()
+                            .split('T')[0];
+                      })),
             ),
-            child: Text(
-              "Quedan $diasRestantes días",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF334155)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _dateStaticSmall("Fin", fin),
             ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Text(
+            "Quedan " + diasRestantes.toString() + " días",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF334155)),
           ),
         ),
       ],
@@ -1949,6 +2074,76 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     ]);
   }
 
+  Widget _buildRigidezCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: AppTema.verdeSalud.withOpacity(0.1),
+                shape: BoxShape.circle),
+            child: const Text("⏱️", style: TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Minutos de rigidez",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulOscuro)),
+                const SizedBox(height: 4),
+                Text("Rigidez matutina registrada en minutos",
+                    style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueGrey)),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _rigidez,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(3)
+              ],
+              style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: AppTema.azulOscuro),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                suffixText: "min",
+                suffixStyle: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    color: AppTema.azulOscuro,
+                    fontSize: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBroteToggle() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2049,12 +2244,17 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           onChanged: onC,
           decoration: InputDecoration(labelText: l));
 
-  Widget _datePickerSmall(String l, String v, Function(DateTime) onP) =>
-      InkWell(
+  Widget _datePickerSmall(String l, String v, Function(DateTime) onP) {
+    String displayDate = v;
+    try {
+      final dt = DateTime.parse(v);
+      displayDate = dt.year.toString() + "/" + dt.month.toString().padLeft(2,'0') + "/" + dt.day.toString().padLeft(2,'0');
+    } catch(_) {}
+    return InkWell(
           onTap: () async {
             final d = await showDatePicker(
                 context: context,
-                initialDate: DateTime.parse(v),
+                initialDate: DateTime.tryParse(v) ?? DateTime.now(),
                 firstDate: DateTime.now().subtract(const Duration(days: 30)),
                 lastDate: DateTime.now().add(const Duration(days: 90)));
             if (d != null) onP(d);
@@ -2074,32 +2274,41 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(v,
+                    Text(displayDate,
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: greenBrand))
+                            color: const Color(0xFF10B981)))
                   ])));
+  }
 
-  Widget _dateStaticSmall(String l, String v) => Container(
+  Widget _dateStaticSmall(String l, String v) {
+    String displayDate = v;
+    try {
+      final dt = DateTime.parse(v);
+      displayDate = dt.year.toString() + "/" + dt.month.toString().padLeft(2,'0') + "/" + dt.day.toString().padLeft(2,'0');
+    } catch(_) {}
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Row(children: [
-          const Icon(Icons.event_available_rounded,
-              size: 14, color: Color(0xFF64748B)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Text(
-                  "$l: ${DateFormat('EEEE, d MMMM y', 'es').format(DateTime.tryParse(v) ?? DateTime.now())}",
-                  style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: const Color(0xFF334155),
-                      fontWeight: FontWeight.w600))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(l,
+              style: const TextStyle(
+                  fontSize: 9,
+                  color: Colors.blueGrey,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(displayDate,
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1E293B)))
         ]),
       );
+  }
 
   Widget _richSummary(String text, Color color) {
     List<TextSpan> spans = [];
@@ -10974,6 +11183,196 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               .toList())
     ]);
   }
+  Widget _buildSintomasTemporalesSelector() {
+    if (_condicionesTemporalesCat.isEmpty) return const SizedBox.shrink();
+    final ordenadas = [..._condicionesTemporalesCat]..sort((a, b) =>
+        (a['nombre'] ?? '')
+            .toString()
+            .toLowerCase()
+            .compareTo((b['nombre'] ?? '').toString().toLowerCase()));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Wrap(
+          spacing: 20,
+          runSpacing: 20,
+          children: ordenadas.map<Widget>((c) {
+            final id = c['id'] as int;
+            final index = _condicionesTemp.indexWhere((s) => s['id'] == id);
+            final sel = index != -1;
+            final duracionSugerida = (c['duracion_dias_sugerida'] ??
+                c['dias_duracion_estandar'] ??
+                7) as int;
+            return Container(
+              width: (constraints.maxWidth - 40) / 3,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: sel
+                        ? AppTema.verdeSalud.withOpacity(0.3)
+                        : const Color(0xFFE2E8F0)),
+              ),
+              child: ExpansionTile(
+                key: Key("temp_patient_"),
+                initiallyExpanded: sel,
+                shape: const Border(),
+                leading: Checkbox(
+                  activeColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                  value: sel,
+                  onChanged: (v) async {
+                    if (v == true) {
+                      final ini = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate:
+                            DateTime.now().subtract(const Duration(days: 30)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (ini != null) {
+                        setState(() => _condicionesTemp.add({
+                              "id": id,
+                              "nombre": c['nombre'],
+                              "fecha_inicio":
+                                  ini.toIso8601String().split('T')[0],
+                              "fecha_fin": ini
+                                  .add(Duration(days: duracionSugerida))
+                                  .toIso8601String()
+                                  .split('T')[0],
+                            }));
+                      }
+                    } else {
+                      setState(() => _condicionesTemp.removeAt(index));
+                    }
+                  },
+                ),
+                title: Text(
+                  c['nombre']?.toString() ?? "Condición",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
+                    color: sel ? AppTema.verdeSalud : const Color(0xFF1E293B),
+                  ),
+                ),
+                subtitle: Text(
+                    sel
+                        ? "Activa por  días"
+                        : "Sugerencia:  días",
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: const Color(0xFF64748B))),
+                children: sel
+                    ? [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: _buildTemporalDatesRow(index, duracionSugerida),
+                        )
+                      ]
+                    : [],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  void _mostrarModalProximaCita() {
+    final now = DateTime.now();
+    final minDate = now.add(const Duration(days: 2));
+    final maxDate = now.add(const Duration(days: 45));
+
+    if (_proximaCita.isBefore(minDate) || _proximaCita.isAfter(maxDate)) {
+      _proximaCita = minDate;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text("¿Cuándo será la próxima revisión?", 
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Selecciona la fecha para el próximo control. (Desde pasado mañana hasta máximo 1 mes y medio).", 
+                        style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey)),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: AppTema.verdeSalud,
+                            onPrimary: Colors.white,
+                            onSurface: AppTema.azulOscuro,
+                          ),
+                        ),
+                        child: CalendarDatePicker(
+                          initialDate: _proximaCita,
+                          firstDate: minDate,
+                          lastDate: maxDate,
+                          onDateChanged: (DateTime date) {
+                            setModalState(() {
+                              _proximaCita = date;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTema.verdeSalud.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10)
+                      ),
+                      child: Text(
+                        "Fecha agendada: ",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTema.verdeSalud, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text("Cancelar", style: TextStyle(color: Colors.blueGrey.shade600)),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
+                    });
+                    _guardarConsulta();
+                  },
+                  icon: const Icon(Icons.save_rounded, size: 18),
+                  label: const Text("Confirmar y Guardar", style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.verdeSalud,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                )
+              ],
+            );
+          }
+        );
+      },
+    );
+  }
 }
 
 class _SparklinePainter extends CustomPainter {
@@ -11008,4 +11407,5 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+
 }

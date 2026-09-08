@@ -471,6 +471,45 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
                           setState(() => _currentStep++);
                         else
                           _finish();
+                      } else {
+                        if (_currentStep == 0) {
+                          if (!_cedulaValida(_tutCedula)) {
+                            NutriSnack.show(context, "Cédula de tutor inválida.", isError: true, ref: ref);
+                          } else if (_tutParentesco == null) {
+                            NutriSnack.show(context, "Debe seleccionar el parentesco del tutor.", isError: true, ref: ref);
+                          } else if (!stepValid) {
+                            NutriSnack.show(context, "Por favor revise los campos obligatorios del tutor marcados en rojo.", isError: true, ref: ref);
+                          } else {
+                            NutriSnack.show(context, "Revise que todos los datos del tutor estén correctos.", isError: true, ref: ref);
+                          }
+                        } else if (_currentStep == 1) {
+                          if (_pacFechaNac == null) {
+                            NutriSnack.show(context, "Debe seleccionar la fecha de nacimiento.", isError: true, ref: ref);
+                          } else {
+                            final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+                            if (age < 3 || age >= 18) {
+                              NutriSnack.show(context, "La edad del paciente debe ser mayor o igual a 3 años y menor a 18 años.", isError: true, ref: ref);
+                            } else if (!_cedulaValida(_pacCedula)) {
+                              NutriSnack.show(context, "La cédula del paciente no es válida.", isError: true, ref: ref);
+                            } else if (_pacSexo == null) {
+                              NutriSnack.show(context, "Debe seleccionar el sexo del paciente.", isError: true, ref: ref);
+                            } else if (_mensajeCedulaPaciente != null) {
+                              NutriSnack.show(context, _mensajeCedulaPaciente!, isError: true, ref: ref);
+                            } else if (!stepValid) {
+                              NutriSnack.show(context, "Por favor revise los campos obligatorios del paciente marcados en rojo.", isError: true, ref: ref);
+                            }
+                          }
+                        } else if (_currentStep == 2) {
+                          if (_idPatologiaBase == null) {
+                            NutriSnack.show(context, "Debe seleccionar una patología/enfermedad base.", isError: true, ref: ref);
+                          } else if (_lactosa == null) {
+                            NutriSnack.show(context, "Debe indicar si el paciente es intolerante a la lactosa.", isError: true, ref: ref);
+                          } else if (!stepValid) {
+                            NutriSnack.show(context, "Por favor revise los campos clínicos marcados en rojo.", isError: true, ref: ref);
+                          } else {
+                            NutriSnack.show(context, "Por favor revise los campos clínicos requeridos.", isError: true, ref: ref);
+                          }
+                        }
                       }
                     },
                     onStepCancel: () => setState(

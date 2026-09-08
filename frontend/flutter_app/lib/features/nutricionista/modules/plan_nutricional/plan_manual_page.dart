@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/role_shell.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
 import '../../../../shared/widgets/shimmer_components.dart';
@@ -114,6 +115,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(menuExpandedProvider.notifier).state = false;
+      }
+    });
     Future.microtask(() {
       _fetchPatients("");
       _setupRealtimeSubscription();
@@ -1810,67 +1816,101 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildHistoryTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => setState(() => _selectedPatient = null),
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTema.azulPrincipal.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 4.0),
+                    child: Icon(Icons.arrow_back_ios,
+                        size: 16, color: AppTema.azulPrincipal),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  "Historial de planes nutricionales",
+                  style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: const Color(0xFF334155)),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _startNewPlan,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text("Crear plan",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: greenBrand,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _abrirRecomendadorIngredientes,
+                icon: const Icon(Icons.eco_outlined),
+                label: const Text("Recomendaciones"),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 52),
+            child: Text(
+              "Historial y análisis clínico de los planes nutricionales asignados. Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B)),
+            ),
+          ),
+          const SizedBox(height: 24),
           Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade100.withValues(alpha: 0.5),
-              shape: BoxShape.circle,
+              color: greenBrand,
+              borderRadius: BorderRadius.circular(4),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 20, color: Color(0xFF1E293B)),
-              onPressed: () => setState(() => _selectedPatient = null),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text("Historial de planes nutricionales",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 22,
-                        color: Color(0xFF0F172A))),
-                const SizedBox(height: 4),
-                Text(
-                    "Paciente: ${_selectedPatient?["nombre_completo"] ?? 'N/A'}",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                Text("Gestión de Pacientes",
                     style: GoogleFonts.inter(
-                        color: Colors.blueGrey.shade500,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500)),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+                const SizedBox(width: 12),
+                const Icon(Icons.arrow_forward_ios,
+                    size: 10, color: Colors.white),
+                const SizedBox(width: 12),
+                Text("Historial de planes nutricionales",
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
               ],
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: _startNewPlan,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text("Crear plan",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            style: FilledButton.styleFrom(
-              backgroundColor: greenBrand,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: _abrirRecomendadorIngredientes,
-            icon: const Icon(Icons.eco_outlined),
-            label: const Text("Recomendaciones"),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
