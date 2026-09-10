@@ -8,6 +8,7 @@ import "package:google_fonts/google_fonts.dart";
 import "package:pdf/pdf.dart";
 import "package:pdf/widgets.dart" as pw;
 import "package:printing/printing.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
@@ -856,10 +857,21 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               offset: state.offset,
               isLoading: state.isLoading,
               onEdit: _dialogoUsuario,
-              onToggle: (u) => ref
-                  .read(adminUsersProvider.notifier)
-                  .toggleUserStatus(u["id"].toString(), u["activo"] == true),
+              onToggle: (u) {
+                if (_isCurrentUser(u)) {
+                  NutriSnack.show(
+                    context,
+                    "No puedes darte de baja a ti mismo.",
+                    isError: true,
+                  );
+                  return;
+                }
+                ref
+                    .read(adminUsersProvider.notifier)
+                    .toggleUserStatus(u["id"].toString(), u["activo"] == true);
+              },
               onDelete: (u) => _eliminarUsuario(u),
+              isSelfChecker: _isCurrentUser,
               totalWidth: usableWidth,
               context: context,
             ),
@@ -867,6 +879,26 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         );
       }),
     );
+  }
+
+  bool _isCurrentUser(Map<String, dynamic> u) {
+    final currentAuthUser = Supabase.instance.client.auth.currentUser;
+    final currentEmail = currentAuthUser?.email?.toLowerCase().trim() ?? '';
+    final currentAuthId = currentAuthUser?.id.toLowerCase().trim() ?? '';
+    final myProfile = ref.read(miPerfilProvider).valueOrNull;
+    final myProfileId = myProfile?['id']?.toString() ?? '';
+    final myProfileEmail =
+        myProfile?['email']?.toString().toLowerCase().trim() ?? '';
+
+    final uEmail = u['email']?.toString().toLowerCase().trim() ?? '';
+    final uId = u['id']?.toString() ?? '';
+    final uAuthId = u['auth_user_id']?.toString().toLowerCase().trim() ?? '';
+
+    if (currentEmail.isNotEmpty && uEmail == currentEmail) return true;
+    if (myProfileEmail.isNotEmpty && uEmail == myProfileEmail) return true;
+    if (myProfileId.isNotEmpty && uId == myProfileId) return true;
+    if (currentAuthId.isNotEmpty && uAuthId == currentAuthId) return true;
+    return false;
   }
 
   DataColumn _col(String label, {required double width, bool center = false}) {
@@ -892,6 +924,15 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   }
 
   Future<void> _eliminarUsuario(Map<String, dynamic> user) async {
+    if (_isCurrentUser(user)) {
+      NutriSnack.show(
+        context,
+        "No puedes eliminar tu propia cuenta de administrador.",
+        isError: true,
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -953,6 +994,7 @@ class _AdminUsersDataSource extends DataTableSource {
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onToggle;
   final Function(Map<String, dynamic>) onDelete;
+  final bool Function(Map<String, dynamic>) isSelfChecker;
   final double totalWidth;
   final BuildContext context;
 
@@ -964,6 +1006,7 @@ class _AdminUsersDataSource extends DataTableSource {
     required this.onEdit,
     required this.onToggle,
     required this.onDelete,
+    required this.isSelfChecker,
     required this.totalWidth,
     required this.context,
   });
@@ -1036,6 +1079,7 @@ class _AdminUsersDataSource extends DataTableSource {
     final localIndex = index - offset;
     if (localIndex < 0 || localIndex >= items.length) return null;
     final u = items[localIndex];
+    final isSelf = isSelfChecker(u);
 
     return DataRow(
       color: WidgetStateProperty.all(rowColor),
@@ -1054,11 +1098,43 @@ class _AdminUsersDataSource extends DataTableSource {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                      Text(u["nombre_completo"] ?? "Sin nombre",
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                              color: AppTema.azulOscuro)),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              u["nombre_completo"] ?? "Sin nombre",
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                  color: AppTema.azulOscuro),
+                            ),
+                          ),
+                          if (isSelf) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppTema.azulPrincipal.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: AppTema.azulPrincipal.withValues(alpha: 0.3),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                "Tú",
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTema.azulPrincipal,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                       Text(u["email"] ?? "",
                           style: GoogleFonts.inter(
                               fontSize: 11, color: Colors.blueGrey)),
@@ -1113,13 +1189,21 @@ class _AdminUsersDataSource extends DataTableSource {
                       : Icons.check_circle_outline,
                   label: u["activo"] == true ? "Baja" : "Alta",
                   color: u["activo"] == true ? Colors.orange : Colors.green,
-                  onTap: () => onToggle(u)),
+                  isEnabled: !isSelf,
+                  tooltip: isSelf
+                      ? "No puedes darte de baja a ti mismo"
+                      : (u["activo"] == true ? "Dar de baja" : "Dar de alta"),
+                  onTap: isSelf ? null : () => onToggle(u)),
               const SizedBox(width: 12),
               _HoverActionButton(
                   icon: Icons.delete_outline_rounded,
                   label: "Borrar",
                   color: Colors.redAccent,
-                  onTap: () => onDelete(u)),
+                  isEnabled: !isSelf,
+                  tooltip: isSelf
+                      ? "No puedes eliminar tu propia cuenta"
+                      : "Eliminar usuario",
+                  onTap: isSelf ? null : () => onDelete(u)),
             ],
           ),
         ),
@@ -1160,13 +1244,18 @@ class _HoverActionButton extends StatefulWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool isEnabled;
+  final String? tooltip;
 
-  const _HoverActionButton(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      required this.onTap});
+  const _HoverActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.onTap,
+    this.isEnabled = true,
+    this.tooltip,
+  });
 
   @override
   State<_HoverActionButton> createState() => _HoverActionButtonState();
@@ -1177,45 +1266,77 @@ class _HoverActionButtonState extends State<_HoverActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onHover: (hovered) {
-        setState(() {
-          _isHovered = hovered;
-        });
-      },
-      onTap: widget.onTap,
+    final effectiveEnabled = widget.isEnabled && widget.onTap != null;
+    final effectiveColor =
+        effectiveEnabled ? widget.color : Colors.blueGrey.shade300;
+
+    Widget btn = InkWell(
+      onHover: effectiveEnabled
+          ? (hovered) {
+              setState(() {
+                _isHovered = hovered;
+              });
+            }
+          : null,
+      onTap: effectiveEnabled ? widget.onTap : null,
+      mouseCursor: effectiveEnabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.forbidden,
       borderRadius: BorderRadius.circular(12),
       hoverColor: Colors.transparent,
-      splashColor: widget.color.withValues(alpha: 0.2),
+      splashColor: effectiveEnabled
+          ? widget.color.withValues(alpha: 0.2)
+          : Colors.transparent,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: _isHovered
+          color: (effectiveEnabled && _isHovered)
               ? widget.color.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: _isHovered
+              color: (effectiveEnabled && _isHovered)
                   ? widget.color.withValues(alpha: 0.2)
                   : Colors.transparent),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(widget.icon, color: widget.color, size: 20),
-            const SizedBox(height: 4),
-            Text(widget.label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: widget.color,
-                    height: 1.0)),
-          ],
+        child: Opacity(
+          opacity: effectiveEnabled ? 1.0 : 0.4,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: effectiveColor, size: 20),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: effectiveColor,
+                      height: 1.0)),
+            ],
+          ),
         ),
       ),
     );
+
+    if (widget.tooltip != null && widget.tooltip!.isNotEmpty) {
+      return Tooltip(
+        message: widget.tooltip!,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: GoogleFonts.inter(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+        child: btn,
+      );
+    }
+
+    return btn;
   }
 }
 

@@ -201,7 +201,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             
         sql = f"""
             select 
-                u.id, u.cedula, u.email, u.nombre_completo, u.username,
+                u.id, u.auth_user_id, u.cedula, u.email, u.nombre_completo, u.username,
                 r.nombre as rol_nombre,
                 {self.ROL_CODIGO_SQL} as rol_codigo,
                 u.id_rol, u.activo, u.telefono, u.direccion

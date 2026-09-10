@@ -1,10 +1,14 @@
 import '../../shared/widgets/layout_components.dart';
+import "dart:convert";
 import "dart:math" as math;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../../core/config/app_config.dart";
+import "../../core/state/providers/auth_providers.dart";
 import "../../core/theme/app_theme.dart";
 import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
@@ -61,6 +65,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     final password = _passwordController.text.trim();
 
     setState(() => _errorMessage = null);
+    ref.read(authErrorProvider.notifier).state = null;
 
     if (email.isEmpty || password.isEmpty) {
       setState(() => _errorMessage = "Ingrese sus credenciales");
@@ -70,10 +75,81 @@ class _LoginPageState extends ConsumerState<LoginPage>
     setState(() => _loading = true);
 
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
+      final res = await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
+
+      final session = res.session;
+      if (session != null) {
+        // 1. Verificación en base de datos (Supabase)
+        bool isDeactivated = false;
+        try {
+          final row = await Supabase.instance.client
+              .schema('usuarios')
+              .from('usuario')
+              .select('activo')
+              .eq('auth_user_id', session.user.id)
+              .maybeSingle();
+          if (row != null && row['activo'] == false) {
+            isDeactivated = true;
+          }
+        } catch (_) {
+          // Si la consulta directa no responde, procedemos a verificar backend
+        }
+
+        // 2. Verificación contra backend FastAPI (/auth-context)
+        if (!isDeactivated) {
+          try {
+            final response = await http.get(
+              Uri.parse("${AppConfig.fastApiBaseUrl}auth-context"),
+              headers: {
+                "Authorization": "Bearer ${session.accessToken}",
+                "Accept": "application/json",
+              },
+            ).timeout(const Duration(seconds: 4));
+
+            if (response.statusCode == 403) {
+              final decoded = jsonDecode(response.body);
+              if (decoded is Map && decoded["detail"] == "Account deactivated") {
+                isDeactivated = true;
+              }
+            }
+          } catch (_) {
+            // Ignorar errores transitorios de red para permitir flujo normal
+          }
+        }
+
+        if (isDeactivated) {
+          const deactMsg =
+              "Tu cuenta ha sido desactivada. Contacta al administrador.";
+          ref.read(authErrorProvider.notifier).state = deactMsg;
+          await safeSignOut(Supabase.instance.client);
+          if (mounted) {
+            setState(() => _errorMessage = deactMsg);
+          }
+          return;
+        }
+
+        // Cuenta activa confirmada: limpiar cualquier error previo
+        ref.read(authErrorProvider.notifier).state = null;
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          final msg = e.message.toLowerCase();
+          if (msg.contains("invalid login credentials") ||
+              msg.contains("invalid_grant")) {
+            _errorMessage = "Credenciales incorrectas";
+          } else if (msg.contains("email not confirmed")) {
+            _errorMessage = "El correo electrónico no ha sido confirmado";
+          } else {
+            _errorMessage = e.message.isNotEmpty
+                ? e.message
+                : "Credenciales incorrectas o error de acceso";
+          }
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(
@@ -352,6 +428,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
         ? 55.0
         : context.responsiveValue(mobile: 80, tablet: 85, desktop: 90);
 
+    final authError = ref.watch(authErrorProvider);
+    final displayError = _errorMessage ?? authError;
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
@@ -396,7 +475,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   height: 3,
                   decoration: BoxDecoration(
                       color: _verde, borderRadius: BorderRadius.circular(1.5))),
-              if (_errorMessage != null) ...[
+              if (displayError != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Container(
                   padding:
@@ -413,7 +492,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          _errorMessage!,
+                          displayError,
                           style: GoogleFonts.inter(
                               color: Colors.red.shade700,
                               fontSize: 13,

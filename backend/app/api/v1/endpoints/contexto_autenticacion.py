@@ -44,10 +44,12 @@ def actualizar_perfil_actual(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"id": user.user_id, "updated": True}
 
-# Alias para compatibilidad con frontend antiguo que busca /auth-context
+# Alias para compatibilidad con frontend que busca /auth-context
 @router.get("/auth-context")
-@cached(ttl=5)
 def auth_context_compat(user: UserContext = Depends(get_current_user)):
     repo = RepositorioPerfilPostgres()
     perfil = repo.obtener_perfil_usuario(user.user_id)
-    return perfil or {"id": user.user_id, "email": user.email, "rol": "tutor"}
+    if not perfil:
+        return {"id": user.user_id, "email": user.email, "rol": user.role, "role": user.role}
+    perfil["role"] = perfil.get("rol_codigo") or user.role
+    return perfil

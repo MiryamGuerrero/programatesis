@@ -73,18 +73,48 @@ def registrar_usuario(
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"No se pudo crear el usuario: {str(exc)}")
 
+def _es_mismo_usuario(user_id: str, admin: UserContext) -> bool:
+    from app.infraestructura.database.db import db_cursor
+    try:
+        with db_cursor() as cur:
+            cur.execute("SELECT id, auth_user_id, email FROM usuarios.usuario WHERE id::text = %s", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                return False
+            uid, auth_uid, u_email = row
+            if str(uid) == str(admin.user_id):
+                return True
+            if auth_uid and str(auth_uid) == str(admin.user_id):
+                return True
+            if u_email and admin.email and u_email.lower().strip() == admin.email.lower().strip():
+                return True
+    except Exception:
+        pass
+    return False
+
 @router.put("/usuarios/{user_id}")
 @router.put("/crud/users/{user_id}")
 def actualizar_usuario(
     user_id: str,
     payload: UpdateUserRequest,
-    _=Depends(require_roles("admin"))
+    admin_actual: UserContext = Depends(require_roles("admin"))
 ):
+    if payload.activo is False and _es_mismo_usuario(user_id, admin_actual):
+        raise HTTPException(
+            status_code=400,
+            detail="No puedes darte de baja ni desactivar tu propia cuenta de administrador."
+        )
     repo = RepositorioPerfilPostgres()
     try:
         exito = repo.actualizar_usuario(user_id, payload.model_dump(exclude_none=True))
         if not exito:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        try:
+            from app.api.v1.simple_cache import _lock, _cache
+            with _lock:
+                _cache.clear()
+        except Exception:
+            pass
         return {"id": user_id, "updated": True}
     except ValueError as val_err:
         raise HTTPException(status_code=400, detail=str(val_err))
@@ -92,8 +122,13 @@ def actualizar_usuario(
 @router.delete("/usuarios/{user_id}")
 def eliminar_usuario(
     user_id: str,
-    _=Depends(require_roles("admin"))
+    admin_actual: UserContext = Depends(require_roles("admin"))
 ):
+    if _es_mismo_usuario(user_id, admin_actual):
+        raise HTTPException(
+            status_code=400,
+            detail="No puedes eliminar tu propia cuenta de administrador."
+        )
     repo = RepositorioPerfilPostgres()
     exito = repo.eliminar_usuario(user_id)
     if not exito:

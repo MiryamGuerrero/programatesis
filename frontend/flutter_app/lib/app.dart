@@ -8,7 +8,6 @@ import "package:flutter_localizations/flutter_localizations.dart";
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
-import "shared/models/app_role.dart";
 import "shared/widgets/role_shell.dart" deferred as role_shell;
 import "features/roles/role_module_registry.dart"; // Para DeferredModuleWidget
 
@@ -37,6 +36,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
   Widget build(BuildContext context) {
     final authSession = ref.watch(authSessionProvider);
     final authFlowIntent = ref.watch(authFlowIntentProvider);
+    final authError = ref.watch(authErrorProvider);
 
     // COLORES CORPORATIVOS
     final colorScheme = ColorScheme.fromSeed(
@@ -51,7 +51,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         if (authFlowIntent == AuthFlowIntent.setPassword) {
           return const SetPasswordPage();
         }
-        if (session == null) {
+        if (session == null || authError != null) {
           return const LoginPage();
         }
 
@@ -61,30 +61,26 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
             loader: role_shell.loadLibrary,
             builder: () => role_shell.RoleShell(role: role),
           ),
-          loading: () => DeferredModuleWidget(
-            loader: role_shell.loadLibrary,
-            builder: () => role_shell.RoleShell(
-                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
+          loading: () => const Scaffold(
+            backgroundColor: Color(0xFFF8FAFC),
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF0171BB),
+              ),
+            ),
           ),
-          error: (_, __) => DeferredModuleWidget(
-            loader: role_shell.loadLibrary,
-            builder: () => role_shell.RoleShell(
-                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
-          ),
+          error: (_, __) => const LoginPage(),
         );
       },
       error: (_, __) => const LoginPage(),
-      loading: () {
-        final session = Supabase.instance.client.auth.currentSession;
-        if (session != null) {
-          return DeferredModuleWidget(
-            loader: role_shell.loadLibrary,
-            builder: () => role_shell.RoleShell(
-                role: _resolveRoleFromSession(session) ?? AppRole.tutor),
-          );
-        }
-        return const LoginPage();
-      },
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFF8FAFC),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF0171BB),
+          ),
+        ),
+      ),
     );
 
     return MaterialApp(
@@ -137,20 +133,4 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
       BuildContext context, Widget child, ScrollableDetails details) {
     return child;
   }
-}
-
-AppRole? _resolveRoleFromSession(Session session) {
-  final candidates = <dynamic>[
-    session.user.appMetadata["role"],
-    session.user.appMetadata["rol"],
-    session.user.appMetadata["id_rol"],
-    session.user.userMetadata?["role"],
-    session.user.userMetadata?["rol"],
-    session.user.userMetadata?["id_rol"],
-  ];
-  for (final candidate in candidates) {
-    final role = tryParseRole(candidate);
-    if (role != null) return role;
-  }
-  return null;
 }

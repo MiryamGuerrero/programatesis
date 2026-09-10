@@ -339,11 +339,19 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
     return AppRole.tutor;
   }
 
+  if (ref.read(authErrorProvider) != null) {
+    final client = ref.read(supabaseClientProvider);
+    await safeSignOut(client);
+    return AppRole.tutor;
+  }
+
   final roleFromApi = await _resolveRoleFromBackend(
     accessToken: session.accessToken,
-    onAccountDeactivated: () {
+    onAccountDeactivated: () async {
       ref.read(authErrorProvider.notifier).state =
           "Tu cuenta ha sido desactivada. Contacta al administrador.";
+      final client = ref.read(supabaseClientProvider);
+      await safeSignOut(client);
     },
   );
 
@@ -352,11 +360,13 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
   }
 
   if (roleFromApi != null) {
+    ref.read(authErrorProvider.notifier).state = null;
     return roleFromApi;
   }
 
   final sessionRole = _resolveRoleFromSessionMetadata(session);
   if (sessionRole != null) {
+    ref.read(authErrorProvider.notifier).state = null;
     return sessionRole;
   }
 
@@ -366,7 +376,12 @@ final appRoleProvider = FutureProvider<AppRole>((ref) async {
     email: session.user.email,
   );
 
-  return roleFromUsersTable ?? AppRole.tutor;
+  if (roleFromUsersTable != null) {
+    ref.read(authErrorProvider.notifier).state = null;
+    return roleFromUsersTable;
+  }
+
+  return AppRole.tutor;
 });
 
 AppRole? _resolveRoleFromSessionMetadata(Session session) {
@@ -391,7 +406,7 @@ AppRole? _resolveRoleFromSessionMetadata(Session session) {
 
 Future<AppRole?> _resolveRoleFromBackend({
   required String accessToken,
-  required VoidCallback onAccountDeactivated,
+  required FutureOr<void> Function() onAccountDeactivated,
 }) async {
   for (var attempt = 0; attempt < 2; attempt++) {
     try {
@@ -406,7 +421,7 @@ Future<AppRole?> _resolveRoleFromBackend({
       if (response.statusCode == 403) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map && decoded["detail"] == "Account deactivated") {
-          onAccountDeactivated();
+          await onAccountDeactivated();
         }
         return null;
       }
@@ -420,7 +435,11 @@ Future<AppRole?> _resolveRoleFromBackend({
         return null;
       }
 
-      return tryParseRole(data["role"]);
+      final dynamic rawRole = data["role"] ??
+          data["rol_codigo"] ??
+          data["id_rol"] ??
+          data["rol"];
+      return tryParseRole(rawRole);
     } catch (_) {
       // Retry once to smooth transient startup races between frontend and backend.
     }

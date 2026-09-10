@@ -13,12 +13,39 @@ class RealtimeService {
   RealtimeChannel? _clinicoChannel;
   RealtimeChannel? _pacienteChannel;
   RealtimeChannel? _nutricionChannel;
+  RealtimeChannel? _accountStatusChannel;
 
   void init() {
     final role = _ref.read(appRoleProvider).valueOrNull;
     if (role == null) return;
 
     final supabase = _ref.read(supabaseClientProvider);
+
+    // Escuchar en tiempo real si la cuenta del usuario actual es desactivada
+    final currentSession = supabase.auth.currentSession;
+    final currentAuthId = currentSession?.user.id;
+    if (currentAuthId != null) {
+      _accountStatusChannel?.unsubscribe();
+      _accountStatusChannel = supabase
+          .channel('public:usuario:deactivation:$currentAuthId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'usuarios',
+            table: 'usuario',
+            callback: (payload) async {
+              final authUserId = payload.newRecord['auth_user_id']?.toString();
+              if (authUserId == currentAuthId) {
+                final activo = payload.newRecord['activo'];
+                if (activo == false) {
+                  _ref.read(authErrorProvider.notifier).state =
+                      "Tu cuenta ha sido desactivada. Contacta al administrador.";
+                  await safeSignOut(supabase);
+                }
+              }
+            },
+          )
+          .subscribe();
+    }
 
     if (role == AppRole.admin) {
       // 1. Escuchar Nuevos Registros en la tabla usuarios.usuario
@@ -162,5 +189,6 @@ class RealtimeService {
     _pacienteChannel?.unsubscribe();
     _clinicoChannel?.unsubscribe();
     _nutricionChannel?.unsubscribe();
+    _accountStatusChannel?.unsubscribe();
   }
 }
