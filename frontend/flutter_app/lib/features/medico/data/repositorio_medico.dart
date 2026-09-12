@@ -26,6 +26,7 @@ class RepositorioMedico {
     String query = "",
     int limit = 10,
     int offset = 0,
+    String estado = "todos",
   }) async {
     final response = await _dio.get(
       "pacientes",
@@ -34,6 +35,7 @@ class RepositorioMedico {
         "limit": limit,
         "offset": offset,
         "include_total": true,
+        "estado": estado,
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);
@@ -60,7 +62,6 @@ class RepositorioMedico {
         "limit": limit,
         "offset": offset,
         "include_total": true,
-        "q": query,
         if (origen != null) "origen": origen,
         if (idCondicion != null) "id_condicion": idCondicion,
         if (idAccion != null) "id_accion": idAccion,
@@ -228,6 +229,11 @@ class RepositorioMedico {
 
   Future<void> archivarPaciente(String idPaciente) async {
     await _dio.patch("pacientes/$idPaciente/archivar");
+    invalidateExpediente(idPaciente);
+  }
+
+  Future<void> desarchivarPaciente(String idPaciente) async {
+    await _dio.patch("pacientes/$idPaciente/desarchivar");
     invalidateExpediente(idPaciente);
   }
 

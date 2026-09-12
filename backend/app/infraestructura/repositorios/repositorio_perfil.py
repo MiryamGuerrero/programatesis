@@ -238,6 +238,10 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         
         cedula = datos.get("cedula")
         if cedula == "": cedula = None
+        direccion = datos.get("direccion")
+        if direccion == "": direccion = None
+        telefono = datos.get("telefono")
+        if telefono == "": telefono = None
 
         # 1. Pre-validación de constraints para dar un mensaje amigable
         existente = self.ejecutar_uno(
@@ -276,7 +280,7 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             returning id
         """
         params = (email, username, datos["nombre_completo"].strip(), cedula, primary_rol_id,
-                 datos.get("telefono"), datos.get("direccion"), auth_user_id)
+                 telefono, direccion, auth_user_id)
         
         try:
             user_id = str(self.ejecutar_comando(sql, params))
@@ -373,9 +377,13 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             
         if not items and not roles_asignados: return False
         
-        # Corrección crítica para Cédula: si viene vacía, poner NULL para evitar conflicto de unicidad
+        # Corrección crítica para Cédula, Dirección y Teléfono: si vienen vacíos, poner NULL
         if "cedula" in items and (items["cedula"] == "" or items["cedula"] is None):
             items["cedula"] = None
+        if "direccion" in items and (items["direccion"] == "" or items["direccion"] is None):
+            items["direccion"] = None
+        if "telefono" in items and (items["telefono"] == "" or items["telefono"] is None):
+            items["telefono"] = None
 
         # Check if email or cedula belongs to another user
         email_val = items.get("email")

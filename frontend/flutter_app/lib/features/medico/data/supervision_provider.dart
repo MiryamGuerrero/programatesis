@@ -1,4 +1,3 @@
-import "package:dio/dio.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "repositorio_medico.dart";
@@ -7,6 +6,7 @@ class MedicalPatientsState {
   final bool isLoading;
   final List<Map<String, dynamic>> patients;
   final String searchQuery;
+  final String estadoFiltro; // "todos" | "activos" | "archivados"
   final int totalItems;
   final int offset;
   final String? errorMessage;
@@ -15,6 +15,7 @@ class MedicalPatientsState {
     this.isLoading = true,
     this.patients = const [],
     this.searchQuery = "",
+    this.estadoFiltro = "todos",
     this.totalItems = 0,
     this.offset = 0,
     this.errorMessage,
@@ -24,6 +25,7 @@ class MedicalPatientsState {
     bool? isLoading,
     List<Map<String, dynamic>>? patients,
     String? searchQuery,
+    String? estadoFiltro,
     int? totalItems,
     int? offset,
     String? errorMessage,
@@ -33,17 +35,20 @@ class MedicalPatientsState {
       isLoading: isLoading ?? this.isLoading,
       patients: patients ?? this.patients,
       searchQuery: searchQuery ?? this.searchQuery,
+      estadoFiltro: estadoFiltro ?? this.estadoFiltro,
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
-  bool get activeFilters => searchQuery.isNotEmpty;
+  bool get activeFilters => searchQuery.isNotEmpty || estadoFiltro != "todos";
 }
 
 class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
-  MedicalPatientsNotifier(this._ref) : super(const MedicalPatientsState());
+  MedicalPatientsNotifier(this._ref) : super(const MedicalPatientsState()) {
+    loadPageIfNeeded();
+  }
 
   final Ref _ref;
   static const int pageSize = 5;
@@ -65,6 +70,7 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
         query: state.searchQuery,
         limit: pageSize,
         offset: nextOffset,
+        estado: state.estadoFiltro,
       );
       
       state = state.copyWith(
@@ -87,6 +93,7 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
         query: state.searchQuery,
         limit: pageSize,
         offset: state.offset,
+        estado: state.estadoFiltro,
       );
       state = state.copyWith(
         patients: result.items,
@@ -101,8 +108,14 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
     loadPage(offset: 0);
   }
 
+  void setEstadoFiltro(String estado) {
+    if (state.estadoFiltro == estado) return;
+    state = state.copyWith(estadoFiltro: estado, offset: 0);
+    loadPage(offset: 0);
+  }
+
   void clearFilters() {
-    state = state.copyWith(searchQuery: "", offset: 0);
+    state = state.copyWith(searchQuery: "", estadoFiltro: "todos", offset: 0);
     loadPage(offset: 0);
   }
 }

@@ -21,6 +21,12 @@ class SupervisionPacientesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(medicoNavProvider, (prev, next) {
+      if (prev?.currentView != MedicoView.list && next.currentView == MedicoView.list) {
+        ref.read(medicalPatientsProvider.notifier).loadPage();
+      }
+    });
+
     final navState = ref.watch(medicoNavProvider);
     final currentView = navState.currentView;
     final selectedPatient = navState.selectedPatient;
@@ -82,6 +88,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   Timer? _searchDebounce;
   bool _archiving = false;
   bool _archiveSuccess = false;
+  String _archiveLoadingText = "Archivando paciente...";
+  String _archiveSuccessText = "Paciente archivado";
   RealtimeChannel? _realtimeChannel;
 
   @override
@@ -104,7 +112,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             table: 'paciente',
             callback: (payload) {
               final newRecord = payload.newRecord;
-              if (newRecord != null && newRecord['id'] != null) {
+              if (newRecord.isNotEmpty && newRecord['id'] != null) {
                 ref.read(repositorioMedicoProvider).invalidateExpediente(newRecord['id'].toString());
               } else {
                 ref.read(repositorioMedicoProvider).invalidateAllExpedientes();
@@ -118,7 +126,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             table: 'control_paciente',
             callback: (payload) {
               final newRecord = payload.newRecord;
-              if (newRecord != null && newRecord['id_paciente'] != null) {
+              if (newRecord.isNotEmpty && newRecord['id_paciente'] != null) {
                 ref.read(repositorioMedicoProvider).invalidateExpediente(newRecord['id_paciente'].toString());
               } else {
                 ref.read(repositorioMedicoProvider).invalidateAllExpedientes();
@@ -207,9 +215,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                     color: Color(0xFF4ADE80), size: 86),
               const SizedBox(height: 24),
               Text(
-                _archiveSuccess
-                    ? "Paciente archivado"
-                    : "Archivando paciente...",
+                _archiveSuccess ? _archiveSuccessText : _archiveLoadingText,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: Colors.white,
@@ -269,7 +275,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       children: [
         Expanded(
           child: _KPICard(
-            title: "Pacientes activos",
+            title: state.estadoFiltro == "archivados"
+                ? "Pacientes archivados"
+                : (state.estadoFiltro == "activos"
+                    ? "Pacientes activos"
+                    : "Total pacientes"),
             value: "$total",
             color: AppTema.azulPrincipal,
             imagePath: "assets/images/kpi_total.webp",
@@ -299,70 +309,159 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   }
 
   Widget _buildSearchBarAndAddButton(MedicalPatientsState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por nombre o cédula del paciente...",
+                    hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade400, fontSize: 13),
+                    prefixIcon:
+                        const Icon(Icons.search, size: 20, color: Colors.grey),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onChanged: (v) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                      ref.read(medicalPatientsProvider.notifier).setSearchQuery(v);
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            if (state.activeFilters) ...[
+              IconButton(
+                onPressed: _limpiarFiltros,
+                icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.grey),
+                tooltip: "Limpiar filtros",
+              ),
+              const SizedBox(width: 8),
+            ],
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: () {
+                  ref.read(medicoNavProvider.notifier).setView(MedicoView.register, clearPatient: true);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+                label: Text("Registrar paciente",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: -0.5)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildEstadoFilterRow(state),
+      ],
+    );
+  }
+
+  Widget _buildEstadoFilterRow(MedicalPatientsState state) {
     return Row(
       children: [
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              controller: _searchController,
-              style:
-                  GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                hintText: "Buscar por nombre o cédula del paciente...",
-                hintStyle: GoogleFonts.inter(
-                    color: Colors.grey.shade400, fontSize: 13),
-                prefixIcon:
-                    const Icon(Icons.search, size: 20, color: Colors.grey),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                  ref.read(medicalPatientsProvider.notifier).setSearchQuery(v);
-                });
-              },
-            ),
-          ),
+        _buildEstadoChip(
+          label: "Todos",
+          icon: Icons.people_alt_outlined,
+          isSelected: state.estadoFiltro == "todos",
+          color: AppTema.azulPrincipal,
+          onTap: () => ref.read(medicalPatientsProvider.notifier).setEstadoFiltro("todos"),
         ),
-        const SizedBox(width: 16),
-        if (state.activeFilters) ...[
-          IconButton(
-            onPressed: _limpiarFiltros,
-            icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.grey),
-            tooltip: "Limpiar filtros",
-          ),
-          const SizedBox(width: 8),
-        ],
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: () {
-              ref.read(medicoNavProvider.notifier).setView(MedicoView.register, clearPatient: true);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-            ),
-            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-            label: Text("Registrar paciente",
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    letterSpacing: -0.5)),
-          ),
+        const SizedBox(width: 10),
+        _buildEstadoChip(
+          label: "Activos",
+          icon: Icons.check_circle_outline_rounded,
+          isSelected: state.estadoFiltro == "activos",
+          color: const Color(0xFF10B981),
+          onTap: () => ref.read(medicalPatientsProvider.notifier).setEstadoFiltro("activos"),
+        ),
+        const SizedBox(width: 10),
+        _buildEstadoChip(
+          label: "Archivados",
+          icon: Icons.archive_outlined,
+          isSelected: state.estadoFiltro == "archivados",
+          color: const Color(0xFF64748B),
+          onTap: () => ref.read(medicalPatientsProvider.notifier).setEstadoFiltro("archivados"),
         ),
       ],
+    );
+  }
+
+  Widget _buildEstadoChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? Colors.white : Colors.blueGrey.shade700,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.blueGrey.shade800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -450,6 +549,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                 ref.read(medicoNavProvider.notifier).setView(MedicoView.fixedEdit, patient: p);
               },
               onArchive: (p) => _confirmarArchivarPaciente(p),
+              onUnarchive: (p) => _confirmarDesarchivarPaciente(p),
               totalWidth: usableWidth,
               context: context,
             ),
@@ -489,7 +589,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         title: Text("Archivar paciente",
             style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
         content: Text(
-          "El paciente ${p['nombre_completo'] ?? ''} dejará de aparecer en la gestión activa. Su expediente e historial clínico se conservan.",
+          "El paciente ${p['nombre_completo'] ?? ''} pasará a estar archivado. Podrás seguir consultándolo en el filtro de 'Archivados' o 'Todos' y desarchivarlo en cualquier momento.",
         ),
         actions: [
           TextButton(
@@ -512,6 +612,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     setState(() {
       _archiving = true;
       _archiveSuccess = false;
+      _archiveLoadingText = "Archivando paciente...";
+      _archiveSuccessText = "Paciente archivado";
     });
 
     try {
@@ -535,6 +637,63 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       }
     }
   }
+
+  Future<void> _confirmarDesarchivarPaciente(Map<String, dynamic> p) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text("Desarchivar paciente",
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        content: Text(
+          "¿Deseas desarchivar al paciente ${p['nombre_completo'] ?? ''}? Volverá a estar activo para atención y control clínico.",
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.unarchive_outlined, size: 18),
+            label: const Text("Desarchivar"),
+            style: FilledButton.styleFrom(backgroundColor: AppTema.verdeSalud),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) await _desarchivarPaciente(p);
+  }
+
+  Future<void> _desarchivarPaciente(Map<String, dynamic> p) async {
+    if (_archiving) return;
+    setState(() {
+      _archiving = true;
+      _archiveSuccess = false;
+      _archiveLoadingText = "Desarchivando paciente...";
+      _archiveSuccessText = "Paciente desarchivado";
+    });
+
+    try {
+      await ref
+          .read(repositorioMedicoProvider)
+          .desarchivarPaciente(p["id"].toString());
+      await ref.read(medicalPatientsProvider.notifier).loadPage();
+      if (!mounted) return;
+      setState(() => _archiveSuccess = true);
+      await Future.delayed(const Duration(milliseconds: 1200));
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(context, "Error al desarchivar", isError: true, ref: ref);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _archiving = false;
+          _archiveSuccess = false;
+        });
+      }
+    }
+  }
 }
 
 class _MedicalPatientsDataSource extends DataTableSource {
@@ -545,6 +704,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
   final Function(Map<String, dynamic>) onControl;
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onArchive;
+  final Function(Map<String, dynamic>) onUnarchive;
   final double totalWidth;
   final BuildContext context;
 
@@ -556,6 +716,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
     required this.onControl,
     required this.onEdit,
     required this.onArchive,
+    required this.onUnarchive,
     required this.totalWidth,
     required this.context,
   });
@@ -653,9 +814,28 @@ class _MedicalPatientsDataSource extends DataTableSource {
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13,
-                                  color: AppTema.azulOscuro)),
+                                  color: (p["activo"] == false)
+                                      ? Colors.blueGrey.shade600
+                                      : AppTema.azulOscuro)),
                         ),
-                        if (p["tiene_tutor"] == false) ...[
+                        if (p["activo"] == false) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              "Archivado",
+                              style: GoogleFonts.inter(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ] else if (p["tiene_tutor"] == false) ...[
                           const SizedBox(width: 6),
                           Tooltip(
                             message: "Sin tutor asignado",
@@ -698,7 +878,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
       )),
       DataCell(SizedBox(
         width: totalWidth * 0.15,
-        child: Center(child: _buildSeverityBadge(p["severidad"])),
+        child: Center(child: _buildSeverityOrArchivedBadge(p["severidad"], activo: p["activo"] ?? true)),
       )),
       DataCell(SizedBox(
         width: totalWidth * 0.20,
@@ -719,16 +899,52 @@ class _MedicalPatientsDataSource extends DataTableSource {
                   color: Colors.orange,
                   onTap: () => onEdit(p)),
               const SizedBox(width: 12),
-              _HoverActionButton(
-                  icon: Icons.archive_outlined,
-                  label: "Archivar",
-                  color: Colors.redAccent,
-                  onTap: () => onArchive(p)),
+              if (p["activo"] == false)
+                _HoverActionButton(
+                    icon: Icons.unarchive_outlined,
+                    label: "Desarchivar",
+                    color: AppTema.verdeSalud,
+                    onTap: () => onUnarchive(p))
+              else
+                _HoverActionButton(
+                    icon: Icons.archive_outlined,
+                    label: "Archivar",
+                    color: Colors.redAccent,
+                    onTap: () => onArchive(p)),
             ],
           ),
         ),
       )),
     ]);
+  }
+
+  Widget _buildSeverityOrArchivedBadge(dynamic sev, {bool activo = true}) {
+    if (!activo) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.archive_outlined, color: Colors.blueGrey.shade600, size: 13),
+            const SizedBox(width: 4),
+            Text(
+              "Archivado",
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.blueGrey.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return _buildSeverityBadge(sev);
   }
 
   Widget _buildAvatar(String? name) {

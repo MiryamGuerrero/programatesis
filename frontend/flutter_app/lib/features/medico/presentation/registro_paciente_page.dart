@@ -1459,7 +1459,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       });
       
       await Future.delayed(const Duration(milliseconds: 1500));
-      ref.invalidate(medicalPatientsProvider);
+      ref.read(medicalPatientsProvider.notifier).loadPage();
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
     } catch (e) {
       if (mounted) {
@@ -1568,7 +1568,7 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
       setState(() => _showSuccess = true);
       
       await Future.delayed(const Duration(milliseconds: 1500));
-      ref.invalidate(medicalPatientsProvider);
+      ref.read(medicalPatientsProvider.notifier).loadPage();
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
     } catch (e) {
       if (mounted) {

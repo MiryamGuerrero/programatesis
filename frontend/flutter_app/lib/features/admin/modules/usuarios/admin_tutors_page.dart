@@ -928,8 +928,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
                             const SizedBox(height: 16),
                             _input(
                               _direccionCtrl,
-                              "Dirección",
-                              "Ingresar dirección",
+                              "Dirección (Opcional)",
+                              "Ingresar dirección (opcional)",
                               Icons.location_on_outlined,
                             ),
                             const SizedBox(height: 16),
@@ -963,8 +963,8 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
                   Expanded(
                     child: Text(
                       isEdit
-                          ? "Actualiza todos los datos del tutor."
-                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña. Asegúrate de llenar todos los campos.",
+                          ? "Actualiza los datos del tutor."
+                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         height: 1.3,
@@ -1098,15 +1098,24 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
     if (_nombreCtrl.text.trim().isEmpty || 
         _emailCtrl.text.trim().isEmpty || 
         _cedulaCtrl.text.trim().isEmpty || 
-        _telefonoCtrl.text.trim().isEmpty || 
-        _direccionCtrl.text.trim().isEmpty) {
-      NutriSnack.show(context, "Por favor complete todos los datos obligatorios",
+        _telefonoCtrl.text.trim().isEmpty) {
+      NutriSnack.show(context, "Por favor complete los campos obligatorios",
           isError: true);
       return;
     }
+
+    final String cedulaVal = _cedulaCtrl.text.trim();
+    if (cedulaVal.length != 10) {
+      NutriSnack.show(context, "La cédula debe contener exactamente 10 dígitos numéricos", isError: true);
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final repo = ref.read(supabaseCrudRepositoryProvider);
+      final dirText = _direccionCtrl.text.trim();
+      final direccionValue = dirText.isEmpty ? null : dirText;
+
       if (widget.user != null) {
         await repo.updateUser(
           userId: widget.user!["id"].toString(),
@@ -1114,7 +1123,7 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
           email: _emailCtrl.text.trim(),
           cedula: _cedulaCtrl.text.trim(),
           telefono: _telefonoCtrl.text.trim(),
-          direccion: _direccionCtrl.text.trim(),
+          direccion: direccionValue,
           idRol: 4, // Rol Tutor Fijo
         );
       } else {
@@ -1124,7 +1133,7 @@ class _FormularioTutorState extends ConsumerState<_FormularioTutor> {
           idRol: 4, // Rol Tutor Fijo
           cedula: _cedulaCtrl.text.trim(),
           telefono: _telefonoCtrl.text.trim(),
-          direccion: _direccionCtrl.text.trim(),
+          direccion: direccionValue,
         );
       }
       widget.onSuccess();

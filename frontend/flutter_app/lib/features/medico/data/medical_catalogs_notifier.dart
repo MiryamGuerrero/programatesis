@@ -7,13 +7,18 @@ import "repositorio_medico.dart";
 
 class MedicalRulesState {
   final bool isLoading;
-  final List<Map<String, dynamic>> rules;
+  final List<Map<String, dynamic>> rulesClinicas;
+  final int totalClinicas;
+  final int offsetClinicas;
+
+  final List<Map<String, dynamic>> rulesTemporales;
+  final int totalTemporales;
+  final int offsetTemporales;
+
   final String searchQuery;
-  final int totalItems;
-  final int offset;
   final Map<String, List<dynamic>> formData;
   final String? errorMessage;
-  final String? origenFilter;
+  final String origenFilter;
   final int? idCondicionFilter;
   final int? idAccionFilter;
   final int? idTipoObjetivoFilter;
@@ -24,10 +29,13 @@ class MedicalRulesState {
 
   const MedicalRulesState({
     this.isLoading = true,
-    this.rules = const [],
+    this.rulesClinicas = const [],
+    this.totalClinicas = 0,
+    this.offsetClinicas = 0,
+    this.rulesTemporales = const [],
+    this.totalTemporales = 0,
+    this.offsetTemporales = 0,
     this.searchQuery = "",
-    this.totalItems = 0,
-    this.offset = 0,
     this.formData = const {},
     this.errorMessage,
     this.origenFilter = "CLINICA",
@@ -40,12 +48,30 @@ class MedicalRulesState {
     this.temporalRulesCount = 0,
   });
 
+  /// Lista correspondiente a la pestaña activa
+  List<Map<String, dynamic>> get rules =>
+      origenFilter == "TEMPORAL" ? rulesTemporales : rulesClinicas;
+
+  /// Total de registros de la pestaña activa
+  int get totalItems =>
+      origenFilter == "TEMPORAL" ? totalTemporales : totalClinicas;
+
+  /// Offset de paginación de la pestaña activa
+  int get offset =>
+      origenFilter == "TEMPORAL" ? offsetTemporales : offsetClinicas;
+
+  bool get hasDataForCurrentOrigen =>
+      origenFilter == "TEMPORAL" ? rulesTemporales.isNotEmpty : rulesClinicas.isNotEmpty;
+
   MedicalRulesState copyWith({
     bool? isLoading,
-    List<Map<String, dynamic>>? rules,
+    List<Map<String, dynamic>>? rulesClinicas,
+    int? totalClinicas,
+    int? offsetClinicas,
+    List<Map<String, dynamic>>? rulesTemporales,
+    int? totalTemporales,
+    int? offsetTemporales,
     String? searchQuery,
-    int? totalItems,
-    int? offset,
     Map<String, List<dynamic>>? formData,
     String? errorMessage,
     bool clearErrorMessage = false,
@@ -64,10 +90,13 @@ class MedicalRulesState {
   }) {
     return MedicalRulesState(
       isLoading: isLoading ?? this.isLoading,
-      rules: rules ?? this.rules,
+      rulesClinicas: rulesClinicas ?? this.rulesClinicas,
+      totalClinicas: totalClinicas ?? this.totalClinicas,
+      offsetClinicas: offsetClinicas ?? this.offsetClinicas,
+      rulesTemporales: rulesTemporales ?? this.rulesTemporales,
+      totalTemporales: totalTemporales ?? this.totalTemporales,
+      offsetTemporales: offsetTemporales ?? this.offsetTemporales,
       searchQuery: searchQuery ?? this.searchQuery,
-      totalItems: totalItems ?? this.totalItems,
-      offset: offset ?? this.offset,
       formData: formData ?? this.formData,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       origenFilter: origenFilter ?? this.origenFilter,
@@ -89,17 +118,42 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
   static const int pageSize = 5;
   Future<void>? _formDataRequest;
 
-  Future<void> loadPageIfNeeded({int? offset}) async {
-    if (state.rules.isNotEmpty && !state.isLoading) {
+  Future<void> loadPageIfNeeded({String? origen}) async {
+    final target = origen ?? state.origenFilter;
+    final hasData = target == "TEMPORAL"
+        ? state.rulesTemporales.isNotEmpty
+        : state.rulesClinicas.isNotEmpty;
+    if (hasData) {
       return;
     }
-    return loadPage(offset: offset);
+    return loadPage(origen: target);
   }
 
-  Future<void> loadPage({int? offset}) async {
-    final nextOffset = offset ?? state.offset;
-    state = state.copyWith(
-        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+  Future<void> loadPage({int? offset, String? origen, bool force = false}) async {
+    final targetOrigen = origen ?? state.origenFilter;
+    final currentOffset = targetOrigen == "TEMPORAL"
+        ? state.offsetTemporales
+        : state.offsetClinicas;
+    final nextOffset = offset ?? currentOffset;
+
+    final hasData = targetOrigen == "TEMPORAL"
+        ? state.rulesTemporales.isNotEmpty
+        : state.rulesClinicas.isNotEmpty;
+
+    final shouldShowLoading = !hasData || force || offset != null;
+    if (shouldShowLoading) {
+      if (targetOrigen == "TEMPORAL") {
+        state = state.copyWith(
+            isLoading: true,
+            offsetTemporales: nextOffset,
+            clearErrorMessage: true);
+      } else {
+        state = state.copyWith(
+            isLoading: true,
+            offsetClinicas: nextOffset,
+            clearErrorMessage: true);
+      }
+    }
 
     try {
       final repo = _ref.read(repositorioMedicoProvider);
@@ -125,21 +179,34 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
         query: state.searchQuery,
         limit: pageSize,
         offset: nextOffset,
-        origen: state.origenFilter,
+        origen: targetOrigen,
         idCondicion: state.idCondicionFilter,
         idAccion: state.idAccionFilter,
         idTipoObjetivo: state.idTipoObjetivoFilter,
         idObjetivo: state.idObjetivoFilter,
       );
 
-      state = state.copyWith(
-        isLoading: false,
-        rules: result.items,
-        totalItems: result.total,
-        strictRulesCount: strictCount,
-        clinicalRulesCount: clinicasCount,
-        temporalRulesCount: temporalesCount,
-      );
+      if (targetOrigen == "TEMPORAL") {
+        state = state.copyWith(
+          isLoading: false,
+          rulesTemporales: result.items,
+          totalTemporales: result.total,
+          offsetTemporales: nextOffset,
+          strictRulesCount: strictCount,
+          clinicalRulesCount: clinicasCount,
+          temporalRulesCount: temporalesCount,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          rulesClinicas: result.items,
+          totalClinicas: result.total,
+          offsetClinicas: nextOffset,
+          strictRulesCount: strictCount,
+          clinicalRulesCount: clinicasCount,
+          temporalRulesCount: temporalesCount,
+        );
+      }
       unawaited(loadFormData());
     } catch (e) {
       state = state.copyWith(
@@ -149,41 +216,108 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
     }
   }
 
+  /// Carga silenciosa para actualización por eventos Realtime o mutaciones CRUD
+  Future<void> loadPageSilently({String? origen}) async {
+    final targetOrigen = origen ?? state.origenFilter;
+    final currentOffset = targetOrigen == "TEMPORAL"
+        ? state.offsetTemporales
+        : state.offsetClinicas;
+
+    try {
+      final repo = _ref.read(repositorioMedicoProvider);
+      final dio = _ref.read(dioProvider);
+
+      final statsRes = await dio.get("reglas-medicas/estadisticas");
+      final stats = statsRes.data as Map<String, dynamic>;
+      final strictCount = stats["estrictas"] as int? ?? 0;
+      final clinicasCount = stats["clinicas"] as int? ?? 0;
+      final temporalesCount = stats["temporales"] as int? ?? 0;
+
+      final result = await repo.fetchMedicalRulesPage(
+        query: state.searchQuery,
+        limit: pageSize,
+        offset: currentOffset,
+        origen: targetOrigen,
+        idCondicion: state.idCondicionFilter,
+        idAccion: state.idAccionFilter,
+        idTipoObjetivo: state.idTipoObjetivoFilter,
+        idObjetivo: state.idObjetivoFilter,
+      );
+
+      if (targetOrigen == "TEMPORAL") {
+        state = state.copyWith(
+          rulesTemporales: result.items,
+          totalTemporales: result.total,
+          strictRulesCount: strictCount,
+          clinicalRulesCount: clinicasCount,
+          temporalRulesCount: temporalesCount,
+        );
+      } else {
+        state = state.copyWith(
+          rulesClinicas: result.items,
+          totalClinicas: result.total,
+          strictRulesCount: strictCount,
+          clinicalRulesCount: clinicasCount,
+          temporalRulesCount: temporalesCount,
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Refresca ambas pestañas silenciosamente ante eventos Realtime de base de datos
+  Future<void> refreshAllSilently() async {
+    await Future.wait([
+      loadPageSilently(origen: "CLINICA"),
+      loadPageSilently(origen: "TEMPORAL"),
+    ]);
+  }
+
+  /// Cambio reactivo puro en memoria entre pestañas (0 llamadas a la API si ya existen los datos)
   void setOrigenFilter(String? origen) {
+    final target = origen ?? "CLINICA";
+    if (state.origenFilter == target) return;
+
     state = state.copyWith(
-      origenFilter: origen, 
-      offset: 0,
+      origenFilter: target,
       clearCondicionFilter: true,
       clearAccionFilter: true,
       clearTipoObjetivoFilter: true,
       clearObjetivoFilter: true,
     );
-    loadPage(offset: 0);
+
+    final hasTargetData = target == "TEMPORAL"
+        ? state.rulesTemporales.isNotEmpty
+        : state.rulesClinicas.isNotEmpty;
+
+    if (!hasTargetData) {
+      loadPage(origen: target, offset: 0);
+    }
   }
 
   void setIdCondicionFilter(int? idCondicion) {
-    state = state.copyWith(idCondicionFilter: idCondicion, offset: 0, clearCondicionFilter: idCondicion == null);
-    loadPage(offset: 0);
+    state = state.copyWith(idCondicionFilter: idCondicion, offsetClinicas: 0, offsetTemporales: 0, clearCondicionFilter: idCondicion == null);
+    loadPage(offset: 0, force: true);
   }
 
   void setIdAccionFilter(int? idAccion) {
-    state = state.copyWith(idAccionFilter: idAccion, offset: 0, clearAccionFilter: idAccion == null);
-    loadPage(offset: 0);
+    state = state.copyWith(idAccionFilter: idAccion, offsetClinicas: 0, offsetTemporales: 0, clearAccionFilter: idAccion == null);
+    loadPage(offset: 0, force: true);
   }
 
   void setIdTipoObjetivoFilter(int? idTipoObjetivo) {
     state = state.copyWith(
       idTipoObjetivoFilter: idTipoObjetivo, 
-      offset: 0, 
+      offsetClinicas: 0,
+      offsetTemporales: 0,
       clearTipoObjetivoFilter: idTipoObjetivo == null,
       clearObjetivoFilter: true,
     );
-    loadPage(offset: 0);
+    loadPage(offset: 0, force: true);
   }
 
   void setIdObjetivoFilter(int? idObjetivo) {
-    state = state.copyWith(idObjetivoFilter: idObjetivo, offset: 0, clearObjetivoFilter: idObjetivo == null);
-    loadPage(offset: 0);
+    state = state.copyWith(idObjetivoFilter: idObjetivo, offsetClinicas: 0, offsetTemporales: 0, clearObjetivoFilter: idObjetivo == null);
+    loadPage(offset: 0, force: true);
   }
 
   Future<void> loadFormData() {
@@ -220,37 +354,37 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
   }
 
   void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query, offset: 0);
-    loadPage(offset: 0);
+    final trimmed = query.trim();
+    if (state.searchQuery == trimmed) return;
+    state = state.copyWith(
+      searchQuery: trimmed,
+      offsetClinicas: 0,
+      offsetTemporales: 0,
+    );
+    loadPage(offset: 0, force: true);
   }
 
   void clearFilters() {
     state = state.copyWith(
-      offset: 0,
+      offsetClinicas: 0,
+      offsetTemporales: 0,
       searchQuery: "",
       clearCondicionFilter: true,
       clearAccionFilter: true,
       clearTipoObjetivoFilter: true,
       clearObjetivoFilter: true,
     );
-    loadPage(offset: 0);
+    loadPage(offset: 0, force: true);
   }
 
-
   Future<void> deleteRule(int id) async {
-    final oldRules = List<Map<String, dynamic>>.from(state.rules);
-    state = state.copyWith(
-        rules: oldRules.where((r) => r["id"] != id).toList(),
-        totalItems: state.totalItems - 1);
-
     try {
       final dio = _ref.read(dioProvider);
       await dio.delete("reglas-medicas/$id");
+      await loadPage(force: true);
+      loadPageSilently(origen: state.origenFilter == "CLINICA" ? "TEMPORAL" : "CLINICA");
     } catch (e) {
-      state = state.copyWith(
-          rules: oldRules,
-          totalItems: state.totalItems + 1,
-          errorMessage: "Error al eliminar");
+      state = state.copyWith(errorMessage: "Error al eliminar: $e");
     }
   }
 }
@@ -260,44 +394,73 @@ final medicalRulesProvider =
   return MedicalRulesNotifier(ref);
 });
 
-// --- CATALOGO CONDICIONES NOTIFIER ---
+// --- CATALOGO CONDICIONES NOTIFIER (ARQUITECTURA REACTIVA) ---
 
 class MedicalConditionsState {
   final bool isLoading;
-  final List<Map<String, dynamic>> conditions;
+  final List<Map<String, dynamic>> conditionsClinicas;
+  final int totalClinicas;
+  final int offsetClinicas;
+
+  final List<Map<String, dynamic>> conditionsTemporales;
+  final int totalTemporales;
+  final int offsetTemporales;
+
   final String searchQuery;
-  final int? selectedTipo;
-  final int totalItems;
-  final int offset;
+  final int selectedTipo; // 1: Clínicas, 2: Temporales
   final String? errorMessage;
 
   const MedicalConditionsState({
     this.isLoading = true,
-    this.conditions = const [],
+    this.conditionsClinicas = const [],
+    this.totalClinicas = 0,
+    this.offsetClinicas = 0,
+    this.conditionsTemporales = const [],
+    this.totalTemporales = 0,
+    this.offsetTemporales = 0,
     this.searchQuery = "",
-    this.selectedTipo,
-    this.totalItems = 0,
-    this.offset = 0,
+    this.selectedTipo = 1,
     this.errorMessage,
   });
 
+  /// Lista correspondiente a la pestaña activa
+  List<Map<String, dynamic>> get conditions =>
+      selectedTipo == 2 ? conditionsTemporales : conditionsClinicas;
+
+  /// Total de registros correspondiente a la pestaña activa
+  int get totalItems =>
+      selectedTipo == 2 ? totalTemporales : totalClinicas;
+
+  /// Offset de paginación correspondiente a la pestaña activa
+  int get offset =>
+      selectedTipo == 2 ? offsetTemporales : offsetClinicas;
+
+  bool get hasDataForSelectedTipo =>
+      selectedTipo == 2 ? conditionsTemporales.isNotEmpty : conditionsClinicas.isNotEmpty;
+
   MedicalConditionsState copyWith({
     bool? isLoading,
-    List<Map<String, dynamic>>? conditions,
+    List<Map<String, dynamic>>? conditionsClinicas,
+    int? totalClinicas,
+    int? offsetClinicas,
+    List<Map<String, dynamic>>? conditionsTemporales,
+    int? totalTemporales,
+    int? offsetTemporales,
     String? searchQuery,
     int? selectedTipo,
-    int? totalItems,
-    int? offset,
     String? errorMessage,
     bool clearErrorMessage = false,
   }) {
     return MedicalConditionsState(
       isLoading: isLoading ?? this.isLoading,
-      conditions: conditions ?? this.conditions,
+      conditionsClinicas: conditionsClinicas ?? this.conditionsClinicas,
+      totalClinicas: totalClinicas ?? this.totalClinicas,
+      offsetClinicas: offsetClinicas ?? this.offsetClinicas,
+      conditionsTemporales: conditionsTemporales ?? this.conditionsTemporales,
+      totalTemporales: totalTemporales ?? this.totalTemporales,
+      offsetTemporales: offsetTemporales ?? this.offsetTemporales,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedTipo: selectedTipo ?? this.selectedTipo,
-      totalItems: totalItems ?? this.totalItems,
-      offset: offset ?? this.offset,
       errorMessage:
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
@@ -310,32 +473,67 @@ class MedicalConditionsNotifier extends StateNotifier<MedicalConditionsState> {
   final Ref _ref;
   static const int pageSize = 5;
 
-  Future<void> loadPageIfNeeded({int? offset}) async {
-    if (state.conditions.isNotEmpty && !state.isLoading) {
+  Future<void> loadPageIfNeeded({int? tipo}) async {
+    final targetTipo = tipo ?? state.selectedTipo;
+    final hasData = targetTipo == 2
+        ? state.conditionsTemporales.isNotEmpty
+        : state.conditionsClinicas.isNotEmpty;
+    if (hasData) {
       return;
     }
-    return loadPage(offset: offset);
+    return loadPage(tipo: targetTipo);
   }
 
-  Future<void> loadPage({int? offset}) async {
-    final nextOffset = offset ?? state.offset;
-    state = state.copyWith(
-        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+  Future<void> loadPage({int? offset, int? tipo, bool force = false}) async {
+    final targetTipo = tipo ?? state.selectedTipo;
+    final currentOffset =
+        targetTipo == 2 ? state.offsetTemporales : state.offsetClinicas;
+    final nextOffset = offset ?? currentOffset;
+
+    final hasData = targetTipo == 2
+        ? state.conditionsTemporales.isNotEmpty
+        : state.conditionsClinicas.isNotEmpty;
+
+    // Solo mostramos shimmer si la pestaña activa no tiene datos o si es forzado explícitamente
+    final shouldShowLoading = !hasData || force || offset != null;
+    if (shouldShowLoading) {
+      if (targetTipo == 2) {
+        state = state.copyWith(
+            isLoading: true,
+            offsetTemporales: nextOffset,
+            clearErrorMessage: true);
+      } else {
+        state = state.copyWith(
+            isLoading: true,
+            offsetClinicas: nextOffset,
+            clearErrorMessage: true);
+      }
+    }
 
     try {
       final repo = _ref.read(repositorioMedicoProvider);
       final result = await repo.fetchMedicalConditionsPage(
         query: state.searchQuery,
-        tipo: state.selectedTipo,
+        tipo: targetTipo,
         limit: pageSize,
         offset: nextOffset,
       );
 
-      state = state.copyWith(
-        isLoading: false,
-        conditions: result.items,
-        totalItems: result.total,
-      );
+      if (targetTipo == 2) {
+        state = state.copyWith(
+          isLoading: false,
+          conditionsTemporales: result.items,
+          totalTemporales: result.total,
+          offsetTemporales: nextOffset,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          conditionsClinicas: result.items,
+          totalClinicas: result.total,
+          offsetClinicas: nextOffset,
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -344,15 +542,72 @@ class MedicalConditionsNotifier extends StateNotifier<MedicalConditionsState> {
     }
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query, offset: 0);
-    loadPage(offset: 0);
+  /// Carga y actualiza datos silenciosamente en segundo plano únicamente cuando la información
+  /// ha sido alterada (operaciones CRUD o eventos Realtime de base de datos)
+  Future<void> loadPageSilently({int? tipo}) async {
+    final targetTipo = tipo ?? state.selectedTipo;
+    final currentOffset =
+        targetTipo == 2 ? state.offsetTemporales : state.offsetClinicas;
+
+    try {
+      final repo = _ref.read(repositorioMedicoProvider);
+      final result = await repo.fetchMedicalConditionsPage(
+        query: state.searchQuery,
+        tipo: targetTipo,
+        limit: pageSize,
+        offset: currentOffset,
+      );
+
+      if (targetTipo == 2) {
+        state = state.copyWith(
+          conditionsTemporales: result.items,
+          totalTemporales: result.total,
+        );
+      } else {
+        state = state.copyWith(
+          conditionsClinicas: result.items,
+          totalClinicas: result.total,
+        );
+      }
+    } catch (_) {}
   }
 
-  void setTipo(int? tipo) {
-    if (state.selectedTipo == tipo && state.conditions.isNotEmpty) return;
-    state = state.copyWith(selectedTipo: tipo, offset: 0);
-    loadPage(offset: 0);
+  /// Refresca ambas pestañas de forma silenciosa al detectar alteraciones reales en la base de datos
+  Future<void> refreshAllSilently() async {
+    await Future.wait([
+      loadPageSilently(tipo: 1),
+      loadPageSilently(tipo: 2),
+    ]);
+  }
+
+  /// Cambio reactivo puro en memoria entre pestañas.
+  /// NO consulta a la API si la pestaña ya tiene información cargada en memoria.
+  void setTipo(int tipo) {
+    if (state.selectedTipo == tipo) return;
+
+    // Cambio reactivo puro de estado en memoria (0 peticiones a la API)
+    state = state.copyWith(selectedTipo: tipo);
+
+    final hasTargetData = tipo == 2
+        ? state.conditionsTemporales.isNotEmpty
+        : state.conditionsClinicas.isNotEmpty;
+
+    // Solo consulta a la API si es la primera vez que se visita esa categoría y no tiene datos
+    if (!hasTargetData) {
+      loadPage(tipo: tipo, offset: 0);
+    }
+  }
+
+  void setSearchQuery(String query) {
+    final trimmed = query.trim();
+    if (state.searchQuery == trimmed) return;
+
+    state = state.copyWith(
+      searchQuery: trimmed,
+      offsetClinicas: 0,
+      offsetTemporales: 0,
+    );
+    loadPage(offset: 0, force: true);
   }
 }
 

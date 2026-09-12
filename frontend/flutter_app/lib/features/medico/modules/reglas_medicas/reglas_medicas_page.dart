@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
@@ -20,17 +21,48 @@ class ReglasMedicasPage extends ConsumerStatefulWidget {
 class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(medicalRulesProvider.notifier).loadPageIfNeeded();
+      final notifier = ref.read(medicalRulesProvider.notifier);
+      // Cargar únicamente la pestaña activa si no está en memoria
+      notifier.loadPageIfNeeded(origen: "CLINICA");
+      // Suscripción reactiva en tiempo real con Supabase ante cambios reales en la BD
+      _setupRealtime();
     });
+  }
+
+  void _setupRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('medico_reglas_rt_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'heuristico',
+            table: 'regla',
+            callback: (_) {
+              ref.read(medicalRulesProvider.notifier).refreshAllSilently();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'heuristico',
+            table: 'condicion_regla',
+            callback: (_) {
+              ref.read(medicalRulesProvider.notifier).refreshAllSilently();
+            },
+          )
+          .subscribe();
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -63,9 +95,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             const SizedBox(height: 32),
             _buildTabBar(state),
             const SizedBox(height: 24),
-            _buildFiltersPanel(state),
-            const SizedBox(height: 24),
-            _buildTable(state),
+            _buildContent(state),
           ],
         ),
       ),
@@ -117,12 +147,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                  ref.read(medicalRulesProvider.notifier).setSearchQuery(v);
-                });
-              },
+              onChanged: _onSearchChanged,
             ),
           ),
         ),
@@ -237,20 +262,56 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.bottomLeft,
         children: [
-          Expanded(
-            child: _buildTabItem(
-              label: "Condiciones clínicas",
-              isSelected: state.origenFilter == "CLINICA",
-              onTap: () => ref.read(medicalRulesProvider.notifier).setOrigenFilter("CLINICA"),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTabItem(
+                  label: "Condiciones clínicas",
+                  count: state.clinicalRulesCount,
+                  isSelected: state.origenFilter == "CLINICA",
+                  onTap: () {
+                    ref.read(medicalRulesProvider.notifier).setOrigenFilter("CLINICA");
+                  },
+                ),
+              ),
+              Expanded(
+                child: _buildTabItem(
+                  label: "Síntomas temporales",
+                  count: state.temporalRulesCount,
+                  isSelected: state.origenFilter == "TEMPORAL",
+                  onTap: () {
+                    ref.read(medicalRulesProvider.notifier).setOrigenFilter("TEMPORAL");
+                  },
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _buildTabItem(
-              label: "Síntomas temporales",
-              isSelected: state.origenFilter == "TEMPORAL",
-              onTap: () => ref.read(medicalRulesProvider.notifier).setOrigenFilter("TEMPORAL"),
+          // Indicador animado que se desliza suavemente entre pestañas
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOutCubic,
+            alignment: state.origenFilter == "CLINICA"
+                ? Alignment.bottomLeft
+                : Alignment.bottomRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTema.verdeSalud.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -260,31 +321,112 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
 
   Widget _buildTabItem({
     required String label,
+    int? count,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final activeColor = AppTema.verdeSalud;
-    final inactiveColor = Colors.blueGrey;
+    const activeColor = AppTema.verdeSalud;
+    const inactiveColor = Colors.blueGrey;
 
     return InkWell(
       onTap: onTap,
+      hoverColor: activeColor.withValues(alpha: 0.04),
+      splashColor: activeColor.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? activeColor : Colors.transparent,
-              width: 3,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOut,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+              child: Text(label),
             ),
-          ),
+            if (count != null && count > 0) ...[
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? activeColor.withValues(alpha: 0.12)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "$count",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? activeColor : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? activeColor : inactiveColor,
+      ),
+    );
+  }
+
+  Widget _buildContent(MedicalRulesState state) {
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final double direction = (state.origenFilter == "TEMPORAL") ? 1.0 : -1.0;
+          final isIncoming = child.key == ValueKey("content_reglas_${state.origenFilter}");
+          final slideTween = isIncoming
+              ? Tween<Offset>(
+                  begin: Offset(direction * 0.15, 0.0),
+                  end: Offset.zero,
+                )
+              : Tween<Offset>(
+                  begin: Offset(-direction * 0.15, 0.0),
+                  end: Offset.zero,
+                );
+
+          return SlideTransition(
+            position: slideTween.animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.1, 1.0, curve: Curves.easeOut),
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey("content_reglas_${state.origenFilter}"),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFiltersPanel(state),
+              const SizedBox(height: 24),
+              _buildTable(state),
+            ],
           ),
         ),
       ),
@@ -356,9 +498,9 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: state.idCondicionFilter,
+                    initialValue: state.idCondicionFilter,
                     decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.medical_services_outlined, color: AppTema.verdeSalud, size: 18),
+                      prefixIcon: const Icon(Icons.medical_services_outlined, color: AppTema.verdeSalud, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -475,7 +617,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
-                      value: state.idObjetivoFilter,
+                      initialValue: state.idObjetivoFilter,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
@@ -716,6 +858,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("tabla_reglas_datatable_${state.origenFilter}"),
             header: null,
             rowsPerPage: currentRowsPerPage,
             showFirstLastButtons: true,
@@ -794,7 +937,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       builder: (ctx) => _NutritionalRuleFormDialog(
         formData: state.formData,
         initialRule: rule,
-        onSaved: () => ref.read(medicalRulesProvider.notifier).loadPage(),
+        onSaved: () => ref.read(medicalRulesProvider.notifier).loadPage(force: true),
       ),
     );
   }
@@ -1155,6 +1298,16 @@ class _NutritionalRuleFormDialogState
     _esEstricta = r?["es_estricta"] ?? false;
   }
 
+  bool _computeIsClinicalRule() {
+    final condiciones = widget.formData["condiciones"] ?? [];
+    for (final c in condiciones) {
+      if (c is Map && _selectedCondiciones.contains(c["id"]) && c["id_tipo_condicion"] == 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.initialRule != null;
@@ -1169,16 +1322,7 @@ class _NutritionalRuleFormDialogState
       targetList = widget.formData["subgrupos"] ?? [];
     }
 
-    bool isClinicalRule = false;
-    for (final condId in _selectedCondiciones) {
-      final cond = (widget.formData["condiciones"] ?? []).firstWhere(
-          (c) => c["id"] == condId,
-          orElse: () => null);
-      if (cond != null && cond["id_tipo_condicion"] == 1) {
-        isClinicalRule = true;
-        break;
-      }
-    }
+    final isClinicalRule = _computeIsClinicalRule();
     final forceStrict = _idAccion == 1 || isClinicalRule;
     final activeEsEstricta = forceStrict ? true : _esEstricta;
 
@@ -1293,10 +1437,11 @@ class _NutritionalRuleFormDialogState
                               value: _selectedCondiciones.contains(c["id"]),
                               activeColor: AppTema.azulPrincipal,
                               onChanged: (v) => setState(() {
-                                    if (v!) {
-                                      _selectedCondiciones.add(c["id"]);
+                                    final id = (c["id"] as num).toInt();
+                                    if (v == true) {
+                                      _selectedCondiciones.add(id);
                                     } else {
-                                      _selectedCondiciones.remove(c["id"]);
+                                      _selectedCondiciones.remove(id);
                                     }
                                   }),
                               dense: true))
@@ -1357,16 +1502,7 @@ class _NutritionalRuleFormDialogState
     }
     setState(() => _saving = true);
     try {
-      bool isClinicalRule = false;
-      for (final condId in _selectedCondiciones) {
-        final cond = (widget.formData["condiciones"] ?? []).firstWhere(
-            (c) => c["id"] == condId,
-            orElse: () => null);
-        if (cond != null && cond["id_tipo_condicion"] == 1) {
-          isClinicalRule = true;
-          break;
-        }
-      }
+      final isClinicalRule = _computeIsClinicalRule();
       final forceStrict = _idAccion == 1 || isClinicalRule;
       final activeEsEstricta = forceStrict ? true : _esEstricta;
 

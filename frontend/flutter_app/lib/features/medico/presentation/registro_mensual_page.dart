@@ -628,7 +628,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         }
 
       ref.read(repositorioMedicoProvider).invalidateExpediente(widget.paciente['id'].toString());
-      ref.invalidate(medicalPatientsProvider);
+      ref.read(medicalPatientsProvider.notifier).loadPage();
 
       _limpiarForm();
       _cargarExpediente(forceReload: true);
@@ -655,8 +655,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       _fatiga = 10;
       _brote = false;
       _idControlEditando = null;
+      _fechaControlEditando = "";
       _omsStatusPeso = "PENDIENTE";
     });
+  }
+
+  void _cancelarEdicion() {
+    _limpiarForm();
+    _tabController.animateTo(1);
   }
 
   String _formatEdad(String? fechaNac) {
@@ -1023,20 +1029,56 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // HEADER
-              Text(
-                _idControlEditando != null 
-                  ? "Actualización de Control Mensual de la fecha $_fechaControlEditando"
-                  : "Registro Mensual", 
-                style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -1)
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _idControlEditando != null
-                  ? "Actualiza los datos del control previamente registrado. Todos los campos con * son obligatorios."
-                  : "Anotar los cambios notados en el mes o revisión mensual. Todos los campos con * son obligatorios.", 
-                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))
-              ),
-              const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _idControlEditando != null 
+                          ? "Actualización de Control Mensual de la fecha $_fechaControlEditando"
+                          : "Registro Mensual", 
+                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -1),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _idControlEditando != null
+                          ? "Actualiza los datos del control previamente registrado. Todos los campos con * son obligatorios."
+                          : "Anotar los cambios notados en el mes o revisión mensual. Todos los campos con * son obligatorios.", 
+                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_idControlEditando != null) ...[
+                  const SizedBox(width: 16),
+                  Tooltip(
+                    message: "Cerrar edición",
+                    child: InkWell(
+                      onTap: _loading ? null : _cancelarEdicion,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF64748B),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               margin: const EdgeInsets.only(bottom: 32),
@@ -1355,47 +1397,74 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             ),
             const SizedBox(height: 40),
 
-            // BOTON GUARDAR
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: 300,
-                height: 56,
-                child: FilledButton.icon(
-                  onPressed: _loading ? null : () {
-                    bool esUltimo = true;
-                    if (_idControlEditando != null) {
-                      final hist = _expediente?['historial_controles'] as List?;
-                      if (hist != null && hist.isNotEmpty) {
-                        if (hist.last['id']?.toString() != _idControlEditando) {
-                          esUltimo = false;
+            // BOTONES DE ACCION
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (_idControlEditando != null) ...[
+                  SizedBox(
+                    height: 56,
+                    child: OutlinedButton.icon(
+                      onPressed: _loading ? null : _cancelarEdicion,
+                      icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                      label: Text(
+                        "Cancelar",
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                SizedBox(
+                  width: 300,
+                  height: 56,
+                  child: FilledButton.icon(
+                    onPressed: _loading ? null : () {
+                      bool esUltimo = true;
+                      if (_idControlEditando != null) {
+                        final hist = _expediente?['historial_controles'] as List?;
+                        if (hist != null && hist.isNotEmpty) {
+                          if (hist.last['id']?.toString() != _idControlEditando) {
+                            esUltimo = false;
+                          }
                         }
                       }
-                    }
-                    if (esUltimo) {
-                      _mostrarModalProximaCita();
-                    } else {
-                      _guardarConsulta();
-                    }
-                  },
-                  icon: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.save_rounded),
-                  label: Text(
-                      _idControlEditando == null
-                          ? "Registrar valoración"
-                          : "Guardar cambios",
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: AppTema.verdeSalud,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)))),
-              ),
+                      if (esUltimo) {
+                        _mostrarModalProximaCita();
+                      } else {
+                        _guardarConsulta();
+                      }
+                    },
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.save_rounded),
+                    label: Text(
+                        _idControlEditando == null
+                            ? "Registrar valoración"
+                            : "Guardar cambios",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: AppTema.verdeSalud,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)))),
+                ),
+              ],
             )
           ]
         )

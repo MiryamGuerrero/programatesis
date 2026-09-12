@@ -61,6 +61,14 @@ class IRepositorioPaciente(ABC):
     def eliminar_paciente_integral(self, id_paciente: str) -> bool:
         pass
 
+    @abstractmethod
+    def archivar_paciente(self, id_paciente: str) -> bool:
+        pass
+
+    @abstractmethod
+    def desarchivar_paciente(self, id_paciente: str) -> bool:
+        pass
+
 class IRepositorioPerfil(ABC):
     @abstractmethod
     def obtener_por_auth_id(self, auth_id: str) -> Optional[PerfilUsuario]:

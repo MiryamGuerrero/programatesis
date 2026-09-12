@@ -304,7 +304,14 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 condiciones_activas=todas_condiciones
             )
 
-    def listar_pacientes_paginado(self, q: str = None, limit: int = 10, offset: int = 0, include_total: bool = False) -> dict:
+    def listar_pacientes_paginado(
+        self,
+        q: str = None,
+        limit: int = 10,
+        offset: int = 0,
+        include_total: bool = False,
+        estado: str = "todos"
+    ) -> dict:
         where_clauses = ["v.id is not null"]
         params = []
 
@@ -312,12 +319,17 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             where_clauses.append("(v.nombre_completo ilike %s or v.cedula ilike %s)")
             params.extend([f"%{q}%", f"%{q}%"])
 
+        if estado == "activos":
+            where_clauses.append("coalesce(p.activo, true) = true")
+        elif estado == "archivados":
+            where_clauses.append("coalesce(p.activo, true) = false")
+
         where_str = f"where {' and '.join(where_clauses)}"
 
         total = 0
         with db_cursor() as cur:
             if include_total:
-                cur.execute(f"select count(*) from usuarios.vista_gestion_pacientes v {where_str}", tuple(params))
+                cur.execute(f"select count(*) from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id {where_str}", tuple(params))
                 total = cur.fetchone()[0]
 
             sql = f"""
@@ -337,12 +349,13 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 select
                     v.*,
                     p.id_sexo,
+                    coalesce(p.activo, true) as activo,
                     (pa.id is not null) as plan_activo,
                     pa.id as plan_activo_id,
                     pa.fecha_inicio as plan_activo_inicio,
                     pa.fecha_fin as plan_activo_fin,
                     coalesce(va.confirmado, false) as validacion_confirmada,
-                    exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id) as tiene_tutor
+                    exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id and tp.activo = true) as tiene_tutor
                 from usuarios.vista_gestion_pacientes v
                 join usuarios.paciente p on p.id = v.id
                 left join plan_activo pa on pa.id_paciente = v.id
@@ -359,7 +372,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
     def listar_todos_pacientes(self) -> List[dict]:
         with db_cursor() as cur:
-            sql = "select v.*, p.id_sexo, exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id) as tiene_tutor from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
+            sql = "select v.*, p.id_sexo, coalesce(p.activo, true) as activo, exists(select 1 from usuarios.tutor_paciente tp where tp.id_paciente = v.id and tp.activo = true) as tiene_tutor from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id order by v.nombre_completo"
             cur.execute(sql)
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -490,8 +503,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 except ValueError as e:
                     import logging
                     logging.warning(f"OMS out of bounds on save: {e}")
-                    from app.core.utils import calculate_age_months
-                    edad_meses = calculate_age_months(fecha_nac, date.today())
+                    edad_meses = ServicioOMS.calcular_edad_meses(fecha_nac, date.today())
                     imc_val = round(peso / ((talla_cm / 100) ** 2), 2) if talla_cm > 0 else 0
                     # Notify nutri later in the code
                     evaluacion = {"fuera_de_rango": True, "error": str(e)}
@@ -1076,6 +1088,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 select
                     v.*,
                     p.id_sexo,
+                    coalesce(p.activo, true) as activo,
                     (pa.id is not null) as plan_activo,
                     pa.id as plan_activo_id,
                     pa.fecha_inicio as plan_activo_inicio,
@@ -1085,7 +1098,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 join usuarios.paciente p on p.id = v.id
                 left join plan_activo pa on pa.id_paciente = v.id
                 left join validacion_actual va on va.id_paciente = v.id
-                where v.nombre_completo ilike %s or v.cedula ilike %s
+                where (v.nombre_completo ilike %s or v.cedula ilike %s)
+                  and coalesce(p.activo, true) = true
                 order by v.nombre_completo
                 limit %s
             """
@@ -1403,6 +1417,52 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 )
 
         return True
+
+    def archivar_paciente(self, id_paciente: str) -> bool:
+        with db_cursor() as cur:
+            try:
+                cur.execute("BEGIN")
+                cur.execute(
+                    "UPDATE usuarios.paciente SET activo = false, updated_at = now() WHERE id = %s RETURNING id",
+                    (id_paciente,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    cur.execute("ROLLBACK")
+                    return False
+                cur.execute(
+                    "UPDATE usuarios.tutor_paciente SET activo = false WHERE id_paciente = %s",
+                    (id_paciente,)
+                )
+                cur.execute("COMMIT")
+                return True
+            except Exception as e:
+                cur.execute("ROLLBACK")
+                logging.error(f"Error al archivar paciente {id_paciente}: {str(e)}", exc_info=True)
+                raise e
+
+    def desarchivar_paciente(self, id_paciente: str) -> bool:
+        with db_cursor() as cur:
+            try:
+                cur.execute("BEGIN")
+                cur.execute(
+                    "UPDATE usuarios.paciente SET activo = true, updated_at = now() WHERE id = %s RETURNING id",
+                    (id_paciente,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    cur.execute("ROLLBACK")
+                    return False
+                cur.execute(
+                    "UPDATE usuarios.tutor_paciente SET activo = true WHERE id_paciente = %s",
+                    (id_paciente,)
+                )
+                cur.execute("COMMIT")
+                return True
+            except Exception as e:
+                cur.execute("ROLLBACK")
+                logging.error(f"Error al desarchivar paciente {id_paciente}: {str(e)}", exc_info=True)
+                raise e
 
     def obtener_perfil_reducido_planificacion(self, id_paciente: str) -> dict:
         """

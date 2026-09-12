@@ -1,8 +1,8 @@
 import "dart:async";
-import "package:dio/dio.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
@@ -22,17 +22,41 @@ class _CatalogoCondicionesPageState
     extends ConsumerState<CatalogoCondicionesPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(medicalConditionsProvider.notifier).setTipo(1);
+      final notifier = ref.read(medicalConditionsProvider.notifier);
+      // Cargar únicamente la pestaña activa si no está en memoria
+      notifier.loadPageIfNeeded(tipo: 1);
+      // Suscripción reactiva en tiempo real con Supabase ante cambios reales en la BD
+      _setupRealtime();
     });
+  }
+
+  void _setupRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('medico_condiciones_rt_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'heuristico',
+            table: 'condicion',
+            callback: (_) {
+              // Actualización reactiva instantánea sin interrumpir la interfaz
+              ref.read(medicalConditionsProvider.notifier).refreshAllSilently();
+            },
+          )
+          .subscribe();
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
@@ -108,6 +132,52 @@ class _CatalogoCondicionesPageState
             valor: '${state.totalItems}',
             icon: Icons.folder_shared_outlined,
             colorValor: AppTema.azulPrincipal,
+            subtitle: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF16A34A),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  "Clínicas: ${state.totalClinicas}",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 1,
+                  height: 10,
+                  color: const Color(0xFFCBD5E1),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFCA8A04),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  "Temporales: ${state.totalTemporales}",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 20),
@@ -142,12 +212,19 @@ class _CatalogoCondicionesPageState
                 hintStyle: GoogleFonts.inter(
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: _limpiarFiltros,
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _searchDebounce?.cancel();
                 _searchDebounce = Timer(const Duration(milliseconds: 350), () {
                   ref.read(medicalConditionsProvider.notifier).setSearchQuery(v);
@@ -184,24 +261,56 @@ class _CatalogoCondicionesPageState
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.bottomLeft,
         children: [
-          Expanded(
-            child: _buildTabItem(
-              label: "Condiciones clínicas",
-              isSelected: state.selectedTipo == 1,
-              onTap: () {
-                ref.read(medicalConditionsProvider.notifier).setTipo(1);
-              },
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTabItem(
+                  label: "Condiciones clínicas",
+                  count: state.totalClinicas,
+                  isSelected: state.selectedTipo == 1,
+                  onTap: () {
+                    ref.read(medicalConditionsProvider.notifier).setTipo(1);
+                  },
+                ),
+              ),
+              Expanded(
+                child: _buildTabItem(
+                  label: "Síntomas temporales",
+                  count: state.totalTemporales,
+                  isSelected: state.selectedTipo == 2,
+                  onTap: () {
+                    ref.read(medicalConditionsProvider.notifier).setTipo(2);
+                  },
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _buildTabItem(
-              label: "Síntomas temporales",
-              isSelected: state.selectedTipo == 2,
-              onTap: () {
-                ref.read(medicalConditionsProvider.notifier).setTipo(2);
-              },
+          // Indicador animado que se desliza suavemente entre pestañas
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOutCubic,
+            alignment: state.selectedTipo == 1
+                ? Alignment.bottomLeft
+                : Alignment.bottomRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTema.verdeSalud.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -211,32 +320,56 @@ class _CatalogoCondicionesPageState
 
   Widget _buildTabItem({
     required String label,
+    int? count,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final activeColor = AppTema.verdeSalud;
-    final inactiveColor = Colors.blueGrey;
+    const activeColor = AppTema.verdeSalud;
+    const inactiveColor = Colors.blueGrey;
 
     return InkWell(
       onTap: onTap,
+      hoverColor: activeColor.withValues(alpha: 0.04),
+      splashColor: activeColor.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? activeColor : Colors.transparent,
-              width: 3,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOut,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+              child: Text(label),
             ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? activeColor : inactiveColor,
-          ),
+            if (count != null && count > 0) ...[
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? activeColor.withValues(alpha: 0.12)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "$count",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? activeColor : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -279,56 +412,104 @@ class _CatalogoCondicionesPageState
     }
 
     return NutriTableContainer(
-      child: LayoutBuilder(builder: (context, constraints) {
-        final totalWidth = constraints.maxWidth;
-        final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.conditions.isEmpty
-            ? 5
-            : (state.conditions.length < MedicalConditionsNotifier.pageSize
-                ? state.conditions.length
-                : MedicalConditionsNotifier.pageSize);
+      child: ClipRect(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+            return Stack(
+              alignment: Alignment.topCenter,
+              children: <Widget>[
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            );
+          },
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final double direction = (state.selectedTipo == 2) ? 1.0 : -1.0;
+            final isIncoming = child.key == ValueKey("tab_table_${state.selectedTipo}");
+            final slideTween = isIncoming
+                ? Tween<Offset>(
+                    begin: Offset(direction * 0.15, 0.0),
+                    end: Offset.zero,
+                  )
+                : Tween<Offset>(
+                    begin: Offset(-direction * 0.15, 0.0),
+                    end: Offset.zero,
+                  );
 
-        return Theme(
-          data: Theme.of(context).copyWith(
-            cardTheme: const CardThemeData(
-                elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
-            dividerColor: Colors.transparent,
-          ),
-          child: PaginatedDataTable(
-            header: null,
-            rowsPerPage: currentRowsPerPage,
-            showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
-            onPageChanged: (idx) =>
-                ref.read(medicalConditionsProvider.notifier).loadPage(offset: idx),
-            columnSpacing: 0,
-            horizontalMargin: 10,
-            dividerThickness: 0.0,
-            dataRowMinHeight: 65,
-            dataRowMaxHeight: double.infinity,
-            headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
-            columns: [
-              _col("DIAGNÓSTICO", width: usableWidth * 0.25),
-              _col("DESCRIPCIÓN", width: usableWidth * 0.40),
-              _col("ESTADO", width: usableWidth * 0.15, center: true),
-              _col("ACCIONES", width: usableWidth * 0.20, center: true),
-            ],
-            source: _MedicalConditionsDataSource(
-              items: state.conditions,
-              totalRows: state.totalItems,
-              offset: state.offset,
-              isLoading: state.isLoading,
-              onVer: (c) => _verDetalle(c),
-              onEdit: (c) => _abrirFormulario(condicion: c),
-              onDelete: (c) => _eliminar(c),
-              totalWidth: usableWidth,
-              context: context,
-            ),
-          ),
-        );
-      }),
-    );
-  }
+            return SlideTransition(
+              position: slideTween.animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: const Interval(0.1, 1.0, curve: Curves.easeOut),
+                ),
+                child: child,
+              ),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey("tab_table_${state.selectedTipo}"),
+            child: LayoutBuilder(builder: (context, constraints) {
+            final totalWidth = constraints.maxWidth;
+            final usableWidth = totalWidth - 20;
+            final currentRowsPerPage = state.conditions.isEmpty
+                ? 5
+                : (state.conditions.length < MedicalConditionsNotifier.pageSize
+                    ? state.conditions.length
+                    : MedicalConditionsNotifier.pageSize);
+
+            return Theme(
+              data: Theme.of(context).copyWith(
+                cardTheme: const CardThemeData(
+                    elevation: 0, color: Colors.white, margin: EdgeInsets.zero),
+                dividerColor: Colors.transparent,
+              ),
+              child: PaginatedDataTable(
+                key: ValueKey("pdt_condiciones_${state.selectedTipo}"),
+                header: null,
+                rowsPerPage: currentRowsPerPage,
+                showFirstLastButtons: true,
+                availableRowsPerPage: [currentRowsPerPage],
+                onPageChanged: (idx) => ref
+                    .read(medicalConditionsProvider.notifier)
+                    .loadPage(offset: idx, force: true),
+                columnSpacing: 0,
+                horizontalMargin: 10,
+                dividerThickness: 0.0,
+                dataRowMinHeight: 65,
+                dataRowMaxHeight: double.infinity,
+                headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
+                columns: [
+                  _col("DIAGNÓSTICO", width: usableWidth * 0.25),
+                  _col("DESCRIPCIÓN", width: usableWidth * 0.40),
+                  _col("ESTADO", width: usableWidth * 0.15, center: true),
+                  _col("ACCIONES", width: usableWidth * 0.20, center: true),
+                ],
+                source: _MedicalConditionsDataSource(
+                  items: state.conditions,
+                  totalRows: state.totalItems,
+                  offset: state.offset,
+                  isLoading: state.isLoading,
+                  onVer: (c) => _verDetalle(c),
+                  onEdit: (c) => _abrirFormulario(condicion: c),
+                  onDelete: (c) => _eliminar(c),
+                  totalWidth: usableWidth,
+                  context: context,
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    ),
+  );
+}
 
   DataColumn _col(String label, {required double width, bool center = false}) {
     return DataColumn(
@@ -365,7 +546,11 @@ class _CatalogoCondicionesPageState
       barrierColor: AppTema.azulOscuro.withValues(alpha: 0.4),
       builder: (context) => _FormularioCondicion(
         condicion: condicion,
-        onSuccess: () => ref.read(medicalConditionsProvider.notifier).loadPage(),
+        onSuccess: () {
+          ref.read(medicalConditionsProvider.notifier).loadPage(force: true);
+          ref.read(medicalConditionsProvider.notifier).loadPageSilently(
+              tipo: ref.read(medicalConditionsProvider).selectedTipo == 1 ? 2 : 1);
+        },
       ),
     );
   }
@@ -395,7 +580,9 @@ class _CatalogoCondicionesPageState
       try {
         final dio = ref.read(dioProvider);
         await dio.delete("catalogos/condiciones/${c["id"]}");
-        ref.read(medicalConditionsProvider.notifier).loadPage();
+        ref.read(medicalConditionsProvider.notifier).loadPage(force: true);
+        ref.read(medicalConditionsProvider.notifier).loadPageSilently(
+            tipo: ref.read(medicalConditionsProvider).selectedTipo == 1 ? 2 : 1);
         if (mounted) NutriSnack.show(context, "Registro eliminado");
       } catch (e) {
         if (mounted) NutriSnack.show(context, "Error al eliminar", isError: true);

@@ -273,6 +273,10 @@ class SupabaseCrudRepository {
     await _dio.patch("pacientes/$idPaciente/archivar");
   }
 
+  Future<void> unarchivePatient(String idPaciente) async {
+    await _dio.patch("pacientes/$idPaciente/desarchivar");
+  }
+
   Future<void> deletePatient(String idPaciente) async {
     await archivePatient(idPaciente);
   }

@@ -71,9 +71,10 @@ def pre_diagnostico_nutricional(
         }
     except ValueError as exc:
         import logging
-        logging.warning(f"OMS bounds error: {str(exc)}")
-        from backend.app.core.utils import calculate_age_months
-        meses_totales = calculate_age_months(payload.fecha_nacimiento if isinstance(payload.fecha_nacimiento, date) else date.fromisoformat(payload.fecha_nacimiento), date.today())
+        meses_totales = ServicioOMS.calcular_edad_meses(
+            payload.fecha_nacimiento if isinstance(payload.fecha_nacimiento, date) else date.fromisoformat(payload.fecha_nacimiento),
+            date.today()
+        )
         
         # Calculate basic BMI just in case
         imc = round(payload.peso_kg / ((payload.talla_cm / 100) ** 2), 2) if payload.talla_cm > 0 else 0
@@ -409,17 +410,19 @@ def listar_todos_los_pacientes(
     limit: int = Query(default=10, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     include_total: bool = Query(default=False),
+    estado: str = Query(default="todos"),
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    if q or limit != 10 or offset != 0 or include_total:
+    if q or limit != 10 or offset != 0 or include_total or estado != "todos":
         from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
         repo = RepositorioPacientePostgres()
         return repo.listar_pacientes_paginado(
             q=q,
             limit=limit,
             offset=offset,
-            include_total=include_total
+            include_total=include_total,
+            estado=estado
         )
     return caso_uso.listar_todos()
 
@@ -431,6 +434,28 @@ def eliminar_paciente_clinico(
 ):
     exito = caso_uso.eliminar(id_paciente)
     return {"success": exito}
+
+@router.patch("/pacientes/{id_paciente}/archivar")
+def archivar_paciente_clinico(
+    id_paciente: str,
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
+):
+    exito = caso_uso.archivar(id_paciente)
+    if not exito:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return {"success": True, "message": "Paciente archivado correctamente"}
+
+@router.patch("/pacientes/{id_paciente}/desarchivar")
+def desarchivar_paciente_clinico(
+    id_paciente: str,
+    caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
+):
+    exito = caso_uso.desarchivar(id_paciente)
+    if not exito:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return {"success": True, "message": "Paciente desarchivado correctamente"}
 
 @router.get("/usuarios/tutor-by-cedula/{cedula}")
 def obtener_tutor_por_cedula(

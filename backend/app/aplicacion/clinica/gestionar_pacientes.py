@@ -60,3 +60,9 @@ class CasoUsoGestionarPacientes:
 
     def eliminar(self, id_paciente: str) -> bool:
         return self.repo_paciente.eliminar_paciente_integral(id_paciente)
+
+    def archivar(self, id_paciente: str) -> bool:
+        return self.repo_paciente.archivar_paciente(id_paciente)
+
+    def desarchivar(self, id_paciente: str) -> bool:
+        return self.repo_paciente.desarchivar_paciente(id_paciente)
