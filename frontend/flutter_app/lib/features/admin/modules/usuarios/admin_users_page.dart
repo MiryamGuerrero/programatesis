@@ -980,7 +980,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       context: context,
       builder: (ctx) => _FormularioUsuario(
         user: user,
-        onSuccess: () => ref.read(adminUsersProvider.notifier).loadPage(),
+        onSuccess: () => ref.read(adminUsersProvider.notifier).loadPage(forceRefresh: true),
       ),
     );
   }

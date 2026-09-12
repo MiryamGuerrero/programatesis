@@ -478,7 +478,7 @@ class _CatalogoCondicionesPageState
                 availableRowsPerPage: [currentRowsPerPage],
                 onPageChanged: (idx) => ref
                     .read(medicalConditionsProvider.notifier)
-                    .loadPage(offset: idx, force: true),
+                    .loadPage(offset: idx),
                 columnSpacing: 0,
                 horizontalMargin: 10,
                 dividerThickness: 0.0,

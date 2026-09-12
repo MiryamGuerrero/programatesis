@@ -29,8 +29,8 @@ class ReglasNutricionalesState {
   final int pesoRulesCount;
   final int estaturaRulesCount;
 
-  // Caché reactiva por pestaña (indicador)
-  final Map<String, List<dynamic>> cachedRules;
+  // Caché reactiva por pestaña y offset
+  final Map<String, Map<int, List<dynamic>>> cachedPagesByIndicador;
   final Map<String, int> cachedTotals;
   final Map<String, int> cachedOffsets;
   final Set<String> dirtyTabs;
@@ -51,7 +51,7 @@ class ReglasNutricionalesState {
     this.strictRulesCount = 0,
     this.pesoRulesCount = 0,
     this.estaturaRulesCount = 0,
-    this.cachedRules = const {},
+    this.cachedPagesByIndicador = const {"BMI": {}, "HFA": {}},
     this.cachedTotals = const {},
     this.cachedOffsets = const {},
     this.dirtyTabs = const {"BMI", "HFA"},
@@ -78,7 +78,7 @@ class ReglasNutricionalesState {
     int? strictRulesCount,
     int? pesoRulesCount,
     int? estaturaRulesCount,
-    Map<String, List<dynamic>>? cachedRules,
+    Map<String, Map<int, List<dynamic>>>? cachedPagesByIndicador,
     Map<String, int>? cachedTotals,
     Map<String, int>? cachedOffsets,
     Set<String>? dirtyTabs,
@@ -107,7 +107,8 @@ class ReglasNutricionalesState {
       strictRulesCount: strictRulesCount ?? this.strictRulesCount,
       pesoRulesCount: pesoRulesCount ?? this.pesoRulesCount,
       estaturaRulesCount: estaturaRulesCount ?? this.estaturaRulesCount,
-      cachedRules: cachedRules ?? this.cachedRules,
+      cachedPagesByIndicador:
+          cachedPagesByIndicador ?? this.cachedPagesByIndicador,
       cachedTotals: cachedTotals ?? this.cachedTotals,
       cachedOffsets: cachedOffsets ?? this.cachedOffsets,
       dirtyTabs: dirtyTabs ?? this.dirtyTabs,
@@ -132,6 +133,22 @@ class ReglasNutricionalesNotifier
 
   Future<void> loadData({int? offset}) async {
     final nextOffset = offset ?? state.offset;
+
+    // Cache hit: Si la página solicitada ya reside en memoria y no hay filtros activos ni alteraciones pendientes:
+    if (!state.activeFilters &&
+        !state.dirtyTabs.contains(state.indicadorFilter) &&
+        (state.cachedPagesByIndicador[state.indicadorFilter] ?? {}).containsKey(nextOffset)) {
+      final cachedPage = state.cachedPagesByIndicador[state.indicadorFilter]![nextOffset]!;
+      state = state.copyWith(
+        isLoading: false,
+        rules: cachedPage,
+        offset: nextOffset,
+        totalItems: state.cachedTotals[state.indicadorFilter] ?? state.totalItems,
+        clearErrorMessage: true,
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true, clearErrorMessage: true, offset: nextOffset);
     try {
       // 1. Cargar Estadísticas
@@ -171,13 +188,18 @@ class ReglasNutricionalesNotifier
       final items = rulesResult["items"] as List? ?? [];
       final total = rulesResult["total"] ?? 0;
 
-      final updatedCachedRules = Map<String, List<dynamic>>.from(state.cachedRules);
+      final updatedPages = Map<String, Map<int, List<dynamic>>>.from(
+        state.cachedPagesByIndicador.map((k, v) => MapEntry(k, Map<int, List<dynamic>>.from(v))),
+      );
+      if (!updatedPages.containsKey("BMI")) updatedPages["BMI"] = {};
+      if (!updatedPages.containsKey("HFA")) updatedPages["HFA"] = {};
+
       final updatedCachedTotals = Map<String, int>.from(state.cachedTotals);
       final updatedCachedOffsets = Map<String, int>.from(state.cachedOffsets);
       final updatedDirtyTabs = Set<String>.from(state.dirtyTabs);
 
       if (!state.activeFilters) {
-        updatedCachedRules[state.indicadorFilter] = items;
+        updatedPages[state.indicadorFilter]![nextOffset] = items;
         updatedCachedTotals[state.indicadorFilter] = total;
         updatedCachedOffsets[state.indicadorFilter] = nextOffset;
         updatedDirtyTabs.remove(state.indicadorFilter);
@@ -190,7 +212,7 @@ class ReglasNutricionalesNotifier
         strictRulesCount: strictCount,
         pesoRulesCount: pesoCount,
         estaturaRulesCount: estaturaCount,
-        cachedRules: updatedCachedRules,
+        cachedPagesByIndicador: updatedPages,
         cachedTotals: updatedCachedTotals,
         cachedOffsets: updatedCachedOffsets,
         dirtyTabs: updatedDirtyTabs,
@@ -216,15 +238,16 @@ class ReglasNutricionalesNotifier
   void setIndicadorFilter(String value) {
     if (state.indicadorFilter == value) return;
 
+    final savedOffset = state.cachedOffsets[value] ?? 0;
     // Si no hay filtros activos y los datos de esa pestaña ya están en caché sin alteraciones:
     if (!state.activeFilters &&
-        state.cachedRules.containsKey(value) &&
-        !state.dirtyTabs.contains(value)) {
+        !state.dirtyTabs.contains(value) &&
+        (state.cachedPagesByIndicador[value] ?? {}).containsKey(savedOffset)) {
       state = state.copyWith(
         indicadorFilter: value,
-        rules: state.cachedRules[value]!,
+        rules: state.cachedPagesByIndicador[value]![savedOffset]!,
         totalItems: state.cachedTotals[value] ?? 0,
-        offset: state.cachedOffsets[value] ?? 0,
+        offset: savedOffset,
         isLoading: false,
         clearFiltroCondicion: true,
         clearFiltroAccion: true,
@@ -236,7 +259,7 @@ class ReglasNutricionalesNotifier
 
     state = state.copyWith(
       indicadorFilter: value,
-      offset: state.cachedOffsets[value] ?? 0,
+      offset: savedOffset,
       clearFiltroCondicion: true,
       clearFiltroAccion: true,
       clearFiltroTipoObjetivo: true,
@@ -248,6 +271,7 @@ class ReglasNutricionalesNotifier
   void markDirty() {
     state = state.copyWith(
       dirtyTabs: {"BMI", "HFA"},
+      cachedPagesByIndicador: {"BMI": {}, "HFA": {}},
     );
   }
 

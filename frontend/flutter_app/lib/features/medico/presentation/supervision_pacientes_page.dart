@@ -169,7 +169,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         children: [
           RefreshIndicator(
             onRefresh: () async {
-              await ref.read(medicalPatientsProvider.notifier).loadPage();
+              await ref.read(medicalPatientsProvider.notifier).loadPage(forceRefresh: true);
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -620,7 +620,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       await ref
           .read(repositorioMedicoProvider)
           .archivarPaciente(p["id"].toString());
-      await ref.read(medicalPatientsProvider.notifier).loadPage();
+      await ref.read(medicalPatientsProvider.notifier).loadPage(forceRefresh: true);
       if (!mounted) return;
       setState(() => _archiveSuccess = true);
       await Future.delayed(const Duration(milliseconds: 1200));
@@ -677,7 +677,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       await ref
           .read(repositorioMedicoProvider)
           .desarchivarPaciente(p["id"].toString());
-      await ref.read(medicalPatientsProvider.notifier).loadPage();
+      await ref.read(medicalPatientsProvider.notifier).loadPage(forceRefresh: true);
       if (!mounted) return;
       setState(() => _archiveSuccess = true);
       await Future.delayed(const Duration(milliseconds: 1200));

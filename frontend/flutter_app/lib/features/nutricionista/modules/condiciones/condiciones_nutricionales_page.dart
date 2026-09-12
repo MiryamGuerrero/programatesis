@@ -31,7 +31,7 @@ class _CondicionesNutricionalesPageState
   Timer? _searchDebounce;
 
   RealtimeChannel? _realtimeChannel;
-  final Map<int, List<dynamic>> _cachedCondiciones = {};
+  final Map<int, Map<int, List<dynamic>>> _cachedPagesByTab = {0: {}, 1: {}};
   final Map<int, int> _cachedTotals = {};
   final Map<int, int> _cachedOffsets = {};
   final Set<int> _dirtyTabs = {0, 1};
@@ -49,13 +49,14 @@ class _CondicionesNutricionalesPageState
       _selectedTabIndex = index;
     });
 
+    final savedOffset = _cachedOffsets[index] ?? 0;
     // Si ya tenemos los datos en memoria, no hay búsqueda activa y la pestaña no ha sufrido alteraciones:
     if (_searchQuery.isEmpty &&
-        _cachedCondiciones.containsKey(index) &&
-        !_dirtyTabs.contains(index)) {
+        !_dirtyTabs.contains(index) &&
+        _cachedPagesByTab[index]!.containsKey(savedOffset)) {
       setState(() {
-        _offset = _cachedOffsets[index] ?? 0;
-        _condiciones = _cachedCondiciones[index]!;
+        _offset = savedOffset;
+        _condiciones = _cachedPagesByTab[index]![savedOffset]!;
         _total = _cachedTotals[index] ?? 0;
         _loading = false;
         _loadingStats = false;
@@ -63,7 +64,7 @@ class _CondicionesNutricionalesPageState
       return;
     }
 
-    _offset = _cachedOffsets[index] ?? 0;
+    _offset = savedOffset;
     _fetchData(updateStats: false);
   }
 
@@ -79,6 +80,8 @@ class _CondicionesNutricionalesPageState
             callback: (payload) {
               debugPrint("[Realtime] Cambio detectado en heuristico.condicion: ${payload.eventType}");
               _dirtyTabs.addAll([0, 1]);
+              _cachedPagesByTab[0]!.clear();
+              _cachedPagesByTab[1]!.clear();
               if (mounted) {
                 _fetchData(updateStats: true);
               }
@@ -101,6 +104,22 @@ class _CondicionesNutricionalesPageState
   Future<void> _fetchData({int? offset, bool updateStats = false}) async {
     final nextOffset = offset ?? _offset;
     if (!mounted) return;
+
+    // Cache hit: Si la página ya fue cargada y no hay alteraciones pendientes
+    if (_searchQuery.isEmpty &&
+        !_dirtyTabs.contains(_selectedTabIndex) &&
+        _cachedPagesByTab[_selectedTabIndex]!.containsKey(nextOffset)) {
+      setState(() {
+        _offset = nextOffset;
+        _condiciones = _cachedPagesByTab[_selectedTabIndex]![nextOffset]!;
+        _total = _cachedTotals[_selectedTabIndex] ?? _total;
+        _cachedOffsets[_selectedTabIndex] = nextOffset;
+        _loading = false;
+        if (updateStats) _loadingStats = false;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _offset = nextOffset;
@@ -136,7 +155,7 @@ class _CondicionesNutricionalesPageState
 
           if (_searchQuery.isEmpty) {
             final currentTab = _selectedTabIndex;
-            _cachedCondiciones[currentTab] = items;
+            _cachedPagesByTab[currentTab]![nextOffset] = items;
             _cachedTotals[currentTab] = total;
             _cachedOffsets[currentTab] = nextOffset;
             _dirtyTabs.remove(currentTab);
@@ -268,6 +287,8 @@ class _CondicionesNutricionalesPageState
                 _searchDebounce?.cancel();
                 _searchDebounce = Timer(const Duration(milliseconds: 350), () {
                   if (mounted) {
+                    _cachedPagesByTab[0]!.clear();
+                    _cachedPagesByTab[1]!.clear();
                     setState(() => _searchQuery = v);
                     _fetchData(offset: 0, updateStats: true);
                   }
@@ -595,6 +616,8 @@ class _CondicionesNutricionalesPageState
         condicion: condicion,
         onSuccess: () {
           _dirtyTabs.addAll([0, 1]);
+          _cachedPagesByTab[0]!.clear();
+          _cachedPagesByTab[1]!.clear();
           _fetchData(updateStats: true);
         },
       ),
@@ -635,6 +658,8 @@ class _CondicionesNutricionalesPageState
             .read(dioProvider)
             .delete("condiciones-nutricionales/${c["id"]}");
         _dirtyTabs.addAll([0, 1]);
+        _cachedPagesByTab[0]!.clear();
+        _cachedPagesByTab[1]!.clear();
         if (mounted) {
           NutriSnack.show(context, "Condición eliminada", ref: ref);
         }

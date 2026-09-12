@@ -124,7 +124,7 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
         SizedBox(
           height: 48,
           child: ElevatedButton.icon(
-            onPressed: () => ref.read(adminAuditProvider.notifier).loadPage(),
+            onPressed: () => ref.read(adminAuditProvider.notifier).loadPage(forceRefresh: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: AppTema.azulPrincipal,

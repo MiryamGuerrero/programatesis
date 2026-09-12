@@ -11,6 +11,7 @@ class AdminAuditState {
   final int totalItems;
   final int offset;
   final String? errorMessage;
+  final Map<int, List<Map<String, dynamic>>> cachedPages;
 
   const AdminAuditState({
     this.isLoading = true,
@@ -21,6 +22,7 @@ class AdminAuditState {
     this.totalItems = 0,
     this.offset = 0,
     this.errorMessage,
+    this.cachedPages = const {},
   });
 
   AdminAuditState copyWith({
@@ -35,6 +37,7 @@ class AdminAuditState {
     int? offset,
     String? errorMessage,
     bool clearErrorMessage = false,
+    Map<int, List<Map<String, dynamic>>>? cachedPages,
   }) {
     return AdminAuditState(
       isLoading: isLoading ?? this.isLoading,
@@ -45,6 +48,7 @@ class AdminAuditState {
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      cachedPages: cachedPages ?? this.cachedPages,
     );
   }
 
@@ -57,10 +61,26 @@ class AdminAuditNotifier extends StateNotifier<AdminAuditState> {
   final Ref _ref;
   static const int pageSize = 10;
 
-  Future<void> loadPage({int? offset}) async {
+  Future<void> loadPage({int? offset, bool forceRefresh = false}) async {
     final nextOffset = offset ?? state.offset;
+
+    // Cache hit: instant retrieval without API call when navigating back without filters
+    if (!forceRefresh && !state.activeFilters && state.cachedPages.containsKey(nextOffset)) {
+      state = state.copyWith(
+        isLoading: false,
+        offset: nextOffset,
+        controls: state.cachedPages[nextOffset]!,
+        clearErrorMessage: true,
+      );
+      return;
+    }
+
+    final currentCached = forceRefresh ? <int, List<Map<String, dynamic>>>{} : state.cachedPages;
     state = state.copyWith(
-        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+        isLoading: true,
+        offset: nextOffset,
+        cachedPages: currentCached,
+        clearErrorMessage: true);
 
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
@@ -71,10 +91,17 @@ class AdminAuditNotifier extends StateNotifier<AdminAuditState> {
         limit: pageSize,
         offset: nextOffset,
       );
+
+      final updatedCache = Map<int, List<Map<String, dynamic>>>.from(state.cachedPages);
+      if (!state.activeFilters) {
+        updatedCache[nextOffset] = result.items;
+      }
+
       state = state.copyWith(
         isLoading: false,
         controls: result.items,
         totalItems: result.total,
+        cachedPages: updatedCache,
       );
     } catch (e) {
       state = state.copyWith(
@@ -85,26 +112,26 @@ class AdminAuditNotifier extends StateNotifier<AdminAuditState> {
   }
 
   Future<void> setQuery(String q) async {
-    state = state.copyWith(searchQuery: q, offset: 0);
-    await loadPage(offset: 0);
+    state = state.copyWith(searchQuery: q, offset: 0, cachedPages: const {});
+    await loadPage(offset: 0, forceRefresh: true);
   }
 
   Future<void> setActivoFilter(bool? val) async {
     if (val == null) {
-      state = state.copyWith(clearActivo: true, offset: 0);
+      state = state.copyWith(clearActivo: true, offset: 0, cachedPages: const {});
     } else {
-      state = state.copyWith(selectedActivo: val, offset: 0);
+      state = state.copyWith(selectedActivo: val, offset: 0, cachedPages: const {});
     }
-    await loadPage(offset: 0);
+    await loadPage(offset: 0, forceRefresh: true);
   }
 
   Future<void> setBroteFilter(bool? val) async {
     if (val == null) {
-      state = state.copyWith(clearBrote: true, offset: 0);
+      state = state.copyWith(clearBrote: true, offset: 0, cachedPages: const {});
     } else {
-      state = state.copyWith(selectedBrote: val, offset: 0);
+      state = state.copyWith(selectedBrote: val, offset: 0, cachedPages: const {});
     }
-    await loadPage(offset: 0);
+    await loadPage(offset: 0, forceRefresh: true);
   }
 
   Future<void> clearFilters() async {
@@ -113,8 +140,9 @@ class AdminAuditNotifier extends StateNotifier<AdminAuditState> {
       clearActivo: true,
       clearBrote: true,
       offset: 0,
+      cachedPages: const {},
     );
-    await loadPage(offset: 0);
+    await loadPage(offset: 0, forceRefresh: true);
   }
 }
 

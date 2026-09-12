@@ -10,6 +10,7 @@ class MedicalPatientsState {
   final int totalItems;
   final int offset;
   final String? errorMessage;
+  final Map<int, List<Map<String, dynamic>>> cachedPages;
 
   const MedicalPatientsState({
     this.isLoading = true,
@@ -19,6 +20,7 @@ class MedicalPatientsState {
     this.totalItems = 0,
     this.offset = 0,
     this.errorMessage,
+    this.cachedPages = const {},
   });
 
   MedicalPatientsState copyWith({
@@ -30,6 +32,7 @@ class MedicalPatientsState {
     int? offset,
     String? errorMessage,
     bool clearErrorMessage = false,
+    Map<int, List<Map<String, dynamic>>>? cachedPages,
   }) {
     return MedicalPatientsState(
       isLoading: isLoading ?? this.isLoading,
@@ -39,6 +42,7 @@ class MedicalPatientsState {
       totalItems: totalItems ?? this.totalItems,
       offset: offset ?? this.offset,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      cachedPages: cachedPages ?? this.cachedPages,
     );
   }
 
@@ -60,9 +64,27 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
     return loadPage(offset: offset);
   }
 
-  Future<void> loadPage({int? offset}) async {
+  Future<void> loadPage({int? offset, bool forceRefresh = false}) async {
     final nextOffset = offset ?? state.offset;
-    state = state.copyWith(isLoading: true, offset: nextOffset, clearErrorMessage: true);
+
+    // Cache hit: instant retrieval without API call when navigating back without filters
+    if (!forceRefresh && !state.activeFilters && state.cachedPages.containsKey(nextOffset)) {
+      state = state.copyWith(
+        isLoading: false,
+        offset: nextOffset,
+        patients: state.cachedPages[nextOffset]!,
+        clearErrorMessage: true,
+      );
+      return;
+    }
+
+    final currentCached = forceRefresh ? <int, List<Map<String, dynamic>>>{} : state.cachedPages;
+    state = state.copyWith(
+      isLoading: true,
+      offset: nextOffset,
+      cachedPages: currentCached,
+      clearErrorMessage: true,
+    );
     
     try {
       final repo = _ref.read(repositorioMedicoProvider);
@@ -73,10 +95,16 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
         estado: state.estadoFiltro,
       );
       
+      final updatedCache = Map<int, List<Map<String, dynamic>>>.from(state.cachedPages);
+      if (!state.activeFilters) {
+        updatedCache[nextOffset] = result.items;
+      }
+
       state = state.copyWith(
         isLoading: false,
         patients: result.items,
         totalItems: result.total,
+        cachedPages: updatedCache,
       );
     } catch (e) {
       state = state.copyWith(
@@ -95,28 +123,37 @@ class MedicalPatientsNotifier extends StateNotifier<MedicalPatientsState> {
         offset: state.offset,
         estado: state.estadoFiltro,
       );
+      final updatedCache = Map<int, List<Map<String, dynamic>>>.from(state.cachedPages);
+      if (!state.activeFilters) {
+        updatedCache[state.offset] = result.items;
+      }
       state = state.copyWith(
         patients: result.items,
         totalItems: result.total,
+        cachedPages: updatedCache,
       );
     } catch (_) {}
   }
 
+  void invalidateCache() {
+    state = state.copyWith(cachedPages: const {});
+  }
+
   void setSearchQuery(String query) {
     if (state.searchQuery == query) return;
-    state = state.copyWith(searchQuery: query, offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(searchQuery: query, offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   void setEstadoFiltro(String estado) {
     if (state.estadoFiltro == estado) return;
-    state = state.copyWith(estadoFiltro: estado, offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(estadoFiltro: estado, offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   void clearFilters() {
-    state = state.copyWith(searchQuery: "", estadoFiltro: "todos", offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(searchQuery: "", estadoFiltro: "todos", offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 }
 

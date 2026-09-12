@@ -12,6 +12,7 @@ class AdminUsersState {
   final int offset;
   final Map<int, int> roleCounts;
   final String? errorMessage;
+  final Map<int, List<Map<String, dynamic>>> cachedPages;
 
   const AdminUsersState({
     this.isLoading = true,
@@ -23,6 +24,7 @@ class AdminUsersState {
     this.offset = 0,
     this.roleCounts = const {},
     this.errorMessage,
+    this.cachedPages = const {},
   });
 
   AdminUsersState copyWith({
@@ -37,6 +39,7 @@ class AdminUsersState {
     Map<int, int>? roleCounts,
     String? errorMessage,
     bool clearErrorMessage = false,
+    Map<int, List<Map<String, dynamic>>>? cachedPages,
   }) {
     return AdminUsersState(
       isLoading: isLoading ?? this.isLoading,
@@ -48,6 +51,7 @@ class AdminUsersState {
       offset: offset ?? this.offset,
       roleCounts: roleCounts ?? this.roleCounts,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      cachedPages: cachedPages ?? this.cachedPages,
     );
   }
 
@@ -102,10 +106,26 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     return loadPage(offset: offset);
   }
 
-  Future<void> loadPage({int? offset}) async {
+  Future<void> loadPage({int? offset, bool forceRefresh = false}) async {
     final nextOffset = offset ?? state.offset;
+
+    // Cache hit: instant retrieval without API call when navigating back without filters
+    if (!forceRefresh && !state.activeFilters && state.cachedPages.containsKey(nextOffset)) {
+      state = state.copyWith(
+        isLoading: false,
+        offset: nextOffset,
+        users: state.cachedPages[nextOffset]!,
+        clearErrorMessage: true,
+      );
+      return;
+    }
+
+    final currentCached = forceRefresh ? <int, List<Map<String, dynamic>>>{} : state.cachedPages;
     state = state.copyWith(
-        isLoading: true, offset: nextOffset, clearErrorMessage: true);
+        isLoading: true,
+        offset: nextOffset,
+        cachedPages: currentCached,
+        clearErrorMessage: true);
 
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
@@ -121,11 +141,18 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       ]);
       final result = results[0] as ({List<Map<String, dynamic>> items, int total});
       final roleCounts = results[1] as Map<int, int>;
+
+      final updatedCache = Map<int, List<Map<String, dynamic>>>.from(state.cachedPages);
+      if (!state.activeFilters) {
+        updatedCache[nextOffset] = result.items;
+      }
+
       state = state.copyWith(
         isLoading: false,
         users: result.items,
         totalItems: result.total,
         roleCounts: roleCounts,
+        cachedPages: updatedCache,
       );
     } catch (e) {
       state = state.copyWith(
@@ -137,8 +164,8 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
 
   void setSearchQuery(String query) {
     if (state.searchQuery == query) return;
-    state = state.copyWith(searchQuery: query, offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(searchQuery: query, offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   void toggleRol(int rolId) {
@@ -148,27 +175,27 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     } else {
       next.add(rolId);
     }
-    state = state.copyWith(selectedRolIds: next, offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(selectedRolIds: next, offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   void setStatusFilter(bool? activo) {
     if (state.selectedActivo == activo) return;
     if (activo == null) {
-      state = state.copyWith(clearActivo: true, offset: 0);
+      state = state.copyWith(clearActivo: true, offset: 0, cachedPages: const {});
     } else {
-      state = state.copyWith(selectedActivo: activo, offset: 0);
+      state = state.copyWith(selectedActivo: activo, offset: 0, cachedPages: const {});
     }
-    loadPage(offset: 0);
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   void clearFilters() {
-    state = state.copyWith(searchQuery: "", selectedRolIds: {}, clearActivo: true, offset: 0);
-    loadPage(offset: 0);
+    state = state.copyWith(searchQuery: "", selectedRolIds: {}, clearActivo: true, offset: 0, cachedPages: const {});
+    loadPage(offset: 0, forceRefresh: true);
   }
 
   Future<void> toggleUserStatus(String userId, bool currentStatus) async {
-    // Optimistic UI
+    // Optimistic UI and cache invalidation
     final oldUsers = List<Map<String, dynamic>>.from(state.users);
     final nextUsers = oldUsers.map((u) {
       if (u["id"] == userId) {
@@ -177,7 +204,7 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       return u;
     }).toList();
 
-    state = state.copyWith(users: nextUsers);
+    state = state.copyWith(users: nextUsers, cachedPages: const {});
 
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
@@ -192,7 +219,10 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     final oldUsers = List<Map<String, dynamic>>.from(state.users);
     final nextUsers = oldUsers.where((u) => u["id"] != userId).toList();
 
-    state = state.copyWith(users: nextUsers, totalItems: state.totalItems - 1);
+    state = state.copyWith(
+        users: nextUsers,
+        totalItems: state.totalItems - 1,
+        cachedPages: const {});
 
     try {
       final dio = _ref.read(dioProvider);

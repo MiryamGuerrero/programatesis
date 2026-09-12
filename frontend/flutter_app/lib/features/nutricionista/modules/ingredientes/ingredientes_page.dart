@@ -24,6 +24,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   int? _activeId;
 
   List<dynamic> _items = [];
+  final Map<int, List<dynamic>> _cachedPages = {};
   List<dynamic> _groups = [];
   List<dynamic> _subgroups = [];
   List<dynamic> _subgroupsFiltrados = [];
@@ -80,6 +81,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   void _onGroupChanged(int? id) {
+    _cachedPages.clear();
     setState(() {
       _groupId = id;
       _subgroupId = null; // Reset subgroup when group changes
@@ -90,11 +92,12 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             _subgroups.where((s) => s['id_grupo_alimentario'] == id).toList();
       }
     });
-    _fetch(offset: 0, updateStats: true);
+    _fetch(offset: 0, updateStats: true, forceRefresh: true);
   }
 
   void _limpiarFiltros() {
     _searchController.clear();
+    _cachedPages.clear();
     setState(() {
       _query = '';
       _groupId = null;
@@ -102,11 +105,27 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       _subgroupsFiltrados = _subgroups;
       _offset = 0;
     });
-    _fetch(offset: 0, updateStats: true);
+    _fetch(offset: 0, updateStats: true, forceRefresh: true);
   }
 
-  Future<void> _fetch({int? offset, bool updateStats = false}) async {
+  Future<void> _fetch({int? offset, bool updateStats = false, bool forceRefresh = false}) async {
     final nextOffset = offset ?? _offset;
+
+    // Cache hit: instant retrieval with 0 ms latency when navigating back without filters
+    if (!forceRefresh && !_filtrosActivos && _cachedPages.containsKey(nextOffset)) {
+      if (mounted) {
+        setState(() {
+          _offset = nextOffset;
+          _items = _cachedPages[nextOffset]!;
+          _loading = false;
+          if (updateStats) {
+            _loadingFilters = false;
+          }
+        });
+      }
+      return;
+    }
+
     if (mounted) {
       setState(() {
         _offset = nextOffset;
@@ -125,8 +144,12 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           limit: _rowsPerPage,
           offset: nextOffset);
       if (mounted) {
+        final fetchedItems = (data['items'] ?? []) as List<dynamic>;
+        if (!_filtrosActivos) {
+          _cachedPages[nextOffset] = fetchedItems;
+        }
         setState(() {
-          _items = data['items'] ?? [];
+          _items = fetchedItems;
           _total = data['total'] ?? 0;
           _loading = false;
           _loadingFilters = false;
@@ -144,10 +167,11 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
 
   void _scheduleSearch(String value) {
     _query = value;
+    _cachedPages.clear();
     _searchDebounce?.cancel();
     _searchDebounce = Timer(
       const Duration(milliseconds: 350),
-      () => _fetch(offset: 0, updateStats: true),
+      () => _fetch(offset: 0, updateStats: true, forceRefresh: true),
     );
   }
 
@@ -195,12 +219,13 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           }
         },
         onSaved: () {
+          _cachedPages.clear();
           if (mounted) {
             setState(() {
               _currentView = IngredienteView.list;
             });
           }
-          _fetch(offset: _offset);
+          _fetch(offset: _offset, forceRefresh: true);
         },
       );
     }
@@ -355,11 +380,12 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               const SizedBox(width: 12),
               _buildFilterDropdown("Subgrupo", _subgroupsFiltrados, _subgroupId,
                   (v) {
+                _cachedPages.clear();
                 setState(() {
                   _subgroupId = v;
                   _offset = 0;
                 });
-                _fetch(offset: 0, updateStats: true);
+                _fetch(offset: 0, updateStats: true, forceRefresh: true);
               }),
               const SizedBox(width: 16),
               SizedBox(
@@ -386,7 +412,10 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
               IconButton(
                 icon: const Icon(Icons.refresh_rounded,
                     size: 22, color: AppTema.azulPrincipal),
-                onPressed: () => _fetch(offset: _offset, updateStats: true),
+                onPressed: () {
+                  _cachedPages.clear();
+                  _fetch(offset: _offset, updateStats: true, forceRefresh: true);
+                },
                 tooltip: "Actualizar catálogo",
                 style: IconButton.styleFrom(
                   backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
@@ -436,6 +465,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   Future<void> _toggleActivo(int id, bool valor) async {
+    _cachedPages.clear();
     final index = _items.indexWhere((item) => item['id'] == id);
     if (index != -1) {
       final oldItem = _items[index];
@@ -478,6 +508,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
     );
 
     if (confirm == true) {
+      _cachedPages.clear();
       final oldItems = List<dynamic>.from(_items);
       final oldTotal = _total;
 

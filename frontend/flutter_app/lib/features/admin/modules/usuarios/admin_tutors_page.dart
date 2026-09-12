@@ -373,7 +373,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
       builder: (_) => _FormularioTutor(
         user: user,
-        onSuccess: () => ref.read(adminTutorsProvider.notifier).loadPage(),
+        onSuccess: () => ref.read(adminTutorsProvider.notifier).loadPage(forceRefresh: true),
       ),
     );
   }

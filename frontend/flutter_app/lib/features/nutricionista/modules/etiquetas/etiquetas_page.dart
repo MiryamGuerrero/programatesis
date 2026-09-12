@@ -24,6 +24,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   bool _loading = false;
   bool _loadingStats = true;
   List<Map<String, dynamic>> _etiquetas = const [];
+  final Map<int, List<Map<String, dynamic>>> _cachedPages = {};
   int _total = 0;
   int _offset = 0;
   static const int _rowsPerPage = 5;
@@ -46,16 +47,29 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
 
   void _limpiarFiltros() {
     _searchController.clear();
+    _cachedPages.clear();
     setState(() {
       _query = "";
       _offset = 0;
     });
-    _loadEtiquetas(offset: 0, updateStats: true);
+    _loadEtiquetas(offset: 0, updateStats: true, forceRefresh: true);
   }
 
-  Future<void> _loadEtiquetas({int? offset, bool updateStats = false}) async {
+  Future<void> _loadEtiquetas({int? offset, bool updateStats = false, bool forceRefresh = false}) async {
     final nextOffset = offset ?? _offset;
     if (!mounted) return;
+
+    // Cache hit: instantaneous 0 ms navigation without API call
+    if (!forceRefresh && !_filtrosActivos && _cachedPages.containsKey(nextOffset)) {
+      setState(() {
+        _offset = nextOffset;
+        _etiquetas = _cachedPages[nextOffset]!;
+        _loading = false;
+        if (updateStats) _loadingStats = false;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _offset = nextOffset;
@@ -71,6 +85,9 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       );
 
       if (!mounted) return;
+      if (!_filtrosActivos) {
+        _cachedPages[nextOffset] = result.items;
+      }
       setState(() {
         _etiquetas = result.items;
         _total = result.total;
@@ -93,7 +110,8 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     );
 
     if (exito == true) {
-      _loadEtiquetas(offset: _offset, updateStats: true);
+      _cachedPages.clear();
+      _loadEtiquetas(offset: _offset, updateStats: true, forceRefresh: true);
     }
   }
 
@@ -120,6 +138,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
     );
 
     if (confirm == true) {
+      _cachedPages.clear();
       final oldEtiquetas = List<Map<String, dynamic>>.from(_etiquetas);
       final oldTotal = _total;
 
@@ -250,9 +269,10 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
               ),
               onChanged: (v) {
                 _query = v;
+                _cachedPages.clear();
                 _searchDebounce?.cancel();
                 _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                  _loadEtiquetas(offset: 0, updateStats: true);
+                  _loadEtiquetas(offset: 0, updateStats: true, forceRefresh: true);
                 });
               },
             ),
@@ -300,7 +320,10 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         IconButton(
           icon: const Icon(Icons.refresh_rounded,
               size: 22, color: AppTema.azulPrincipal),
-          onPressed: () => _loadEtiquetas(offset: _offset, updateStats: true),
+          onPressed: () {
+            _cachedPages.clear();
+            _loadEtiquetas(offset: _offset, updateStats: true, forceRefresh: true);
+          },
           tooltip: "Actualizar catálogo",
           style: IconButton.styleFrom(
             backgroundColor: AppTema.azulPrincipal.withValues(alpha: 0.05),
