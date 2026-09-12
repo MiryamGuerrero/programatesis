@@ -29,6 +29,12 @@ class ReglasNutricionalesState {
   final int pesoRulesCount;
   final int estaturaRulesCount;
 
+  // Caché reactiva por pestaña (indicador)
+  final Map<String, List<dynamic>> cachedRules;
+  final Map<String, int> cachedTotals;
+  final Map<String, int> cachedOffsets;
+  final Set<String> dirtyTabs;
+
   const ReglasNutricionalesState({
     this.isLoading = true,
     this.rules = const [],
@@ -45,6 +51,10 @@ class ReglasNutricionalesState {
     this.strictRulesCount = 0,
     this.pesoRulesCount = 0,
     this.estaturaRulesCount = 0,
+    this.cachedRules = const {},
+    this.cachedTotals = const {},
+    this.cachedOffsets = const {},
+    this.dirtyTabs = const {"BMI", "HFA"},
   });
 
   ReglasNutricionalesState copyWith({
@@ -68,6 +78,10 @@ class ReglasNutricionalesState {
     int? strictRulesCount,
     int? pesoRulesCount,
     int? estaturaRulesCount,
+    Map<String, List<dynamic>>? cachedRules,
+    Map<String, int>? cachedTotals,
+    Map<String, int>? cachedOffsets,
+    Set<String>? dirtyTabs,
   }) {
     return ReglasNutricionalesState(
       isLoading: isLoading ?? this.isLoading,
@@ -93,6 +107,10 @@ class ReglasNutricionalesState {
       strictRulesCount: strictRulesCount ?? this.strictRulesCount,
       pesoRulesCount: pesoRulesCount ?? this.pesoRulesCount,
       estaturaRulesCount: estaturaRulesCount ?? this.estaturaRulesCount,
+      cachedRules: cachedRules ?? this.cachedRules,
+      cachedTotals: cachedTotals ?? this.cachedTotals,
+      cachedOffsets: cachedOffsets ?? this.cachedOffsets,
+      dirtyTabs: dirtyTabs ?? this.dirtyTabs,
     );
   }
 
@@ -150,14 +168,32 @@ class ReglasNutricionalesNotifier
 
       final results = await Future.wait(requests);
       final rulesResult = Map<String, dynamic>.from(results[0].data as Map);
+      final items = rulesResult["items"] as List? ?? [];
+      final total = rulesResult["total"] ?? 0;
+
+      final updatedCachedRules = Map<String, List<dynamic>>.from(state.cachedRules);
+      final updatedCachedTotals = Map<String, int>.from(state.cachedTotals);
+      final updatedCachedOffsets = Map<String, int>.from(state.cachedOffsets);
+      final updatedDirtyTabs = Set<String>.from(state.dirtyTabs);
+
+      if (!state.activeFilters) {
+        updatedCachedRules[state.indicadorFilter] = items;
+        updatedCachedTotals[state.indicadorFilter] = total;
+        updatedCachedOffsets[state.indicadorFilter] = nextOffset;
+        updatedDirtyTabs.remove(state.indicadorFilter);
+      }
 
       state = state.copyWith(
         isLoading: false,
-        rules: rulesResult["items"] as List? ?? [],
-        totalItems: rulesResult["total"] ?? 0,
+        rules: items,
+        totalItems: total,
         strictRulesCount: strictCount,
         pesoRulesCount: pesoCount,
         estaturaRulesCount: estaturaCount,
+        cachedRules: updatedCachedRules,
+        cachedTotals: updatedCachedTotals,
+        cachedOffsets: updatedCachedOffsets,
+        dirtyTabs: updatedDirtyTabs,
         formData: results.length > 1
             ? Map<String, List<dynamic>>.from(
                 (results[1].data as Map).map(
@@ -178,15 +214,41 @@ class ReglasNutricionalesNotifier
   }
 
   void setIndicadorFilter(String value) {
+    if (state.indicadorFilter == value) return;
+
+    // Si no hay filtros activos y los datos de esa pestaña ya están en caché sin alteraciones:
+    if (!state.activeFilters &&
+        state.cachedRules.containsKey(value) &&
+        !state.dirtyTabs.contains(value)) {
+      state = state.copyWith(
+        indicadorFilter: value,
+        rules: state.cachedRules[value]!,
+        totalItems: state.cachedTotals[value] ?? 0,
+        offset: state.cachedOffsets[value] ?? 0,
+        isLoading: false,
+        clearFiltroCondicion: true,
+        clearFiltroAccion: true,
+        clearFiltroTipoObjetivo: true,
+        clearFiltroObjetivo: true,
+      );
+      return;
+    }
+
     state = state.copyWith(
       indicadorFilter: value,
-      offset: 0,
+      offset: state.cachedOffsets[value] ?? 0,
       clearFiltroCondicion: true,
       clearFiltroAccion: true,
       clearFiltroTipoObjetivo: true,
       clearFiltroObjetivo: true,
     );
-    loadData(offset: 0);
+    loadData(offset: state.offset);
+  }
+
+  void markDirty() {
+    state = state.copyWith(
+      dirtyTabs: {"BMI", "HFA"},
+    );
   }
 
   void setSearchQuery(String value) {
@@ -250,6 +312,7 @@ class ReglasNutricionalesNotifier
     state = state.copyWith(
       rules: nextRules,
       totalItems: state.totalItems - 1,
+      dirtyTabs: {"BMI", "HFA"},
     );
 
     try {

@@ -610,7 +610,7 @@ def listar_tipos_disponibles_recetas_seguras(
 @router.post("/plan-manual")
 def guardar_plan_manual(
     payload: dict,
-    user: UserContext = Depends(require_roles("admin", "nutricionista"))
+    user: UserContext = Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     """Guarda plan y potenciadores; opcionalmente confirma/actualiza el control mensual actual."""
     id_paciente = payload.get("id_paciente")

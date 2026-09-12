@@ -95,9 +95,7 @@ final dioProvider = Provider<Dio>((ref) {
 
         if (statusCode == 401 && !alreadyRetried) {
           try {
-            final refreshed = await client.auth.refreshSession();
-            final newToken = refreshed.session?.accessToken ??
-                client.auth.currentSession?.accessToken;
+            final newToken = await safeRefreshAccessToken(client);
 
             if (newToken != null && newToken.isNotEmpty) {
               request.headers["Authorization"] = "Bearer $newToken";
@@ -107,10 +105,17 @@ final dioProvider = Provider<Dio>((ref) {
               return handler.resolve(retried);
             }
           } catch (_) {
-            // Fall through to force sign-out below.
+            // Fall through below.
           }
 
-          await safeSignOut(client);
+          final session = client.auth.currentSession;
+          final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final isExpired = session == null ||
+              (session.expiresAt != null && session.expiresAt! <= nowEpoch);
+
+          if (isExpired) {
+            await safeSignOut(client);
+          }
         }
 
         return handler.next(error);

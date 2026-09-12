@@ -125,7 +125,7 @@ def buscar_ingredientes_para_paciente(
 def generar_plan_automatico(
     payload: PlanAutomaticoRequest,
     caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan),
-    _=Depends(require_roles("admin", "nutricionista"))
+    _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     try:
         return caso_uso.generar_plan_objeto(
@@ -148,7 +148,7 @@ def route_evaluar_reglas(
 @router.post("/nutricionista/asignar-comida-manual-fechas")
 def asignar_comida_manual_fechas(
     request: AsignarComidaManualFechasRequest,
-    user: UserContext = Depends(require_roles("nutricionista", "admin")),
+    user: UserContext = Depends(require_roles("nutricionista", "admin", "medico")),
     caso_uso: CasoUsoGenerarPlanAutomatico = Depends(obtener_caso_uso_generar_plan)
 ):
     try:
@@ -184,7 +184,7 @@ def list_subgroups_simple_catalog_alt(
 def registrar_paciente_nutri(
     payload: PacienteRegistroCompleto, 
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
-    _=Depends(require_roles("admin", "medico"))
+    _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
     try:
         id_p = caso_uso.registrar_nuevo_paciente(payload.model_dump())

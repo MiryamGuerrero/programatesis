@@ -28,6 +28,29 @@ final authFlowIntentProvider = StateProvider<AuthFlowIntent>(
   (ref) => AuthFlowIntent.none,
 );
 
+Future<String?>? _activeRefreshFuture;
+
+/// Ejecuta la renovación del access token de forma sincronizada,
+/// evitando que múltiples llamadas concurrentes invaliden el refresh token en Supabase.
+Future<String?> safeRefreshAccessToken(SupabaseClient client) async {
+  if (_activeRefreshFuture != null) {
+    return _activeRefreshFuture!;
+  }
+
+  _activeRefreshFuture = () async {
+    try {
+      final refreshed = await client.auth.refreshSession();
+      return refreshed.session?.accessToken ?? client.auth.currentSession?.accessToken;
+    } catch (_) {
+      return null;
+    } finally {
+      _activeRefreshFuture = null;
+    }
+  }();
+
+  return _activeRefreshFuture!;
+}
+
 Future<String?> resolveValidAccessToken(SupabaseClient client) async {
   var session = client.auth.currentSession;
 
@@ -40,16 +63,14 @@ Future<String?> resolveValidAccessToken(SupabaseClient client) async {
   final expiresSoon = expiresAt != null && expiresAt <= (nowEpochSeconds + 45);
 
   if (expiresSoon) {
-    try {
-      final refreshed = await client.auth.refreshSession();
-      session = refreshed.session ?? client.auth.currentSession;
-    } catch (_) {
-      // Return current token if refresh fails; the 401 retry flow will handle fallback.
+    final refreshedToken = await safeRefreshAccessToken(client);
+    if (refreshedToken != null && refreshedToken.isNotEmpty) {
+      return refreshedToken;
     }
   }
 
-  final token = session?.accessToken;
-  if (token == null || token.isEmpty) {
+  final token = session.accessToken;
+  if (token.isEmpty) {
     return null;
   }
 
@@ -72,13 +93,18 @@ Future<Session?> ensureValidSession(
     return session;
   }
 
-  try {
-    final refreshed = await client.auth.refreshSession();
-    return refreshed.session ?? client.auth.currentSession;
-  } catch (_) {
+  final refreshedToken = await safeRefreshAccessToken(client);
+  if (refreshedToken != null && refreshedToken.isNotEmpty) {
+    return client.auth.currentSession;
+  }
+
+  final isAlreadyExpired = expiresAt <= nowEpochSeconds;
+  if (isAlreadyExpired) {
     await safeSignOut(client);
     return null;
   }
+
+  return session;
 }
 
 final authSessionProvider = StreamProvider<Session?>((ref) async* {

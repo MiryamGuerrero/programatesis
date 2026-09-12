@@ -60,6 +60,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   bool _recomendadorAbierto = false;
   bool _isSaving = false;
   bool _saveSuccess = false;
+  String? _savingMessage;
   bool _isDeleting = false;
   bool _deleteSuccess = false;
   bool _isLoadingRecomendaciones = false;
@@ -82,6 +83,12 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   List<int> _boostersSeleccionados = [];
   List<Map<String, dynamic>> _ingredientesSegurosCache = [];
   List<Map<String, dynamic>> _recomendacionesCache = [];
+
+  final Map<String, Map<String, dynamic>> _cachedExpedienteCompleto = {};
+  final Set<String> _dirtyExpedientes = {};
+  Timer? _debouncePlansTimer;
+  Timer? _debouncePatientsTimer;
+  bool _isFetchingPlansSilently = false;
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _historyScrollController = ScrollController();
@@ -129,6 +136,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     _searchController.dispose();
     _historyScrollController.dispose();
     _searchDebounce?.cancel();
+    _debouncePlansTimer?.cancel();
+    _debouncePatientsTimer?.cancel();
     super.dispose();
   }
 
@@ -146,6 +155,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               final newRec = payload.newRecord;
               final idPaciente = (newRec['id_paciente'] ?? payload.oldRecord['id_paciente'])?.toString();
               final bool confirmado = newRec['confirmado'] == true;
+              if (idPaciente != null) {
+                _dirtyExpedientes.add(idPaciente);
+              }
               if (idPaciente != null && mounted) {
                 setState(() {
                   for (var p in _patients) {
@@ -166,7 +178,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             table: 'control_paciente',
             callback: (payload) {
               debugPrint("[Realtime] control_paciente: ${payload.eventType}");
-              _fetchPatientsSilently();
+              final idPaciente = (payload.newRecord['id_paciente'] ?? payload.oldRecord['id_paciente'])?.toString();
+              if (idPaciente != null) {
+                _dirtyExpedientes.add(idPaciente);
+              }
+              _debouncedFetchPatients();
             },
           )
           .onPostgresChanges(
@@ -174,6 +190,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             schema: 'interaccion',
             table: 'plan_nutricional',
             callback: (payload) {
+              if (_isSaving) return;
               debugPrint("[Realtime] plan_nutricional: ${payload.eventType}");
               final newRec = payload.newRecord;
               final oldRec = payload.oldRecord;
@@ -193,10 +210,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     if (isDelete) _selectedPatient!['plan_activo'] = false;
                   }
                 });
-              }
-              _fetchPatientsSilently();
-              if (_selectedPatient != null) {
-                _fetchPatientPlansSilently(_selectedPatient!['id']);
+                _debouncedFetchPatients();
+                if (_selectedPatient != null && _selectedPatient!['id']?.toString() == idPaciente) {
+                  _debouncedFetchPatientPlans(idPaciente);
+                }
               }
             },
           )
@@ -205,21 +222,24 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             schema: 'interaccion',
             table: 'plan_item',
             callback: (payload) {
+              if (_isSaving) return;
               debugPrint("[Realtime] plan_item: ${payload.eventType}");
               if (_selectedPatient != null) {
-                _fetchPatientPlansSilently(_selectedPatient!['id']);
+                _debouncedFetchPatientPlans(_selectedPatient!['id']);
               }
             },
           )
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
-            schema: 'interaccion',
-            table: 'seguimiento_plan_item',
+            schema: 'usuarios',
+            table: 'paciente',
             callback: (payload) {
-              debugPrint("[Realtime] seguimiento_plan_item: ${payload.eventType}");
-              if (_selectedPatient != null) {
-                _fetchPatientPlansSilently(_selectedPatient!['id']);
+              debugPrint("[Realtime] paciente: ${payload.eventType}");
+              final idPaciente = (payload.newRecord['id'] ?? payload.oldRecord['id'])?.toString();
+              if (idPaciente != null) {
+                _dirtyExpedientes.add(idPaciente);
               }
+              _debouncedFetchPatients();
             },
           )
           .subscribe((status, [error]) {
@@ -230,8 +250,29 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
   }
 
+  void _debouncedFetchPatientPlans(dynamic patientId) {
+    if (patientId == null || !mounted) return;
+    _debouncePlansTimer?.cancel();
+    _debouncePlansTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _fetchPatientPlansSilently(patientId);
+      }
+    });
+  }
+
+  void _debouncedFetchPatients() {
+    if (!mounted) return;
+    _debouncePatientsTimer?.cancel();
+    _debouncePatientsTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _fetchPatientsSilently();
+      }
+    });
+  }
+
   Future<void> _fetchPatientPlansSilently(dynamic patientId) async {
-    if (patientId == null) return;
+    if (patientId == null || _isFetchingPlansSilently) return;
+    _isFetchingPlansSilently = true;
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get("pacientes/$patientId/planes");
@@ -241,7 +282,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           _patientPlans = planesRaw.map((e) => Map<String, dynamic>.from(e)).toList();
         });
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isFetchingPlansSilently = false;
+    }
   }
 
   Future<void> _fetchPatientsSilently() async {
@@ -325,15 +369,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Future<void> _onPatientSelected(Map<String, dynamic> patient) async {
     ref.read(menuExpandedProvider.notifier).state = false;
+    final isSamePatient = _selectedPatient != null &&
+        _selectedPatient!['id']?.toString() == patient['id']?.toString();
+
     setState(() {
       _selectedPatient = patient;
       _viewingHistory = true;
       _isLoading = true;
-      _patientProfile = null;
-      _planVigente = null;
-      _patientPlans = [];
-      _ingredientesSegurosCache = [];
-      _recomendacionesCache = [];
+      if (!isSamePatient) {
+        _patientProfile = null;
+        _planVigente = null;
+        _patientPlans = [];
+        _ingredientesSegurosCache = [];
+        _recomendacionesCache = [];
+      }
       _boostersSeleccionados = [];
       _weeklyPlan = [];
       _planInitialized = false;
@@ -1111,6 +1160,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                 await dio.post("pacientes/$idPaciente/control-mensual-actual/confirmar");
                                 if (mounted) {
                                   setState(() {
+                                    _dirtyExpedientes.add(idPaciente.toString());
                                     for (var p in _patients) {
                                       if (p['id']?.toString() == idPaciente.toString()) {
                                         p['validacion_confirmada'] = true;
@@ -1158,6 +1208,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                 if (mounted) {
                                   setState(() {
                                     _patientProfile = resExpNuevo.data;
+                                    if (resExpNuevo.data != null) {
+                                      _cachedExpedienteCompleto[idPaciente.toString()] =
+                                          Map<String, dynamic>.from(resExpNuevo.data!);
+                                      _dirtyExpedientes.remove(idPaciente.toString());
+                                    }
                                     for (var p in _patients) {
                                       if (p['id']?.toString() == idPaciente.toString()) {
                                         p['validacion_confirmada'] = true;
@@ -1364,8 +1419,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildActionOverlay() {
     final bool isSuccess = _isSaving ? _saveSuccess : _deleteSuccess;
-    final String loadingText = _isSaving ? "Guardando Plan..." : "Eliminando Plan...";
-    final String successText = _isSaving ? "Plan guardado con éxito" : "Plan eliminado con éxito";
+    final String loadingText = _isSaving
+        ? (_savingMessage ?? "Guardando Plan...")
+        : "Eliminando Plan...";
+    final String successText = _isSaving ? (_savingMessage ?? "Plan guardado con éxito") : "Plan eliminado con éxito";
     
     return Positioned.fill(
       child: Container(
@@ -3275,6 +3332,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     setState(() {
       _isSaving = true;
       _saveSuccess = false;
+      _savingMessage = "Guardando plan nutricional...";
     });
 
     final int totalComidas =
@@ -3297,40 +3355,91 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
     try {
       final dio = ref.read(dioProvider);
+      final patientId = _selectedPatient!["id"];
+
       await dio.post("plan-manual", data: {
-        "id_paciente": _selectedPatient!["id"],
+        "id_paciente": patientId,
         "plan": planData,
         "boosters": _boostersSeleccionados,
       });
-      final savedPatientId = _selectedPatient!["id"]?.toString();
+
       if (mounted) {
         setState(() {
-          _isDirty = false;
-          _saveSuccess = true;
-          if (savedPatientId != null) {
-            for (var p in _patients) {
-              if (p['id']?.toString() == savedPatientId) {
-                p['plan_activo'] = true;
-              }
-            }
-            if (_selectedPatient != null) {
-              _selectedPatient!['plan_activo'] = true;
-            }
-          }
+          _savingMessage = "Actualizando historial y resumen clínico...";
         });
-        _fetchPatientsSilently();
-        await Future.delayed(const Duration(milliseconds: 1200));
-        if (mounted) {
-          _onPatientSelected(_selectedPatient!); 
+      }
+
+      // Esperar activamente a que el nuevo plan y el resumen clínico estén cargados
+      // antes de cambiar de pantalla o retirar el overlay.
+      final results = await Future.wait([
+        dio.get(
+          "pacientes/$patientId/prefetch-planificacion",
+          queryParameters: {"include_ingredientes": true},
+        ),
+        dio.get("pacientes/$patientId/planes"),
+      ]);
+
+      if (!mounted) return;
+
+      final payload = Map<String, dynamic>.from(results[0].data ?? {});
+      final List planesRaw = results[1].data ?? [];
+
+      setState(() {
+        _patientProfile = Map<String, dynamic>.from(payload["expediente"] ?? {});
+        _planVigente = payload["plan_vigente"] != null
+            ? Map<String, dynamic>.from(payload["plan_vigente"])
+            : null;
+        _patientPlans = List.from(planesRaw);
+        _ingredientesSegurosCache = (payload["ingredientes_seguros"] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e))
+                .toList() ??
+            [];
+        _recomendacionesCache = (payload["ingredientes_recomendados"] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e))
+                .toList() ??
+            [];
+
+        final savedPatientId = patientId.toString();
+        for (var p in _patients) {
+          if (p['id']?.toString() == savedPatientId) {
+            p['plan_activo'] = true;
+          }
         }
+        if (_selectedPatient != null) {
+          _selectedPatient!['plan_activo'] = true;
+        }
+
+        _isDirty = false;
+        _saveSuccess = true;
+        _savingMessage = "Plan guardado con éxito";
+      });
+
+      _fetchPatientsSilently();
+
+      // Pausa breve para que el usuario visualice la confirmación exitosa
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      if (mounted) {
+        setState(() {
+          _viewingHistory = true;
+          _weeklyPlan = [];
+          _planInitialized = false;
+          _boostersSeleccionados = [];
+          _isSaving = false;
+          _saveSuccess = false;
+          _savingMessage = null;
+        });
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _saveSuccess = false;
+          _savingMessage = null;
+        });
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -3430,28 +3539,46 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Future<void> _mostrarExpedienteMaestroDialog() async {
     if (_selectedPatient == null) return;
-    
+    final idPaciente = _selectedPatient!['id']?.toString();
+    if (idPaciente == null) return;
+
+    // Si ya existe en caché y no ha sufrido alteraciones, abrir inmediatamente sin petición a la API
+    if (_cachedExpedienteCompleto.containsKey(idPaciente) &&
+        !_dirtyExpedientes.contains(idPaciente)) {
+      final cached = _cachedExpedienteCompleto[idPaciente];
+      if (cached != null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => ExpedienteMaestroModal(data: cached),
+        );
+        return;
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => const Center(child: CircularProgressIndicator(color: AppTema.azulPrincipal)),
     );
-    
+
     try {
       final dio = ref.read(dioProvider);
-      final idPaciente = _selectedPatient!['id'];
       final res = await dio.get("pacientes/$idPaciente/expediente-completo");
-      
-      if (mounted) Navigator.pop(context); 
-      
+
+      if (mounted) Navigator.pop(context);
+
       if (mounted && res.data != null) {
+        final data = Map<String, dynamic>.from(res.data!);
+        _cachedExpedienteCompleto[idPaciente] = data;
+        _dirtyExpedientes.remove(idPaciente);
+
         showDialog(
           context: context,
-          builder: (ctx) => ExpedienteMaestroModal(data: res.data!),
+          builder: (ctx) => ExpedienteMaestroModal(data: data),
         );
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context); 
+      if (mounted) Navigator.pop(context);
       debugPrint("Error fetching expediente: $e");
     }
   }

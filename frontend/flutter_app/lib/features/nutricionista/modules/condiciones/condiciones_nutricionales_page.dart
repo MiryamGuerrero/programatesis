@@ -2,6 +2,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../../core/state/app_providers.dart";
 import "../../../../core/theme/app_theme.dart";
@@ -17,10 +18,9 @@ class CondicionesNutricionalesPage extends ConsumerStatefulWidget {
 }
 
 class _CondicionesNutricionalesPageState
-    extends ConsumerState<CondicionesNutricionalesPage>
-    with SingleTickerProviderStateMixin {
+    extends ConsumerState<CondicionesNutricionalesPage> {
   final TextEditingController _searchController = TextEditingController();
-  late TabController _tabController;
+  int _selectedTabIndex = 0;
   bool _loading = true;
   bool _loadingStats = true;
   List<dynamic> _condiciones = [];
@@ -30,25 +30,70 @@ class _CondicionesNutricionalesPageState
   String _searchQuery = "";
   Timer? _searchDebounce;
 
+  RealtimeChannel? _realtimeChannel;
+  final Map<int, List<dynamic>> _cachedCondiciones = {};
+  final Map<int, int> _cachedTotals = {};
+  final Map<int, int> _cachedOffsets = {};
+  final Set<int> _dirtyTabs = {0, 1};
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (mounted && !_tabController.indexIsChanging) {
-        setState(() {
-          _offset = 0;
-          _fetchData(updateStats: true);
-        });
-      }
-    });
     _fetchData(updateStats: true);
+    _setupRealtime();
+  }
+
+  void _switchTab(int index) {
+    if (_selectedTabIndex == index) return;
+    setState(() {
+      _selectedTabIndex = index;
+    });
+
+    // Si ya tenemos los datos en memoria, no hay búsqueda activa y la pestaña no ha sufrido alteraciones:
+    if (_searchQuery.isEmpty &&
+        _cachedCondiciones.containsKey(index) &&
+        !_dirtyTabs.contains(index)) {
+      setState(() {
+        _offset = _cachedOffsets[index] ?? 0;
+        _condiciones = _cachedCondiciones[index]!;
+        _total = _cachedTotals[index] ?? 0;
+        _loading = false;
+        _loadingStats = false;
+      });
+      return;
+    }
+
+    _offset = _cachedOffsets[index] ?? 0;
+    _fetchData(updateStats: false);
+  }
+
+  void _setupRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _realtimeChannel = supabase
+          .channel('condiciones_realtime_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'heuristico',
+            table: 'condicion',
+            callback: (payload) {
+              debugPrint("[Realtime] Cambio detectado en heuristico.condicion: ${payload.eventType}");
+              _dirtyTabs.addAll([0, 1]);
+              if (mounted) {
+                _fetchData(updateStats: true);
+              }
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint("Error setting up realtime subscription for condiciones: $e");
+    }
   }
 
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _searchController.dispose();
-    _tabController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
@@ -62,7 +107,7 @@ class _CondicionesNutricionalesPageState
       if (updateStats) _loadingStats = true;
     });
 
-    final String indicadorFiltro = _tabController.index == 1 ? "HFA" : "BMI";
+    final String indicadorFiltro = _selectedTabIndex == 1 ? "HFA" : "BMI";
 
     try {
       final dio = ref.read(dioProvider);
@@ -80,11 +125,22 @@ class _CondicionesNutricionalesPageState
         }
         
         final data = Map<String, dynamic>.from(res.data);
+        final items = data['items'] as List? ?? [];
+        final total = data['total'] ?? 0;
+
         setState(() {
-          _condiciones = data['items'] as List? ?? [];
-          _total = data['total'] ?? 0;
+          _condiciones = items;
+          _total = total;
           _loading = false;
           _loadingStats = false;
+
+          if (_searchQuery.isEmpty) {
+            final currentTab = _selectedTabIndex;
+            _cachedCondiciones[currentTab] = items;
+            _cachedTotals[currentTab] = total;
+            _cachedOffsets[currentTab] = nextOffset;
+            _dirtyTabs.remove(currentTab);
+          }
         });
       }
     } catch (e) {
@@ -156,12 +212,15 @@ class _CondicionesNutricionalesPageState
       );
     }
 
+    final totalPeso = _selectedTabIndex == 0 ? _total : (_cachedTotals[0] ?? 0);
+    final totalTalla = _selectedTabIndex == 1 ? _total : (_cachedTotals[1] ?? 0);
+
     return Row(
       children: [
         Expanded(
           child: NutriResumenCard(
             titulo: 'Condiciones peso (BMI)',
-            valor: _tabController.index == 0 ? '$_total' : '-',
+            valor: totalPeso > 0 ? '$totalPeso' : (_selectedTabIndex == 0 ? '$_total' : '-'),
             icon: Icons.monitor_weight_rounded,
             colorValor: AppTema.azulPrincipal,
           ),
@@ -170,7 +229,7 @@ class _CondicionesNutricionalesPageState
         Expanded(
           child: NutriResumenCard(
             titulo: 'Condiciones talla (HFA)',
-            valor: _tabController.index == 1 ? '$_total' : '-',
+            valor: totalTalla > 0 ? '$totalTalla' : (_selectedTabIndex == 1 ? '$_total' : '-'),
             icon: Icons.height_rounded,
             colorValor: AppTema.verdeSalud,
           ),
@@ -251,38 +310,60 @@ class _CondicionesNutricionalesPageState
   }
 
   Widget _buildTabs() {
+    final totalPeso = _selectedTabIndex == 0 ? _total : (_cachedTotals[0] ?? 0);
+    final totalTalla = _selectedTabIndex == 1 ? _total : (_cachedTotals[1] ?? 0);
+
     return Container(
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
       ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: false,
-        indicatorColor: AppTema.verdeSalud,
-        indicatorWeight: 3,
-        labelColor: AppTema.verdeSalud,
-        unselectedLabelColor: Colors.blueGrey,
-        labelStyle:
-            GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
-        tabs: const [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.monitor_weight_outlined, size: 18),
-                SizedBox(width: 8),
-                Text("Condiciones para peso"),
-              ],
-            ),
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildTabItem(
+                  label: "Condiciones para peso",
+                  icon: Icons.monitor_weight_rounded,
+                  count: totalPeso > 0 ? totalPeso : null,
+                  isSelected: _selectedTabIndex == 0,
+                  onTap: () => _switchTab(0),
+                ),
+              ),
+              Expanded(
+                child: _buildTabItem(
+                  label: "Condiciones para talla",
+                  icon: Icons.height_rounded,
+                  count: totalTalla > 0 ? totalTalla : null,
+                  isSelected: _selectedTabIndex == 1,
+                  onTap: () => _switchTab(1),
+                ),
+              ),
+            ],
           ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.height_outlined, size: 18),
-                SizedBox(width: 8),
-                Text("Condiciones para talla"),
-              ],
+          // Indicador animado que se desliza suavemente entre pestañas
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOutCubic,
+            alignment: _selectedTabIndex == 0
+                ? Alignment.bottomLeft
+                : Alignment.bottomRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTema.verdeSalud,
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTema.verdeSalud.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -290,7 +371,117 @@ class _CondicionesNutricionalesPageState
     );
   }
 
+  Widget _buildTabItem({
+    required String label,
+    required IconData icon,
+    int? count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    const activeColor = AppTema.verdeSalud;
+    const inactiveColor = Colors.blueGrey;
+
+    return InkWell(
+      onTap: onTap,
+      hoverColor: activeColor.withValues(alpha: 0.04),
+      splashColor: activeColor.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: isSelected ? activeColor : inactiveColor),
+            const SizedBox(width: 8),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOut,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+              child: Text(label),
+            ),
+            if (count != null && count > 0) ...[
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? activeColor.withValues(alpha: 0.12)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "$count",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? activeColor : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMainContent() {
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final double direction = (_selectedTabIndex == 1) ? 1.0 : -1.0;
+          final isIncoming = child.key == ValueKey("condiciones_content_$_selectedTabIndex");
+          final slideTween = isIncoming
+              ? Tween<Offset>(
+                  begin: Offset(direction * 0.15, 0.0),
+                  end: Offset.zero,
+                )
+              : Tween<Offset>(
+                  begin: Offset(-direction * 0.15, 0.0),
+                  end: Offset.zero,
+                );
+
+          return SlideTransition(
+            position: slideTween.animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.1, 1.0, curve: Curves.easeOut),
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey("condiciones_content_$_selectedTabIndex"),
+          child: _buildTableContent(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableContent() {
     if (!_loading && _condiciones.isEmpty) {
       return Container(
         width: double.infinity,
@@ -399,9 +590,14 @@ class _CondicionesNutricionalesPageState
   void _abrirFormulario({Map<String, dynamic>? condicion}) {
     showDialog(
       context: context,
-      barrierColor: AppTema.azulOscuro.withOpacity(0.4),
-      builder: (context) =>
-          _FormularioCondicion(condicion: condicion, onSuccess: () => _fetchData(updateStats: true)),
+      barrierColor: AppTema.azulOscuro.withValues(alpha: 0.4),
+      builder: (context) => _FormularioCondicion(
+        condicion: condicion,
+        onSuccess: () {
+          _dirtyTabs.addAll([0, 1]);
+          _fetchData(updateStats: true);
+        },
+      ),
     );
   }
 
@@ -438,6 +634,7 @@ class _CondicionesNutricionalesPageState
         await ref
             .read(dioProvider)
             .delete("condiciones-nutricionales/${c["id"]}");
+        _dirtyTabs.addAll([0, 1]);
         if (mounted) {
           NutriSnack.show(context, "Condición eliminada", ref: ref);
         }
@@ -938,7 +1135,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
                       scale: 0.8,
                       child: Switch.adaptive(
                           value: _activa,
-                          activeColor: AppTema.verdeSalud,
+                          activeTrackColor: AppTema.verdeSalud,
                           onChanged: (v) => setState(() => _activa = v)),
                     ),
                   ],
@@ -1088,9 +1285,10 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         NutriSnack.show(context, "Error al procesar solicitud",
             isError: true, ref: ref);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
