@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -274,7 +273,7 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = filtered.isEmpty ? 5 : min(10, filtered.length);
+        const rowsPerPage = 5;
         return Theme(
           data: Theme.of(context).copyWith(
             cardTheme: const CardThemeData(
@@ -283,9 +282,10 @@ class _EtiquetasGestionPageState extends ConsumerState<EtiquetasGestionPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             dividerThickness: 0.0,
             columnSpacing: 0,
             horizontalMargin: 10,

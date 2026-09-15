@@ -6,6 +6,19 @@ enum AppRole {
 }
 
 extension AppRoleX on AppRole {
+  int get id {
+    switch (this) {
+      case AppRole.admin:
+        return 1;
+      case AppRole.medico:
+        return 2;
+      case AppRole.nutricionista:
+        return 3;
+      case AppRole.tutor:
+        return 4;
+    }
+  }
+
   String get label {
     switch (this) {
       case AppRole.admin:

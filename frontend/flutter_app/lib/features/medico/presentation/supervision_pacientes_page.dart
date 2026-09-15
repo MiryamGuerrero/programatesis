@@ -331,16 +331,32 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
                         color: Colors.grey.shade400, fontSize: 13),
                     prefixIcon:
                         const Icon(Icons.search, size: 20, color: Colors.grey),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchDebounce?.cancel();
+                              ref.read(medicalPatientsProvider.notifier).setSearchQuery("");
+                              setState(() {});
+                            },
+                          )
+                        : null,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onChanged: (v) {
+                    setState(() {});
                     _searchDebounce?.cancel();
-                    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                      ref.read(medicalPatientsProvider.notifier).setSearchQuery(v);
-                    });
+                    if (v.trim().isEmpty) {
+                      ref.read(medicalPatientsProvider.notifier).setSearchQuery("");
+                    } else {
+                      _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                        ref.read(medicalPatientsProvider.notifier).setSearchQuery(v.trim());
+                      });
+                    }
                   },
                 ),
               ),
@@ -505,11 +521,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.patients.isEmpty
-            ? 5
-            : (state.patients.length < MedicalPatientsNotifier.pageSize
-                ? state.patients.length
-                : MedicalPatientsNotifier.pageSize);
+        const rowsPerPage = MedicalPatientsNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -519,9 +531,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(medicalPatientsProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,

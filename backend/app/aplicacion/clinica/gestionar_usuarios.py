@@ -13,7 +13,7 @@ class CasoUsoGestionarUsuarios:
 
     def buscar_tutor_por_cedula(self, cedula: str) -> Dict[str, Any]:
         tutor = self.repo_perfil.buscar_tutor_por_cedula(cedula)
-        if not tutor:
+        if not tutor or tutor.get("activo") is False:
             return {"existe": False}
         return {"existe": True, "tutor": tutor}
 

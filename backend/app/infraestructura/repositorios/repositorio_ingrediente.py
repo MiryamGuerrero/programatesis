@@ -33,14 +33,14 @@ class RepositorioIngredientePostgres(IRepositorioIngrediente):
 
         if consulta:
             stop_words = {'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'para', 'sin', 'y', 'del'}
-            words = [w.lower().strip() for w in consulta.split(' ') if w.lower().strip() not in stop_words and len(w.strip()) > 2]
-            if not words and consulta.strip(): words = [consulta.lower().strip()]
+            words = [w.strip() for w in consulta.split(' ') if w.strip() and w.lower().strip() not in stop_words and len(w.strip()) > 1]
+            if not words and consulta.strip(): words = [consulta.strip()]
 
             if words:
                 word_conditions = []
                 for w in words:
-                    word_conditions.append("(i.nombre ~* %s or exists (select 1 from unnest(i.sinonimos) s where s ~* %s))")
-                    pattern = f"\\y{w}\\y"
+                    word_conditions.append("(unaccent(lower(i.nombre)) ilike unaccent(lower(%s)) or exists (select 1 from unnest(coalesce(i.sinonimos, '{}')) s where unaccent(lower(s)) ilike unaccent(lower(%s))))")
+                    pattern = f"%{w}%"
                     params.extend([pattern, pattern])
 
                 where_clauses.append("(" + " and ".join(word_conditions) + ")")

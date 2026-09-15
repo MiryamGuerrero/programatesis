@@ -145,12 +145,23 @@ def list_labels_catalog(
     with db_cursor() as cur:
         # Base query
         sql_base = "from nutricion.etiqueta_nutricional e"
-        where_clause = ""
+        where_clauses = []
         params: list[Any] = []
         
         if q and q.strip():
-            where_clause = " where e.nombre_visible ilike %s"
-            params.append(f"%{q.strip()}%")
+            tokens = [t.strip() for t in q.strip().split() if t.strip()]
+            for token in tokens:
+                pattern = f"%{token}%"
+                where_clauses.append(
+                    """(
+                        unaccent(lower(e.nombre_visible)) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(e.codigo, ''))) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(e.descripcion, ''))) ilike unaccent(lower(%s))
+                    )"""
+                )
+                params.extend([pattern, pattern, pattern])
+
+        where_clause = f" where {' and '.join(where_clauses)}" if where_clauses else ""
 
         # 1. Total count if requested
         total = 0

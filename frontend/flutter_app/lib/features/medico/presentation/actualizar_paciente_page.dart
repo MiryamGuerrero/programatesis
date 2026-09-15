@@ -233,7 +233,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     }
     Future.microtask(() async {
       try {
-        final data = await repo.obtenerExpedienteCompleto(idStr);
+        final data = await repo.obtenerExpedienteCompleto(idStr, forceReload: true);
         final p = data['paciente'] ?? {};
         final t = data['tutor'] ?? {};
         final d = data['diagnostico'] ?? {};
@@ -253,9 +253,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             _pacParroquia = p['id_parroquia'];
             _updateParroquiasFiltradas(resetSelection: false);
 
-            if (t.isNotEmpty) {
+            final tutorCedula = (t['cedula'] ?? "").toString().trim();
+            final bool tutorValido = t.isNotEmpty &&
+                !tutorCedula.contains('d') &&
+                tutorCedula.length == 10 &&
+                t['activo'] != false;
+
+            if (tutorValido) {
               _tutNombre.text = t['nombre_completo'] ?? "";
-              _tutCedula.text = t['cedula'] ?? "";
+              _tutCedula.text = tutorCedula;
               _cedulaTutorOriginal = _tutCedula.text;
               _tutEmail.text = t['email'] ?? "";
               _tutTelefono.text = t['telefono'] ?? "";
@@ -264,6 +270,13 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
               _tutorExistente = true;
               _tutorNoEncontrado = false;
             } else {
+              _tutNombre.clear();
+              _tutCedula.clear();
+              _cedulaTutorOriginal = null;
+              _tutEmail.clear();
+              _tutTelefono.clear();
+              _tutDireccion.clear();
+              _tutParentesco = null;
               _tutorExistente = false;
               _tutorNoEncontrado = true;
             }
@@ -3779,8 +3792,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           .read(repositorioMedicoProvider)
           .buscarTutorPorCedula(cedula);
       if (mounted) {
-        if (res['existe'] == true) {
-          final t = res['tutor'];
+        final t = res['tutor'];
+        final tCedula = (t != null ? t['cedula'] ?? "" : "").toString().trim();
+        final bool tValido = res['existe'] == true &&
+            t != null &&
+            t['activo'] != false &&
+            !tCedula.contains('d') &&
+            tCedula.length == 10;
+
+        if (tValido) {
           setState(() {
             _tutNombre.text = (t['nombre_completo'] ?? "").toString();
             _tutEmail.text = (t['email'] ?? "").toString();
@@ -3791,6 +3811,10 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         } else {
           setState(() {
             _tutorNoEncontrado = true;
+            _tutNombre.clear();
+            _tutEmail.clear();
+            _tutTelefono.clear();
+            _tutDireccion.clear();
           });
         }
       }

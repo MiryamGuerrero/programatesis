@@ -166,11 +166,16 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
   }
 
   void _scheduleSearch(String value) {
+    setState(() {});
     _query = value;
     _cachedPages.clear();
     _searchDebounce?.cancel();
+    if (value.trim().isEmpty) {
+      _fetch(offset: 0, updateStats: true, forceRefresh: true);
+      return;
+    }
     _searchDebounce = Timer(
-      const Duration(milliseconds: 350),
+      const Duration(milliseconds: 250),
       () => _fetch(offset: 0, updateStats: true, forceRefresh: true),
     );
   }
@@ -331,6 +336,15 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
                         color: Colors.grey.shade400, fontSize: 13),
                     prefixIcon: const Icon(Icons.search,
                         size: 20, color: Colors.grey),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                            onPressed: () {
+                              _searchController.clear();
+                              _scheduleSearch("");
+                            },
+                          )
+                        : null,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -570,11 +584,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = _items.isEmpty
-            ? 5
-            : (_items.length < _rowsPerPage
-                ? _items.length
-                : _rowsPerPage);
+        const rowsPerPage = _rowsPerPage;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -584,10 +594,11 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
-            availableRowsPerPage: [currentRowsPerPage],
-            onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
+            availableRowsPerPage: const [rowsPerPage],
+            onPageChanged: (firstRowIndex) => _fetch(offset: firstRowIndex),
             columnSpacing: 0,
             horizontalMargin: 10,
             dividerThickness: 0.0,

@@ -8,6 +8,7 @@ import "../../features/auth/login_page.dart";
 import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
+import "layout_components.dart";
 
 final menuExpandedProvider = StateProvider<bool>((ref) => true);
 
@@ -63,6 +64,15 @@ class _RoleShellState extends ConsumerState<RoleShell>
       _moduleCache.clear();
       _visitedIndices.clear();
       _animController.value = 1.0;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          NutriSnack.show(
+            context,
+            "Tu vista ha cambiado a ${widget.role.label} debido a una actualización de tus roles.",
+          );
+        }
+      });
     }
   }
 
@@ -131,6 +141,20 @@ class _RoleShellState extends ConsumerState<RoleShell>
 
     final session = ref.watch(authSessionProvider).valueOrNull;
     final perfilAsync = ref.watch(miPerfilProvider);
+
+    // Detectar en tiempo real si el rol actual mostrado en pantalla fue revocado
+    ref.listen<AsyncValue<Map<String, dynamic>>>(miPerfilProvider, (previous, next) {
+      final profile = next.valueOrNull;
+      if (profile == null) return;
+
+      final roles = profile["roles"] as List<dynamic>? ?? [];
+      final roleIds = roles.map((r) => r["id"] ?? r["id_rol"]).whereType<int>().toSet();
+
+      final currentRoleId = widget.role.id;
+      if (roleIds.isNotEmpty && !roleIds.contains(currentRoleId)) {
+        ref.invalidate(appRoleProvider);
+      }
+    });
 
     final String nombreUsuario = perfilAsync.maybeWhen(
       data: (d) {

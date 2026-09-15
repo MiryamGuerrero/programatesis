@@ -389,11 +389,7 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.controls.isEmpty
-            ? 5
-            : (state.controls.length < AdminAuditNotifier.pageSize
-                ? state.controls.length
-                : AdminAuditNotifier.pageSize);
+        const rowsPerPage = AdminAuditNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -403,9 +399,10 @@ class _AdminAuditPageState extends ConsumerState<AdminAuditPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(adminAuditProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
@@ -970,7 +967,7 @@ class _AdminAuditDataSource extends DataTableSource {
   bool get isRowCountApproximate => false;
 
   @override
-  int get rowCount => totalRows;
+  int get rowCount => (isLoading && totalRows == 0) ? 5 : totalRows;
 
   @override
   int get selectedRowCount => 0;

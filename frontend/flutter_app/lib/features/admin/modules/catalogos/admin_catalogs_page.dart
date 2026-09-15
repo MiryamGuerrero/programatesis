@@ -1,5 +1,3 @@
-import "dart:math";
-
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -222,7 +220,7 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
               : LayoutBuilder(builder: (context, constraints) {
                   final totalWidth = constraints.maxWidth;
                   final usableWidth = totalWidth - 20;
-                  final currentRowsPerPage = _rows.isEmpty ? 5 : min(5, _rows.length);
+                  const rowsPerPage = 5;
                   return Theme(
                     data: Theme.of(context).copyWith(
                       cardTheme: const CardThemeData(
@@ -233,9 +231,10 @@ class _AdminCatalogsPageState extends ConsumerState<AdminCatalogsPage> {
                     ),
                     child: PaginatedDataTable(
                       header: null,
-                      rowsPerPage: currentRowsPerPage,
+                      rowsPerPage: rowsPerPage,
+                      showEmptyRows: true,
                       showFirstLastButtons: true,
-                      availableRowsPerPage: [currentRowsPerPage],
+                      availableRowsPerPage: const [rowsPerPage],
                       dividerThickness: 0.0,
                       columnSpacing: 0,
                       horizontalMargin: 10,

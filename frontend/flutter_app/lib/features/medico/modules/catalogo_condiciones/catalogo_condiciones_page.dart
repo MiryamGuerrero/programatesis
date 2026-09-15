@@ -226,9 +226,13 @@ class _CatalogoCondicionesPageState
               onChanged: (v) {
                 setState(() {});
                 _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                  ref.read(medicalConditionsProvider.notifier).setSearchQuery(v);
-                });
+                if (v.trim().isEmpty) {
+                  ref.read(medicalConditionsProvider.notifier).setSearchQuery("");
+                } else {
+                  _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                    ref.read(medicalConditionsProvider.notifier).setSearchQuery(v.trim());
+                  });
+                }
               },
             ),
           ),
@@ -458,11 +462,7 @@ class _CatalogoCondicionesPageState
             child: LayoutBuilder(builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
             final usableWidth = totalWidth - 20;
-            final currentRowsPerPage = state.conditions.isEmpty
-                ? 5
-                : (state.conditions.length < MedicalConditionsNotifier.pageSize
-                    ? state.conditions.length
-                    : MedicalConditionsNotifier.pageSize);
+            const rowsPerPage = MedicalConditionsNotifier.pageSize;
 
             return Theme(
               data: Theme.of(context).copyWith(
@@ -473,9 +473,10 @@ class _CatalogoCondicionesPageState
               child: PaginatedDataTable(
                 key: ValueKey("pdt_condiciones_${state.selectedTipo}"),
                 header: null,
-                rowsPerPage: currentRowsPerPage,
+                rowsPerPage: rowsPerPage,
+                showEmptyRows: true,
                 showFirstLastButtons: true,
-                availableRowsPerPage: [currentRowsPerPage],
+                availableRowsPerPage: const [rowsPerPage],
                 onPageChanged: (idx) => ref
                     .read(medicalConditionsProvider.notifier)
                     .loadPage(offset: idx),

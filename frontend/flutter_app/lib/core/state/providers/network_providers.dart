@@ -90,6 +90,8 @@ final dioProvider = Provider<Dio>((ref) {
                   "Tu cuenta ha sido desactivada. Contacta al administrador.";
               await safeSignOut(client);
             } catch (_) {}
+          } else {
+            ref.invalidate(appRoleProvider);
           }
         }
 

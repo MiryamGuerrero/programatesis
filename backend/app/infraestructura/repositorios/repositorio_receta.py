@@ -313,9 +313,15 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
     ) -> tuple[str, list]:
         where_clause = "TRUE"
         params = []
-        if consulta:
-            where_clause += " and r.nombre ilike %s"
-            params.append(f"%{consulta}%")
+        if consulta and consulta.strip():
+            tokens = [t.strip() for t in consulta.strip().split() if t.strip()]
+            for token in tokens:
+                pattern = f"%{token}%"
+                where_clause += """ and (
+                    unaccent(lower(r.nombre)) ilike unaccent(lower(%s)) or 
+                    unaccent(lower(coalesce(r.descripcion, ''))) ilike unaccent(lower(%s))
+                )"""
+                params.extend([pattern, pattern])
         if id_momento:
             where_clause += " and exists (select 1 from nutricion.receta_momento rm where rm.id_receta = r.id and rm.id_momento = %s)"
             params.append(id_momento)

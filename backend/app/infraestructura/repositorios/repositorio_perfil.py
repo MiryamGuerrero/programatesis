@@ -89,9 +89,9 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         # Limpiamos la cédula de espacios para la búsqueda robusta en Python
         cedula_limpia = str(cedula).strip()
         sql = """
-            select id, nombre_completo, email, cedula, id_rol, telefono, direccion
+            select id, nombre_completo, email, cedula, id_rol, telefono, direccion, activo
             from usuarios.usuario
-            where trim(cedula) = %s and id_rol = 4
+            where trim(cedula) = %s and id_rol = 4 and activo = true
             limit 1
         """
         res = self.ejecutar_uno(sql, (cedula_limpia,))
@@ -179,9 +179,19 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
         where_clauses = ["u.auth_user_id is not null"]
         params = []
         
-        if q:
-            where_clauses.append("(u.nombre_completo ilike %s or u.email ilike %s)")
-            params.extend([f"%{q}%", f"%{q}%"])
+        if q and q.strip():
+            tokens = [t.strip() for t in q.strip().split() if t.strip()]
+            for token in tokens:
+                pattern = f"%{token}%"
+                where_clauses.append(
+                    """(
+                        unaccent(lower(u.nombre_completo)) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(u.email, ''))) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(u.cedula, ''))) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(u.username, ''))) ilike unaccent(lower(%s))
+                    )"""
+                )
+                params.extend([pattern, pattern, pattern, pattern])
             
         if rol_ids:
             where_clauses.append("(u.id_rol = any(%s) or exists (select 1 from usuarios.usuario_rol ur where ur.id_usuario = u.id and ur.id_rol = any(%s)))")
@@ -212,21 +222,29 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             limit %s offset %s
         """
         items = self.ejecutar_consulta(sql, tuple(params + [limit, offset]))
-        for u in items:
+        if items:
+            user_ids = [u["id"] for u in items]
             roles_sql = """
-                select r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
+                select ur.id_usuario, r.id, r.nombre, ur.titulo_profesional, ur.institucion_titulo
                 from usuarios.usuario_rol ur
                 join usuarios.rol r on r.id = ur.id_rol
-                where ur.id_usuario = %s
+                where ur.id_usuario = any(%s)
                 order by r.id
             """
-            roles_data = self.ejecutar_consulta(roles_sql, (u["id"],))
-            u["roles"] = [{
-                "id": r["id"],
-                "nombre": r["nombre"],
-                "titulo_profesional": r.get("titulo_profesional"),
-                "institucion_titulo": r.get("institucion_titulo")
-            } for r in roles_data] if roles_data else []
+            roles_data = self.ejecutar_consulta(roles_sql, (user_ids,))
+            roles_by_user = {}
+            for r in roles_data:
+                roles_by_user.setdefault(r["id_usuario"], []).append({
+                    "id": r["id"],
+                    "nombre": r["nombre"],
+                    "titulo_profesional": r.get("titulo_profesional"),
+                    "institucion_titulo": r.get("institucion_titulo")
+                })
+            for u in items:
+                u["roles"] = roles_by_user.get(u["id"], [])
+        else:
+            for u in items:
+                u["roles"] = []
         
         return {"items": items, "total": total}
 
@@ -418,12 +436,16 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                 cur.execute(sql, list(items.values()) + [user_id, user_id])
                 exito = cur.rowcount > 0
                 
-            cur.execute("select id from usuarios.usuario where id::text = %s or auth_user_id::text = %s", (user_id, user_id))
+            cur.execute("select id, auth_user_id, id_rol from usuarios.usuario where id::text = %s or auth_user_id::text = %s", (user_id, user_id))
             row = cur.fetchone()
             if row:
                 internal_user_id = str(row[0])
+                target_auth_user_id = str(row[1]) if row[1] else None
+                current_id_rol = row[2]
             else:
                 internal_user_id = user_id
+                target_auth_user_id = None
+                current_id_rol = None
                 
             if roles_asignados:
                 assigned_rol_ids = [r["id_rol"] for r in roles_asignados]
@@ -440,6 +462,52 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                         set titulo_profesional = excluded.titulo_profesional,
                             institucion_titulo = excluded.institucion_titulo
                     """, (internal_user_id, r["id_rol"], r.get("titulo_profesional"), r.get("institucion_titulo")))
+
+                # Verificar si el rol activo actual fue revocado
+                cur.execute("select id_rol from usuarios.usuario where id = %s", (internal_user_id,))
+                fresh_rol_row = cur.fetchone()
+                active_id_rol = fresh_rol_row[0] if fresh_rol_row else current_id_rol
+
+                if assigned_rol_ids and active_id_rol not in assigned_rol_ids:
+                    # El rol activo fue revocado: cambiar automáticamente al primer rol disponible
+                    new_active_rol_id = assigned_rol_ids[0]
+                    cur.execute(
+                        "update usuarios.usuario set id_rol = %s, updated_at = now() where id = %s",
+                        (new_active_rol_id, internal_user_id)
+                    )
+                    active_id_rol = new_active_rol_id
+                else:
+                    # Siempre tocar updated_at para emitir notificación en tiempo real a Supabase
+                    cur.execute("update usuarios.usuario set updated_at = now() where id = %s", (internal_user_id,))
+
+                # Sincronizar metadatos en Supabase Auth si corresponde
+                if target_auth_user_id and active_id_rol:
+                    try:
+                        cur.execute("select nombre from usuarios.rol where id = %s", (active_id_rol,))
+                        rol_nombre_row = cur.fetchone()
+                        if rol_nombre_row:
+                            r_name = rol_nombre_row[0].lower().strip()
+                            if "admin" in r_name:
+                                code = "admin"
+                            elif "médic" in r_name or "medic" in r_name:
+                                code = "medico"
+                            elif "nutri" in r_name:
+                                code = "nutricionista"
+                            else:
+                                code = "tutor"
+                            from app.infraestructura.supabase.client import get_supabase_admin_client
+                            admin_client = get_supabase_admin_client()
+                            admin_client.auth.admin.update_user_by_id(
+                                target_auth_user_id,
+                                {
+                                    "user_metadata": {"role": code},
+                                    "app_metadata": {"role": code}
+                                }
+                            )
+                    except Exception as meta_err:
+                        import logging
+                        logging.getLogger(__name__).warning(f"Error sincronizando app_metadata: {meta_err}")
+
                 exito = True
                 
         return exito
@@ -466,6 +534,19 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                 where id::text = %s
             """, (user_id,))
             exito = cur.rowcount > 0
+
+            # Desvincular completamente al tutor eliminado de todos sus pacientes
+            cur.execute("""
+                delete from usuarios.tutor_paciente
+                where id_usuario_tutor::text = %s
+            """, (user_id,))
+            # Limpiar además vínculos residuales con cualquier tutor inactivo
+            cur.execute("""
+                delete from usuarios.tutor_paciente
+                where id_usuario_tutor in (
+                    select id from usuarios.usuario where activo = false
+                )
+            """)
             
         if exito and auth_id and auth_id != "None" and auth_id != "null":
             try:
@@ -503,9 +584,22 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
             else:
                 where_clauses.append("upper(indicador_codigo) != 'HFA'")
         
-        if q:
-            where_clauses.append("nombre ilike %s")
-            params.append(f"%{q}%")
+        if q and q.strip():
+            tokens = [t.strip() for t in q.strip().split() if t.strip()]
+            for token in tokens:
+                pattern = f"%{token}%"
+                if tabla == "condicion":
+                    where_clauses.append(
+                        """(
+                            unaccent(lower(nombre)) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(descripcion, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(indicador_codigo, ''))) ilike unaccent(lower(%s))
+                        )"""
+                    )
+                    params.extend([pattern, pattern, pattern])
+                else:
+                    where_clauses.append("unaccent(lower(nombre)) ilike unaccent(lower(%s))")
+                    params.append(pattern)
 
         where_sql = ""
         if where_clauses:

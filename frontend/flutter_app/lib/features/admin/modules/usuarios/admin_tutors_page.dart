@@ -137,22 +137,36 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
               style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
-                hintText: "Buscar por nombre o correo de representante...",
+                hintText: "Buscar por nombre, cédula o correo de tutor...",
                 hintStyle: GoogleFonts.inter(
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
                     size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _limpiarFiltros();
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _searchDebounce?.cancel();
-                _searchDebounce =
-                    Timer(const Duration(milliseconds: 350), () {
-                  ref.read(adminTutorsProvider.notifier).setSearchQuery(v);
-                });
+                if (v.trim().isEmpty) {
+                  ref.read(adminTutorsProvider.notifier).setSearchQuery("");
+                } else {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 250), () {
+                    ref.read(adminTutorsProvider.notifier).setSearchQuery(v.trim());
+                  });
+                }
               },
             ),
           ),
@@ -212,11 +226,7 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.users.isEmpty
-            ? 5
-            : (state.users.length < AdminUsersNotifier.pageSize
-                ? state.users.length
-                : AdminUsersNotifier.pageSize);
+        const rowsPerPage = AdminUsersNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -226,9 +236,10 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(adminTutorsProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
@@ -330,9 +341,9 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Eliminar tutor"),
+        title: const Text("Eliminar acceso"),
         content: Text(
-            "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción es irreversible."),
+            "¿Estás seguro de eliminar a ${user['nombre_completo']}? Esta acción revocará todos los accesos al sistema."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -346,11 +357,24 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
     );
 
     if (confirm == true) {
-      await ref
-          .read(adminTutorsProvider.notifier)
-          .deleteUser(user["id"].toString());
+      final String rolName = user["rol_nombre"]?.toString() ?? "Tutor";
+      final String userName = user["nombre_completo"]?.toString() ?? "Usuario";
+
       if (mounted) {
-        NutriSnack.show(context, "Representante eliminado con éxito");
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black.withValues(alpha: 0.55),
+          builder: (ctx) => DeleteProgressDialog(
+            userName: userName,
+            rolName: rolName,
+            onDelete: () async {
+              return await ref
+                  .read(adminTutorsProvider.notifier)
+                  .deleteUser(user["id"].toString());
+            },
+          ),
+        );
       }
     }
   }

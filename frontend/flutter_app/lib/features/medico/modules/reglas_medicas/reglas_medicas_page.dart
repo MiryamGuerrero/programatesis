@@ -69,8 +69,14 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
   }
 
   void _onSearchChanged(String value) {
+    setState(() {});
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+    if (value.trim().isEmpty) {
+      if (!mounted) return;
+      ref.read(medicalRulesProvider.notifier).setSearchQuery("");
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
       ref.read(medicalRulesProvider.notifier).setSearchQuery(value.trim());
     });
@@ -142,6 +148,17 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
                 hintStyle: GoogleFonts.inter(
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchDebounce?.cancel();
+                          ref.read(medicalRulesProvider.notifier).setSearchQuery("");
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -845,11 +862,7 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.rules.isEmpty
-            ? 5
-            : (state.rules.length < MedicalRulesNotifier.pageSize
-                ? state.rules.length
-                : MedicalRulesNotifier.pageSize);
+        const rowsPerPage = MedicalRulesNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -860,9 +873,10 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
           child: PaginatedDataTable(
             key: ValueKey("tabla_reglas_datatable_${state.origenFilter}"),
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(medicalRulesProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,

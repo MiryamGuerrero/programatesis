@@ -201,24 +201,44 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
               style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
-                hintText: "Buscar por alimento o ingrediente objetivo...",
+                hintText: "Buscar por diagnóstico, alimento o regla...",
                 hintStyle: GoogleFonts.inter(
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
                     size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchDebounce?.cancel();
+                          ref
+                              .read(reglasNutricionalesProvider.notifier)
+                              .setSearchQuery("");
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _searchDebounce?.cancel();
-                _searchDebounce =
-                    Timer(const Duration(milliseconds: 350), () {
+                if (v.trim().isEmpty) {
                   ref
                       .read(reglasNutricionalesProvider.notifier)
-                      .setSearchQuery(v);
-                });
+                      .setSearchQuery("");
+                } else {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 250), () {
+                    ref
+                        .read(reglasNutricionalesProvider.notifier)
+                        .setSearchQuery(v.trim());
+                  });
+                }
               },
             ),
           ),
@@ -833,11 +853,7 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.rules.isEmpty
-            ? 5
-            : (state.rules.length < ReglasNutricionalesNotifier.pageSize
-                ? state.rules.length
-                : ReglasNutricionalesNotifier.pageSize);
+        const rowsPerPage = ReglasNutricionalesNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -847,9 +863,10 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) => ref
                 .read(reglasNutricionalesProvider.notifier)
                 .loadData(offset: idx),

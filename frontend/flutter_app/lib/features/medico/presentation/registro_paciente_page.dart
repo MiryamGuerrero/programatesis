@@ -3708,8 +3708,15 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
           .read(repositorioMedicoProvider)
           .buscarTutorPorCedula(cedula);
       if (mounted) {
-        if (res['existe'] == true) {
-          final t = res['tutor'];
+        final t = res['tutor'];
+        final tCedula = (t != null ? t['cedula'] ?? "" : "").toString().trim();
+        final bool tValido = res['existe'] == true &&
+            t != null &&
+            t['activo'] != false &&
+            !tCedula.contains('d') &&
+            tCedula.length == 10;
+
+        if (tValido) {
           setState(() {
             _tutNombre.text = (t['nombre_completo'] ?? "").toString();
             _tutEmail.text = (t['email'] ?? "").toString();

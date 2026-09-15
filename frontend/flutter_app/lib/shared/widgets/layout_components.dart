@@ -319,3 +319,113 @@ class NutriLoading extends StatelessWidget {
     );
   }
 }
+
+// 7. Diálogo de Progreso de Eliminación Institucional
+class DeleteProgressDialog extends StatefulWidget {
+  final String userName;
+  final String rolName;
+  final Future<bool> Function() onDelete;
+
+  const DeleteProgressDialog({
+    super.key,
+    required this.userName,
+    required this.rolName,
+    required this.onDelete,
+  });
+
+  @override
+  State<DeleteProgressDialog> createState() => _DeleteProgressDialogState();
+}
+
+class _DeleteProgressDialogState extends State<DeleteProgressDialog> {
+  late String _statusText;
+  bool _isCompleted = false;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusText = "Eliminando a ${widget.userName} (${widget.rolName})...";
+    _ejecutarEliminacion();
+  }
+
+  Future<void> _ejecutarEliminacion() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final exito = await widget.onDelete();
+    if (mounted) {
+      setState(() {
+        _isCompleted = true;
+        _isSuccess = exito;
+        _statusText = exito ? "Borrado con éxito" : "Error al eliminar";
+      });
+
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) {
+        Navigator.of(context).pop(exito);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!_isCompleted)
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
+                  ),
+                )
+              else if (_isSuccess)
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: AppTema.verdeSalud,
+                  size: 48,
+                )
+              else
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 48,
+                ),
+              const SizedBox(height: 20),
+              Text(
+                _statusText,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulOscuro,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

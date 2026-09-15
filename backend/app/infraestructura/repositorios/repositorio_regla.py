@@ -117,14 +117,21 @@ class RepositorioReglaPostgres(IRepositorioRegla):
                         where_parts.append("r.id_subgrupo_alimentario = %s")
                     params.append(id_objetivo)
 
-            if q:
-                like = f"%{q.lower()}%"
-                where_parts.append(
-                    "(lower(i.nombre) like %s or lower(g.nombre) like %s or "
-                    "lower(s.nombre) like %s or lower(e.nombre_visible) like %s or "
-                    "lower(r.mensaje_error) like %s)"
-                )
-                params.extend([like, like, like, like, like])
+            if q and q.strip():
+                tokens = [t.strip() for t in q.strip().split() if t.strip()]
+                for token in tokens:
+                    pattern = f"%{token}%"
+                    where_parts.append(
+                        """(
+                            unaccent(lower(coalesce(c.nombre, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(i.nombre, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(g.nombre, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(s.nombre, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(e.nombre_visible, ''))) ilike unaccent(lower(%s)) or 
+                            unaccent(lower(coalesce(r.mensaje_error, ''))) ilike unaccent(lower(%s))
+                        )"""
+                    )
+                    params.extend([pattern, pattern, pattern, pattern, pattern, pattern])
 
             where_sql = "where " + " and ".join(where_parts)
 

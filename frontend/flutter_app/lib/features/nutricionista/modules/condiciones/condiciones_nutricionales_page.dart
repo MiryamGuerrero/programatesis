@@ -278,21 +278,46 @@ class _CondicionesNutricionalesPageState
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
                     size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchDebounce?.cancel();
+                          if (mounted) {
+                            _cachedPagesByTab[0]!.clear();
+                            _cachedPagesByTab[1]!.clear();
+                            setState(() => _searchQuery = "");
+                            _fetchData(offset: 0, updateStats: true);
+                          }
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                if (v.trim().isEmpty) {
                   if (mounted) {
                     _cachedPagesByTab[0]!.clear();
                     _cachedPagesByTab[1]!.clear();
-                    setState(() => _searchQuery = v);
+                    setState(() => _searchQuery = "");
                     _fetchData(offset: 0, updateStats: true);
                   }
-                });
+                } else {
+                  _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                    if (mounted) {
+                      _cachedPagesByTab[0]!.clear();
+                      _cachedPagesByTab[1]!.clear();
+                      setState(() => _searchQuery = v.trim());
+                      _fetchData(offset: 0, updateStats: true);
+                    }
+                  });
+                }
               },
             ),
           ),
@@ -534,11 +559,7 @@ class _CondicionesNutricionalesPageState
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = _condiciones.isEmpty
-            ? 5
-            : (_condiciones.length < _rowsPerPage
-                ? _condiciones.length
-                : _rowsPerPage);
+        const rowsPerPage = _rowsPerPage;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -548,9 +569,10 @@ class _CondicionesNutricionalesPageState
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) => _fetchData(offset: idx),
             columnSpacing: 0,
             horizontalMargin: 10,

@@ -262,18 +262,36 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
                     size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _query = "";
+                          _cachedPages.clear();
+                          _searchDebounce?.cancel();
+                          _loadEtiquetas(offset: 0, updateStats: true, forceRefresh: true);
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _query = v;
                 _cachedPages.clear();
                 _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                if (v.trim().isEmpty) {
                   _loadEtiquetas(offset: 0, updateStats: true, forceRefresh: true);
-                });
+                } else {
+                  _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                    _loadEtiquetas(offset: 0, updateStats: true, forceRefresh: true);
+                  });
+                }
               },
             ),
           ),
@@ -367,11 +385,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = _etiquetas.isEmpty
-            ? 5
-            : (_etiquetas.length < _rowsPerPage
-                ? _etiquetas.length
-                : _rowsPerPage);
+        const rowsPerPage = _rowsPerPage;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -381,8 +395,9 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
-            availableRowsPerPage: [currentRowsPerPage],
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) => _loadEtiquetas(offset: idx),
             showFirstLastButtons: true,
             columnSpacing: 0,

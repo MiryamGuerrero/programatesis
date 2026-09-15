@@ -312,12 +312,20 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         include_total: bool = False,
         estado: str = "todos"
     ) -> dict:
-        where_clauses = ["v.id is not null"]
+        where_clauses = ["p.id is not null"]
         params = []
 
-        if q:
-            where_clauses.append("(v.nombre_completo ilike %s or v.cedula ilike %s)")
-            params.extend([f"%{q}%", f"%{q}%"])
+        if q and q.strip():
+            tokens = [t.strip() for t in q.strip().split() if t.strip()]
+            for token in tokens:
+                pattern = f"%{token}%"
+                where_clauses.append(
+                    """(
+                        unaccent(lower(p.nombre_completo)) ilike unaccent(lower(%s)) or 
+                        unaccent(lower(coalesce(p.cedula, ''))) ilike unaccent(lower(%s))
+                    )"""
+                )
+                params.extend([pattern, pattern])
 
         if estado == "activos":
             where_clauses.append("coalesce(p.activo, true) = true")
@@ -329,7 +337,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
         total = 0
         with db_cursor() as cur:
             if include_total:
-                cur.execute(f"select count(*) from usuarios.vista_gestion_pacientes v join usuarios.paciente p on p.id = v.id {where_str}", tuple(params))
+                cur.execute(f"select count(*) from usuarios.paciente p {where_str}", tuple(params))
                 total = cur.fetchone()[0]
 
             sql = f"""
@@ -1124,11 +1132,19 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                       (paciente.get("id_canton") or 1), paciente.get("id_parroquia"), paciente.get("cedula"), id_paciente))
 
                 # 2. Actualizar Tutor (Relacionado)
+                # Limpiar vínculos previos huérfanos o con tutores inactivos
+                cur.execute("""
+                    delete from usuarios.tutor_paciente
+                    where id_paciente = %s and (activo = false or exists (
+                        select 1 from usuarios.usuario u where u.id = id_usuario_tutor and u.activo = false
+                    ))
+                """, (id_paciente,))
+
                 cur.execute("""
                     select u.id, u.email, u.cedula 
                     from usuarios.tutor_paciente tp
                     join usuarios.usuario u on u.id = tp.id_usuario_tutor
-                    where tp.id_paciente = %s and tp.es_principal = true
+                    where tp.id_paciente = %s and tp.es_principal = true and tp.activo = true and u.activo = true
                 """, (id_paciente,))
                 
                 t_row = cur.fetchone()
@@ -1477,8 +1493,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                        u.nombre_completo::text as tutor_nombre, u.email::text as tutor_email
                 from usuarios.paciente p
                 left join usuarios.catalogo_sexo s on s.id = p.id_sexo
-                left join usuarios.tutor_paciente tp on tp.id_paciente = p.id and tp.es_principal = true
-                left join usuarios.usuario u on u.id = tp.id_usuario_tutor
+                left join usuarios.tutor_paciente tp on tp.id_paciente = p.id and tp.es_principal = true and tp.activo = true
+                left join usuarios.usuario u on u.id = tp.id_usuario_tutor and u.activo = true
                 where p.id = %s
             """, (id_paciente,))
             pac_row = cur.fetchone()
@@ -1578,13 +1594,21 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             if not pac_row: return {"error": "No existe"}
             paciente = dict(zip([d[0] for d in cur.description], pac_row))
             
+            # Limpieza preventiva de vínculos con tutores inactivos
+            cur.execute("""
+                delete from usuarios.tutor_paciente
+                where id_paciente = %s and (activo = false or exists (
+                    select 1 from usuarios.usuario u where u.id = id_usuario_tutor and u.activo = false
+                ))
+            """, (id_paciente,))
+
             cur.execute("""
                 select u.id::text, u.nombre_completo::text, u.email::text, u.cedula::text, 
                        u.telefono::text, u.direccion::text, tp.id_parentesco, par.nombre::text as parentesco_nombre 
                 from usuarios.tutor_paciente tp 
                 join usuarios.usuario u on u.id = tp.id_usuario_tutor 
                 left join usuarios.parentesco par on par.id = tp.id_parentesco 
-                where tp.id_paciente = %s and tp.es_principal = true 
+                where tp.id_paciente = %s and tp.es_principal = true and tp.activo = true and u.activo = true 
                 limit 1
             """, (id_paciente,))
             tutor_row = cur.fetchone()

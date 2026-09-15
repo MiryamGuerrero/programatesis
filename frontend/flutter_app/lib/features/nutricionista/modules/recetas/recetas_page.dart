@@ -226,10 +226,15 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: (v) {
+                    setState(() {});
                     _searchDebounce?.cancel();
-                    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                      ref.read(recetasProvider.notifier).setQuery(v);
-                    });
+                    if (v.trim().isEmpty) {
+                      ref.read(recetasProvider.notifier).setQuery("");
+                    } else {
+                      _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                        ref.read(recetasProvider.notifier).setQuery(v.trim());
+                      });
+                    }
                   },
                   style: GoogleFonts.inter(
                       fontSize: 14, fontWeight: FontWeight.w500),
@@ -239,6 +244,17 @@ class _RecetasPageState extends ConsumerState<RecetasPage> {
                         color: Colors.grey.shade400, fontSize: 13),
                     prefixIcon: const Icon(Icons.search,
                         size: 20, color: Colors.grey),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchDebounce?.cancel();
+                              ref.read(recetasProvider.notifier).setQuery("");
+                              setState(() {});
+                            },
+                          )
+                        : null,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,

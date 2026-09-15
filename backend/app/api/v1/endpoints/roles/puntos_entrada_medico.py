@@ -189,7 +189,7 @@ def verificar_paciente_por_cedula(
         )
         row = cur.fetchone()
 
-        cur.execute("select id_rol from usuarios.usuario where cedula = %s limit 1", (limpia,))
+        cur.execute("select id_rol from usuarios.usuario where cedula = %s and activo = true limit 1", (limpia,))
         row_usuario = cur.fetchone()
 
     if row_usuario:

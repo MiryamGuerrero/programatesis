@@ -14,6 +14,7 @@ class RealtimeService {
   RealtimeChannel? _pacienteChannel;
   RealtimeChannel? _nutricionChannel;
   RealtimeChannel? _accountStatusChannel;
+  RealtimeChannel? _userRolesChannel;
 
   void init() {
     final role = _ref.read(appRoleProvider).valueOrNull;
@@ -21,13 +22,13 @@ class RealtimeService {
 
     final supabase = _ref.read(supabaseClientProvider);
 
-    // Escuchar en tiempo real si la cuenta del usuario actual es desactivada
+    // Escuchar en tiempo real si la cuenta del usuario actual es desactivada o si cambian sus roles/datos
     final currentSession = supabase.auth.currentSession;
     final currentAuthId = currentSession?.user.id;
     if (currentAuthId != null) {
       _accountStatusChannel?.unsubscribe();
       _accountStatusChannel = supabase
-          .channel('public:usuario:deactivation:$currentAuthId')
+          .channel('public:usuario:account_updates:$currentAuthId')
           .onPostgresChanges(
             event: PostgresChangeEvent.update,
             schema: 'usuarios',
@@ -40,7 +41,31 @@ class RealtimeService {
                   _ref.read(authErrorProvider.notifier).state =
                       "Tu cuenta ha sido desactivada. Contacta al administrador.";
                   await safeSignOut(supabase);
+                  return;
                 }
+                // Si el usuario sigue activo pero cambiaron sus datos o id_rol:
+                await _handleUserUpdated();
+              }
+            },
+          )
+          .subscribe();
+
+      // Escuchar cambios en la tabla usuarios.usuario_rol (asignación / revocación de roles)
+      _userRolesChannel?.unsubscribe();
+      _userRolesChannel = supabase
+          .channel('public:usuario_rol:role_changes:$currentAuthId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'usuarios',
+            table: 'usuario_rol',
+            callback: (payload) async {
+              final changedUserId =
+                  (payload.newRecord['id_usuario'] ?? payload.oldRecord['id_usuario'])?.toString();
+              final myProfile = _ref.read(miPerfilProvider).valueOrNull;
+              final myInternalId = myProfile?['id']?.toString();
+
+              if (myInternalId == null || changedUserId == myInternalId) {
+                await _handleUserUpdated();
               }
             },
           )
@@ -184,11 +209,40 @@ class RealtimeService {
     }
   }
 
+  Future<void> _handleUserUpdated() async {
+    try {
+      final supabase = _ref.read(supabaseClientProvider);
+
+      // 1. Invalidar proveedores clave para recargar perfil y rol
+      _ref.invalidate(miPerfilProvider);
+      _ref.invalidate(appRoleProvider);
+
+      // 2. Refrescar sesión en Supabase para obtener metadatos actualizados
+      try {
+        await supabase.auth.refreshSession();
+      } catch (_) {}
+
+      // 3. Forzar re-evaluación del perfil
+      final updatedProfile = await _ref.refresh(miPerfilProvider.future);
+
+      if (updatedProfile['activo'] == false) {
+        _ref.read(authErrorProvider.notifier).state =
+            "Tu cuenta ha sido desactivada. Contacta al administrador.";
+        await safeSignOut(supabase);
+        return;
+      }
+    } catch (_) {
+      _ref.invalidate(miPerfilProvider);
+      _ref.invalidate(appRoleProvider);
+    }
+  }
+
   void dispose() {
     _adminChannel?.unsubscribe();
     _pacienteChannel?.unsubscribe();
     _clinicoChannel?.unsubscribe();
     _nutricionChannel?.unsubscribe();
     _accountStatusChannel?.unsubscribe();
+    _userRolesChannel?.unsubscribe();
   }
 }

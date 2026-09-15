@@ -87,7 +87,7 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     final entries = await Future.wait(
       allowedRolIds.map((roleId) async {
         final result = await repo.fetchUsersPage(
-          query: state.searchQuery,
+          query: "",
           rolIds: [roleId],
           limit: 1,
           offset: 0,
@@ -106,7 +106,7 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     return loadPage(offset: offset);
   }
 
-  Future<void> loadPage({int? offset, bool forceRefresh = false}) async {
+  Future<void> loadPage({int? offset, bool forceRefresh = false, bool refreshRoleCounts = false}) async {
     final nextOffset = offset ?? state.offset;
 
     // Cache hit: instant retrieval without API call when navigating back without filters
@@ -129,15 +129,25 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
 
     try {
       final repo = _ref.read(supabaseCrudRepositoryProvider);
+
+      final shouldLoadRoleCounts = allowedRolIds.isNotEmpty &&
+          (state.roleCounts.isEmpty || refreshRoleCounts || (forceRefresh && state.searchQuery.isEmpty));
+
+      final userPageFuture = repo.fetchUsersPage(
+        query: state.searchQuery,
+        rolIds: _effectiveRolIds,
+        limit: pageSize,
+        offset: nextOffset,
+        activo: state.selectedActivo,
+      );
+
+      final roleCountsFuture = shouldLoadRoleCounts
+          ? _loadRoleCounts()
+          : Future.value(state.roleCounts);
+
       final results = await Future.wait([
-        repo.fetchUsersPage(
-          query: state.searchQuery,
-          rolIds: _effectiveRolIds,
-          limit: pageSize,
-          offset: nextOffset,
-          activo: state.selectedActivo,
-        ),
-        _loadRoleCounts(),
+        userPageFuture,
+        roleCountsFuture,
       ]);
       final result = results[0] as ({List<Map<String, dynamic>> items, int total});
       final roleCounts = results[1] as Map<int, int>;

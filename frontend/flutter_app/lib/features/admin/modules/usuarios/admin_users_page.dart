@@ -155,22 +155,36 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
-                hintText: "Buscar por nombre de profesional...",
+                hintText: "Buscar por nombre, cédula o correo...",
                 hintStyle: GoogleFonts.inter(
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
                     size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _limpiarFiltros();
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: (v) {
+                setState(() {});
                 _searchDebounce?.cancel();
-                _searchDebounce =
-                    Timer(const Duration(milliseconds: 350), () {
-                  ref.read(adminUsersProvider.notifier).setSearchQuery(v);
-                });
+                if (v.trim().isEmpty) {
+                  ref.read(adminUsersProvider.notifier).setSearchQuery("");
+                } else {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 250), () {
+                    ref.read(adminUsersProvider.notifier).setSearchQuery(v.trim());
+                  });
+                }
               },
             ),
           ),
@@ -820,11 +834,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
-        final currentRowsPerPage = state.users.isEmpty
-            ? 5
-            : (state.users.length < AdminUsersNotifier.pageSize
-                ? state.users.length
-                : AdminUsersNotifier.pageSize);
+        const rowsPerPage = AdminUsersNotifier.pageSize;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -834,9 +844,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           ),
           child: PaginatedDataTable(
             header: null,
-            rowsPerPage: currentRowsPerPage,
+            rowsPerPage: rowsPerPage,
+            showEmptyRows: true,
             showFirstLastButtons: true,
-            availableRowsPerPage: [currentRowsPerPage],
+            availableRowsPerPage: const [rowsPerPage],
             onPageChanged: (idx) =>
                 ref.read(adminUsersProvider.notifier).loadPage(offset: idx),
             columnSpacing: 0,
@@ -960,7 +971,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         await showDialog<bool>(
           context: context,
           barrierDismissible: false,
-          barrierColor: Colors.black.withOpacity(0.55),
+          barrierColor: Colors.black.withValues(alpha: 0.55),
           builder: (ctx) => _DeleteProgressDialog(
             userName: userName,
             rolName: rolName,
@@ -2119,109 +2130,4 @@ final rolesStaffProvider =
   }).toList();
 });
 
-class _DeleteProgressDialog extends StatefulWidget {
-  final String userName;
-  final String rolName;
-  final Future<bool> Function() onDelete;
-
-  const _DeleteProgressDialog({
-    required this.userName,
-    required this.rolName,
-    required this.onDelete,
-  });
-
-  @override
-  State<_DeleteProgressDialog> createState() => _DeleteProgressDialogState();
-}
-
-class _DeleteProgressDialogState extends State<_DeleteProgressDialog> {
-  late String _statusText;
-  bool _isCompleted = false;
-  bool _isSuccess = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _statusText = "Eliminando a ${widget.userName} (${widget.rolName})...";
-    _ejecutarEliminacion();
-  }
-
-  Future<void> _ejecutarEliminacion() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final exito = await widget.onDelete();
-    if (mounted) {
-      setState(() {
-        _isCompleted = true;
-        _isSuccess = exito;
-        _statusText = exito ? "Borrado con éxito" : "Error al eliminar";
-      });
-      
-      await Future.delayed(const Duration(milliseconds: 1500));
-      if (mounted) {
-        Navigator.of(context).pop(exito);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Center(
-        child: Container(
-          width: 320,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (!_isCompleted)
-                const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTema.azulPrincipal),
-                  ),
-                )
-              else if (_isSuccess)
-                const Icon(
-                  Icons.check_circle_outline_rounded,
-                  color: AppTema.verdeSalud,
-                  size: 48,
-                )
-              else
-                const Icon(
-                  Icons.error_outline_rounded,
-                  color: Colors.redAccent,
-                  size: 48,
-                ),
-              const SizedBox(height: 20),
-              Text(
-                _statusText,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppTema.azulOscuro,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+typedef _DeleteProgressDialog = DeleteProgressDialog;
