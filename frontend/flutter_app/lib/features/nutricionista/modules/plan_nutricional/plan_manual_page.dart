@@ -1380,6 +1380,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               "nombre": item["nombre_receta"],
               "imagen_url": item["imagen_url"],
               "semaforo": item["semaforo"] ?? "neutral",
+                "consumida": item["consumida"] == true,
             })
         .toList();
   }
@@ -2122,6 +2123,22 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     );
   }
 
+  void _mostrarErrorConsumida() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("AcciÃ³n no permitida", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: const Text("El paciente ya marcÃ³ como consumida esta comida. No es posible editar ni eliminar recetas que ya han sido consumidas."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Entendido", style: TextStyle(color: Color(0xFF16A34A))),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEditorLayout() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2258,7 +2275,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
           const SizedBox(width: 12),
           _buildActionButton(
-            label: "Finalizar plan",
+            label: _editingPlanId != null ? "Actualizar plan" : "Finalizar plan",
             icon: Icons.check_circle_rounded,
             onPressed: canFinalize ? () => _savePlan() : () {},
             color: canFinalize ? greenBrand : Colors.grey,
@@ -2657,17 +2674,29 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             label: "Editar",
                             color: Colors.blueGrey.shade700,
                             tooltip: "Cambiar o añadir recetas",
-                            onTap: () => _openRecipePicker(dayIdx, slotIdx),
+                            onTap: () {
+                                if (s.recipes.any((r) => r["consumida"] == true)) {
+                                  _mostrarErrorConsumida();
+                                } else {
+                                  _openRecipePicker(dayIdx, slotIdx);
+                                }
+                              },
                           ),
                           _buildSlotActionIcon(
                             icon: Icons.delete_outline_rounded,
                             label: "Borrar",
                             color: Colors.redAccent.shade400,
                             tooltip: "Limpiar esta comida",
-                            onTap: () => setState(() {
-                              s.recipes = [];
-                              _isDirty = true;
-                            }),
+                            onTap: () {
+                                if (s.recipes.any((r) => r["consumida"] == true)) {
+                                  _mostrarErrorConsumida();
+                                } else {
+                                  setState(() {
+                                    s.recipes = [];
+                                    _isDirty = true;
+                                  });
+                                }
+                              },
                           ),
                         ],
                       )
@@ -2914,38 +2943,6 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       onPressed: isGenerating
                           ? null
                           : () async {
-                              final proximaCitaStr = _patientProfile?['ultimo_control']
-                                  ?['fecha_proxima_cita'];
-                              if (proximaCitaStr != null) {
-                                final proximaCita = DateTime.parse(proximaCitaStr);
-                                if (_endDate.isAfter(proximaCita)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    backgroundColor: Colors.redAccent,
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                            "⚠️ Restricción de seguridad clínica",
-                                            style:
-                                                TextStyle(fontWeight: FontWeight.bold)),
-                                        Text(
-                                            "El plan excede la fecha del próximo control ($proximaCitaStr)."),
-                                        const Text("Acciones sugeridas:"),
-                                        const Text(
-                                            "• Edite un plan existente para ampliarlo."),
-                                        const Text(
-                                            "• Cree un plan de menor duración (día/semana)."),
-                                        const Text(
-                                            "• Elimine planes futuros para liberar el calendario."),
-                                      ],
-                                    ),
-                                    duration: const Duration(seconds: 8),
-                                  ));
-                                  return;
-                                }
-                              }
-
                               setModalState(() => isGenerating = true);
                               _morningSnackEnabled = morningSnack;
                               _afternoonSnackEnabled = afternoonSnack;
@@ -3314,25 +3311,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     // ELIMINADA la restricción de que cada slot debe tener una receta.
     // Esto permite guardar planes de una sola comida o con momentos omitidos por horario.
 
-    final proximaCitaStr =
-        _patientProfile?['ultimo_control']?['fecha_proxima_cita'];
-    if (proximaCitaStr != null) {
-      final proximaCita = DateTime.parse(proximaCitaStr);
-      if (_endDate.isAfter(proximaCita)) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: Colors.redAccent,
-          content: Text(
-              "El plan excede la fecha de la próxima cita ($proximaCitaStr). Por favor, ajusta la vigencia o elimina planes previos."),
-          duration: const Duration(seconds: 5),
-        ));
-        return;
-      }
-    }
-
     setState(() {
       _isSaving = true;
       _saveSuccess = false;
-      _savingMessage = "Guardando plan nutricional...";
+      _savingMessage = _editingPlanId != null ? "Actualizando plan..." : "Guardando plan nutricional...";
     });
 
     final int totalComidas =
@@ -3361,6 +3343,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         "id_paciente": patientId,
         "plan": planData,
         "boosters": _boostersSeleccionados,
+        if (_editingPlanId != null) "id_plan_actualizar": _editingPlanId,
       });
 
       if (mounted) {

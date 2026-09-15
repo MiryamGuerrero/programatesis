@@ -110,7 +110,8 @@ def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tuto
             from nutricion.subgrupo_alimentario s
             join nutricion.grupo_alimentario g on g.id = s.id_grupo_alimentario
             where s.id not in (select id_subgrupo_alimentario from subgrupos_bloqueados where id_subgrupo_alimentario is not null)
-            order by g.nombre, s.nombre
+            and lower(s.nombre) not like '%%otras grasas animales%%'
+              order by s.nombre asc
         """, (id_paciente, id_paciente, id_paciente, id_paciente, id_paciente, id_paciente))
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]

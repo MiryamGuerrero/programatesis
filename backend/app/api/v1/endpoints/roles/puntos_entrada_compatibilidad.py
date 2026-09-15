@@ -99,7 +99,8 @@ def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutrici
                 pi.id_momento,
                 pi.id_receta,
                 r.nombre as nombre_receta,
-                r.imagen_url as imagen_url
+                r.imagen_url as imagen_url,
+                pi.consumida
             from interaccion.plan_item pi
             join nutricion.receta r on r.id = pi.id_receta
             where pi.id_plan = %s
@@ -871,19 +872,54 @@ def guardar_plan_manual(
             cols_sql = []
             placeholders = []
             params = []
-            for c, v in zip(cols, vals):
-                cols_sql.append(c)
-                if v == "now()":
-                    placeholders.append("now()")
-                else:
-                    placeholders.append("%s")
-                    params.append(v)
+            id_plan_actualizar = payload.get("id_plan_actualizar")
+            if id_plan_actualizar:
+                id_plan = id_plan_actualizar
+                # Update existing plan dates just in case
+                if plan_items:
+                      fechas = sorted({item.get("fecha") for item in plan_items if item.get("fecha")})
+                      if fechas:
+                          cur.execute("UPDATE interaccion.plan_nutricional SET fecha_inicio = %s, fecha_fin = %s WHERE id = %s",
+                                      (fechas[0], fechas[-1], id_plan))
+                
+                # Diff the items
+                cur.execute("SELECT id, fecha_programada::date, id_momento, id_receta FROM interaccion.plan_item WHERE id_plan = %s", (id_plan,))
+                existing = {(str(r[1]), r[2], r[3]): r[0] for r in cur.fetchall()}
+                
+                payload_items_keys = set()
+                for item in plan_items:
+                    payload_items_keys.add((str(item.get("fecha")), item.get("id_momento"), item.get("id_receta")))
+                
+                to_delete = []
+                for key, item_id in existing.items():
+                    if key not in payload_items_keys:
+                        to_delete.append(item_id)
+                
+                if to_delete:
+                    # check if they were consumed before deleting? The UI prevents editing, so they should still be in payload.
+                    cur.execute("DELETE FROM interaccion.plan_item WHERE id = ANY(%s)", (to_delete,))
+                    
+                new_plan_items = []
+                for item in plan_items:
+                    key = (str(item.get("fecha")), item.get("id_momento"), item.get("id_receta"))
+                    if key not in existing:
+                        new_plan_items.append(item)
+                
+                plan_items = new_plan_items
+            else:
+                for c, v in zip(cols, vals):
+                    cols_sql.append(c)
+                    if v == "now()":
+                        placeholders.append("now()")
+                    else:
+                        placeholders.append("%s")
+                        params.append(v)
 
-            cur.execute(
-                f"insert into interaccion.plan_nutricional ({', '.join(cols_sql)}) values ({', '.join(placeholders)}) returning id",
-                tuple(params),
-            )
-            id_plan = cur.fetchone()[0]
+                cur.execute(
+                    f"insert into interaccion.plan_nutricional ({', '.join(cols_sql)}) values ({', '.join(placeholders)}) returning id",
+                    tuple(params),
+                )
+                id_plan = cur.fetchone()[0]
 
             cur.execute(
                 """
