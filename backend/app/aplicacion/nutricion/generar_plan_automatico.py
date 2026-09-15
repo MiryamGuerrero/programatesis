@@ -33,6 +33,31 @@ class CasoUsoGenerarPlanAutomatico:
         momentos_opcionales: List[int],
         log_callback: Optional[callable] = None
     ) -> dict:
+
+        # TRUNCAR DIAS HASTA LA PROXIMA REVISION (CONTROL)
+        if hasattr(self.repo_paciente, 'obtener_fecha_proxima_cita'):
+            fecha_proxima = self.repo_paciente.obtener_fecha_proxima_cita(id_paciente)
+            if fecha_proxima and fecha_proxima > fecha_inicio:
+                dias_hasta_cita = (fecha_proxima - fecha_inicio).days
+                if dias_hasta_cita < dias and dias_hasta_cita > 0:
+                    if log_callback: log_callback(f"Ajustando a {dias_hasta_cita} días por revisión programada el {fecha_proxima}.")
+                    dias = dias_hasta_cita
+
+        # RESPETAR PLANES MANUALES: Identificar qué momentos ya fueron asignados por el nutricionista
+        momentos_a_omitir = {}
+        try:
+            from datetime import timedelta
+            for i in range(dias):
+                f_dia = fecha_inicio + timedelta(days=i)
+                items_existentes = self.repo_seguimiento.obtener_plan_del_dia(id_paciente, f_dia)
+                omit_ids = [it["id_momento"] for it in items_existentes if it.get("id_origen_plan") == 1]
+                if omit_ids:
+                    momentos_a_omitir[f_dia] = omit_ids
+            if momentos_a_omitir and log_callback:
+                log_callback(f"Se omitirán {sum(len(v) for v in momentos_a_omitir.values())} comidas porque fueron asignadas manualmente por el nutricionista.")
+        except Exception as e:
+            if log_callback: log_callback(f"Advertencia al chequear manuales: {e}")
+
         if log_callback: log_callback("Analizando perfil clínico y reglas de seguridad...")
         # 1. Generar la estructura del plan en memoria usando la misma lógica
         plan_semanal = self.generar_plan_objeto(
@@ -40,7 +65,8 @@ class CasoUsoGenerarPlanAutomatico:
             fecha_inicio=fecha_inicio,
             dias=dias,
             momentos_ids=sorted(list(set(momentos_obligatorios + momentos_opcionales))),
-            log_callback=log_callback
+            log_callback=log_callback,
+            momentos_a_omitir=momentos_a_omitir
         )
         
         if log_callback: log_callback(f"Guardando plan de {dias} días en el sistema...")
@@ -84,7 +110,8 @@ class CasoUsoGenerarPlanAutomatico:
         fecha_inicio: date,
         dias: int,
         momentos_ids: List[int],
-        log_callback: Optional[callable] = None
+        log_callback: Optional[callable] = None,
+        momentos_a_omitir: Optional[dict] = None
     ) -> PlanSemanal:
         # 1. Obtener perfil del paciente (para condiciones)
         perfil = self.repo_paciente.obtener_por_id(id_paciente)
@@ -139,7 +166,15 @@ class CasoUsoGenerarPlanAutomatico:
             recetas_por_momento_y_tipo[m_id]["general"] = recetas_momento
 
         dias_plan = []
-        historial_recientes = [] # Memoria de recetas usadas para evitar repeticiones
+        # MEJORA: Historial a largo plazo basado en la DB (ultimos 3 dias)
+        historial_recientes = [] 
+        try:
+            for i in range(1, 4):
+                dia_prev = fecha_inicio - timedelta(days=i)
+                items_prev = self.repo_seguimiento.obtener_plan_del_dia(id_paciente, dia_prev)
+                historial_recientes.extend([it["id_receta"] for it in items_prev if "id_receta" in it])
+        except Exception:
+            pass # Si falla no bloqueamos la generacion
         # 4. Generar items día por día (Procesamiento en memoria ultra-rápido)
         if log_callback: log_callback(f"Generando menús inteligentes para {dias} días...")
         for i in range(dias):
@@ -150,13 +185,16 @@ class CasoUsoGenerarPlanAutomatico:
             if log_callback and i > 0 and i % 7 == 0:
                 log_callback(f"Procesando semana {i // 7 + 1}...")
 
-            # Filtrar momentos que ya pasaron si es hoy
+            # Filtrar momentos que ya pasaron si es hoy o que fueron asignados manualmente
             momentos_dia = []
             for m_id in momentos_ids:
                 if fecha_dia == hoy and ahora:
                     m_data = next((m for m in todos_momentos if m["id"] == m_id), None)
                     if m_data and m_data.get("hora_fin") and ahora > m_data["hora_fin"]:
                         continue
+                # Si el nutricionista ya asignó este momento, lo omitimos para no sobreescribir/duplicar
+                if momentos_a_omitir and fecha_dia in momentos_a_omitir and m_id in momentos_a_omitir[fecha_dia]:
+                    continue
                 momentos_dia.append(m_id)
             
             for m_id in momentos_dia:
@@ -303,7 +341,6 @@ class CasoUsoGenerarPlanAutomatico:
         }
 
     def intercambiar_receta(self, id_plan_item: int) -> dict:
-        # 1. Obtener detalle del item actual
         item_actual = self.repo_seguimiento.obtener_item_plan_con_detalle(id_plan_item)
         if not item_actual:
             raise ValueError("Item de plan no encontrado")
@@ -314,28 +351,33 @@ class CasoUsoGenerarPlanAutomatico:
         id_paciente = item_actual["id_paciente"]
         id_momento = item_actual["id_momento"]
         id_receta_actual = item_actual["id_receta"]
+        fecha_programada = item_actual.get("fecha_programada") or date.today()
         
-        # 2. Obtener tipo de plato de la receta actual
+        # MEJORA: Obtener lo que comera este mismo dia para no repetir
+        try:
+            plan_del_dia = self.repo_seguimiento.obtener_plan_del_dia(id_paciente, fecha_programada)
+            recetas_del_dia = {it["id_receta"] for it in plan_del_dia if "id_receta" in it}
+        except Exception:
+            recetas_del_dia = set()
+            
         receta_info = self.repo_receta.obtener_receta(id_receta_actual)
         if not receta_info:
             raise ValueError("Receta actual no encontrada")
             
-        tipos_actuales = receta_info.get("tipos_plato_ids") or []
+        tipos_actuales = set(receta_info.get("tipos_plato_ids") or [])
         
-        # 3. Buscar alternativas seguras
         recetas_seguras = self.repo_receta.obtener_recetas_seguras_para_paciente(id_paciente, id_momento)
         
-        # Filtrar estrictamente por tipo de plato y excluir la actual
         alternativas = [
             r for r in recetas_seguras 
-            if r["id"] != id_receta_actual and any(t in (r.get("tipos_plato_ids") or []) for t in tipos_actuales)
+            if r["id"] != id_receta_actual 
+            and r["id"] not in recetas_del_dia
+            and set(r.get("tipos_plato_ids") or []) == tipos_actuales
         ]
         
         if not alternativas:
-            # Ya no intentamos con cualquier tipo, lanzamos error descriptivo
-            raise ValueError("Por el momento no se tienen más recetas con este tipo de plato disponibles para el paciente.")
+            raise ValueError("Por el momento no se tienen mas recetas con este mismo tipo de comida para el paciente.")
             
-        # 4. Elegir una y actualizar
         nueva_receta = self._seleccionar_receta_con_prioridad(alternativas)
         self.repo_seguimiento.intercambiar_receta_item(id_plan_item, nueva_receta["id"])
         
@@ -343,8 +385,7 @@ class CasoUsoGenerarPlanAutomatico:
             "id_plan_item": id_plan_item, 
             "nueva_receta": {
                 "id": nueva_receta["id"],
-                "nombre": nueva_receta["nombre"],
-                "imagen_url": nueva_receta.get("imagen_url")
+                "nombre": nueva_receta["nombre"]
             }
         }
 
@@ -352,27 +393,21 @@ class CasoUsoGenerarPlanAutomatico:
         if historial_recientes is None:
             historial_recientes = []
 
-        # Pesos base optimizados usando los flags pre-calculados en SQL
         pesos = []
         for r in recetas:
             peso = 1.0
             
-            # Penalización fuerte si la receta ya salió recientemente para forzar variedad
             if r["id"] in historial_recientes:
                 peso *= 0.05
 
-            # Prioridad 1: Preferencia del usuario (corazón)
             if r.get("es_preferida"): peso *= 6.0
-            # Prioridad 2: Recomendación clínica (Apto/Potenciado)
-            if r.get("es_potenciada"): peso *= 4.0
-            # Prioridad 3: Restricción clínica leve (Disminuir)
-            if r.get("es_disminuida"): peso *= 0.1
+            if r.get("es_potenciada"): peso *= 20.0
+            if r.get("es_disminuida"): peso *= 0.05
             
             pesos.append(peso)
             
         return random.choices(recetas, weights=pesos, k=1)[0]
-
-    def asignar_comidas_manuales_fechas(self, id_paciente: str, id_receta: int, id_momento: int, fechas: List[date], id_usuario: int = None) -> dict:
+    def asignar_comidas_manuales_fechas(self, id_paciente: str, id_receta, id_momento: int, fechas: List[date], id_usuario: int = None) -> dict:
         if not fechas:
             raise ValueError("Debe proveer al menos una fecha")
             
@@ -385,7 +420,7 @@ class CasoUsoGenerarPlanAutomatico:
         # Por simplicidad, creamos un plan que cubra este rango con id_origen_plan = 2 (Nutricionista/Médico)
         id_plan = self.repo_seguimiento.crear_plan_nutricional({
             "id_paciente": id_paciente,
-            "id_origen_plan": 2, 
+            "id_origen_plan": 1, 
             "id_estado_plan": 2, 
             "fecha_inicio": fecha_min,
             "fecha_fin": fecha_max,
@@ -394,13 +429,15 @@ class CasoUsoGenerarPlanAutomatico:
         })
         
         items_a_insertar = []
+        recetas = id_receta if isinstance(id_receta, list) else [id_receta]
         for f in fechas_ord:
-            items_a_insertar.append({
-                "id_plan": id_plan,
-                "fecha_programada": f,
-                "id_momento": id_momento,
-                "id_receta": id_receta
-            })
+            for r in recetas:
+                items_a_insertar.append({
+                    "id_plan": id_plan,
+                    "fecha_programada": f,
+                    "id_momento": id_momento,
+                    "id_receta": r
+                })
             
         self.repo_seguimiento.agregar_items_plan(items_a_insertar)
         

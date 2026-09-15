@@ -51,10 +51,40 @@ class PlanDiarioPage extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
+        if (e.toString().toLowerCase().contains("no se tienen") || e.toString().contains("400")) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Sin alternativas viables"),
+              content: const Text("Ya no existen más recetas seguras de este tipo de plato en nuestro catálogo para este paciente. ¿Qué deseas hacer con esta comida?"),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Mantener", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade600),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    try {
+                      final repo = ref.read(repositorioTutorProvider);
+                      await repo.eliminarRecetaPlan(idPlanItem);
+                      ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)));
+                    } catch (err) {
+                      debugPrint("Error eliminando receta: $err");
+                    }
+                  },
+                  child: const Text("Eliminar", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+        }
       }
+    }
     }
   }
 

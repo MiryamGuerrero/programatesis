@@ -255,10 +255,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
                 child: Column(
                   children: [
-                    _buildMobileHeader(
-                      context,
-                      emphasized: true,
-                    ),
+                    const SizedBox.shrink(),
                     const SizedBox(height: 60.0),
                     _buildLoginCard(context, isAndroid: true),
                   ],
@@ -457,18 +454,55 @@ class _LoginPageState extends ConsumerState<LoginPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("Bienvenido/a",
-                  style: GoogleFonts.inter(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: _azulOscuro,
-                      letterSpacing: -0.5)),
-              const SizedBox(height: 6),
-              Text("Acceso al portal profesional",
-                  style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: _grisTexto)),
+              if (isAndroid) ...[
+                RichText(
+                  text: TextSpan(
+                    style: GoogleFonts.montserrat(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.0),
+                    children: const [
+                      TextSpan(text: "Nutri", style: TextStyle(color: _azul)),
+                      TextSpan(text: "Reuma", style: TextStyle(color: _verde)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+                if (!isAndroid) ...[
+                  Text("Bienvenido/a",
+                      style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: _azulOscuro,
+                          letterSpacing: -0.5)),
+                  const SizedBox(height: 6),
+                  Text("Acceso al portal profesional",
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: _grisTexto)),
+                ] else ...[
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: _grisTexto,
+                      ),
+                      children: const [
+                        TextSpan(
+                          text: "Bienvenido/a, ",
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        TextSpan(
+                          text: "encuentra alimentación segura para tu niño o niña",
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               const SizedBox(height: 16),
               Container(
                   width: 24,
@@ -723,33 +757,75 @@ class _LoginPageState extends ConsumerState<LoginPage>
                             : () async {
                                 final correo = emailCtrl.text.trim();
                                 if (correo.isEmpty) return;
-                                setDialogState(() => enviando = true);
+                                
+                                Navigator.pop(ctx);
+                                
+                                showGeneralDialog(
+                                  context: context,
+                                  barrierColor: Colors.black87,
+                                  barrierDismissible: false,
+                                  pageBuilder: (context, anim1, anim2) {
+                                    return Material(
+                                      color: Colors.transparent,
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.mark_email_unread_outlined, size: 60, color: Colors.white),
+                                            const SizedBox(height: 24),
+                                            const CircularProgressIndicator(color: Colors.white),
+                                            const SizedBox(height: 16),
+                                            Text("Enviando...", style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                );
+
                                 try {
-                                  await Supabase.instance.client.auth
-                                      .resetPasswordForEmail(
+                                  await Supabase.instance.client.auth.resetPasswordForEmail(
                                     correo,
-                                    redirectTo: kIsWeb
-                                        ? Uri.base.origin
-                                        : 'reumanutri://auth/set-password',
+                                    redirectTo: kIsWeb ? Uri.base.origin : 'reumanutri://auth/set-password',
                                   );
-                                  if (ctx.mounted) {
-                                    Navigator.pop(ctx);
-                                    NutriSnack.show(context,
-                                        "Se ha enviado un correo con las instrucciones.");
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    
+                                    showGeneralDialog(
+                                      context: context,
+                                      barrierColor: Colors.black87,
+                                      barrierDismissible: true,
+                                      barrierLabel: "Cerrar",
+                                      pageBuilder: (context, anim1, anim2) {
+                                        return Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () => Navigator.pop(context),
+                                            child: Center(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.mark_email_read_rounded, size: 60, color: Colors.greenAccent),
+                                                  const SizedBox(height: 24),
+                                                  Text("¡Enviado!", style: GoogleFonts.inter(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                                  const SizedBox(height: 12),
+                                                  Text("Revisa tu bandeja de entrada.", style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    );
                                   }
                                 } catch (e) {
-                                  if (ctx.mounted) {
-                                    NutriSnack.show(context,
-                                        "Error: No se pudo enviar el correo.",
-                                        isError: true);
-                                  }
-                                } finally {
-                                  if (ctx.mounted) {
-                                    setDialogState(() => enviando = false);
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    NutriSnack.show(context, "Error: No se pudo enviar el correo.", isError: true);
                                   }
                                 }
                               },
-                        style: FilledButton.styleFrom(
+                          style: FilledButton.styleFrom(
                           backgroundColor: AppTema.azulPrincipal,
                           foregroundColor: Colors.white,
                           elevation: 0,

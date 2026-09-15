@@ -1717,3 +1717,18 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             }
 
 
+
+    def obtener_fecha_proxima_cita(self, id_paciente: str):
+        from datetime import date
+        from app.infraestructura.database.db import db_cursor
+        with db_cursor() as cur:
+            cur.execute('''
+                SELECT fecha_proxima_cita 
+                FROM clinico.control_paciente 
+                WHERE id_paciente = %s AND fecha_proxima_cita IS NOT NULL
+                ORDER BY fecha_control DESC LIMIT 1
+            ''', (id_paciente,))
+            row = cur.fetchone()
+            if row and row[0]:
+                return row[0]
+            return None

@@ -273,3 +273,9 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             cur.execute(sql, (id_medico,))
             columnas = [desc[0] for desc in cur.description]
             return [dict(zip(columnas, row)) for row in cur.fetchall()]
+
+    def eliminar_item_plan(self, id_plan_item: int) -> bool:
+        with db_cursor() as cur:
+            sql = "delete from interaccion.plan_item where id = %s"
+            cur.execute(sql, (id_plan_item,))
+            return cur.rowcount > 0

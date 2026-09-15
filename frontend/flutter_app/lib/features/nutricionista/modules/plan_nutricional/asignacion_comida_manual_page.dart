@@ -33,10 +33,11 @@ class AsignacionComidaManualPage extends ConsumerStatefulWidget {
 
 class _AsignacionComidaManualPageState
     extends ConsumerState<AsignacionComidaManualPage> {
-  bool _isLoading = false;
+  bool _isSearching = false;
+  bool _isSaving = false;
   bool _saveSuccess = false;
   List<dynamic> _recetasResultados = [];
-  int? _idRecetaSeleccionada;
+  List<Map<String, dynamic>> _recetasSeleccionadas = [];
   
   List<dynamic> _momentos = [];
   int _idMomentoSeleccionado = 3; // Por defecto Almuerzo
@@ -75,7 +76,7 @@ class _AsignacionComidaManualPageState
   
   Future<void> _buscarRecetas(String query) async {
     setState(() {
-      _isLoading = true;
+      _isSearching = true;
     });
     try {
       final dio = ref.read(dioProvider);
@@ -86,17 +87,17 @@ class _AsignacionComidaManualPageState
       if (mounted) {
         setState(() {
           _recetasResultados = List<dynamic>.from(res.data);
-          _isLoading = false;
+          _isSearching = false;
         });
       }
     } catch (e) {
       debugPrint("Error buscando recetas: $e");
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
   Future<void> _guardarAsignacion() async {
-    if (_idRecetaSeleccionada == null) {
+    if (_recetasSeleccionadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Debes seleccionar una receta.")));
       return;
     }
@@ -106,7 +107,7 @@ class _AsignacionComidaManualPageState
     }
     
     setState(() {
-      _isLoading = true;
+      _isSaving = true;
       _saveSuccess = false;
     });
     
@@ -114,7 +115,7 @@ class _AsignacionComidaManualPageState
       final dio = ref.read(dioProvider);
       await dio.post("nutricionista/asignar-comida-manual-fechas", data: {
         "id_paciente": widget.idPaciente,
-        "id_receta": _idRecetaSeleccionada!,
+        "id_receta": _recetasSeleccionadas.map((r) => r["id"] as int).toList(),
         "id_momento": _idMomentoSeleccionado,
         "fechas": _fechasSeleccionadas.map((f) => f.toIso8601String()).toList(),
       });
@@ -122,7 +123,7 @@ class _AsignacionComidaManualPageState
         setState(() => _saveSuccess = true);
         await Future.delayed(const Duration(milliseconds: 1200));
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() => _isSaving = false);
           if (widget.onSaved != null) {
             widget.onSaved!();
           } else {
@@ -132,7 +133,7 @@ class _AsignacionComidaManualPageState
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
@@ -444,7 +445,36 @@ class _AsignacionComidaManualPageState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSectionHeader("1", "Selecciona la receta"),
-                  TextField(
+                  if (_recetasSeleccionadas.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Menú seleccionado:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _recetasSeleccionadas.map((rec) => Chip(
+                                label: Text(rec["nombre"] ?? "Receta", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                deleteIcon: const Icon(Icons.close, size: 16),
+                                onDeleted: () => setState(() => _recetasSeleccionadas.removeWhere((r) => r["id"] == rec["id"])),
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: Color(0xFF16A34A)),
+                              )).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    TextField(
                     controller: _searchCtrl,
                     decoration: InputDecoration(
                       hintText: "Buscar por nombre de alimento...",
@@ -474,14 +504,14 @@ class _AsignacionComidaManualPageState
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: _isLoading && _recetasResultados.isEmpty
+                    child: _isSearching && _recetasResultados.isEmpty
                         ? const Center(child: CircularProgressIndicator())
-                        : ListView.separated(
+                        : (!_isSearching && _recetasResultados.isEmpty) ? const Center(child: Text("No hay recetas que coincidan con la búsqueda.", style: TextStyle(color: Colors.grey))) : ListView.separated(
                             itemCount: _recetasResultados.length,
                             separatorBuilder: (context, index) => const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final r = _recetasResultados[index];
-                              final isSelected = _idRecetaSeleccionada == r["id"];
+                              final isSelected = _recetasSeleccionadas.any((rec) => rec["id"] == r["id"]);
                               
                               final String? imgUrl = r["imagen_url"];
                               String categorias = "";
@@ -496,7 +526,13 @@ class _AsignacionComidaManualPageState
                                   context, 
                                   r["id"], 
                                   ref, 
-                                  onSelect: () => setState(() => _idRecetaSeleccionada = r["id"])
+                                  onSelect: () => setState(() {
+                                    if (_recetasSeleccionadas.any((rec) => rec["id"] == r["id"])) {
+                                      _recetasSeleccionadas.removeWhere((rec) => rec["id"] == r["id"]);
+                                    } else {
+                                      _recetasSeleccionadas.add(r);
+                                    }
+                                  })
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
@@ -767,9 +803,9 @@ class _AsignacionComidaManualPageState
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                       ),
-                      onPressed: _isLoading || _fechasSeleccionadas.isEmpty || _idRecetaSeleccionada == null ? null : _guardarAsignacion,
-                      icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save),
-                      label: Text(_isLoading ? "Guardando..." : "Guardar plan nutricional (${_fechasSeleccionadas.length} días)", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      onPressed: _isSaving || _fechasSeleccionadas.isEmpty || _recetasSeleccionadas.isEmpty ? null : _guardarAsignacion,
+                      icon: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save),
+                      label: Text(_isSaving ? "Guardando..." : "Guardar plan nutricional (${_fechasSeleccionadas.length} días)", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   )
                 ],
@@ -785,7 +821,7 @@ class _AsignacionComidaManualPageState
       ),
       ],
       ),
-      if (_isLoading) _buildSavingOverlay(),
+      if (_isSaving) _buildSavingOverlay(),
       ],
       ),
     );

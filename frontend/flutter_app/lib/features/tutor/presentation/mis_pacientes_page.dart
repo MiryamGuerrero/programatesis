@@ -42,6 +42,35 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
     );
   }
 
+
+  Widget _buildHeader(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Mis Pacientes",
+            style: GoogleFonts.montserrat(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppTema.azulOscuro,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Selecciona un perfil para gestionar su plan nutricional y seguimiento.",
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF64748B),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -51,111 +80,82 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: patientsAsync.when(
+          data: (patients) {
+            return RefreshIndicator(
+              onRefresh: _onRefresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  Text(
-                    "Mis Pacientes",
-                    style: GoogleFonts.montserrat(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: AppTema.azulOscuro,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Selecciona un perfil para gestionar su plan nutricional y seguimiento.",
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF64748B),
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: patientsAsync.when(
-                data: (patients) {
-                  if (patients.isEmpty) {
-                    return RefreshIndicator(
-                      onRefresh: _onRefresh,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                          Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.person_off_rounded,
-                                    size: 80,
-                                    color: colorScheme.outline.withOpacity(0.1)),
-                                const SizedBox(height: 20),
-                                Text(
-                                  "No tienes pacientes asignados",
-                                  style: GoogleFonts.montserrat(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.outline,
-                                  ),
-                                ),
-                              ],
+                  _buildHeader(theme),
+                  const SizedBox(height: 24),
+                  if (patients.isEmpty)
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.4,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_off_rounded,
+                                size: 80,
+                                color: colorScheme.outline.withOpacity(0.1)),
+                            const SizedBox(height: 20),
+                            Text(
+                              "No tienes pacientes asignados",
+                              style: GoogleFonts.montserrat(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.outline,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    );
-                  }
-
-                  return RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    child: ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24.0, vertical: 8),
-                      itemCount: patients.length,
-                      itemBuilder: (context, index) {
-                        final p = patients[index];
-                        return _PatientCard(
+                    )
+                  else
+                    ...patients.map((p) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _PatientCard(
                           patientData: p,
                           onTap: () {
-                            ref.read(selectedPatientIdProvider.notifier).state =
-                                p["id"].toString();
+                            ref.read(selectedPatientIdProvider.notifier).state = p["id"].toString();
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                  builder: (context) => const TutorHomePage()),
+                              MaterialPageRoute(builder: (context) => const TutorHomePage()),
                             );
                           },
-                        );
-                      },
-                    ),
-                  );
-                },
-                loading: () => _buildPacientesShimmer(),
-                error: (err, stack) => RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                      Center(child: Text("Error: $err")),
-                    ],
-                  ),
-                ),
+                        ),
+                      );
+                    }).toList(),
+                  const SizedBox(height: 40),
+                ],
               ),
+            );
+          },
+          loading: () => ListView(
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildHeader(theme),
+              const SizedBox(height: 24),
+              _buildPacientesShimmer(),
+            ],
+          ),
+          error: (err, stack) => RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildHeader(theme),
+                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                Center(child: Text("Error: $err")),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
 }
 
 class _PatientCard extends StatelessWidget {

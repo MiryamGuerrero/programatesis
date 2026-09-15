@@ -86,7 +86,7 @@ def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tuto
             ingredientes_alergicos as (
               select id_ingrediente from clinico.alergia_paciente_ingrediente where id_paciente = %s::uuid and activa = true
               union
-              select id_ingrediente from reglas_aplicables where accion = 'ELIMINAR' and id_ingrediente is not null
+              select id_ingrediente from reglas_aplicables where accion in ('ELIMINAR', 'DISMINUIR') and id_ingrediente is not null
               union
               select ie.id_ingrediente from nutricion.ingrediente_etiqueta ie 
               join nutricion.etiqueta_nutricional en on en.id = ie.id_etiqueta
@@ -95,11 +95,11 @@ def listar_subgrupos_preferencia(id_paciente: str, _=Depends(require_roles("tuto
             subgrupos_bloqueados as (
               select id_subgrupo_alimentario from clinico.alergia_paciente_subgrupo where id_paciente = %s::uuid and activa = true
               union
-              select id_subgrupo_alimentario from reglas_aplicables where accion = 'ELIMINAR' and id_subgrupo_alimentario is not null
+              select id_subgrupo_alimentario from reglas_aplicables where accion in ('ELIMINAR', 'DISMINUIR') and id_subgrupo_alimentario is not null
               union
               select s.id from nutricion.subgrupo_alimentario s
               join reglas_aplicables ra on ra.id_grupo_alimentario = s.id_grupo_alimentario
-              where ra.accion = 'ELIMINAR'
+              where ra.accion in ('ELIMINAR', 'DISMINUIR')
               union
               select distinct i.id_subgrupo_alimentario from nutricion.ingrediente i
               where i.id in (select id_ingrediente from ingredientes_alergicos)
@@ -362,3 +362,17 @@ def obtener_tip_saludable(_=Depends(require_roles("tutor", "admin"))):
         {"mensaje": "Cada **paso** cuenta en tu camino al **bienestar**.", "categoria": "crecimiento"}
     ]
     return TipSaludableResponse(**random.choice(tips))
+
+@router.post("/eliminar-receta-plan")
+def eliminar_receta_plan(
+    request: IntercambiarRecetaRequest,
+    user: UserContext = Depends(require_roles("tutor", "admin")),
+    caso_uso: CasoUsoGestionarSeguimiento = Depends(obtener_caso_uso_gestionar_seguimiento)
+):
+    try:
+        exito = caso_uso.eliminar_item_plan(request.id_plan_item)
+        if not exito:
+            raise ValueError("No se pudo eliminar la receta del plan.")
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

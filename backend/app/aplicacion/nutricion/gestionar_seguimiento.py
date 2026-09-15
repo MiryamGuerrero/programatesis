@@ -22,3 +22,6 @@ class CasoUsoGestionarSeguimiento:
 
     def obtener_lista_compras(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> dict:
         return self.repo_seguimiento.obtener_lista_compras(id_paciente, fecha_inicio, fecha_fin)
+
+    def eliminar_item_plan(self, id_plan_item: int) -> bool:
+        return self.repo_seguimiento.eliminar_item_plan(id_plan_item)

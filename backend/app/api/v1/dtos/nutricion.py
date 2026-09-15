@@ -1,9 +1,9 @@
 from datetime import date
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 
 class PlanManualItem(BaseModel):
-    id_receta: int
+    id_receta: Union[int, List[int]]
     id_momento: int
 
 class PlanManualRequest(BaseModel):
@@ -17,7 +17,7 @@ class PlanManualResponse(BaseModel):
 
 class AsignarComidaManualFechasRequest(BaseModel):
     id_paciente: str
-    id_receta: int
+    id_receta: Union[int, List[int]]
     id_momento: int
     fechas: List[date]
 

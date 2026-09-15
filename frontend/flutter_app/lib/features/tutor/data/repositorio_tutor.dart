@@ -94,6 +94,18 @@ class RepositorioTutor {
       throw Exception("Error al cargar tip saludable: ${e.message}");
     }
   }
+
+  Future<bool> eliminarRecetaPlan(int idPlanItem) async {
+    try {
+      final response = await _dio.post("tutor/eliminar-receta-plan", data: {
+        "id_plan_item": idPlanItem,
+      });
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      throw Exception("Error al eliminar receta: ${e.message}");
+    }
+  }
+
 }
 
 extension DateTimeExtension on DateTime {

@@ -107,95 +107,92 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(24, 24, 24, showButton ? 96 : 24),
-                child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _subgrupos.map((s) {
-                  final id = s['id'] as int;
-                  final bool isSelected = _seleccionados.contains(id);
-
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _seleccionados.remove(id);
-                        } else {
-                          _seleccionados.add(id);
-                        }
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: itemWidth,
-                      constraints: const BoxConstraints(
-                          minHeight: 100), // Altura mínima base
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 16),
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected ? colorScheme.primary : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isSelected
-                              ? colorScheme.primary
-                              : const Color(0xFFE2E8F0),
-                          width: 2,
+                child: Column(
+                  children: _subgrupos.map((s) {
+                    final id = s['id'] as int;
+                    final bool isSelected = _seleccionados.contains(id);
+  
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _seleccionados.remove(id);
+                          } else {
+                            _seleccionados.add(id);
+                          }
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTema.verdeSalud : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTema.verdeSalud
+                                : const Color(0xFFF1F5F9),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(
+                                  color: AppTema.verdeSalud.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6))
+                            else
+                              BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3)),
+                          ],
                         ),
-                        boxShadow: [
-                          if (isSelected)
-                            BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6))
-                          else
-                            BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3)),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            s['emoji'] ?? "🍲",
-                            style: const TextStyle(fontSize: 26),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            s['nombre'],
-                            textAlign: TextAlign.center,
-                            softWrap: true,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 11,
-                              fontWeight: isSelected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppTema.azulOscuro,
-                              height: 1.25,
+                        child: Row(
+                          children: [
+                            Text(
+                              s['emoji'] ?? "🤤",
+                              style: const TextStyle(fontSize: 24),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            s['grupo'].toString().toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected
-                                  ? Colors.white60
-                                  : Colors.grey.shade400,
-                              letterSpacing: 0.5,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s['nombre'],
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppTema.azulOscuro,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    s['grupo'].toString().toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white70
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            Icon(
+                              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                              color: isSelected ? Colors.white : Colors.grey.shade400,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
+                    );
+                  }).toList(),
+                ),
             ),
           ),
         ),
@@ -266,20 +263,18 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
         child: Shimmer.fromColors(
           baseColor: const Color(0xFFCBD5E1),
           highlightColor: const Color(0xFFF8FAFC),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: List.generate(8, (index) {
-              return Container(
-                width: itemWidth,
-                height: 110,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              );
-            }),
-          ),
+          child: Column(
+              children: List.generate(6, (index) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  height: 65,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                );
+              }),
+            ),
         ),
       ),
     );
