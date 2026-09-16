@@ -45,9 +45,19 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    // Limpieza automatica de Service Workers y caches obsoletas
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('service_worker.js').catch(function(err){console.log('SW register failed', err);});
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          caches.delete(name);
+        }
       });
     }
   </script>

@@ -8,8 +8,7 @@ import "package:flutter_localizations/flutter_localizations.dart";
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
-import "shared/widgets/role_shell.dart" deferred as role_shell;
-import "features/roles/role_module_registry.dart"; // Para DeferredModuleWidget
+import "shared/widgets/role_shell.dart";
 
 class ReumaNutriApp extends ConsumerStatefulWidget {
   const ReumaNutriApp({super.key});
@@ -57,10 +56,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
 
         final roleAsync = ref.watch(appRoleProvider);
         return roleAsync.when(
-          data: (role) => DeferredModuleWidget(
-            loader: role_shell.loadLibrary,
-            builder: () => role_shell.RoleShell(role: role),
-          ),
+          data: (role) => RoleShell(role: role),
           loading: () => const Scaffold(
             backgroundColor: Color(0xFFF8FAFC),
             body: Center(
