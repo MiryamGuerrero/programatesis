@@ -156,6 +156,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
+  double _omsImc = 0;
   String _resumenClinico = "";
   double _gananciaPeso = 0;
   double _gananciaTalla = 0;
@@ -163,6 +164,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   double _pesoIdeal = 0;
   double _tallaIdeal = 0;
   bool _calculandoOMS = false;
+  String? _omsError;
   Color _omsColor = Colors.grey.shade400;
 
   @override
@@ -181,6 +183,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     });
     _proximaCitaCtrl = TextEditingController(
         text: DateFormat('dd/MM/yyyy', 'es').format(_proximaCita));
+    _peso.addListener(_debouncedOMS);
+    _talla.addListener(_debouncedOMS);
     _cargarExpediente();
     _loadCatalogos();
   }
@@ -228,6 +232,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     _subgrupoFocus.dispose();
     _ingredienteAlergiaSearchCtrl.dispose();
     _ingredienteAlergiaFocus.dispose();
+    _peso.removeListener(_debouncedOMS);
+    _talla.removeListener(_debouncedOMS);
     _peso.dispose();
     _talla.dispose();
     _pcr.dispose();
@@ -414,18 +420,81 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   }
 
   Future<void> _calculateOMS() async {
-    double p = double.tryParse(_peso.text) ?? 0;
-    double t = double.tryParse(_talla.text) ?? 0;
-    if (p < 1 || t < 30) return;
+    final pStr = _peso.text.trim().replaceAll(',', '.');
+    final tStr = _talla.text.trim().replaceAll(',', '.');
+    final double p = double.tryParse(pStr) ?? 0;
+    final double t = double.tryParse(tStr) ?? 0;
+
+    if (p <= 1 || t <= 30) {
+      if (mounted && (_omsStatusPeso != "PENDIENTE" || _omsStatusTalla != "PENDIENTE" || _omsImc > 0)) {
+        setState(() {
+          _omsStatusPeso = "PENDIENTE";
+          _omsStatusTalla = "PENDIENTE";
+          _resumenClinico = "";
+          _gananciaPeso = 0;
+          _gananciaTalla = 0;
+          _estadoPeso = "mantener";
+          _pesoIdeal = 0;
+          _tallaIdeal = 0;
+          _omsImc = 0;
+          _omsColor = Colors.grey.shade400;
+          _omsError = null;
+          _calculandoOMS = false;
+        });
+      }
+      return;
+    }
+
+    // Cálculo local instantáneo de IMC
+    final double imc = p / ((t / 100) * (t / 100));
+    String localPeso = "Normal";
+    Color localColor = greenBrand;
+    if (imc < 13) {
+      localPeso = "Delgadez severa";
+      localColor = Colors.red;
+    } else if (imc < 14.5) {
+      localPeso = "Delgadez";
+      localColor = Colors.orange;
+    } else if (imc < 18.5) {
+      localPeso = "Normal";
+      localColor = greenBrand;
+    } else if (imc < 25) {
+      localPeso = "Normal";
+      localColor = greenBrand;
+    } else if (imc < 30) {
+      localPeso = "Sobrepeso";
+      localColor = Colors.orange;
+    } else {
+      localPeso = "Obesidad";
+      localColor = Colors.red;
+    }
 
     final fnac = _expediente?['paciente']?['fecha_nacimiento'] ??
         widget.paciente['fecha_nacimiento'];
     final idSexo =
         _expediente?['paciente']?['id_sexo'] ?? widget.paciente['id_sexo'];
 
-    if (fnac == null || idSexo == null) return;
+    if (fnac == null || idSexo == null) {
+      setState(() {
+        _omsImc = imc;
+        _omsStatusPeso = localPeso;
+        _omsStatusTalla = "Pendiente";
+        _omsColor = localColor;
+        _calculandoOMS = false;
+      });
+      return;
+    }
 
-    setState(() => _calculandoOMS = true);
+    setState(() {
+      _calculandoOMS = true;
+      _omsError = null;
+      _omsImc = imc;
+      if (_omsStatusPeso == "PENDIENTE") {
+        _omsStatusPeso = localPeso;
+        _omsColor = localColor;
+      }
+    });
+
     try {
       final dio = ref.read(dioProvider);
       double asDouble(dynamic value, {double fallback = 0}) {
@@ -445,7 +514,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
       if (mounted) {
         setState(() {
-          _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? "Normal";
+          _omsImc = asDouble(res.data['imc'], fallback: imc);
+          _omsStatusPeso = res.data['diagnostico_nutri_texto'] ?? localPeso;
           _omsStatusTalla = res.data['diagnostico_talla_texto'] ?? "Adecuada";
           _resumenClinico = res.data['resumen_clinico'] ?? "";
           _gananciaPeso = asDouble(res.data['ganancia_peso_necesaria']);
@@ -478,7 +548,22 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       }
     } catch (e) {
       debugPrint("Error en pre-diagnóstico: $e");
-      if (mounted) setState(() => _calculandoOMS = false);
+      if (mounted) {
+        setState(() {
+          _calculandoOMS = false;
+          String err = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+          if (err.toLowerCase().contains("connection error") ||
+              err.toLowerCase().contains("dioexception") ||
+              err.toLowerCase().contains("apierror") ||
+              err.toLowerCase().contains("failed host lookup")) {
+            err = "Conexión lenta o sin internet. Mostrando evaluación estimada.";
+          }
+          _omsStatusPeso = localPeso;
+          _omsStatusTalla = "Estimada";
+          _omsColor = localColor;
+          _omsError = err;
+        });
+      }
     }
   }
 
@@ -552,8 +637,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         );
       }
       final payload = {
-        "peso_kg": _peso.text,
-        "talla_cm": _talla.text,
+        "peso_kg": _peso.text.trim().replaceAll(',', '.'),
+        "talla_cm": _talla.text.trim().replaceAll(',', '.'),
         "puntos_dolor": _dolor.toInt(),
         "escala_inflamacion": _inflamacion.toInt(),
         "fatiga": _fatiga.toInt(),
@@ -1324,11 +1409,15 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                         Row(children: [
                           Expanded(
                             child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                                 onChanged: (_) => _debouncedOMS())
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                                 onChanged: (_) => _debouncedOMS())
                           ),
                         ]),
@@ -1359,11 +1448,15 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   Row(children: [
                     Expanded(
                       child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                           onChanged: (_) => _debouncedOMS())
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                           onChanged: (_) => _debouncedOMS())
                     ),
                   ]),
@@ -1852,6 +1945,27 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   icon: const Icon(Icons.refresh_rounded,
                       size: 20, color: Colors.blueGrey))
           ]),
+          if (_omsError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: Colors.amber.shade800),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(_omsError!,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber.shade900)),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 24),
           Text(
               "${_omsStatusPeso.toUpperCase()} / ${_omsStatusTalla.toUpperCase()}",
@@ -1862,6 +1976,14 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           const SizedBox(height: 14),
           Row(
             children: [
+              Expanded(
+                child: _metricPill(
+                    "IMC",
+                    _omsImc > 0
+                        ? "${_omsImc.toStringAsFixed(1)} kg/m²"
+                        : "-"),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: _metricPill(
                     "Peso ideal",
@@ -1953,6 +2075,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   }
 
   String _buildClinicalSummaryText() {
+    if (_omsStatusPeso == "PENDIENTE" && _omsStatusTalla == "PENDIENTE") {
+      return "Ingrese el peso (kg) y la talla (cm) del paciente para calcular automáticamente el diagnóstico nutricional según patrones OMS.";
+    }
     final stPeso = _omsStatusPeso.toLowerCase();
     final stTalla = _omsStatusTalla.toLowerCase();
     String pesoTxt;
@@ -2425,6 +2550,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           bool enabled = true,
           String? helper,
           bool readOnly = false,
+          TextInputType? keyboardType,
+          List<TextInputFormatter>? inputFormatters,
           VoidCallback? onTap}) =>
       TextFormField(
           controller: c,
@@ -2433,6 +2560,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           onChanged: onChanged,
           readOnly: readOnly,
           onTap: onTap,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
               labelText: l,
               helperText: helper,

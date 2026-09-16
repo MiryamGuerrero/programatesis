@@ -142,6 +142,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     _generatedPassword = _generateRandomPassword();
     _fetchCatalogos().then((_) => _loadInitialData());
     _ingFocus.addListener(() => setState(() {}));
+    _clinPeso.addListener(_debouncedOMS);
+    _clinTalla.addListener(_debouncedOMS);
   }
 
   @override
@@ -153,6 +155,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     _tutDireccion.dispose();
     _pacNombre.dispose();
     _pacCedula.dispose();
+    _clinPeso.removeListener(_debouncedOMS);
+    _clinTalla.removeListener(_debouncedOMS);
     _clinPeso.dispose();
     _clinTalla.dispose();
     _clinArtInflam.dispose();
@@ -353,69 +357,150 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Future<void> _calculateOMS() async {
-    double p = double.tryParse(_clinPeso.text) ?? 0;
-    double t = double.tryParse(_clinTalla.text) ?? 0;
-    if (p > 1 && t > 30 && _pacFechaNac != null && _pacSexo != null) {
-      setState(() { _calculandoOMS = true; _omsError = null; });
-      try {
-        double asDouble(dynamic value, {double fallback = 0}) {
-          if (value is num) return value.toDouble();
-          return double.tryParse(value?.toString() ?? "") ?? fallback;
-        }
+    final pStr = _clinPeso.text.trim().replaceAll(',', '.');
+    final tStr = _clinTalla.text.trim().replaceAll(',', '.');
+    final double p = double.tryParse(pStr) ?? 0;
+    final double t = double.tryParse(tStr) ?? 0;
 
-        final data = await ref
-            .read(repositorioMedicoProvider)
-            .preDiagnosticoNutricional({
-          "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first,
-          "id_sexo": _pacSexo,
-          "peso_kg": p,
-          "talla_cm": t
+    // Si los campos están vacíos o incompletos, resetear a estado limpio
+    if (p <= 1 || t <= 30) {
+      if (mounted && (_omsStatusPeso != "PENDIENTE" || _omsStatusTalla != "PENDIENTE" || _omsImc > 0)) {
+        setState(() {
+          _omsStatusPeso = "PENDIENTE";
+          _omsStatusTalla = "PENDIENTE";
+          _resumenClinico = "";
+          _gananciaPeso = 0;
+          _gananciaTalla = 0;
+          _estadoPeso = "mantener";
+          _pesoMediana = 0;
+          _tallaMediana = 0;
+          _omsImc = 0;
+          _omsColor = Colors.grey;
+          _omsError = null;
+          _calculandoOMS = false;
         });
-        if (mounted) {
-          setState(() {
-            _omsStatusPeso = data['diagnostico_nutri_texto'] ?? "Normal";
-            _omsStatusTalla = data['diagnostico_talla_texto'] ?? "Adecuada";
-            _resumenClinico = data['resumen_clinico'] ?? "";
-            _gananciaPeso = asDouble(data['ganancia_peso_necesaria']);
-            _gananciaTalla = asDouble(data['ganancia_talla_necesaria']);
-            _estadoPeso = data['estado_peso'] ?? "mantener";
-            _pesoMediana = asDouble(data['peso_ideal']);
-            _tallaMediana = asDouble(data['talla_ideal']);
+      }
+      return;
+    }
 
-            final combined = (data['diagnostico_combinado'] ??
-                    "$_omsStatusPeso / $_omsStatusTalla")
-                .toString()
-                .toLowerCase();
-            if (combined.contains("severa") ||
-                combined.contains("emaciación") ||
-                combined.contains("desnutrición"))
-              _omsColor = Colors.red;
-            else if (combined.contains("sobrepeso") ||
-                combined.contains("riesgo"))
-              _omsColor = Colors.orange;
-            else
-              _omsColor = greenBrand;
-            _calculandoOMS = false;
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _calculandoOMS = false;
-            String err = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
-            if (err.toLowerCase().contains("connection error") || err.toLowerCase().contains("dioexception") || err.toLowerCase().contains("apierror") || err.toLowerCase().contains("failed host lookup")) {
-              err = "Error de conexión con el servidor. Verifica tu internet e intenta de nuevo.";
-            }
-            _omsError = err;
+    // Cálculo local instantáneo de IMC (0 ms de latencia)
+    final double imc = p / ((t / 100) * (t / 100));
+    String localPeso = "Normal";
+    Color localColor = greenBrand;
+    if (imc < 13) {
+      localPeso = "Delgadez severa";
+      localColor = Colors.red;
+    } else if (imc < 14.5) {
+      localPeso = "Delgadez";
+      localColor = Colors.orange;
+    } else if (imc < 18.5) {
+      localPeso = "Normal";
+      localColor = greenBrand;
+    } else if (imc < 25) {
+      localPeso = "Normal";
+      localColor = greenBrand;
+    } else if (imc < 30) {
+      localPeso = "Sobrepeso";
+      localColor = Colors.orange;
+    } else {
+      localPeso = "Obesidad";
+      localColor = Colors.red;
+    }
+
+    // Si aún no se seleccionó fecha de nacimiento o sexo biológico en el Paso 2
+    if (_pacFechaNac == null || _pacSexo == null) {
+      setState(() {
+        _omsImc = imc;
+        _omsStatusPeso = localPeso;
+        _omsStatusTalla = "Pendiente";
+        _omsColor = localColor;
+        _omsError = "Para el cálculo completo de percentiles y curvas OMS, asegúrese de completar la fecha de nacimiento y sexo en el Paso 2 (Datos del paciente).";
+        _calculandoOMS = false;
+      });
+      return;
+    }
+
+    // Iniciar cálculo remoto completo con backend OMS
+    setState(() {
+      _calculandoOMS = true;
+      _omsError = null;
+      _omsImc = imc;
+      if (_omsStatusPeso == "PENDIENTE") {
+        _omsStatusPeso = localPeso;
+        _omsColor = localColor;
+      }
+    });
+
+    try {
+      double asDouble(dynamic value, {double fallback = 0}) {
+        if (value is num) return value.toDouble();
+        return double.tryParse(value?.toString() ?? "") ?? fallback;
+      }
+
+      final data = await ref
+          .read(repositorioMedicoProvider)
+          .preDiagnosticoNutricional({
+        "fecha_nacimiento": _pacFechaNac!.toIso8601String().split("T").first,
+        "id_sexo": _pacSexo,
+        "peso_kg": p,
+        "talla_cm": t,
+      });
+
+      if (mounted) {
+        setState(() {
+          _omsImc = asDouble(data['imc'], fallback: imc);
+          _omsStatusPeso = data['diagnostico_nutri_texto'] ?? localPeso;
+          _omsStatusTalla = data['diagnostico_talla_texto'] ?? "Adecuada";
+          _resumenClinico = data['resumen_clinico'] ?? "";
+          _gananciaPeso = asDouble(data['ganancia_peso_necesaria']);
+          _gananciaTalla = asDouble(data['ganancia_talla_necesaria']);
+          _estadoPeso = data['estado_peso'] ?? "mantener";
+          _pesoMediana = asDouble(data['peso_ideal']);
+          _tallaMediana = asDouble(data['talla_ideal']);
+
+          final combined = (data['diagnostico_combinado'] ??
+                  "$_omsStatusPeso / $_omsStatusTalla")
+              .toString()
+              .toLowerCase();
+          if (combined.contains("severa") ||
+              combined.contains("emaciación") ||
+              combined.contains("desnutrición") ||
+              combined.contains("obesidad")) {
             _omsColor = Colors.red;
-          });
-        }
+          } else if (combined.contains("sobrepeso") ||
+              combined.contains("riesgo") ||
+              combined.contains("delgadez") ||
+              combined.contains("baja")) {
+            _omsColor = Colors.orange;
+          } else {
+            _omsColor = greenBrand;
+          }
+          _calculandoOMS = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _calculandoOMS = false;
+          String err = e.toString().replaceAll("Exception: ", "").replaceAll("Exception", "").trim();
+          if (err.toLowerCase().contains("connection error") ||
+              err.toLowerCase().contains("dioexception") ||
+              err.toLowerCase().contains("apierror") ||
+              err.toLowerCase().contains("failed host lookup")) {
+            err = "Conexión lenta o sin internet. Mostrando evaluación estimada.";
+          }
+          _omsStatusPeso = localPeso;
+          _omsStatusTalla = "Estimada";
+          _omsColor = localColor;
+          _omsError = err;
+        });
       }
     }
   }
 
   String _omsStatusPeso = "PENDIENTE";
   String _omsStatusTalla = "PENDIENTE";
+  double _omsImc = 0;
   String _resumenClinico = "";
   double _gananciaPeso = 0;
   double _gananciaTalla = 0;
@@ -1704,8 +1789,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         },
         "salud": {
           "id_patologia_base": _idPatologiaBase,
-          "peso_kg": _clinPeso.text,
-          "talla_cm": _clinTalla.text,
+          "peso_kg": _clinPeso.text.trim().replaceAll(',', '.'),
+          "talla_cm": _clinTalla.text.trim().replaceAll(',', '.'),
           "articulaciones_inflamadas": _clinArtInflam.text,
           "articulaciones_dolorosas": _clinArtDolor.text,
           "minutos_rigidez": _clinRigidez.text,
@@ -2195,11 +2280,15 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       Expanded(
                           child: _field(_clinPeso, "Peso inicial (kg)*",
                               Icons.monitor_weight_outlined,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                               onChanged: (_) => _debouncedOMS())),
                       const SizedBox(width: 20),
                       Expanded(
                           child: _field(_clinTalla, "Talla inicial (cm)*",
                               Icons.height_outlined,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                               onChanged: (_) => _debouncedOMS())),
                     ]),
                     const SizedBox(height: 20),
@@ -3601,17 +3690,23 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: _omsError!.contains("Paso 2") ? Colors.amber.shade50 : Colors.red.shade50,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.red.shade200),
+              border: Border.all(color: _omsError!.contains("Paso 2") ? Colors.amber.shade300 : Colors.red.shade200),
             ),
             child: Row(children: [
-              Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade600),
+              Icon(
+                _omsError!.contains("Paso 2") ? Icons.info_outline_rounded : Icons.error_outline_rounded,
+                size: 16,
+                color: _omsError!.contains("Paso 2") ? Colors.amber.shade800 : Colors.red.shade600,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_omsError!,
                     style: GoogleFonts.inter(
-                        fontSize: 11, fontWeight: FontWeight.w600, color: Colors.red.shade700)),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _omsError!.contains("Paso 2") ? Colors.amber.shade900 : Colors.red.shade700)),
               ),
             ]),
           ),
@@ -3626,6 +3721,14 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         const SizedBox(height: 14),
         Row(
           children: [
+            Expanded(
+              child: _metricPill(
+                  "IMC",
+                  _omsImc > 0
+                      ? "${_omsImc.toStringAsFixed(1)} kg/m²"
+                      : "-"),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: _metricPill(
                   "Peso ideal",
@@ -3716,6 +3819,9 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   String _buildClinicalSummaryText() {
+    if (_omsStatusPeso == "PENDIENTE" && _omsStatusTalla == "PENDIENTE") {
+      return "Ingrese el peso (kg) y la talla (cm) del paciente para calcular automáticamente el diagnóstico nutricional según patrones OMS.";
+    }
     final stPeso = _omsStatusPeso.toLowerCase();
     final stTalla = _omsStatusTalla.toLowerCase();
     String pesoTxt;
