@@ -101,6 +101,28 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
               fontWeight: FontWeight.w800,
               color: const Color(0xFF334155)),
         ),
+        scrollbarTheme: ScrollbarThemeData(
+          thumbVisibility: const WidgetStatePropertyAll(true),
+          trackVisibility: const WidgetStatePropertyAll(false),
+          thickness: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.dragged)) {
+              return 10.0;
+            }
+            return 7.0;
+          }),
+          radius: const Radius.circular(8.0),
+          interactive: true,
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.dragged)) {
+              return const Color(0xFF475569);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return const Color(0xFF64748B);
+            }
+            return const Color(0xFFCBD5E1);
+          }),
+        ),
       ),
       home: rootPage,
       localizationsDelegates: const [
@@ -125,8 +147,22 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
       };
 
   @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(
+      parent: AlwaysScrollableScrollPhysics(),
+    );
+  }
+
+  @override
   Widget buildScrollbar(
       BuildContext context, Widget child, ScrollableDetails details) {
-    return child;
+    if (axisDirectionToAxis(details.direction) == Axis.horizontal) {
+      return child;
+    }
+    return Scrollbar(
+      controller: details.controller,
+      interactive: true,
+      child: child,
+    );
   }
 }
