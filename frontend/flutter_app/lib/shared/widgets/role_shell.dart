@@ -10,6 +10,7 @@ import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
 import "layout_components.dart";
+import "smooth_scroll.dart";
 
 final menuExpandedProvider = StateProvider<bool>((ref) => true);
 
@@ -27,6 +28,7 @@ class _RoleShellState extends ConsumerState<RoleShell>
   bool _signingOut = false;
   
   final Map<String, Widget> _moduleCache = <String, Widget>{};
+  final Map<int, SmoothScrollController> _controllers = {};
   final Map<String, bool> _categoryExpanded = {};
   final Set<int> _visitedIndices = {};
   bool _navigatingForward = true;
@@ -54,6 +56,9 @@ class _RoleShellState extends ConsumerState<RoleShell>
   @override
   void dispose() {
     _animController.dispose();
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -63,6 +68,10 @@ class _RoleShellState extends ConsumerState<RoleShell>
     if (oldWidget.role != widget.role) {
       _index = 0;
       _moduleCache.clear();
+      for (final controller in _controllers.values) {
+        controller.dispose();
+      }
+      _controllers.clear();
       _visitedIndices.clear();
       _animController.value = 1.0;
 
@@ -84,7 +93,17 @@ class _RoleShellState extends ConsumerState<RoleShell>
   Widget _moduleFor(RoleModule module, int index) {
     return _moduleCache.putIfAbsent(
       _cacheKeyFor(module, index),
-      module.builder,
+      () {
+        final controller = _controllers.putIfAbsent(
+          index,
+          () => SmoothScrollController(),
+        );
+        return PrimaryScrollController(
+          controller: controller,
+          automaticallyInheritForPlatforms: TargetPlatform.values.toSet(),
+          child: module.builder(),
+        );
+      },
     );
   }
 
@@ -445,9 +464,12 @@ class _RoleShellState extends ConsumerState<RoleShell>
         children: [
           const SizedBox(height: 10),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: listItems,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: listItems,
+              ),
             ),
           ),
           AnimatedOpacity(

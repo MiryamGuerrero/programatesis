@@ -80,66 +80,6 @@
         }
       });
     }
-
-    // Interpolador de desplazamiento suave (Smooth Scrolling) para Flutter Web
-    (function() {
-      let targetDeltaY = 0;
-      let targetDeltaX = 0;
-      let isAnimating = false;
-      let currentTarget = null;
-      let clientX = 0;
-      let clientY = 0;
-
-      window.addEventListener('wheel', function(e) {
-        if (e.__isSmooth) return;
-
-        e.preventDefault();
-        e.stopImmediatePropagation();
-
-        targetDeltaY += e.deltaY;
-        targetDeltaX += e.deltaX;
-        currentTarget = e.target;
-        clientX = e.clientX;
-        clientY = e.clientY;
-
-        if (!isAnimating) {
-          isAnimating = true;
-          requestAnimationFrame(step);
-        }
-      }, { capture: true, passive: false });
-
-      function step() {
-        if (Math.abs(targetDeltaY) < 0.5 && Math.abs(targetDeltaX) < 0.5) {
-          targetDeltaY = 0;
-          targetDeltaX = 0;
-          isAnimating = false;
-          return;
-        }
-
-        const stepY = targetDeltaY * 0.18;
-        const stepX = targetDeltaX * 0.18;
-
-        targetDeltaY -= stepY;
-        targetDeltaX -= stepX;
-
-        if (currentTarget) {
-          const smoothEvent = new WheelEvent('wheel', {
-            deltaX: stepX,
-            deltaY: stepY,
-            deltaMode: 0,
-            clientX: clientX,
-            clientY: clientY,
-            bubbles: true,
-            cancelable: true,
-            view: window
-          });
-          smoothEvent.__isSmooth = true;
-          currentTarget.dispatchEvent(smoothEvent);
-        }
-
-        requestAnimationFrame(step);
-      }
-    })();
   </script>
 </body>
 </html>
