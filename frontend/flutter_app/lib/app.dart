@@ -103,25 +103,27 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         ),
         scrollbarTheme: ScrollbarThemeData(
           thumbVisibility: const WidgetStatePropertyAll(true),
-          trackVisibility: const WidgetStatePropertyAll(false),
+          trackVisibility: const WidgetStatePropertyAll(true),
           thickness: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.dragged)) {
-              return 10.0;
+              return 11.0;
             }
-            return 7.0;
+            return 8.0;
           }),
           radius: const Radius.circular(8.0),
           interactive: true,
           thumbColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.dragged)) {
-              return const Color(0xFF475569);
+              return const Color(0xFF004C87); // Azul intenso al arrastrar
             }
             if (states.contains(WidgetState.hovered)) {
-              return const Color(0xFF64748B);
+              return const Color(0xFF0171BB); // Azul corporativo al pasar el cursor
             }
-            return const Color(0xFFCBD5E1);
+            return const Color(0xFF475569); // Pizarra oscuro con alto contraste sobre el fondo
           }),
+          trackColor: const WidgetStatePropertyAll(Color(0xFFE2E8F0)), // Carril visible
+          trackBorderColor: const WidgetStatePropertyAll(Color(0xFFCBD5E1)),
         ),
       ),
       home: rootPage,
@@ -162,6 +164,8 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
     return Scrollbar(
       controller: details.controller,
       interactive: true,
+      thumbVisibility: true,
+      trackVisibility: true,
       child: child,
     );
   }
