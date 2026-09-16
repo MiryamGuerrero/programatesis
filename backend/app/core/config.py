@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import List
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Obtener la ruta raíz del proyecto (donde debería estar el .env)
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development", alias="APP_ENV")
     app_name: str = Field(default="Reuma Nutri API", alias="APP_NAME")
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
-    app_port: int = Field(default=8000, alias="APP_PORT")
+    app_port: int = Field(default=8000, validation_alias=AliasChoices("PORT", "APP_PORT"))
 
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
     supabase_anon_key: str = Field(default="", alias="SUPABASE_ANON_KEY")
