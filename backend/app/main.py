@@ -44,7 +44,8 @@ app = FastAPI(
 # Configuración de Seguridad y CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=list(dict.fromkeys([*cors_origins, "https://nutrireuma-web1.pages.dev"])),
+    allow_origin_regex=r"https://.*\.pages\.dev",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
