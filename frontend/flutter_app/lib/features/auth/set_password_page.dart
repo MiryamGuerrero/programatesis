@@ -18,8 +18,7 @@ class SetPasswordPage extends ConsumerStatefulWidget {
   ConsumerState<SetPasswordPage> createState() => _SetPasswordPageState();
 }
 
-class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
-    with SingleTickerProviderStateMixin {
+class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
@@ -29,25 +28,13 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
   String? _errorMessage;
   String? _successMessage;
 
-  late AnimationController _animController;
-
   static const Color _azulOscuro = AppTema.azulOscuro;
   static const Color _verde = AppTema.verdeSalud;
   static const Color _grisTexto = Color(0xFF64748B);
   static const Color _grisFuerte = Color(0xFF334155);
 
   @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 25),
-    )..repeat();
-  }
-
-  @override
   void dispose() {
-    _animController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -117,15 +104,11 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (_, __) {
-                return CustomPaint(
-                  painter: _ProfessionalBackgroundPainter(
-                      value: _animController.value),
-                );
-              },
+          const Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _ProfessionalBackgroundPainter(),
+              ),
             ),
           ),
           SafeArea(
@@ -380,12 +363,11 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage>
 }
 
 class _ProfessionalBackgroundPainter extends CustomPainter {
-  final double value;
-  _ProfessionalBackgroundPainter({required this.value});
+  const _ProfessionalBackgroundPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final float = math.sin(value * 2 * math.pi);
+    const float = 0.0;
 
     final paintWhite = Paint()..color = const Color(0xFFF8FAFD);
     final pathWhite = Path()
@@ -398,7 +380,7 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
     canvas.drawPath(pathWhite, paintWhite);
 
     final paintGreen = Paint()
-      ..color = const Color(0xFF58A932).withOpacity(0.9);
+      ..color = const Color(0xFF58A932).withValues(alpha: 0.9);
     final pathGreen = Path()
       ..moveTo(0, size.height * 0.8)
       ..quadraticBezierTo(
@@ -429,7 +411,7 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
 
   void _drawFloatingSquares(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -439,9 +421,9 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
       double baseX = size.width * (0.52 + random.nextDouble() * 0.43);
       double baseY = size.height * random.nextDouble();
 
-      double x = baseX + math.sin(value * 2 * math.pi + i) * 10;
-      double y = baseY + math.cos(value * 2 * math.pi + i) * 12;
-      double rotation = value * 2 * math.pi * (i % 2 == 0 ? 1 : -1) * 0.1;
+      double x = baseX + math.sin(i.toDouble()) * 10;
+      double y = baseY + math.cos(i.toDouble()) * 12;
+      double rotation = (i % 2 == 0 ? 1 : -1) * 0.1;
 
       double pSize = (i % 3 == 0)
           ? (30.0 + random.nextDouble() * 10.0)
@@ -458,6 +440,5 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ProfessionalBackgroundPainter oldDelegate) =>
-      true;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

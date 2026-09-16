@@ -24,8 +24,7 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage>
-    with SingleTickerProviderStateMixin {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -33,28 +32,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _obscurePassword = true;
   String? _errorMessage;
 
-  late AnimationController _animController;
-
   static const Color _azul = AppTema.azulPrincipal;
   static const Color _azulOscuro = AppTema.azulOscuro;
   static const Color _verde = AppTema.verdeSalud;
   static const Color _grisTexto = Color(0xFF64748B);
   static const Color _grisFuerte = Color(0xFF334155);
-  static const Color _borde = Color(0xFFD7E1EA);
-  static const Color _fondo = AppTema.grisFondo;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 25),
-    )..repeat();
-  }
 
   @override
   void dispose() {
-    _animController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -172,16 +157,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Pintor de Fondo
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (_, __) {
-                return CustomPaint(
-                  painter: _ProfessionalBackgroundPainter(
-                      value: _animController.value),
-                );
-              },
+          // 1. Pintor de Fondo (Optimizado para 0% GPU en reposo)
+          const Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _ProfessionalBackgroundPainter(),
+              ),
             ),
           ),
 
@@ -234,16 +215,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (_, __) {
-                return CustomPaint(
-                  painter: _ProfessionalBackgroundPainter(
-                    value: _animController.value,
-                  ),
-                );
-              },
+          const Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _ProfessionalBackgroundPainter(),
+              ),
             ),
           ),
           SafeArea(
@@ -924,12 +900,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
 }
 
 class _ProfessionalBackgroundPainter extends CustomPainter {
-  final double value;
-  _ProfessionalBackgroundPainter({required this.value});
+  const _ProfessionalBackgroundPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final float = math.sin(value * 2 * math.pi);
+    const float = 0.0;
 
     // 1. CAPA BLANCA (FONDO - DIBUJADA PRIMERO)
     final paintWhite = Paint()..color = const Color(0xFFF8FAFD);
@@ -944,7 +919,7 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
 
     // 2. DETALLE VERDE (FONDO)
     final paintGreen = Paint()
-      ..color = const Color(0xFF58A932).withOpacity(0.9);
+      ..color = const Color(0xFF58A932).withValues(alpha: 0.9);
     final pathGreen = Path()
       ..moveTo(0, size.height * 0.8)
       ..quadraticBezierTo(
@@ -972,13 +947,13 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
       ..close();
     canvas.drawPath(pathBlue, paintBlue);
 
-    // 4. CUADRITOS DINÁMICOS (POR ENCIMA DEL AZUL)
+    // 4. CUADRITOS DECORATIVOS (POR ENCIMA DEL AZUL)
     _drawFloatingSquares(canvas, size);
   }
 
   void _drawFloatingSquares(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -988,9 +963,9 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
       double baseX = size.width * (0.52 + random.nextDouble() * 0.43);
       double baseY = size.height * random.nextDouble();
 
-      double x = baseX + math.sin(value * 2 * math.pi + i) * 10;
-      double y = baseY + math.cos(value * 2 * math.pi + i) * 12;
-      double rotation = value * 2 * math.pi * (i % 2 == 0 ? 1 : -1) * 0.1;
+      double x = baseX + math.sin(i.toDouble()) * 10;
+      double y = baseY + math.cos(i.toDouble()) * 12;
+      double rotation = (i % 2 == 0 ? 1 : -1) * 0.1;
 
       double pSize = (i % 3 == 0)
           ? (30.0 + random.nextDouble() * 10.0)
@@ -1007,6 +982,5 @@ class _ProfessionalBackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ProfessionalBackgroundPainter oldDelegate) =>
-      true;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
