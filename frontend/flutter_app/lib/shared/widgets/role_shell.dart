@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -144,15 +145,22 @@ class _RoleShellState extends ConsumerState<RoleShell>
 
     // Detectar en tiempo real si el rol actual mostrado en pantalla fue revocado
     ref.listen<AsyncValue<Map<String, dynamic>>>(miPerfilProvider, (previous, next) {
-      final profile = next.valueOrNull;
-      if (profile == null) return;
+      final prevProfile = previous?.valueOrNull;
+      final nextProfile = next.valueOrNull;
+      // Solo actuar si el perfil ya estaba previamente cargado y cambió (evita bucles en el primer render)
+      if (prevProfile == null || nextProfile == null) return;
+      if (mapEquals(prevProfile, nextProfile)) return;
 
-      final roles = profile["roles"] as List<dynamic>? ?? [];
+      final roles = nextProfile["roles"] as List<dynamic>? ?? [];
       final roleIds = roles.map((r) => r["id"] ?? r["id_rol"]).whereType<int>().toSet();
 
       final currentRoleId = widget.role.id;
       if (roleIds.isNotEmpty && !roleIds.contains(currentRoleId)) {
-        ref.invalidate(appRoleProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.invalidate(appRoleProvider);
+          }
+        });
       }
     });
 

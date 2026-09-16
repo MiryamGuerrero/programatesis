@@ -1,24 +1,35 @@
-const CACHE_NAME = 'reuma-static-v2';
+const CACHE_NAME = 'reuma-static-v3';
 const OFFLINE_URLS = [
   '/',
   'index.html',
-  'main.dart.js',
   'flutter_bootstrap.js',
   'assets/AssetManifest.json',
   'assets/FontManifest.json',
   'assets/NOTICES',
-  'assets/images/logo_reuma_nutri.png'
+  'assets/assets/images/logo_reuma_nutri.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(OFFLINE_URLS))
+    caches.open(CACHE_NAME).then(async cache => {
+      for (const url of OFFLINE_URLS) {
+        try {
+          await cache.add(url);
+        } catch (e) {
+          console.warn('Failed to cache:', url, e);
+        }
+      }
+    })
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    )).then(() => clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
