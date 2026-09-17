@@ -485,8 +485,15 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 """, (paciente["nombre_completo"], paciente["fecha_nacimiento"], paciente["id_sexo"], (paciente.get("id_canton") or 1), paciente.get("id_parroquia"), cedula_paciente))
                 paciente_id = cur.fetchone()[0]
                 
-                # 3. RelaciÃ³n Tutor-Paciente
-                cur.execute("insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) values (%s, %s, %s, true, true)", (tutor_id, paciente_id, tutor.get("id_parentesco")))
+                # 3. Relación Tutor-Paciente
+                cur.execute("""
+                    insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) 
+                    values (%s, %s, %s, true, true)
+                    on conflict (id_usuario_tutor, id_paciente) do update set
+                        id_parentesco = coalesce(EXCLUDED.id_parentesco, usuarios.tutor_paciente.id_parentesco),
+                        es_principal = true,
+                        activo = true
+                """, (tutor_id, paciente_id, tutor.get("id_parentesco")))
                 
                 # 4. EvaluaciÃ³n OMS
                 fecha_nac = date.fromisoformat(paciente["fecha_nacimiento"])
@@ -1210,6 +1217,11 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                                 else:
                                     raise auth_err
                                     
+                        # Eliminar vínculo secundario/inactivo previo para evitar colisión de unique key
+                        cur.execute("""
+                            delete from usuarios.tutor_paciente 
+                            where id_paciente = %s and id_usuario_tutor = %s and es_principal = false
+                        """, (id_paciente, new_tutor_id))
                         cur.execute("""
                             update usuarios.tutor_paciente 
                             set id_usuario_tutor = %s, id_parentesco = %s
@@ -1281,6 +1293,10 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                         cur.execute("""
                             insert into usuarios.tutor_paciente (id_usuario_tutor, id_paciente, id_parentesco, es_principal, activo) 
                             values (%s, %s, %s, true, true)
+                            on conflict (id_usuario_tutor, id_paciente) do update set
+                                id_parentesco = coalesce(EXCLUDED.id_parentesco, usuarios.tutor_paciente.id_parentesco),
+                                es_principal = true,
+                                activo = true
                         """, (tutor_id, id_paciente, tutor.get("id_parentesco")))
 
                 # 3. DiagnÃ³stico Base

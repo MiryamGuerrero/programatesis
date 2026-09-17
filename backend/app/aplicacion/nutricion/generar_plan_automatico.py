@@ -113,6 +113,16 @@ class CasoUsoGenerarPlanAutomatico:
         log_callback: Optional[callable] = None,
         momentos_a_omitir: Optional[dict] = None
     ) -> PlanSemanal:
+        # TRUNCAR DIAS HASTA LA PROXIMA REVISION (CONTROL MEDICO)
+        # El plan solo debe abarcar hasta un día antes de la consulta.
+        if hasattr(self.repo_paciente, 'obtener_fecha_proxima_cita'):
+            fecha_proxima = self.repo_paciente.obtener_fecha_proxima_cita(id_paciente)
+            if fecha_proxima and fecha_proxima > fecha_inicio:
+                dias_hasta_cita = (fecha_proxima - fecha_inicio).days
+                if dias_hasta_cita < dias and dias_hasta_cita > 0:
+                    if log_callback: log_callback(f"Ajustando a {dias_hasta_cita} días por consulta médica programada el {fecha_proxima}.")
+                    dias = dias_hasta_cita
+
         # 1. Obtener perfil del paciente (para condiciones)
         perfil = self.repo_paciente.obtener_por_id(id_paciente)
         if not perfil:
@@ -311,6 +321,16 @@ class CasoUsoGenerarPlanAutomatico:
                 if not receta_seleccionada:
                     opciones_fallback = recetas_por_momento_y_tipo[m_id].get("general", [])
                     if opciones_fallback:
+                        # En snacks (Media Mañana y Media Tarde), restringir fallback a preparaciones de colación
+                        if m_id in (2, 4):
+                            tipos_snack_validos = {21, 28, 30, 31, 33, 34, 35, 36, 37, 43, 44, 45, 46, 48}
+                            opciones_filtradas = [
+                                r for r in opciones_fallback 
+                                if any(tid in tipos_snack_validos for tid in (r.get("tipos_plato_ids") or []))
+                            ]
+                            if opciones_filtradas:
+                                opciones_fallback = opciones_filtradas
+
                         r_elegida = self._seleccionar_receta_con_prioridad(opciones_fallback, historial_recientes)
                         historial_recientes.append(r_elegida["id"])
                         if len(historial_recientes) > 20:
@@ -390,21 +410,39 @@ class CasoUsoGenerarPlanAutomatico:
         }
 
     def _seleccionar_receta_con_prioridad(self, recetas: List[dict], historial_recientes: Optional[List[int]] = None) -> dict:
+        if not recetas:
+            raise ValueError("No hay recetas disponibles para seleccionar.")
         if historial_recientes is None:
             historial_recientes = []
 
         pesos = []
         for r in recetas:
-            peso = 1.0
+            # 1. Puntaje base
+            peso = 10.0
             
-            if r["id"] in historial_recientes:
-                peso *= 0.05
+            # 2. Priorización clínica terapéutica
+            # Recetas potenciadas (antiinflamatorias, omega-3, recomendadas por médico/nutricionista)
+            if r.get("es_potenciada"):
+                peso += 40.0
 
-            if r.get("es_preferida"): peso *= 6.0
-            if r.get("es_potenciada"): peso *= 20.0
-            if r.get("es_disminuida"): peso *= 0.05
-            
-            pesos.append(peso)
+            # Recetas a disminuir (precaución clínica)
+            if r.get("es_disminuida"):
+                peso = max(0.5, peso * 0.1)
+
+            # 3. Gustos y preferencias del paciente (Adherencia pediátrica)
+            if r.get("es_preferida"):
+                peso += 25.0
+
+            # 4. Memoria anti-repetición reciente
+            if r["id"] in historial_recientes:
+                idx = historial_recientes.index(r["id"])
+                distancia = len(historial_recientes) - idx
+                if distancia <= 5:
+                    peso *= 0.02
+                else:
+                    peso *= 0.10
+
+            pesos.append(max(0.001, peso))
             
         return random.choices(recetas, weights=pesos, k=1)[0]
     def asignar_comidas_manuales_fechas(self, id_paciente: str, id_receta, id_momento: int, fechas: List[date], id_usuario: int = None) -> dict:

@@ -12,7 +12,6 @@ import '../../../../shared/widgets/role_shell.dart';
 import '../../../../shared/widgets/nutri_avatar.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
 import '../../../../shared/widgets/shimmer_components.dart';
-import '../../../../shared/widgets/layout_components.dart';
 import 'asignacion_comida_manual_page.dart';
 import 'widgets/receta_modal_verde.dart';
 
@@ -326,7 +325,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final todayOnly = DateTime(today.year, today.month, today.day);
 
     DateTime latestEnd = todayOnly;
+    // Solo considerar planes que estén actualmente vigentes y no hayan caducado
     for (var p in planes) {
+      if (p["vigente"] != true) continue;
       final rawFin = p["fecha_fin"];
       if (rawFin == null) continue;
       try {
@@ -335,7 +336,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       } catch (_) {}
     }
     final rawPlanVigenteFin = planVigente?["fecha_fin"];
-    if (rawPlanVigenteFin != null) {
+    if (rawPlanVigenteFin != null && planVigente?["vigente"] == true) {
       try {
         final vigFin = DateTime.parse(rawPlanVigenteFin.toString());
         if (vigFin.isAfter(latestEnd)) latestEnd = vigFin;
@@ -349,6 +350,23 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
 
     _endDate = _startDate.add(const Duration(days: 6));
+
+    // REGLA CLÍNICA ESTRICTA: El plan nunca debe superar un día antes de la próxima consulta médica
+    DateTime? proximaCitaDate;
+    if (_patientProfile != null) {
+      final c = _patientProfile!['ultimo_control'] ?? {};
+      final str = c['fecha_proxima_cita']?.toString();
+      if (str != null && str.isNotEmpty) {
+        try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
+      }
+    }
+    if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
+      final maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day).subtract(const Duration(days: 1));
+      if (_endDate.isAfter(maxAllowedEnd)) {
+        _endDate = maxAllowedEnd;
+      }
+    }
+
     _calendarViewDate = _startDate;
   }
 
@@ -1921,27 +1939,35 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
           ),
         Expanded(
-          child: Column(
-            children: [
-              _buildHistoryTopBar(),
-              Expanded(
-                child: Container(
-                  color: const Color(0xFFF1F5F9),
-                  child: _isLoading && _patientPlans.isEmpty
-                      ? ListView.builder(
-                          padding: const EdgeInsets.all(40),
-                          itemCount: 3,
-                          itemBuilder: (_, __) => const Padding(
-                            padding: EdgeInsets.only(bottom: 24),
-                            child: NutriCardShimmer(height: 140),
-                          ),
-                        )
-                      : _patientPlans.isEmpty
-                          ? _buildEmptyHistoryState()
-                          : _buildHistoryList(),
-                ),
+          child: Container(
+            color: const Color(0xFFF1F5F9),
+            child: SingleChildScrollView(
+              controller: _historyScrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHistoryTopBar(),
+                  if (_isLoading && _patientPlans.isEmpty)
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(40),
+                      itemCount: 3,
+                      itemBuilder: (_, __) => const Padding(
+                        padding: EdgeInsets.only(bottom: 24),
+                        child: NutriCardShimmer(height: 140),
+                      ),
+                    )
+                  else if (_patientPlans.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: _buildEmptyHistoryState(),
+                    )
+                  else
+                    _buildHistoryList(),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -2182,7 +2208,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }
     
     return ListView.builder(
-      controller: _historyScrollController,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(40),
       itemCount: filtered.length,
       itemBuilder: (context, idx) {
@@ -2248,45 +2275,49 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           ),
 
         Expanded(
-          child: Column(
-            children: [
-              _buildModernTopBar(),
-              Expanded(
-                child: Container(
-                  color: const Color(0xFFF1F5F9),
-                  child: _isLoading && _weeklyPlan.isEmpty
-                      ? ListView.builder(
-                          padding: const EdgeInsets.all(32),
-                          itemCount: 3,
-                          itemBuilder: (_, __) => Padding(
-                            padding: const EdgeInsets.only(bottom: 32),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const NutriShimmer(width: 100, height: 80),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const NutriShimmer(width: 200, height: 20),
-                                      const SizedBox(height: 16),
-                                      Wrap(
-                                        spacing: 16,
-                                        runSpacing: 16,
-                                        children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
-                                      ),
-                                    ],
+          child: Container(
+            color: const Color(0xFFF1F5F9),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildModernTopBar(),
+                  if (_isLoading && _weeklyPlan.isEmpty)
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(32),
+                      itemCount: 3,
+                      itemBuilder: (_, __) => Padding(
+                        padding: const EdgeInsets.only(bottom: 32),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const NutriShimmer(width: 100, height: 80),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const NutriShimmer(width: 200, height: 20),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 16,
+                                    runSpacing: 16,
+                                    children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        )
-                      : _buildWeeklyTimeline(),
-                ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    _buildWeeklyTimeline(),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -2449,6 +2480,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildWeeklyTimeline() {
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(32),
       itemCount: _weeklyPlan.length,
       itemBuilder: (context, idx) {
@@ -2850,6 +2883,31 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       }
     }
 
+    // REGLA CLÍNICA ESTRICTA: Obtener fecha de próxima consulta médica y límite máximo de fin
+    DateTime? proximaCitaDate;
+    if (_patientProfile != null) {
+      final c = _patientProfile!['ultimo_control'] ?? {};
+      final str = c['fecha_proxima_cita']?.toString();
+      if (str != null && str.isNotEmpty) {
+        try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
+      }
+    }
+    DateTime? maxAllowedEnd;
+    if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
+      maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day).subtract(const Duration(days: 1));
+    }
+
+    if (_durationType == "un día") {
+      _endDate = _startDate;
+    } else if (_durationType == "una semana") {
+      _endDate = _startDate.add(const Duration(days: 6));
+    } else if (_durationType == "un mes") {
+      _endDate = _startDate.add(const Duration(days: 29));
+    }
+    if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
+      _endDate = maxAllowedEnd;
+    }
+
     if (!mounted) return;
 
     showDialog(
@@ -2895,7 +2953,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                         DropdownMenuItem(value: "un día", child: Text("Un día completo")),
                         DropdownMenuItem(
                             value: "una semana", child: Text("Una semana")),
-                        DropdownMenuItem(value: "un mes", child: Text("Un mes")),
+                        DropdownMenuItem(value: "un mes", child: Text("Un mes (30 días)")),
                       ],
                       onChanged: (v) {
                         if (v == "una comida") {
@@ -2910,19 +2968,11 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           } else if (_durationType == "una semana") {
                             _endDate = _startDate.add(const Duration(days: 6));
                           } else if (_durationType == "un mes") {
-                            DateTime? proximaCitaDate;
-                            if (_patientProfile != null) {
-                              final c = _patientProfile!['ultimo_control'] ?? {};
-                              final str = c['fecha_proxima_cita']?.toString();
-                              if (str != null && str.isNotEmpty) {
-                                try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
-                              }
-                            }
-                            if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
-                              _endDate = proximaCitaDate.subtract(const Duration(days: 1));
-                            } else {
-                              _endDate = _startDate.add(const Duration(days: 30));
-                            }
+                            _endDate = _startDate.add(const Duration(days: 29));
+                          }
+                          // REGLA CLÍNICA ESTRICTA: Nunca pasar de un día antes de la consulta
+                          if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
+                            _endDate = maxAllowedEnd;
                           }
                         });
                       },
@@ -2934,24 +2984,185 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.blue.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         children: [
-                          const Icon(Icons.calendar_month, color: Colors.blue),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Rango: ${DateFormat('d MMM', 'es_EC').format(_startDate)} - ${DateFormat('d MMM', 'es_EC').format(_endDate)}",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                                fontSize: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.calendar_month, color: Colors.blue, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            "Total: ${_endDate.difference(_startDate).inDays + 1} días de vigencia",
-                            style: TextStyle(
-                                color: Colors.blue.shade700, fontSize: 12),
+                          if (proximaCitaDate != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                    ? Colors.amber.shade50
+                                    : Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                      ? Colors.amber.shade300
+                                      : Colors.blue.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                        ? Icons.event_busy
+                                        : Icons.event_available,
+                                    size: 16,
+                                    color: (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                        ? Colors.amber.shade800
+                                        : Colors.blue.shade700,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                          ? "Próxima cita médica: ${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}. Plan delimitado hasta el ${DateFormat('d MMM', 'es_EC').format(maxAllowedEnd)} (un día antes)."
+                                          : "Próxima cita médica: ${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
+                                            ? Colors.amber.shade900
+                                            : Colors.blue.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _startDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: maxAllowedEnd ?? DateTime(2035),
+                                    );
+                                    if (picked != null) {
+                                      setModalState(() {
+                                        _startDate = DateTime(picked.year, picked.month, picked.day);
+                                        if (_durationType == "un día") {
+                                          _endDate = _startDate;
+                                        } else if (_durationType == "una semana") {
+                                          _endDate = _startDate.add(const Duration(days: 6));
+                                        } else if (_durationType == "un mes") {
+                                          _endDate = _startDate.add(const Duration(days: 29));
+                                        }
+                                        if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
+                                          _endDate = maxAllowedEnd;
+                                        } else if (_endDate.isBefore(_startDate)) {
+                                          _endDate = _startDate;
+                                        }
+                                      });
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "Desde:",
+                                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                                            ),
+                                            const Spacer(),
+                                            Icon(Icons.edit_calendar, size: 13, color: Colors.blue.shade700),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          DateFormat('d MMM yyyy', 'es_EC').format(_startDate),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward, size: 16, color: Colors.blueGrey),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _endDate.isBefore(_startDate) ? _startDate : _endDate,
+                                      firstDate: _startDate,
+                                      lastDate: maxAllowedEnd ?? DateTime(2035),
+                                    );
+                                    if (picked != null) {
+                                      setModalState(() {
+                                        _endDate = DateTime(picked.year, picked.month, picked.day);
+                                        if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
+                                          _endDate = maxAllowedEnd;
+                                        }
+                                      });
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "Hasta:",
+                                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                                            ),
+                                            const Spacer(),
+                                            Icon(Icons.edit_calendar, size: 13, color: Colors.blue.shade700),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          DateFormat('d MMM yyyy', 'es_EC').format(_endDate),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -3666,14 +3877,20 @@ class _RecipePicker extends ConsumerStatefulWidget {
 }
 
 class _RecipePickerState extends ConsumerState<_RecipePicker> {
+  List<dynamic> _todasLasRecetasMemoria = [];
   List<dynamic> _recipes = [];
   List<dynamic> _filtered = [];
   List<Map<String, dynamic>> _tipos = [];
   int? _tipoSeleccionado;
   final Map<int?, List<dynamic>> _cachePorTipo = {};
-  Map<int, bool> _preferences = {};
+  final Map<int, bool> _preferences = {};
   final Map<int, Map<String, dynamic>> _selected = {};
   bool _loading = true;
+  String _searchQuery = "";
+  int _filtroPrioridad = 0; // 0: Todas, 1: Recomendadas, 2: Favoritas
+
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -3685,6 +3902,50 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     _fetch();
   }
 
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<dynamic> _ordenarRecetas(List<dynamic> lista) {
+    final copy = List<dynamic>.from(lista);
+    copy.sort((a, b) {
+      final aPot = (a["es_potenciada"] == true || a["semaforo"] == "verde") ? 1 : 0;
+      final bPot = (b["es_potenciada"] == true || b["semaforo"] == "verde") ? 1 : 0;
+      if (aPot != bPot) return bPot.compareTo(aPot);
+
+      final aId = int.tryParse(a["id"]?.toString() ?? "") ?? 0;
+      final bId = int.tryParse(b["id"]?.toString() ?? "") ?? 0;
+      final aPref = (a["es_preferida"] == true || _preferences[aId] == true) ? 1 : 0;
+      final bPref = (b["es_preferida"] == true || _preferences[bId] == true) ? 1 : 0;
+      if (aPref != bPref) return bPref.compareTo(aPref);
+
+      return (a["nombre"] ?? "").toString().compareTo((b["nombre"] ?? "").toString());
+    });
+    return copy;
+  }
+
+  void _aplicarFiltros() {
+    final q = _searchQuery.toLowerCase().trim();
+    _filtered = _recipes.where((r) {
+      if (q.isNotEmpty) {
+        final nombre = (r["nombre"] ?? "").toString().toLowerCase();
+        final ing = (r["ingredientes_nombres"] ?? []).toString().toLowerCase();
+        if (!nombre.contains(q) && !ing.contains(q)) return false;
+      }
+
+      final recipeId = int.tryParse(r["id"]?.toString() ?? "") ?? 0;
+      if (_filtroPrioridad == 1) {
+        return r["es_potenciada"] == true || r["semaforo"] == "verde";
+      } else if (_filtroPrioridad == 2) {
+        return r["es_preferida"] == true || _preferences[recipeId] == true;
+      }
+      return true;
+    }).toList();
+  }
+
   Future<void> _fetch() async {
     try {
       final dio = ref.read(dioProvider);
@@ -3693,6 +3954,7 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
         dio.post("recetas-permitidas", data: {
           "id_paciente": widget.idPaciente,
           "id_momento": widget.momentId,
+          "limite": 400,
         }),
       ]);
       final tiposRes = responses[0];
@@ -3701,6 +3963,24 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
           List<Map<String, dynamic>>.from(tiposRes.data ?? []);
       final todasLasRecetas =
           List<dynamic>.from(recetasRes.data["recetas"] ?? []);
+
+      _preferences.clear();
+      for (final r in todasLasRecetas) {
+        final rid = int.tryParse(r["id"]?.toString() ?? "");
+        if (rid != null) {
+          if (r["es_preferida"] == true ||
+              r["preferencia"] == true ||
+              r["paciente_le_gusta"] == true) {
+            _preferences[rid] = true;
+          } else if (r["paciente_le_gusta"] == false) {
+            _preferences[rid] = false;
+          }
+        }
+      }
+
+      final ordenadas = _ordenarRecetas(todasLasRecetas);
+      _todasLasRecetasMemoria = ordenadas;
+
       final conteosPorTipo = <int, int>{};
       for (final receta in todasLasRecetas) {
         final ids = receta["tipos_plato_ids"];
@@ -3711,25 +3991,34 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
           conteosPorTipo[idTipo] = (conteosPorTipo[idTipo] ?? 0) + 1;
         }
       }
-      final tipos = catalogoTipos
-          .where((t) {
-            final id = (t["id"] as num?)?.toInt();
-            return id != null && conteosPorTipo.containsKey(id);
-          })
-          .map((t) => {
-                "id_tipo_plato": (t["id"] as num?)?.toInt(),
-                "tipo_plato_nombre": (t["nombre"] ?? "Tipo").toString(),
-                "total_recetas":
-                    conteosPorTipo[(t["id"] as num?)?.toInt()] ?? 0,
-              })
-          .toList();
+
+      final tipos = <Map<String, dynamic>>[
+        {
+          "id_tipo_plato": null,
+          "tipo_plato_nombre": "Todos los platos",
+          "total_recetas": todasLasRecetas.length,
+        },
+        ...catalogoTipos
+            .where((t) {
+              final id = (t["id"] as num?)?.toInt();
+              return id != null && conteosPorTipo.containsKey(id);
+            })
+            .map((t) => {
+                  "id_tipo_plato": (t["id"] as num?)?.toInt(),
+                  "tipo_plato_nombre": (t["nombre"] ?? "Tipo").toString(),
+                  "total_recetas":
+                      conteosPorTipo[(t["id"] as num?)?.toInt()] ?? 0,
+                })
+            .toList(),
+      ];
+
       _cachePorTipo
         ..clear()
-        ..[null] = todasLasRecetas;
+        ..[null] = ordenadas;
       for (final tipo in tipos) {
         final idTipo = (tipo["id_tipo_plato"] as num?)?.toInt();
         if (idTipo == null) continue;
-        _cachePorTipo[idTipo] = todasLasRecetas.where((receta) {
+        _cachePorTipo[idTipo] = ordenadas.where((receta) {
           final ids = receta["tipos_plato_ids"];
           if (ids is Iterable) {
             return ids.any((id) => (id as num?)?.toInt() == idTipo);
@@ -3737,17 +4026,13 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
           return false;
         }).toList();
       }
-      final tipoInicial = tipos.isNotEmpty
-          ? (tipos.first["id_tipo_plato"] as num?)?.toInt()
-          : null;
-      final recetasIniciales = _cachePorTipo[tipoInicial] ?? todasLasRecetas;
+
       if (mounted) {
         setState(() {
           _tipos = tipos;
-          _tipoSeleccionado = tipoInicial;
-          _recipes = recetasIniciales;
-          _filtered = _recipes;
-          _preferences = {};
+          _tipoSeleccionado = null; // Por defecto ver todos los platos del momento
+          _recipes = ordenadas;
+          _aplicarFiltros();
           _loading = false;
         });
       }
@@ -3756,215 +4041,725 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     }
   }
 
-  Future<List<dynamic>> _obtenerRecetasPorTipo(int? idTipo) async {
-    if (_cachePorTipo.containsKey(idTipo)) {
-      return _cachePorTipo[idTipo] ?? <dynamic>[];
-    }
-    final dio = ref.read(dioProvider);
-    final data = <String, dynamic>{
-      "id_paciente": widget.idPaciente,
-      "id_momento": widget.momentId,
-    };
-    if (idTipo != null) {
-      data["id_tipo_plato"] = idTipo;
-    }
-    final res = await dio.post("recetas-permitidas", data: data);
-    final recetas = List<dynamic>.from(res.data["recetas"] ?? []);
-    _cachePorTipo[idTipo] = recetas;
-    return recetas;
-  }
-
-  Future<void> _cargarPorTipo(int? idTipo) async {
-    if (!mounted) {
-      return;
-    }
-    final recetas = await _obtenerRecetasPorTipo(idTipo);
+  void _cargarPorTipo(int? idTipo) {
     setState(() {
       _tipoSeleccionado = idTipo;
-      _recipes = recetas;
-      _filtered = _recipes;
+      _recipes = _cachePorTipo[idTipo] ?? _todasLasRecetasMemoria;
+      _aplicarFiltros();
     });
+  }
+
+  void _onSearchChanged(String v) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 160), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = v;
+        _aplicarFiltros();
+      });
+    });
+  }
+
+  Widget _buildSidebarStatusTile(
+      int index, String label, IconData icon, int count, Color activeColor) {
+    final isSelected = _filtroPrioridad == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            setState(() {
+              _filtroPrioridad = index;
+              _aplicarFiltros();
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? activeColor.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? activeColor.withValues(alpha: 0.35)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon,
+                    size: 16,
+                    color: isSelected ? activeColor : const Color(0xFF64748B)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? activeColor : const Color(0xFF334155),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? activeColor : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "$count",
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarTipoTile({
+    required int? id,
+    required String nombre,
+    required int count,
+    required bool isSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _cargarPorTipo(id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF0F172A) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    nombre,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF334155),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    "$count",
+                    style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeftFilterSidebar(int totalRecomendadas, int totalFavoritas) {
+    return Container(
+      width: 250,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sección de Estados
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              "FILTRAR POR ESTADO",
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          _buildSidebarStatusTile(0, "Todas", Icons.apps_rounded,
+              _recipes.length, const Color(0xFF0F172A)),
+          _buildSidebarStatusTile(1, "Recomendadas", Icons.verified_rounded,
+              totalRecomendadas, const Color(0xFF16A34A)),
+          _buildSidebarStatusTile(2, "Favoritas", Icons.favorite_rounded,
+              totalFavoritas, const Color(0xFF2563EB)),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ),
+
+          // Sección de Tipos de Plato
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  "TIPOS DE PLATO",
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const Spacer(),
+                if (_tipoSeleccionado != null)
+                  GestureDetector(
+                    onTap: () => _cargarPorTipo(null),
+                    child: Text(
+                      "Ver todos",
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Lista vertical de tipos de plato con scroll
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
+              itemCount: _tipos.length,
+              itemBuilder: (context, i) {
+                final t = _tipos[i];
+                final id = (t["id_tipo_plato"] as num?)?.toInt();
+                final isSelected = id == _tipoSeleccionado;
+                final count = t["total_recetas"] ?? 0;
+                return _buildSidebarTipoTile(
+                  id: id,
+                  nombre: t["tipo_plato_nombre"] ?? "",
+                  count: count,
+                  isSelected: isSelected,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecipeCard(Map<String, dynamic> recipe) {
+    final recipeId = int.tryParse(recipe["id"]?.toString() ?? "") ?? 0;
+    final likes = _preferences[recipeId];
+    final isPotenciada =
+        recipe["es_potenciada"] == true || recipe["semaforo"] == "verde";
+    final isPreferida =
+        recipe["es_preferida"] == true || likes == true;
+    final isSelected = _selected.containsKey(recipeId);
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (_selected.containsKey(recipeId)) {
+            _selected.remove(recipeId);
+          } else {
+            _selected[recipeId] = Map<String, dynamic>.from(recipe);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFFEFF6FF)
+              : (isPotenciada ? const Color(0xFFF0FDF4) : Colors.white),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF3B82F6)
+                : (isPotenciada
+                    ? const Color(0xFF86EFAC)
+                    : Colors.grey.shade200),
+            width: isSelected ? 1.6 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            // Imagen
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 52,
+                height: 52,
+                child: (recipe["imagen_url"] != null &&
+                        recipe["imagen_url"].toString().isNotEmpty)
+                    ? Image.network(
+                        recipe["imagen_url"].toString(),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                            color: Colors.orange.shade50,
+                            child: const Icon(Icons.restaurant,
+                                color: Colors.orange, size: 24)),
+                      )
+                    : Container(
+                        color: Colors.orange.shade50,
+                        child: const Icon(Icons.restaurant,
+                            color: Colors.orange, size: 24)),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Textos y Badges
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          recipe["nombre"]?.toString() ?? "Receta",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isSelected
+                                ? const Color(0xFF1D4ED8)
+                                : Colors.blueGrey.shade900,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (likes == true)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.thumb_up,
+                              color: Colors.green, size: 14),
+                        ),
+                      if (likes == false)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.thumb_down,
+                              color: Colors.red, size: 14),
+                        ),
+                    ],
+                  ),
+                  if (isPotenciada || isPreferida) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        if (isPotenciada)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: const Color(0xFF22C55E),
+                                  width: 0.8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.verified_rounded,
+                                    size: 11,
+                                    color: Color(0xFF15803D)),
+                                SizedBox(width: 3),
+                                Text(
+                                  "Recomendada para su salud",
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (isPreferida)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: const Color(0xFF3B82F6),
+                                  width: 0.8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.favorite,
+                                    size: 11,
+                                    color: Color(0xFF2563EB)),
+                                SizedBox(width: 3),
+                                Text(
+                                  "Favorita del paciente",
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 3),
+                  Text(
+                    recipe["mensaje_regla"]?.toString() ??
+                        recipe["recomendacion"]?.toString() ??
+                        "Segura para el paciente",
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isPotenciada
+                          ? const Color(0xFF166534)
+                          : const Color(0xFF64748B),
+                      fontWeight: isPotenciada
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Checkbox
+            Checkbox(
+              value: isSelected,
+              activeColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              onChanged: (_) {
+                setState(() {
+                  if (isSelected) {
+                    _selected.remove(recipeId);
+                  } else {
+                    _selected[recipeId] =
+                        Map<String, dynamic>.from(recipe);
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final totalRecomendadas = _recipes
+        .where((r) => r["es_potenciada"] == true || r["semaforo"] == "verde")
+        .length;
+    final totalFavoritas = _recipes
+        .where((r) =>
+            r["es_preferida"] == true ||
+            _preferences[int.tryParse(r["id"]?.toString() ?? "") ?? 0] == true)
+        .length;
+
     return Container(
       decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.all(Radius.circular(16))),
+          borderRadius: BorderRadius.all(Radius.circular(20))),
       child: Column(
         children: [
+          // Header
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-                color: Color(0xFF1E293B),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
             child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.restaurant_menu,
+                      color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text("Seleccionar receta segura",
+                  const Text("Catálogo de Recetas Seguras",
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 20)),
+                          fontSize: 18)),
                   Text("${widget.dayName} • ${widget.mealType}",
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 13)),
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 12.5)),
                 ]),
                 const Spacer(),
-                Text("${_selected.length} seleccionadas",
-                    style: const TextStyle(color: Colors.white70)),
-                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text("${_selected.length} seleccionadas",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 10),
                 IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: const Icon(Icons.close,
+                        color: Colors.white70, size: 22),
+                    tooltip: "Cerrar",
                     onPressed: () => Navigator.pop(context)),
               ],
             ),
           ),
-          if (_tipos.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _tipos.map((t) {
-                    final id = (t["id_tipo_plato"] as num?)?.toInt();
-                    final selected = id == _tipoSeleccionado;
-                    return ChoiceChip(
-                      label:
-                          Text((t["tipo_plato_nombre"] ?? "Tipo").toString()),
-                      selected: selected,
-                      onSelected: (_) => _cargarPorTipo(id),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: TextField(
-              autofocus: true,
-              onChanged: (v) => setState(() {
-                final q = v.toLowerCase();
-                _filtered = _recipes.where((r) {
-                  final nombre = (r["nombre"] ?? "").toString().toLowerCase();
-                  final ing = (r["ingredientes_nombres"] ?? [])
-                      .toString()
-                      .toLowerCase();
-                  return nombre.contains(q) || ing.contains(q);
-                }).toList();
-              }),
-              decoration: InputDecoration(
-                  hintText: "Buscar por receta o ingrediente...",
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none)),
-            ),
-          ),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: _filtered.length,
-                itemBuilder: (context, i) {
-                  final recipe = _filtered[i];
-                  final recipeId = int.tryParse(recipe["id"].toString()) ?? 0;
-                  final likes = _preferences[recipeId];
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: (recipe["imagen_url"] != null &&
-                                  recipe["imagen_url"].toString().isNotEmpty)
-                              ? Image.network(
-                                  recipe["imagen_url"].toString(),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                      color: Colors.orange.shade100,
-                                      child: const Icon(Icons.restaurant,
-                                          color: Colors.orange)),
-                                )
-                              : Container(
-                                  color: Colors.orange.shade100,
-                                  child: const Icon(Icons.restaurant,
-                                      color: Colors.orange)),
+          // Body: Row con Sidebar a la Izquierda y Contenido Principal a la Derecha
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Filtros Laterales a la Izquierda
+                _buildLeftFilterSidebar(totalRecomendadas, totalFavoritas),
+
+                // Contenido Derecho: Buscador + Contador + Lista de Recetas
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Barra de búsqueda & Contador
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                              bottom: BorderSide(color: Colors.grey.shade200)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _searchCtrl,
+                              onChanged: _onSearchChanged,
+                              decoration: InputDecoration(
+                                hintText:
+                                    "Buscar por nombre de receta o ingrediente...",
+                                hintStyle: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 13.5),
+                                prefixIcon: const Icon(Icons.search,
+                                    size: 20, color: Color(0xFF64748B)),
+                                suffixIcon: _searchCtrl.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear,
+                                            size: 18, color: Colors.grey),
+                                        onPressed: () {
+                                          _searchCtrl.clear();
+                                          setState(() {
+                                            _searchQuery = "";
+                                            _aplicarFiltros();
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 11),
+                                filled: true,
+                                fillColor: const Color(0xFFF8FAFC),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade300),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFF0F172A), width: 1.5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Text(
+                                  "Mostrando ${_filtered.length} recetas",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                                if (_tipoSeleccionado != null) ...[
+                                  const SizedBox(width: 8),
+                                  Text("•",
+                                      style: TextStyle(
+                                          color: Colors.grey.shade400)),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _tipos.firstWhere(
+                                            (t) =>
+                                                (t["id_tipo_plato"] as num?)
+                                                    ?.toInt() ==
+                                                _tipoSeleccionado,
+                                            orElse: () =>
+                                                {"tipo_plato_nombre": ""},
+                                          )["tipo_plato_nombre"] ??
+                                          "",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                              child: Text(
-                                  recipe["nombre"]?.toString() ?? "Receta",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold))),
-                          if (likes == true)
-                            const Icon(Icons.thumb_up,
-                                color: Colors.green, size: 16),
-                          if (likes == false)
-                            const Icon(Icons.thumb_down,
-                                color: Colors.red, size: 16),
-                        ],
-                      ),
-                      subtitle: Text(
-                          recipe["mensaje_regla"]?.toString() ??
-                              recipe["recomendacion"]?.toString() ??
-                              "Permitida",
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.bold)),
-                      trailing: Checkbox(
-                        value: _selected.containsKey(recipeId),
-                        onChanged: (_) {
-                          setState(() {
-                            if (_selected.containsKey(recipeId)) {
-                              _selected.remove(recipeId);
-                            } else {
-                              _selected[recipeId] =
-                                  Map<String, dynamic>.from(recipe);
-                            }
-                          });
-                        },
-                      ),
-                      onTap: () {
-                        setState(() {
-                          if (_selected.containsKey(recipeId)) {
-                            _selected.remove(recipeId);
-                          } else {
-                            _selected[recipeId] =
-                                Map<String, dynamic>.from(recipe);
-                          }
-                        });
-                      },
-                    ),
-                  );
-                },
-              ),
+
+                      // Lista de Recetas
+                      if (_loading)
+                        const Expanded(
+                            child: Center(child: CircularProgressIndicator()))
+                      else if (_filtered.isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded,
+                                    size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _searchQuery.isNotEmpty
+                                      ? "No se encontraron recetas con '$_searchQuery'"
+                                      : "No hay recetas disponibles en esta categoría",
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                            itemCount: _filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, i) =>
+                                _buildRecipeCard(_filtered[i]),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          ),
+
+          // Footer
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
             child: Row(
               children: [
                 OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                     onPressed: () => Navigator.pop(context),
                     child: const Text("Cancelar")),
                 const Spacer(),
-                FilledButton(
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                   onPressed: () {
                     widget.onSelected(_selected.values.toList());
                     Navigator.pop(context);
                   },
-                  child: const Text("Aplicar selección"),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text("Aplicar selección (${_selected.length})"),
                 ),
               ],
             ),
@@ -3974,6 +4769,7 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
     );
   }
 }
+
 
 class _PremiumPlanCard extends StatefulWidget {
   final Map<String, dynamic> planData;

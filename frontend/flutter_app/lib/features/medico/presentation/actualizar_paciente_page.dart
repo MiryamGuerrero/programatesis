@@ -20,18 +20,18 @@ import '../../../shared/widgets/escalas/escala_selector.dart';
 
 class ActualizarPacientePage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? initialData;
-  
-  const ActualizarPacientePage(
-      {super.key, this.initialData});
+
+  const ActualizarPacientePage({super.key, this.initialData});
 
   @override
   ConsumerState<ActualizarPacientePage> createState() =>
       _ActualizarPacientePageState();
 }
 
-class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage> {
+class _ActualizarPacientePageState
+    extends ConsumerState<ActualizarPacientePage> {
   int _currentStep = 0;
-  bool _loading = false;
+  bool _loading = true;
   bool _sending = false;
   bool _showSuccess = false;
   String? _idPacienteEditando;
@@ -136,14 +136,28 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   @override
   void initState() {
     super.initState();
+    _loading = widget.initialData != null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(menuExpandedProvider.notifier).state = false;
     });
     _generatedPassword = _generateRandomPassword();
-    _fetchCatalogos().then((_) => _loadInitialData());
+    _initData();
     _ingFocus.addListener(() => setState(() {}));
     _clinPeso.addListener(_debouncedOMS);
     _clinTalla.addListener(_debouncedOMS);
+  }
+
+  Future<void> _initData() async {
+    try {
+      await _fetchCatalogos();
+      await _loadInitialData();
+    } catch (e) {
+      debugPrint("Error inicializando datos en ActualizarPacientePage: $e");
+    } finally {
+      if (mounted && _loading) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
@@ -228,126 +242,122 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Future<void> _loadInitialData() async {
-    if (widget.initialData == null) return;
+    if (widget.initialData == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     final repo = ref.read(repositorioMedicoProvider);
     final idStr = widget.initialData!['id'].toString();
-    final hasCache = repo.hasCachedExpediente(idStr);
-    if (!hasCache) {
-      setState(() => _loading = true);
-    }
-    Future.microtask(() async {
-      try {
-        final data = await repo.obtenerExpedienteCompleto(idStr, forceReload: true);
-        final p = data['paciente'] ?? {};
-        final t = data['tutor'] ?? {};
-        final d = data['diagnostico'] ?? {};
-        final al = data['alergias'] ?? {};
+    try {
+      final data =
+          await repo.obtenerExpedienteCompleto(idStr, forceReload: true);
+      final p = data['paciente'] ?? {};
+      final t = data['tutor'] ?? {};
+      final d = data['diagnostico'] ?? {};
+      final al = data['alergias'] ?? {};
 
-        if (mounted) {
-          setState(() {
-            _idPacienteEditando = p['id'];
-            _pacNombre.text = p['nombre_completo'] ?? "";
-            _pacCedula.text = p['cedula'] ?? "";
-            _pacFechaNac = DateTime.tryParse(p['fecha_nacimiento'] ?? "");
-            if (_pacFechaNac != null) {
-              _pacFechaNacCtrl.text = _formatFechaCompleta(_pacFechaNac!);
-            }
-            _pacSexo = p['id_sexo'];
-            _pacCanton = p['id_canton'];
-            _pacParroquia = p['id_parroquia'];
-            _updateParroquiasFiltradas(resetSelection: false);
+      if (mounted) {
+        setState(() {
+          _idPacienteEditando = p['id'];
+          _pacNombre.text = p['nombre_completo'] ?? "";
+          _pacCedula.text = p['cedula'] ?? "";
+          _pacFechaNac = DateTime.tryParse(p['fecha_nacimiento'] ?? "");
+          if (_pacFechaNac != null) {
+            _pacFechaNacCtrl.text = _formatFechaCompleta(_pacFechaNac!);
+          }
+          _pacSexo = p['id_sexo'];
+          _pacCanton = p['id_canton'];
+          _pacParroquia = p['id_parroquia'];
+          _updateParroquiasFiltradas(resetSelection: false);
 
-            final tutorCedula = (t['cedula'] ?? "").toString().trim();
-            final bool tutorValido = t.isNotEmpty &&
-                !tutorCedula.contains('d') &&
-                tutorCedula.length == 10 &&
-                t['activo'] != false;
+          final tutorCedula = (t['cedula'] ?? "").toString().trim();
+          final bool tutorValido = t.isNotEmpty &&
+              !tutorCedula.contains('d') &&
+              tutorCedula.length == 10 &&
+              t['activo'] != false;
 
-            if (tutorValido) {
-              _tutNombre.text = t['nombre_completo'] ?? "";
-              _tutCedula.text = tutorCedula;
-              _cedulaTutorOriginal = _tutCedula.text;
-              _tutEmail.text = t['email'] ?? "";
-              _tutTelefono.text = t['telefono'] ?? "";
-              _tutDireccion.text = t['direccion'] ?? "";
-              _tutParentesco = t['id_parentesco'];
-              _tutorExistente = true;
-              _tutorNoEncontrado = false;
-            } else {
-              _tutNombre.clear();
-              _tutCedula.clear();
-              _cedulaTutorOriginal = null;
-              _tutEmail.clear();
-              _tutTelefono.clear();
-              _tutDireccion.clear();
-              _tutParentesco = null;
-              _tutorExistente = false;
-              _tutorNoEncontrado = true;
-            }
+          if (tutorValido) {
+            _tutNombre.text = t['nombre_completo'] ?? "";
+            _tutCedula.text = tutorCedula;
+            _cedulaTutorOriginal = _tutCedula.text;
+            _tutEmail.text = t['email'] ?? "";
+            _tutTelefono.text = t['telefono'] ?? "";
+            _tutDireccion.text = t['direccion'] ?? "";
+            _tutParentesco = t['id_parentesco'];
+            _tutorExistente = true;
+            _tutorNoEncontrado = false;
+          } else {
+            _tutNombre.clear();
+            _tutCedula.clear();
+            _cedulaTutorOriginal = null;
+            _tutEmail.clear();
+            _tutTelefono.clear();
+            _tutDireccion.clear();
+            _tutParentesco = null;
+            _tutorExistente = false;
+            _tutorNoEncontrado = true;
+          }
 
-            _idPatologiaBase = d['id_condicion'];
-            _clinNotas.text = d['observaciones'] ?? "";
+          _idPatologiaBase = d['id_condicion'];
+          _clinNotas.text = d['observaciones'] ?? "";
 
-            if (al != null) {
-              _alergiasSub = (al['subgrupos'] as List? ?? [])
-                  .map((e) => (e['id'] as num).toInt())
-                  .toList();
-              _selectedIngredientes = (al['ingredientes'] as List? ?? [])
-                  .map((e) => Map<String, dynamic>.from(e))
-                  .toList();
-              _tieneAlergiaSub = _alergiasSub.isNotEmpty;
-              _tieneAlergiaIng = _selectedIngredientes.isNotEmpty;
-              final restriccionesRaw =
-                  (data['restricciones_alimentarias'] as List?) ??
-                      (al['restricciones_codigos'] as List?) ??
-                      const [];
-              _restriccionesAlimentarias =
-                  restriccionesRaw.map((e) => e.toString()).toSet();
-              _lactosa = (data['es_intolerante_lactosa'] == true) ||
-                  _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA");
-              if (_lactosa == true) {
-                _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA");
-              }
-            }
-
-            final c = data['ultimo_control'] ?? {};
-            if (c.isNotEmpty) {
-              _clinPeso.text = c['peso_kg']?.toString() ?? "";
-              _clinTalla.text = c['talla_cm']?.toString() ?? "";
-              _clinArtInflam.text =
-                  c['articulaciones_inflamadas']?.toString() ?? "0";
-              _clinArtDolor.text =
-                  c['articulaciones_dolorosas']?.toString() ?? "0";
-              _clinRigidez.text = c['minutos_rigidez']?.toString() ?? "";
-              _dolor = (c['puntos_dolor'] ?? 0).toDouble();
-              _inflamacion = (c['escala_inflamacion'] ?? 0).toDouble();
-              _fatiga = (c['nivel_fatiga'] ?? 10).toDouble();
-              _brote = c['en_brote'] ?? false;
-              _estadoEnfermedad =
-                  c['estado_enfermedad'] ?? "Estable en remisión";
-              _proximaCita = DateTime.tryParse(c['fecha_proxima_cita'] ?? "") ??
-                  DateTime.now().add(const Duration(days: 30));
-            }
-
-            _condicionesTemp = (data['condiciones_temporales'] as List? ?? [])
+          if (al != null) {
+            _alergiasSub = (al['subgrupos'] as List? ?? [])
+                .map((e) => (e['id'] as num).toInt())
+                .toList();
+            _selectedIngredientes = (al['ingredientes'] as List? ?? [])
                 .map((e) => Map<String, dynamic>.from(e))
                 .toList();
-            _recomendacionesIng =
-                (data['recomendaciones']?['ingredientes'] as List? ?? [])
-                    .map((e) => Map<String, dynamic>.from(e))
-                    .toList();
-
-            if (true) {
-              _fixedInitialSnapshot = _buildFixedSnapshot();
+            _tieneAlergiaSub = _alergiasSub.isNotEmpty;
+            _tieneAlergiaIng = _selectedIngredientes.isNotEmpty;
+            final restriccionesRaw =
+                (data['restricciones_alimentarias'] as List?) ??
+                    (al['restricciones_codigos'] as List?) ??
+                    const [];
+            _restriccionesAlimentarias =
+                restriccionesRaw.map((e) => e.toString()).toSet();
+            _lactosa = (data['es_intolerante_lactosa'] == true) ||
+                _restriccionesAlimentarias.contains("INTOLERANCIA_LACTOSA");
+            if (_lactosa == true) {
+              _restriccionesAlimentarias.add("INTOLERANCIA_LACTOSA");
             }
-            _loading = false;
-          });
-          _calculateOMS();
-        }
-      } catch (e) {
-        if (mounted) setState(() => _loading = false);
+          }
+
+          final c = data['ultimo_control'] ?? {};
+          if (c.isNotEmpty) {
+            _clinPeso.text = c['peso_kg']?.toString() ?? "";
+            _clinTalla.text = c['talla_cm']?.toString() ?? "";
+            _clinArtInflam.text =
+                c['articulaciones_inflamadas']?.toString() ?? "0";
+            _clinArtDolor.text =
+                c['articulaciones_dolorosas']?.toString() ?? "0";
+            _clinRigidez.text = c['minutos_rigidez']?.toString() ?? "";
+            _dolor = (c['puntos_dolor'] ?? 0).toDouble();
+            _inflamacion = (c['escala_inflamacion'] ?? 0).toDouble();
+            _fatiga = (c['nivel_fatiga'] ?? 10).toDouble();
+            _brote = c['en_brote'] ?? false;
+            _estadoEnfermedad = c['estado_enfermedad'] ?? "Estable en remisión";
+            _proximaCita = DateTime.tryParse(c['fecha_proxima_cita'] ?? "") ??
+                DateTime.now().add(const Duration(days: 30));
+          }
+
+          _condicionesTemp = (data['condiciones_temporales'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+          _recomendacionesIng =
+              (data['recomendaciones']?['ingredientes'] as List? ?? [])
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList();
+
+          _fixedInitialSnapshot = _buildFixedSnapshot();
+          _loading = false;
+        });
+        _calculateOMS();
       }
-    });
+    } catch (e) {
+      debugPrint("Error cargando expediente en ActualizarPacientePage: $e");
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _debouncedOMS() {
@@ -522,35 +532,44 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       return Stack(
         children: [
           Container(color: const Color(0xFFF8FAFC)), // background
-          Container(
-            color: Colors.black.withOpacity(0.6),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16)
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: AppTema.azulPrincipal),
-                    const SizedBox(height: 16),
-                    Text("Cargando datos del paciente...", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)))
-                  ]
-                )
-              )
-            )
-          )
-        ]
+          _buildLoadingOverlay(),
+        ],
       );
     }
-    
-    
-    
+
     return _buildFixedOnlyPage();
   }
-  
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.6),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTema.azulPrincipal),
+              const SizedBox(height: 16),
+              Text(
+                "Cargando datos del paciente...",
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFixedOnlyPage() {
     return Stack(
       children: [
@@ -568,21 +587,27 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                     constraints: const BoxConstraints(maxWidth: 950),
                     child: Theme(
                       data: Theme.of(context).copyWith(
-                          colorScheme: const ColorScheme.light(primary: AppTema.azulPrincipal),
+                          colorScheme: const ColorScheme.light(
+                              primary: AppTema.azulPrincipal),
                           inputDecorationTheme: InputDecorationTheme(
                             filled: true,
                             fillColor: const Color(0xFFF1F5F9),
                             floatingLabelBehavior: FloatingLabelBehavior.always,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 22),
                             border: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(12)),
                                 borderSide: BorderSide.none),
                             enabledBorder: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(12)),
                                 borderSide: BorderSide.none),
                             focusedBorder: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(12)),
-                                borderSide: BorderSide(color: AppTema.azulPrincipal, width: 2)),
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(12)),
+                                borderSide: BorderSide(
+                                    color: AppTema.azulPrincipal, width: 2)),
                             labelStyle: GoogleFonts.inter(
                                 fontWeight: FontWeight.w700,
                                 color: AppTema.azulPrincipal,
@@ -591,19 +616,48 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Form(key: _formKeyTutor, child: _fixedSection("Representante legal", Icons.person_outline, _buildFixedTutorFields())),
+                          Form(
+                              key: _formKeyTutor,
+                              child: _fixedSection(
+                                  "Representante legal",
+                                  Icons.person_outline,
+                                  _buildFixedTutorFields())),
                           const SizedBox(height: 24),
-                          Form(key: _formKeyPaciente, child: _fixedSection("Datos generales del paciente", Icons.badge_outlined, _buildFixedPatientFields())),
+                          Form(
+                              key: _formKeyPaciente,
+                              child: _fixedSection(
+                                  "Datos generales del paciente",
+                                  Icons.badge_outlined,
+                                  _buildFixedPatientFields())),
                           const SizedBox(height: 24),
-                          Form(key: _formKeyClinico, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            _fixedSection("Enfermedad y diagnostico", Icons.coronavirus_outlined, _buildFixedDiseaseFields()),
-                            const SizedBox(height: 24),
-                            _fixedSection("Alergias e intolerancias", Icons.warning_amber_rounded, Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text("Registra restricciones alimentarias y alergias relevantes del paciente.", style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 32),
-                              _buildAlergiasStepContent(),
-                            ])),
-                          ])),
+                          Form(
+                              key: _formKeyClinico,
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fixedSection(
+                                        "Enfermedad y diagnostico",
+                                        Icons.coronavirus_outlined,
+                                        _buildFixedDiseaseFields()),
+                                    const SizedBox(height: 24),
+                                    _fixedSection(
+                                        "Alergias e intolerancias",
+                                        Icons.warning_amber_rounded,
+                                        Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                  "Registra restricciones alimentarias y alergias relevantes del paciente.",
+                                                  style: GoogleFonts.inter(
+                                                      fontSize: 12,
+                                                      color: Colors.blueGrey,
+                                                      fontWeight:
+                                                          FontWeight.w500)),
+                                              const SizedBox(height: 32),
+                                              _buildAlergiasStepContent(),
+                                            ])),
+                                  ])),
                           const SizedBox(height: 36),
                           Align(
                             alignment: Alignment.centerRight,
@@ -611,18 +665,29 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                               width: 320,
                               child: FilledButton.icon(
                                 onPressed: () {
-                                  final tOk = _formKeyTutor.currentState?.validate() ?? false;
-                                  final pOk = _formKeyPaciente.currentState?.validate() ?? false;
-                                  final cOk = _formKeyClinico.currentState?.validate() ?? false;
-                                  if (tOk && pOk && cOk) _confirmAndFinishFixedOnly();
+                                  final tOk =
+                                      _formKeyTutor.currentState?.validate() ??
+                                          false;
+                                  final pOk = _formKeyPaciente.currentState
+                                          ?.validate() ??
+                                      false;
+                                  final cOk = _formKeyClinico.currentState
+                                          ?.validate() ??
+                                      false;
+                                  if (tOk && pOk && cOk)
+                                    _confirmAndFinishFixedOnly();
                                 },
                                 icon: const Icon(Icons.save_alt_rounded),
                                 label: const Text("Actualizar datos médicos"),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppTema.azulPrincipal,
-                                  padding: const EdgeInsets.symmetric(vertical: 24),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 24),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                  textStyle: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800),
                                 ),
                               ),
                             ),
@@ -672,7 +737,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                 height: 4,
                 decoration: const BoxDecoration(
                   color: AppTema.verdeSalud,
-                  borderRadius: BorderRadius.horizontal(right: Radius.circular(2)),
+                  borderRadius:
+                      BorderRadius.horizontal(right: Radius.circular(2)),
                 ),
               ),
             ),
@@ -708,34 +774,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             LengthLimitingTextInputFormatter(10)
           ],
         ),
-        if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 12),
-            child: Row(
-              children: [
-                if (_validandoCedulaTutor)
-                  const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  const Icon(Icons.error_outline_rounded,
-                      size: 14, color: Colors.red),
-                const SizedBox(width: 6),
-                Text(
-                  _validandoCedulaTutor
-                      ? "Validando cédula..."
-                      : _mensajeCedulaTutor!,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _validandoCedulaTutor ? Colors.blueGrey : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        _buildTutorStatusWidget(),
         const SizedBox(height: 24),
         _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
             hint: "Ingrese los nombres y apellidos completos"),
@@ -776,7 +815,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     );
   }
 
- Widget _buildHeader() {
+  Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -795,7 +834,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                 ),
                 child: const Padding(
                   padding: EdgeInsets.only(left: 4.0),
-                  child: Icon(Icons.arrow_back_ios, size: 16, color: AppTema.azulPrincipal),
+                  child: Icon(Icons.arrow_back_ios,
+                      size: 16, color: AppTema.azulPrincipal),
                 ),
               ),
             ),
@@ -806,7 +846,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
-                  color: const Color(0xFF334155)), 
+                  color: const Color(0xFF334155)),
             ),
           ],
         ),
@@ -823,28 +863,38 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         ),
         const SizedBox(height: 24),
         Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTema.verdeSalud, 
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  ref.read(medicoNavProvider.notifier).setView(MedicoView.list);
-                },
-                child: Text("Gestión de Pacientes", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.none)) 
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
-              ),
-              Text("Actualización de Datos", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-            ],
-          )
-        ),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTema.verdeSalud,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                    onTap: () {
+                      ref
+                          .read(medicoNavProvider.notifier)
+                          .setView(MedicoView.list);
+                    },
+                    child: Text("Gestión de Pacientes",
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            decoration: TextDecoration.none))),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(Icons.chevron_right_rounded,
+                      size: 18, color: Colors.white),
+                ),
+                Text("Actualización de Datos",
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+              ],
+            )),
       ],
     );
   }
@@ -1009,7 +1059,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           .read(repositorioMedicoProvider)
           .verificarPacientePorCedula(cedula);
       if (!mounted) return;
-      
+
       String? errMsg;
       if (res['error_rol'] == 'medico') {
         errMsg = "Esta cédula pertenece a personal del sistema.";
@@ -1026,7 +1076,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           errMsg = "Este paciente con esa cédula ya existe.";
         }
       }
-      
+
       setState(() {
         _mensajeCedulaPaciente = errMsg;
       });
@@ -1045,14 +1095,11 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       setState(() {
         _mensajeCedulaTutor = null;
         _validandoCedulaTutor = false;
-      });
-      return;
-    }
-
-    if (limpia == _cedulaTutorOriginal) {
-      setState(() {
-        _mensajeCedulaTutor = null;
-        _validandoCedulaTutor = false;
+        _buscandoTutor = false;
+        if (_tutorExistente || _tutorNoEncontrado) {
+          _tutorExistente = false;
+          _tutorNoEncontrado = false;
+        }
       });
       return;
     }
@@ -1064,28 +1111,199 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   }
 
   Future<void> _verificarCedulaTutor(String cedula) async {
+    final limpia = _soloDigitos(cedula);
+    if (limpia.length != 10) return;
+
+    if (_pacCedula.text.trim().isNotEmpty &&
+        limpia == _soloDigitos(_pacCedula.text)) {
+      setState(() {
+        _mensajeCedulaTutor =
+            "La cédula del tutor no puede ser igual a la del paciente.";
+        _tutorExistente = false;
+        _tutorNoEncontrado = false;
+        _validandoCedulaTutor = false;
+        _buscandoTutor = false;
+      });
+      return;
+    }
+
     setState(() {
       _validandoCedulaTutor = true;
+      _buscandoTutor = true;
       _mensajeCedulaTutor = null;
     });
+
     try {
       final res = await ref
           .read(repositorioMedicoProvider)
-          .buscarTutorPorCedula(cedula);
+          .buscarTutorPorCedula(limpia);
       if (!mounted) return;
-      
-      final existeOtro = res['existe'] == true;
-      setState(() {
-        _mensajeCedulaTutor = existeOtro
-            ? "Esta cédula ya pertenece a otro tutor registrado."
-            : null;
-      });
+
+      final t = res['tutor'];
+      final tCedula = (t != null ? t['cedula'] ?? "" : "").toString().trim();
+      final bool tValido = res['existe'] == true &&
+          t != null &&
+          t['activo'] != false &&
+          !tCedula.contains('d') &&
+          tCedula.length == 10;
+
+      if (tValido) {
+        setState(() {
+          _tutNombre.text = (t['nombre_completo'] ?? "").toString();
+          _tutEmail.text = (t['email'] ?? "").toString();
+          _tutTelefono.text = (t['telefono'] ?? "").toString();
+          _tutDireccion.text = (t['direccion'] ?? "").toString();
+          if (t['id_parentesco'] != null && _tutParentesco == null) {
+            _tutParentesco = (t['id_parentesco'] as num?)?.toInt();
+          }
+          _tutorExistente = true;
+          _tutorNoEncontrado = false;
+          _mensajeCedulaTutor = null;
+        });
+      } else {
+        setState(() {
+          _tutorExistente = false;
+          _tutorNoEncontrado = true;
+          _mensajeCedulaTutor = null;
+          if (limpia != _cedulaTutorOriginal) {
+            _tutNombre.clear();
+            _tutEmail.clear();
+            _tutTelefono.clear();
+            _tutDireccion.clear();
+          }
+        });
+      }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _mensajeCedulaTutor = null);
+      setState(() {
+        _mensajeCedulaTutor = null;
+        _tutorExistente = false;
+        _tutorNoEncontrado = true;
+      });
     } finally {
-      if (mounted) setState(() => _validandoCedulaTutor = false);
+      if (mounted) {
+        setState(() {
+          _validandoCedulaTutor = false;
+          _buscandoTutor = false;
+        });
+      }
     }
+  }
+
+  Widget _buildTutorStatusWidget() {
+    if (_validandoCedulaTutor || _buscandoTutor) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, left: 4),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Buscando tutor...",
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueGrey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_mensajeCedulaTutor != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, left: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, size: 14, color: Colors.red),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _mensajeCedulaTutor!,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_tutorExistente) {
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                  color: Color(0xFF16A34A), shape: BoxShape.circle),
+              child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Tutor registrado en el sistema. Se asociará este tutor al paciente.",
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF166534),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_tutorNoEncontrado) {
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFFEDD5), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                  color: Colors.orange, shape: BoxShape.circle),
+              child: const Icon(Icons.priority_high_rounded, color: Colors.white, size: 12),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Tutor no registrado previamente. Complete los datos para registrarlo.",
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   bool _validateCurrentStep(int step) {
@@ -1175,12 +1393,17 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       invalidAge = age < 3 || age >= 18;
     }
 
+    final telefonoOk = _tutorExistente
+        ? (_tutTelefono.text.trim().isEmpty ||
+            _telefonoMovilValido(_tutTelefono))
+        : _telefonoMovilValido(_tutTelefono);
+
     if (_tutNombre.text.trim().isEmpty ||
         !_cedulaValida(_tutCedula) ||
         _validandoCedulaTutor ||
         _mensajeCedulaTutor != null ||
         _tutEmail.text.trim().isEmpty ||
-        _tutTelefono.text.trim().isEmpty ||
+        !telefonoOk ||
         _tutParentesco == null ||
         _pacNombre.text.trim().isEmpty ||
         !_cedulaValida(_pacCedula) ||
@@ -1298,8 +1521,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         "field": field,
         "before":
             label == null ? (oldValue?.toString() ?? "-") : label(oldValue),
-        "after":
-            label == null ? (newValue?.toString() ?? "-") : label(newValue)});
+        "after": label == null ? (newValue?.toString() ?? "-") : label(newValue)
+      });
     }
 
     addText("tutCedula", "Cédula del Tutor");
@@ -1347,7 +1570,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.info_outline_rounded, color: Colors.white, size: 64),
+              const Icon(Icons.info_outline_rounded,
+                  color: Colors.white, size: 64),
               const SizedBox(height: 16),
               Text(
                 "No se hizo cambios de datos",
@@ -1438,7 +1662,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
               ),
               const SizedBox(height: 20),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppTema.pastelCeleste,
                   borderRadius: BorderRadius.circular(12),
@@ -1490,7 +1715,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                     onPressed: () => Navigator.pop(ctx, false),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTema.azulPrincipal,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 14),
                       textStyle: GoogleFonts.inter(
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
@@ -1565,7 +1791,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
             ),
             child: Row(
               children: [
-                const Icon(Icons.edit_note_rounded, size: 20, color: AppTema.azulPrincipal),
+                const Icon(Icons.edit_note_rounded,
+                    size: 20, color: AppTema.azulPrincipal),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1599,23 +1826,33 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.remove_circle_outline, size: 16, color: Colors.red.shade700),
+                            Icon(Icons.remove_circle_outline,
+                                size: 16, color: Colors.red.shade700),
                             const SizedBox(width: 6),
-                            Text("Antes", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.red.shade700)),
+                            Text("Antes",
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.red.shade700)),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           change["before"] ?? "-",
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.red.shade900),
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red.shade900),
                         ),
                       ],
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade400, size: 28),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Icon(Icons.arrow_forward_rounded,
+                      color: Colors.grey.shade400, size: 28),
                 ),
                 Expanded(
                   child: Container(
@@ -1630,15 +1867,23 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.add_circle_outline, size: 16, color: Colors.green.shade700),
+                            Icon(Icons.add_circle_outline,
+                                size: 16, color: Colors.green.shade700),
                             const SizedBox(width: 6),
-                            Text("Después", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                            Text("Después",
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.green.shade700)),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           change["after"] ?? "-",
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade900),
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade900),
                         ),
                       ],
                     ),
@@ -1710,7 +1955,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         _showSuccess = true;
         _fixedInitialSnapshot = _buildFixedSnapshot();
       });
-      
+
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.read(medicalPatientsProvider.notifier).loadPage();
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
@@ -1819,7 +2064,7 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
       }
 
       setState(() => _showSuccess = true);
-      
+
       await Future.delayed(const Duration(milliseconds: 1500));
       ref.read(medicalPatientsProvider.notifier).loadPage();
       if (mounted) ref.read(medicoNavProvider.notifier).goBackToList();
@@ -1872,475 +2117,460 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
   Step _stepTutor() => Step(
       isActive: _currentStep >= 0,
       state: _currentStep > 0 ? StepState.complete : StepState.editing,
-      title: Text(
-          true ? "Referencia del tutor" : "Representante legal",
+      title: Text(true ? "Referencia del tutor" : "Representante legal",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Form(key: _formKeyTutor, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            _field(
-              _tutCedula,
-              "Cédula del tutor*",
-              Icons.assignment_ind_outlined,
-              hint: "Ingrese la cédula del tutor",
-              keyboardType: TextInputType.number,
-              onChanged: _onCedulaTutorChanged,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10)
-              ],
-            ),
-            if (_validandoCedulaTutor || _mensajeCedulaTutor != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6, left: 12),
-                child: Row(
-                  children: [
-                    if (_validandoCedulaTutor)
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      const Icon(Icons.error_outline_rounded,
-                          size: 14, color: Colors.red),
-                    const SizedBox(width: 6),
-                    Text(
-                      _validandoCedulaTutor
-                          ? "Validando cédula..."
-                          : _mensajeCedulaTutor!,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: _validandoCedulaTutor
-                            ? Colors.blueGrey
-                            : Colors.red,
-                      ),
-                    ),
+      content: Form(
+          key: _formKeyTutor,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                _field(
+                  _tutCedula,
+                  "Cédula del tutor*",
+                  Icons.assignment_ind_outlined,
+                  hint: "Ingrese la cédula del tutor",
+                  keyboardType: TextInputType.number,
+                  onChanged: _onCedulaTutorChanged,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10)
                   ],
                 ),
-              ),
-            const SizedBox(height: 24),
-            _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
-                hint: "Ingrese los nombres y apellidos completos"),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(
-                  child: _field(_tutEmail, "Correo electrónico del usuario*",
-                      Icons.alternate_email,
-                      helper: "Este será su nombre de acceso.",
-                      hint: "usuario@ejemplo.com")),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _dropdown("Parentesco*", _parentescos, _tutParentesco,
-                      (v) => setState(() => _tutParentesco = v),
-                      hint: "Seleccione una opción")),
-            ]),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(
-                  child: _field(
-                _tutTelefono,
-                "Teléfono móvil*",
-                Icons.phone_android_outlined,
-                hint: "09XXXXXXXX",
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10)
-                ],
-              )),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _field(
-                      _tutDireccion, "Dirección del hogar", Icons.map_outlined,
-                      hint: "Av. principal y calle secundaria")),
-            ]),
-          ],
-        ),
-      )));
+                _buildTutorStatusWidget(),
+                const SizedBox(height: 24),
+                _field(_tutNombre, "Nombre y apellidos*", Icons.person_outline,
+                    hint: "Ingrese los nombres y apellidos completos"),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(
+                      child: _field(
+                          _tutEmail,
+                          "Correo electrónico del usuario*",
+                          Icons.alternate_email,
+                          helper: "Este será su nombre de acceso.",
+                          hint: "usuario@ejemplo.com")),
+                  const SizedBox(width: 20),
+                  Expanded(
+                      child: _dropdown(
+                          "Parentesco*",
+                          _parentescos,
+                          _tutParentesco,
+                          (v) => setState(() => _tutParentesco = v),
+                          hint: "Seleccione una opción")),
+                ]),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(
+                      child: _field(
+                    _tutTelefono,
+                    "Teléfono móvil*",
+                    Icons.phone_android_outlined,
+                    hint: "09XXXXXXXX",
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10)
+                    ],
+                  )),
+                  const SizedBox(width: 20),
+                  Expanded(
+                      child: _field(_tutDireccion, "Dirección del hogar",
+                          Icons.map_outlined,
+                          hint: "Av. principal y calle secundaria")),
+                ]),
+              ],
+            ),
+          )));
 
   Step _stepPaciente() => Step(
       isActive: _currentStep >= (true ? 0 : 1),
       state: _currentStep > (true ? 0 : 1)
           ? StepState.complete
           : StepState.editing,
-      title: Text(
-          true
-              ? "Referencia del paciente"
-              : "Identidad del paciente",
+      title: Text(true ? "Referencia del paciente" : "Identidad del paciente",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Form(key: _formKeyPaciente, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            _field(
-              _pacCedula,
-              "Cédula del paciente*",
-              Icons.assignment_ind_outlined,
-              hint: "Ingrese los 10 dígitos",
-              keyboardType: TextInputType.number,
-              onChanged: _onCedulaPacienteChanged,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10)
-              ],
-            ),
-            if (_validandoCedulaPaciente || _mensajeCedulaPaciente != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6, left: 12),
-                child: Row(
-                  children: [
-                    if (_validandoCedulaPaciente)
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      const Icon(Icons.error_outline_rounded,
-                          size: 14, color: Colors.red),
-                    const SizedBox(width: 6),
-                    Text(
-                      _validandoCedulaPaciente
-                          ? "Validando cédula..."
-                          : _mensajeCedulaPaciente!,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: _validandoCedulaPaciente
-                            ? Colors.blueGrey
-                            : Colors.red,
-                      ),
-                    ),
+      content: Form(
+          key: _formKeyPaciente,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                _field(
+                  _pacCedula,
+                  "Cédula del paciente*",
+                  Icons.assignment_ind_outlined,
+                  hint: "Ingrese los 10 dígitos",
+                  keyboardType: TextInputType.number,
+                  onChanged: _onCedulaPacienteChanged,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10)
                   ],
                 ),
-              ),
-            const SizedBox(height: 24),
-            _field(_pacNombre, "Nombres y apellidos completos*",
-                Icons.person_outline,
-                hint: "Ingrese los nombres y apellidos completos"),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(
-                child: _field(
-                  _pacFechaNacCtrl,
-                  "Fecha de nacimiento*",
-                  Icons.calendar_month_outlined,
-                  hint: "Seleccione una fecha completa",
-                  readOnly: true,
-                  onTap: _pickFechaNac,
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _dropdown(
-                      "Sexo biológico*",
-                      _sexos,
-                      _pacSexo,
-                      (v) => setState(() {
-                            _pacSexo = v;
-                            _calculateOMS();
-                          }),
-                      hint: "Seleccione una opción")),
-            ]),
-            const SizedBox(height: 24),
-            Row(children: [
-              Expanded(
-                  child: _dropdown(
-                      "Cantón de residencia", _cantones, _pacCanton, (v) {
-                setState(() {
-                  _pacCanton = v;
-                  _updateParroquiasFiltradas();
-                });
-              }, hint: "Seleccione un cantón")),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _dropdown(
-                      "Parroquia de residencia",
-                      _parroquiasFiltradas,
-                      _pacParroquia,
-                      (v) => setState(() => _pacParroquia = v),
-                      hint: "Seleccione una parroquia")),
-            ]),
-          ],
-        ),
-      )));
+                if (_validandoCedulaPaciente || _mensajeCedulaPaciente != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 12),
+                    child: Row(
+                      children: [
+                        if (_validandoCedulaPaciente)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          const Icon(Icons.error_outline_rounded,
+                              size: 14, color: Colors.red),
+                        const SizedBox(width: 6),
+                        Text(
+                          _validandoCedulaPaciente
+                              ? "Validando cédula..."
+                              : _mensajeCedulaPaciente!,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _validandoCedulaPaciente
+                                ? Colors.blueGrey
+                                : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                _field(_pacNombre, "Nombres y apellidos completos*",
+                    Icons.person_outline,
+                    hint: "Ingrese los nombres y apellidos completos"),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(
+                    child: _field(
+                      _pacFechaNacCtrl,
+                      "Fecha de nacimiento*",
+                      Icons.calendar_month_outlined,
+                      hint: "Seleccione una fecha completa",
+                      readOnly: true,
+                      onTap: _pickFechaNac,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                      child: _dropdown(
+                          "Sexo biológico*",
+                          _sexos,
+                          _pacSexo,
+                          (v) => setState(() {
+                                _pacSexo = v;
+                                _calculateOMS();
+                              }),
+                          hint: "Seleccione una opción")),
+                ]),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(
+                      child: _dropdown(
+                          "Cantón de residencia", _cantones, _pacCanton, (v) {
+                    setState(() {
+                      _pacCanton = v;
+                      _updateParroquiasFiltradas();
+                    });
+                  }, hint: "Seleccione un cantón")),
+                  const SizedBox(width: 20),
+                  Expanded(
+                      child: _dropdown(
+                          "Parroquia de residencia",
+                          _parroquiasFiltradas,
+                          _pacParroquia,
+                          (v) => setState(() => _pacParroquia = v),
+                          hint: "Seleccione una parroquia")),
+                ]),
+              ],
+            ),
+          )));
 
   Step _stepClinico() => Step(
       isActive: _currentStep >= (true ? 1 : 2),
       state: StepState.editing,
       title: Text(
-          true
-              ? "Datos clínicos base"
-              : "Protocolo de evaluación clínica",
+          true ? "Datos clínicos base" : "Protocolo de evaluación clínica",
           style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-      content: Form(key: _formKeyClinico, child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // ENFERMEDAD PRINCIPAL
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0))),
+      content: Form(
+          key: _formKeyClinico,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionHeader("Enfermedad y diagnostico", Icons.coronavirus_outlined, isSub: true),
-              const SizedBox(height: 24),
-              Row(children: [
-                Expanded(
-                    child: _dropdown(
-                        "Patología/enfermedad base*",
-                        _patologias,
-                        _idPatologiaBase,
-                        (v) => setState(() => _idPatologiaBase = v),
-                        hint: "Seleccione...")),
-                const SizedBox(width: 24),
-                Expanded(
-                    child: _dropdown(
-                        "Estado de la enfermedad*",
-                        _estadosClinicos
-                            .asMap()
-                            .entries
-                            .map((e) => {"id": e.key, "nombre": e.value})
-                            .toList(),
-                        _estadosClinicos.indexOf(_estadoEnfermedad),
-                        (v) => setState(
-                            () => _estadoEnfermedad = _estadosClinicos[v!]),
-                        hint: "Seleccione...")),
-              ]),
-            ]),
-          ),
-          const SizedBox(height: 24),
-
-          // ACTIVIDAD DE LA ENFERMEDAD
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0))),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionHeader(
-                  "Actividad de la enfermedad", Icons.analytics_outlined, isSub: true),
-              const SizedBox(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: EscalaSelector(
-                          titulo: "Dolor",
-                          descripcion: "Escala EVA dolor",
-                          min: 0,
-                          max: 10,
-                          value: _dolor.toInt(),
-                          icons: const [
-                            Icons.sentiment_very_satisfied_rounded,
-                            Icons.sentiment_satisfied_rounded,
-                            Icons.sentiment_satisfied_rounded,
-                            Icons.sentiment_neutral_rounded,
-                            Icons.sentiment_neutral_rounded,
-                            Icons.sentiment_dissatisfied_rounded,
-                            Icons.sentiment_dissatisfied_rounded,
-                            Icons.sentiment_very_dissatisfied_rounded,
-                            Icons.sentiment_very_dissatisfied_rounded,
-                            Icons.sick_rounded,
-                            Icons.sick_rounded
-                          ],
-                          etiquetas: [
-                            EscalaEtiqueta("Leve", 3),
-                            EscalaEtiqueta("Moderado", 4),
-                            EscalaEtiqueta("Severo", 4)
-                          ],
-                          colorActivo: AppTema.verdeSalud,
-                          colorFondoActivo: AppTema.verdeSalud,
-                          backgroundColor: const Color(0xFFF8FAFC),
-                          showIdentityRow: false,
-                          onChanged: (v) =>
-                              setState(() => _dolor = v.toDouble()),
-                          puntajeLabel: "${_dolor.toInt()}/10",
-                          headerIcon: const Text("😣",
-                              style: TextStyle(fontSize: 26)))),
-                  const SizedBox(width: 24),
-                  Expanded(
-                      child: _buildEVACard("Inflamación", _inflamacion, 3,
-                          (v) => setState(() => _inflamacion = v),
-                          icon: Icons.verified_user_outlined,
-                          dynamicIcons: const [
-                        Icons.health_and_safety_outlined,
-                        Icons.shield_outlined,
-                        Icons.warning_amber_rounded,
-                        Icons.local_hospital_rounded
-                      ],
-                          labels: [
-                        "0 = Sin inflamación",
-                        "1 = Leve",
-                        "2 = Moderada",
-                        "3 = Severa / Activa"
-                      ])),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: _buildEVACard("Energía", _fatiga, 10,
-                          (v) => setState(() => _fatiga = v),
-                          icon: Icons.battery_full_rounded,
-                          dynamicIcons: const [
-                        Icons.battery_0_bar_rounded,
-                        Icons.battery_1_bar_rounded,
-                        Icons.battery_1_bar_rounded,
-                        Icons.battery_2_bar_rounded,
-                        Icons.battery_3_bar_rounded,
-                        Icons.battery_4_bar_rounded,
-                        Icons.battery_5_bar_rounded,
-                        Icons.battery_6_bar_rounded,
-                        Icons.battery_full_rounded,
-                        Icons.battery_full_rounded,
-                        Icons.bolt_rounded
-                      ],
-                          labels: [
-                        "0-3 = Agotamiento",
-                        "4-7 = Intermedio",
-                        "8-10 = Alta energía"
-                      ])),
-                  const SizedBox(width: 24),
-                  Expanded(
-                      child: Column(
+              // ENFERMEDAD PRINCIPAL
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _sectionHeader("Enfermedad y diagnostico",
+                          Icons.coronavirus_outlined,
+                          isSub: true),
+                      const SizedBox(height: 24),
                       Row(children: [
                         Expanded(
-                            child: _buildCounterField("Art. Inflamadas",
-                                _clinArtInflam, Icons.track_changes_outlined)),
-                        const SizedBox(width: 16),
+                            child: _dropdown(
+                                "Patología/enfermedad base*",
+                                _patologias,
+                                _idPatologiaBase,
+                                (v) => setState(() => _idPatologiaBase = v),
+                                hint: "Seleccione...")),
+                        const SizedBox(width: 24),
                         Expanded(
-                            child: _buildCounterField("Art. Dolorosas",
-                                _clinArtDolor, Icons.back_hand_outlined)),
+                            child: _dropdown(
+                                "Estado de la enfermedad*",
+                                _estadosClinicos
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                        (e) => {"id": e.key, "nombre": e.value})
+                                    .toList(),
+                                _estadosClinicos.indexOf(_estadoEnfermedad),
+                                (v) => setState(() =>
+                                    _estadoEnfermedad = _estadosClinicos[v!]),
+                                hint: "Seleccione...")),
                       ]),
-                      const SizedBox(height: 24),
-                      _buildRigidezCard(),
-                      const SizedBox(height: 24),
-                      _buildBroteToggle(),
-                    ],
-                  )),
-                ],
-              ),
-            ]),
-          ),
-          const SizedBox(height: 24),
-
-          // ALERGIAS E INTOLERANCIAS
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0))),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionHeader(
-                  "Alergias e intolerancias", Icons.warning_amber_rounded, isSub: true),
-              const SizedBox(height: 8),
-              Text(
-                  "Registra restricciones alimentarias y alergias relevantes del paciente.",
-                  style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: Colors.blueGrey,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 32),
-              _buildAlergiasStepContent(),
-            ]),
-          ),
-
-          if (!true) ...[
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader("Identificar condición nutricional",
-                        Icons.scale_outlined),
-                    const SizedBox(height: 20),
-                    Row(children: [
-                      Expanded(
-                          child: _field(_clinPeso, "Peso inicial (kg)*",
-                              Icons.monitor_weight_outlined,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                              onChanged: (_) => _debouncedOMS())),
-                      const SizedBox(width: 20),
-                      Expanded(
-                          child: _field(_clinTalla, "Talla inicial (cm)*",
-                              Icons.height_outlined,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                              onChanged: (_) => _debouncedOMS())),
                     ]),
-                    const SizedBox(height: 20),
-                    _buildProfessionalPrediagnosis(),
-                  ]),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader(
-                        "Condiciones temporales", Icons.event_note_rounded),
-                    const SizedBox(height: 16),
-                    _buildSintomasTemporalesSelector(),
-                  ]),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionHeader(
-                        "Ingredientes recomendados", Icons.recommend_rounded),
-                    const SizedBox(height: 12),
-                    Text(
-                        "Opcional. El doctor puede recomendar ingredientes con búsqueda inteligente.",
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: Colors.blueGrey,
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 14),
-                    _buildRecomendacionesSelector(),
-                  ]),
-            ),
-          ],
-          const SizedBox(height: 24),
-          _field(_clinNotas, "Observaciones médicas iniciales",
-              Icons.edit_note_rounded,
-              maxLines: 4),
-        ]),
-      )));
+              ),
+              const SizedBox(height: 24),
+
+              // ACTIVIDAD DE LA ENFERMEDAD
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionHeader("Actividad de la enfermedad",
+                          Icons.analytics_outlined,
+                          isSub: true),
+                      const SizedBox(height: 20),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                              child: EscalaSelector(
+                                  titulo: "Dolor",
+                                  descripcion: "Escala EVA dolor",
+                                  min: 0,
+                                  max: 10,
+                                  value: _dolor.toInt(),
+                                  icons: const [
+                                    Icons.sentiment_very_satisfied_rounded,
+                                    Icons.sentiment_satisfied_rounded,
+                                    Icons.sentiment_satisfied_rounded,
+                                    Icons.sentiment_neutral_rounded,
+                                    Icons.sentiment_neutral_rounded,
+                                    Icons.sentiment_dissatisfied_rounded,
+                                    Icons.sentiment_dissatisfied_rounded,
+                                    Icons.sentiment_very_dissatisfied_rounded,
+                                    Icons.sentiment_very_dissatisfied_rounded,
+                                    Icons.sick_rounded,
+                                    Icons.sick_rounded
+                                  ],
+                                  etiquetas: [
+                                    EscalaEtiqueta("Leve", 3),
+                                    EscalaEtiqueta("Moderado", 4),
+                                    EscalaEtiqueta("Severo", 4)
+                                  ],
+                                  colorActivo: AppTema.verdeSalud,
+                                  colorFondoActivo: AppTema.verdeSalud,
+                                  backgroundColor: const Color(0xFFF8FAFC),
+                                  showIdentityRow: false,
+                                  onChanged: (v) =>
+                                      setState(() => _dolor = v.toDouble()),
+                                  puntajeLabel: "${_dolor.toInt()}/10",
+                                  headerIcon: const Text("😣",
+                                      style: TextStyle(fontSize: 26)))),
+                          const SizedBox(width: 24),
+                          Expanded(
+                              child: _buildEVACard("Inflamación", _inflamacion,
+                                  3, (v) => setState(() => _inflamacion = v),
+                                  icon: Icons.verified_user_outlined,
+                                  dynamicIcons: const [
+                                Icons.health_and_safety_outlined,
+                                Icons.shield_outlined,
+                                Icons.warning_amber_rounded,
+                                Icons.local_hospital_rounded
+                              ],
+                                  labels: [
+                                "0 = Sin inflamación",
+                                "1 = Leve",
+                                "2 = Moderada",
+                                "3 = Severa / Activa"
+                              ])),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                              child: _buildEVACard("Energía", _fatiga, 10,
+                                  (v) => setState(() => _fatiga = v),
+                                  icon: Icons.battery_full_rounded,
+                                  dynamicIcons: const [
+                                Icons.battery_0_bar_rounded,
+                                Icons.battery_1_bar_rounded,
+                                Icons.battery_1_bar_rounded,
+                                Icons.battery_2_bar_rounded,
+                                Icons.battery_3_bar_rounded,
+                                Icons.battery_4_bar_rounded,
+                                Icons.battery_5_bar_rounded,
+                                Icons.battery_6_bar_rounded,
+                                Icons.battery_full_rounded,
+                                Icons.battery_full_rounded,
+                                Icons.bolt_rounded
+                              ],
+                                  labels: [
+                                "0-3 = Agotamiento",
+                                "4-7 = Intermedio",
+                                "8-10 = Alta energía"
+                              ])),
+                          const SizedBox(width: 24),
+                          Expanded(
+                              child: Column(
+                            children: [
+                              Row(children: [
+                                Expanded(
+                                    child: _buildCounterField(
+                                        "Art. Inflamadas",
+                                        _clinArtInflam,
+                                        Icons.track_changes_outlined)),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                    child: _buildCounterField(
+                                        "Art. Dolorosas",
+                                        _clinArtDolor,
+                                        Icons.back_hand_outlined)),
+                              ]),
+                              const SizedBox(height: 24),
+                              _buildRigidezCard(),
+                              const SizedBox(height: 24),
+                              _buildBroteToggle(),
+                            ],
+                          )),
+                        ],
+                      ),
+                    ]),
+              ),
+              const SizedBox(height: 24),
+
+              // ALERGIAS E INTOLERANCIAS
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionHeader("Alergias e intolerancias",
+                          Icons.warning_amber_rounded,
+                          isSub: true),
+                      const SizedBox(height: 8),
+                      Text(
+                          "Registra restricciones alimentarias y alergias relevantes del paciente.",
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.blueGrey,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 32),
+                      _buildAlergiasStepContent(),
+                    ]),
+              ),
+
+              if (!true) ...[
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader("Identificar condición nutricional",
+                            Icons.scale_outlined),
+                        const SizedBox(height: 20),
+                        Row(children: [
+                          Expanded(
+                              child: _field(_clinPeso, "Peso inicial (kg)*",
+                                  Icons.monitor_weight_outlined,
+                                  onChanged: (_) => _debouncedOMS())),
+                          const SizedBox(width: 20),
+                          Expanded(
+                              child: _field(_clinTalla, "Talla inicial (cm)*",
+                                  Icons.height_outlined,
+                                  onChanged: (_) => _debouncedOMS())),
+                        ]),
+                        const SizedBox(height: 20),
+                        _buildProfessionalPrediagnosis(),
+                      ]),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader(
+                            "Condiciones temporales", Icons.event_note_rounded),
+                        const SizedBox(height: 16),
+                        _buildSintomasTemporalesSelector(),
+                      ]),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader("Ingredientes recomendados",
+                            Icons.recommend_rounded),
+                        const SizedBox(height: 12),
+                        Text(
+                            "Opcional. El doctor puede recomendar ingredientes con búsqueda inteligente.",
+                            style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: Colors.blueGrey,
+                                fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 14),
+                        _buildRecomendacionesSelector(),
+                      ]),
+                ),
+              ],
+              const SizedBox(height: 24),
+              _field(_clinNotas, "Observaciones médicas iniciales",
+                  Icons.edit_note_rounded,
+                  maxLines: 4),
+            ]),
+          )));
 
   Widget _buildEVACard(String title, double val, int max, Function(double) onC,
       {required IconData icon,
@@ -2863,20 +3093,20 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     return bloqueados;
   }
 
-  Widget _buildMultiSelector({
-    required String title,
-    required String subtitle,
-    required bool enabled,
-    required List<Map<String, dynamic>> items,
-    required List<int> selectedIds,
-    required TextEditingController searchCtrl,
-    required FocusNode focusNode,
-    required Set<int> blockedIds,
-    Set<int> blockedIngredientIds = const {},
-    required Function(int id) onToggle,
-    bool isIngredientes = false,
-    bool showSearch = true,
-    void Function(List<Map<String, dynamic>> matches)? onMarkAll}) {
+  Widget _buildMultiSelector(
+      {required String title,
+      required String subtitle,
+      required bool enabled,
+      required List<Map<String, dynamic>> items,
+      required List<int> selectedIds,
+      required TextEditingController searchCtrl,
+      required FocusNode focusNode,
+      required Set<int> blockedIds,
+      Set<int> blockedIngredientIds = const {},
+      required Function(int id) onToggle,
+      bool isIngredientes = false,
+      bool showSearch = true,
+      void Function(List<Map<String, dynamic>> matches)? onMarkAll}) {
     final q = searchCtrl.text.toLowerCase().trim();
     final filtered = items.where((e) {
       final id = (e['id'] as num?)?.toInt() ?? -1;
@@ -3379,7 +3609,8 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
                               "fecha_fin": ini
                                   .add(Duration(days: duracionSugerida))
                                   .toIso8601String()
-                                  .split('T')[0]}));
+                                  .split('T')[0]
+                            }));
                       }
                     } else {
                       setState(() => _condicionesTemp.removeAt(index));
@@ -3884,52 +4115,6 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
         ),
       );
 
-  Future<void> _buscarTutor(String c) async {
-    final cedula = _soloDigitos(c);
-    if (cedula.length != 10) return;
-    if (_tutCedula.text != cedula) _tutCedula.text = cedula;
-    setState(() {
-      _buscandoTutor = true;
-      _tutorNoEncontrado = false;
-      _tutorExistente = false;
-    });
-    try {
-      final res = await ref
-          .read(repositorioMedicoProvider)
-          .buscarTutorPorCedula(cedula);
-      if (mounted) {
-        final t = res['tutor'];
-        final tCedula = (t != null ? t['cedula'] ?? "" : "").toString().trim();
-        final bool tValido = res['existe'] == true &&
-            t != null &&
-            t['activo'] != false &&
-            !tCedula.contains('d') &&
-            tCedula.length == 10;
-
-        if (tValido) {
-          setState(() {
-            _tutNombre.text = (t['nombre_completo'] ?? "").toString();
-            _tutEmail.text = (t['email'] ?? "").toString();
-            _tutTelefono.text = (t['telefono'] ?? "").toString();
-            _tutDireccion.text = (t['direccion'] ?? "").toString();
-            _tutorExistente = true;
-          });
-        } else {
-          setState(() {
-            _tutorNoEncontrado = true;
-            _tutNombre.clear();
-            _tutEmail.clear();
-            _tutTelefono.clear();
-            _tutDireccion.clear();
-          });
-        }
-      }
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _buscandoTutor = false);
-    }
-  }
-
   Future<void> _pickFechaNac() async {
     final d = await showCustomDatePicker(
       context,
@@ -4004,156 +4189,126 @@ class _ActualizarPacientePageState extends ConsumerState<ActualizarPacientePage>
     bool readOnly = false,
     VoidCallback? onTap,
   }) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 8),
-          TextFormField(
-              controller: c,
-              readOnly: readOnly,
-              onTap: onTap,
-              validator: (v) {
-                if (c == _pacFechaNacCtrl) {
-                  if (_pacFechaNac == null) return "Campo requerido";
-                  final age = DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
-                  if (age < 3 || age >= 18) return "La edad debe ser mayor a 3 y menor a 18 años";
-                  return null;
-                }
-                if (c == _tutCedula) {
-                  if (v == null || v.trim().isEmpty) return "Campo requerido";
-                  if (v.trim().length != 10) return "Debe tener 10 dígitos";
-                  if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
-                }
-                if (c == _pacCedula) {
-                  if (v == null || v.trim().isEmpty) {
-                    if (l.contains("*")) return "Campo requerido";
-                  } else {
-                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
-                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
-                  }
-                }
-                if (c == _tutTelefono) {
-                  if (v != null && v.trim().isNotEmpty) {
-                    if (v.trim().length != 10) return "Debe tener 10 dígitos";
-                    if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) return "Solo números";
-                  }
-                }
-                if (c == _tutEmail) {
-                  if (v != null && v.trim().isNotEmpty) {
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
-                      return "Correo electrónico inválido";
-                    }
-                  }
-                }
-                if (l.contains("*") && (v == null || v.trim().isEmpty)) return "Campo requerido";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulPrincipal)),
+        const SizedBox(height: 8),
+        TextFormField(
+            controller: c,
+            readOnly: readOnly,
+            onTap: onTap,
+            validator: (v) {
+              if (c == _pacFechaNacCtrl) {
+                if (_pacFechaNac == null) return "Campo requerido";
+                final age =
+                    DateTime.now().difference(_pacFechaNac!).inDays / 365.25;
+                if (age < 3 || age >= 18)
+                  return "La edad debe ser mayor a 3 y menor a 18 años";
                 return null;
-              },
-              maxLines: maxLines,
-              enabled: enabled,
-              onChanged: onChanged,
-              keyboardType: keyboardType,
-              inputFormatters: inputFormatters,
-              style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B)),
-              decoration: InputDecoration(
-                  prefixIcon: Icon(i, size: 20, color: const Color(0xFF64748B)),
-                  helperText: helper,
-                  hintText: hint,
-                  hintStyle: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500)))
-        ],
-      );
-}
+              }
+              if (c == _tutCedula) {
+                if (v == null || v.trim().isEmpty) return "Campo requerido";
+                if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                if (!RegExp(r'^[0-9]+$').hasMatch(v.trim()))
+                  return "Solo números";
+              }
+              if (c == _pacCedula) {
+                if (v == null || v.trim().isEmpty) {
+                  if (l.contains("*")) return "Campo requerido";
+                } else {
+                  if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                  if (!RegExp(r'^[0-9]+$').hasMatch(v.trim()))
+                    return "Solo números";
+                }
+              }
+              if (c == _tutTelefono) {
+                if (v != null && v.trim().isNotEmpty) {
+                  if (v.trim().length != 10) return "Debe tener 10 dígitos";
+                  if (!RegExp(r'^[0-9]+$').hasMatch(v.trim()))
+                    return "Solo números";
+                }
+              }
+              if (c == _tutEmail) {
+                if (v != null && v.trim().isNotEmpty) {
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                      .hasMatch(v.trim())) {
+                    return "Correo electrónico inválido";
+                  }
+                }
+              }
+              if (l.contains("*") && (v == null || v.trim().isEmpty))
+                return "Campo requerido";
+              return null;
+            },
+            maxLines: maxLines,
+            enabled: enabled,
+            onChanged: onChanged,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1E293B)),
+            decoration: InputDecoration(
+                prefixIcon: Icon(i, size: 20, color: const Color(0xFF64748B)),
+                helperText: helper,
+                hintText: hint,
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500)))
+      ],
+    );
+  }
 
   Widget _dropdown(String l, List items, int? val, Function(int?) onC,
-          {String? hint}) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTema.azulPrincipal)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-              value: val == -1 ? null : val,
-              validator: (v) {
-                if (l.contains("*") && v == null) return "Campo requerido";
-                return null;
-              },
-              isExpanded: true,
-              hint: hint != null
-                  ? Text(hint,
-                      style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: const Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500))
-                  : null,
-              items: items
-                  .map((e) => DropdownMenuItem<int>(
-                      value: e['id'],
-                      child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
-                          style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1E293B)))))
-                  .toList(),
-              onChanged: onC,
-              decoration: const InputDecoration())
-        ],
-      );
-}
+      {String? hint}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulPrincipal)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<int>(
+            value: val == -1 ? null : val,
+            validator: (v) {
+              if (l.contains("*") && v == null) return "Campo requerido";
+              return null;
+            },
+            isExpanded: true,
+            hint: hint != null
+                ? Text(hint,
+                    style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w500))
+                : null,
+            items: items
+                .map((e) => DropdownMenuItem<int>(
+                    value: e['id'],
+                    child: Text(_norm(e['nombre'] ?? e['descripcion'] ?? ""),
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1E293B)))))
+                .toList(),
+            onChanged: onC,
+            decoration: const InputDecoration())
+      ],
+    );
+  }
 
-  Widget _buildControls(ControlsDetails d) => Padding(
-      padding: const EdgeInsets.only(top: 56),
-      child: Row(children: [
-        Expanded(
-            child: FilledButton(
-                onPressed: d.onStepContinue,
-                style: FilledButton.styleFrom(
-                    backgroundColor: AppTema.azulPrincipal,
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16))),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                        _currentStep == (true ? 1 : 2)
-                            ? (_idPacienteEditando == null
-                                ? "Registrar paciente"
-                                : true
-                                    ? "Actualizar datos clínicos"
-                                    : "Guardar cambios")
-                            : "Siguiente paso",
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w800)),
-                    if (_currentStep < (true ? 1 : 2)) ...[
-                      const SizedBox(width: 12),
-                      const Icon(Icons.arrow_forward_rounded, size: 18),
-                    ]
-                  ],
-                ))),
-        if (_currentStep > 0) ...[
-          const SizedBox(width: 20),
-          Expanded(
-              child: OutlinedButton(
-                  onPressed: d.onStepCancel,
-                  style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: greenBrand, width: 2),
-                      foregroundColor: greenBrand,
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16))),
-                  child: const Text("Regresar",
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800))))
-        ]
-      ]));
 
-  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) => Row(children: [
+  Widget _sectionHeader(String t, IconData i, {bool isSub = false}) =>
+      Row(children: [
         Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(

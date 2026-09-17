@@ -841,6 +841,36 @@ class _RecipeCard extends StatelessWidget {
                               color: const Color(0xFF1E293B),
                             ),
                           ),
+                          if (receta['es_potenciada'] == true ||
+                              receta['semaforo'] == 'verde') ...[
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: const Color(0xFF22C55E), width: 0.8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified_rounded,
+                                      size: 11, color: Color(0xFF15803D)),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    "Recomendada para su salud",
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 4),
                           Text(
                             (receta['descripcion'] != null &&
@@ -849,7 +879,8 @@ class _RecipeCard extends StatelessWidget {
                                         .trim()
                                         .isNotEmpty)
                                 ? receta['descripcion'].toString().trim()
-                                : "Receta balanceada y segura para el paciente",
+                                : (receta['recomendacion']?.toString() ??
+                                    "Receta balanceada y segura para el paciente"),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -866,6 +897,16 @@ class _RecipeCard extends StatelessWidget {
                         physics: const BouncingScrollPhysics(),
                         child: Row(
                           children: [
+                            if (receta['es_potenciada'] == true ||
+                                receta['semaforo'] == 'verde') ...[
+                              _buildBadge(
+                                context,
+                                Icons.verified_rounded,
+                                "Terapéutica",
+                                const Color(0xFF16A34A),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                             _buildBadge(
                               context,
                               Icons.local_fire_department_rounded,

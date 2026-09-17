@@ -21,7 +21,9 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? AppTema.azulPrincipal.withValues(alpha: 0.1) : Colors.transparent,
+          color: isActive
+              ? AppTema.azulPrincipal.withValues(alpha: 0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -31,7 +33,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: isActive ? AppTema.azulPrincipal : const Color(0xFFE2E8F0),
+                color:
+                    isActive ? AppTema.azulPrincipal : const Color(0xFFE2E8F0),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -48,7 +51,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             Text(
               label,
               style: GoogleFonts.inter(
-                color: isActive ? AppTema.azulPrincipal : const Color(0xFF64748B),
+                color:
+                    isActive ? AppTema.azulPrincipal : const Color(0xFF64748B),
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
                 fontSize: 12,
               ),
@@ -99,7 +103,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
     );
   }
 
-  Widget _buildField(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _buildField(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -116,7 +121,8 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9), // Light greyish-blue filled background
+            color:
+                const Color(0xFFF1F5F9), // Light greyish-blue filled background
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -157,23 +163,33 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle(Icons.person, "Identidad del paciente"),
-                _buildField(Icons.badge_outlined, "Cédula / ID*", p['cedula'] ?? '-'),
+                _buildField(
+                    Icons.badge_outlined, "Cédula / ID*", p['cedula'] ?? '-'),
                 const SizedBox(height: 16),
-                _buildField(Icons.person_outline, "Nombres y apellidos*", p['nombre_completo'] ?? '-'),
+                _buildField(Icons.person_outline, "Nombres y apellidos*",
+                    p['nombre_completo'] ?? '-'),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.cake_outlined, "F. Nacimiento", p['fecha_nacimiento'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.cake_outlined, "F. Nacimiento",
+                            p['fecha_nacimiento'] ?? '-')),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildField(Icons.wc_outlined, "Sexo Biológico", p['sexo_nombre'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.wc_outlined, "Sexo Biológico",
+                            p['sexo_nombre'] ?? '-')),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.map_outlined, "Cantón*", p['canton_nombre'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.map_outlined, "Cantón*",
+                            p['canton_nombre'] ?? '-')),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildField(Icons.location_on_outlined, "Parroquia*", p['parroquia_nombre'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.location_on_outlined,
+                            "Parroquia*", p['parroquia_nombre'] ?? '-')),
                   ],
                 ),
               ],
@@ -184,24 +200,37 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle(Icons.supervisor_account, "Representante legal"),
+                _buildSectionTitle(
+                    Icons.supervisor_account, "Representante legal"),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.badge_outlined, "Cédula del tutor*", t['cedula'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.badge_outlined,
+                            "Cédula del tutor*", t['cedula'] ?? '-')),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildField(Icons.family_restroom_outlined, "Parentesco*", t['parentesco_nombre'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.family_restroom_outlined,
+                            "Parentesco*", t['parentesco_nombre'] ?? '-')),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildField(Icons.person_outline, "Nombres y apellidos*", t['nombre_completo'] ?? '-'),
+                _buildField(Icons.person_outline, "Nombres y apellidos*",
+                    t['nombre_completo'] ?? '-'),
                 const SizedBox(height: 16),
-                _buildField(Icons.email_outlined, "Correo electrónico*", t['email'] ?? '-'),
+                _buildField(Icons.email_outlined, "Correo electrónico*",
+                    t['email'] ?? '-'),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.phone_outlined, "Teléfono móvil*", t['telefono'] ?? '-')),
+                    Expanded(
+                        child: _buildField(Icons.phone_outlined,
+                            "Teléfono móvil*", t['telefono'] ?? '-')),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildField(Icons.home_outlined, "Dirección del hogar*", t['direccion'] ?? p['direccion'] ?? '-')),
+                    Expanded(
+                        child: _buildField(
+                            Icons.home_outlined,
+                            "Dirección del hogar*",
+                            t['direccion'] ?? p['direccion'] ?? '-')),
                   ],
                 ),
               ],
@@ -215,21 +244,25 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
   Widget _buildDiagnostico() {
     final d = widget.data['diagnostico'] ?? {};
     final c = widget.data['ultimo_control'] ?? {};
-    
-    Widget actChip(IconData icon, String label, String val, Color cBg, Color cText) {
+
+    Widget actChip(
+        IconData icon, String label, String val, Color cBg, Color cText) {
       return Container(
-         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-         decoration: BoxDecoration(color: cBg, borderRadius: BorderRadius.circular(6)),
-         child: Row(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             Icon(icon, size: 12, color: cText),
-             const SizedBox(width: 6),
-             Text("$label: ", style: GoogleFonts.inter(fontSize: 10, color: cText.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
-             Text(val, style: GoogleFonts.inter(fontSize: 11, color: cText, fontWeight: FontWeight.w800)),
-           ]
-         )
-      );
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration:
+              BoxDecoration(color: cBg, borderRadius: BorderRadius.circular(6)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 12, color: cText),
+            const SizedBox(width: 6),
+            Text("$label: ",
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: cText.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600)),
+            Text(val,
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: cText, fontWeight: FontWeight.w800)),
+          ]));
     }
 
     return SingleChildScrollView(
@@ -240,12 +273,21 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle(Icons.medical_services, "Diagnóstico Reumatológico"),
-                _buildField(Icons.coronavirus_outlined, "Enfermedad Autoinmune Principal*", d['condicion_nombre'] ?? 'No registrada'),
+                _buildSectionTitle(
+                    Icons.medical_services, "Diagnóstico Reumatológico"),
+                _buildField(
+                    Icons.coronavirus_outlined,
+                    "Enfermedad Autoinmune Principal*",
+                    d['condicion_nombre'] ?? 'No registrada'),
                 const SizedBox(height: 16),
-                _buildField(Icons.event_outlined, "Fecha de Diagnóstico*", d['fecha_diagnostico'] ?? '-'),
+                _buildField(Icons.event_outlined, "Fecha de Diagnóstico*",
+                    d['fecha_diagnostico'] ?? '-'),
                 const SizedBox(height: 16),
-                _buildField(Icons.healing_outlined, "Estado Actual de Enfermedad", c['estado_enfermedad']?.toString().toUpperCase() ?? 'No especificado'),
+                _buildField(
+                    Icons.healing_outlined,
+                    "Estado Actual de Enfermedad",
+                    c['estado_enfermedad']?.toString().toUpperCase() ??
+                        'No especificado'),
               ],
             ),
           ),
@@ -254,12 +296,22 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle(Icons.monitor_heart, "Último Estado Clínico"),
+                _buildSectionTitle(
+                    Icons.monitor_heart, "Último Estado Clínico"),
                 Row(
                   children: [
-                    Expanded(child: _buildField(Icons.favorite_border_rounded, "Estado Nutricional", c['estado_nutricional'] ?? '-', valueColor: Colors.teal.shade700)),
+                    Expanded(
+                        child: _buildField(
+                            Icons.favorite_border_rounded,
+                            "Estado Nutricional",
+                            c['estado_nutricional'] ?? '-',
+                            valueColor: Colors.teal.shade700)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildField(Icons.monitor_weight_outlined, "Peso / IMC", "${c['peso_kg'] ?? '-'} kg / ${c['imc_calculado'] ?? '-'}")),
+                    Expanded(
+                        child: _buildField(
+                            Icons.monitor_weight_outlined,
+                            "Peso / IMC",
+                            "${c['peso_kg'] ?? '-'} kg / ${c['imc_calculado'] ?? '-'}")),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -282,15 +334,32 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Wrap(
-                        spacing: 8, runSpacing: 8,
-                        children: [
-                           actChip(Icons.sick_outlined, "Dolor", "${c['puntos_dolor'] ?? '-'}", Colors.red.shade50, Colors.red.shade700),
-                           actChip(Icons.local_fire_department_outlined, "Inflamación", "${c['escala_inflamacion'] ?? '-'}", Colors.orange.shade50, Colors.orange.shade800),
-                           actChip(Icons.bolt_outlined, "Fatiga", "${c['nivel_fatiga'] ?? '-'}", Colors.amber.shade50, Colors.amber.shade900),
-                           actChip(Icons.timer_outlined, "Rigidez", "${c['minutos_rigidez'] ?? '-'}m", Colors.blue.shade50, Colors.blue.shade700),
-                        ]
-                      ),
+                      child: Wrap(spacing: 8, runSpacing: 8, children: [
+                        actChip(
+                            Icons.sick_outlined,
+                            "Dolor",
+                            "${c['puntos_dolor'] ?? '-'}",
+                            Colors.red.shade50,
+                            Colors.red.shade700),
+                        actChip(
+                            Icons.local_fire_department_outlined,
+                            "Inflamación",
+                            "${c['escala_inflamacion'] ?? '-'}",
+                            Colors.orange.shade50,
+                            Colors.orange.shade800),
+                        actChip(
+                            Icons.bolt_outlined,
+                            "Fatiga",
+                            "${c['nivel_fatiga'] ?? '-'}",
+                            Colors.amber.shade50,
+                            Colors.amber.shade900),
+                        actChip(
+                            Icons.timer_outlined,
+                            "Rigidez",
+                            "${c['minutos_rigidez'] ?? '-'}m",
+                            Colors.blue.shade50,
+                            Colors.blue.shade700),
+                      ]),
                     )
                   ],
                 )
@@ -304,49 +373,49 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
 
   Widget _buildAlergias() {
     final al = widget.data['alergias'] ?? {};
-    final restricciones = widget.data['restricciones_alimentarias_detalle'] as List? ?? [];
-    
+    final restricciones =
+        widget.data['restricciones_alimentarias_detalle'] as List? ?? [];
+
     final hasRestricciones = restricciones.isNotEmpty;
-    final restriccionesList = hasRestricciones 
-        ? restricciones.map((e) => e['nombre']).join(", ") 
+    final restriccionesList = hasRestricciones
+        ? restricciones.map((e) => e['nombre']).join(", ")
         : "Ninguna registrada";
-    
+
     final hasSubgrupos = (al['subgrupos'] as List?)?.isNotEmpty ?? false;
-    final subgruposList = hasSubgrupos 
-        ? (al['subgrupos'] as List).map((e) => e['nombre']).join(", ") 
+    final subgruposList = hasSubgrupos
+        ? (al['subgrupos'] as List).map((e) => e['nombre']).join(", ")
         : "Ninguna registrada";
 
     final hasIngredientes = (al['ingredientes'] as List?)?.isNotEmpty ?? false;
-    final ingredientesList = hasIngredientes 
-        ? (al['ingredientes'] as List).map((e) => e['nombre']).join(", ") 
+    final ingredientesList = hasIngredientes
+        ? (al['ingredientes'] as List).map((e) => e['nombre']).join(", ")
         : "Ninguno registrado";
 
     final esIntoleranteLactosa = widget.data['es_intolerante_lactosa'] == true;
-    
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle(Icons.warning_amber_rounded, "Alergias y Restricciones Clínicas"),
+          _buildSectionTitle(
+              Icons.warning_amber_rounded, "Alergias y Restricciones Clínicas"),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildField(
-                  Icons.health_and_safety_outlined, 
-                  "Intolerancias y Dietas Especiales", 
-                  restriccionesList,
-                  valueColor: hasRestricciones ? Colors.red.shade700 : const Color(0xFF1E293B)
-                ),
+                child: _buildField(Icons.health_and_safety_outlined,
+                    "Intolerancias y Dietas Especiales", restriccionesList,
+                    valueColor: hasRestricciones
+                        ? Colors.red.shade700
+                        : const Color(0xFF1E293B)),
               ),
               const SizedBox(width: 24),
               Expanded(
-                child: _buildField(
-                  Icons.restaurant_outlined, 
-                  "Alergia a Grupos de Alimentos", 
-                  subgruposList,
-                  valueColor: hasSubgrupos ? Colors.red.shade700 : const Color(0xFF1E293B)
-                ),
+                child: _buildField(Icons.restaurant_outlined,
+                    "Alergia a Grupos de Alimentos", subgruposList,
+                    valueColor: hasSubgrupos
+                        ? Colors.red.shade700
+                        : const Color(0xFF1E293B)),
               ),
             ],
           ),
@@ -355,12 +424,11 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildField(
-                  Icons.egg_alt_outlined, 
-                  "Alergia a Ingredientes Específicos", 
-                  ingredientesList,
-                  valueColor: hasIngredientes ? Colors.red.shade700 : const Color(0xFF1E293B)
-                ),
+                child: _buildField(Icons.egg_alt_outlined,
+                    "Alergia a Ingredientes Específicos", ingredientesList,
+                    valueColor: hasIngredientes
+                        ? Colors.red.shade700
+                        : const Color(0xFF1E293B)),
               ),
               const SizedBox(width: 24),
               Expanded(child: const SizedBox.shrink()),
@@ -378,12 +446,16 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.red.shade700, size: 20),
+                  Icon(Icons.info_outline,
+                      color: Colors.red.shade700, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       "El paciente tiene registrada una INTOLERANCIA A LA LACTOSA severa. El motor nutricional ha suprimido automáticamente los lácteos.",
-                      style: GoogleFonts.inter(fontSize: 11, color: Colors.red.shade900, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: Colors.red.shade900,
+                          fontWeight: FontWeight.w600),
                     ),
                   )
                 ],
@@ -486,27 +558,6 @@ class _ExpedienteMaestroModalState extends State<ExpedienteMaestroModal> {
                   _buildDiagnostico(),
                   _buildAlergias(),
                 ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0275D8),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: Text(
-                  "Cerrar Expediente Maestro",
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.white,
-                  ),
-                ),
               ),
             ),
           ],

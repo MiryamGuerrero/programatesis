@@ -38,6 +38,7 @@ class _AsignacionComidaManualPageState
   bool _saveSuccess = false;
   List<dynamic> _recetasResultados = [];
   List<Map<String, dynamic>> _recetasSeleccionadas = [];
+  int _filtroPrioridad = 0; // 0: Todas, 1: Recomendadas, 2: Favoritas
   
   List<dynamic> _momentos = [];
   int _idMomentoSeleccionado = 3; // Por defecto Almuerzo
@@ -73,6 +74,22 @@ class _AsignacionComidaManualPageState
       debugPrint("Error cargando momentos: $e");
     }
   }
+
+  List<dynamic> _ordenarRecetas(List<dynamic> lista) {
+    final copy = List<dynamic>.from(lista);
+    copy.sort((a, b) {
+      final aPot = (a["es_potenciada"] == true || a["semaforo"] == "verde") ? 1 : 0;
+      final bPot = (b["es_potenciada"] == true || b["semaforo"] == "verde") ? 1 : 0;
+      if (aPot != bPot) return bPot.compareTo(aPot);
+
+      final aPref = (a["es_preferida"] == true || a["paciente_le_gusta"] == true) ? 1 : 0;
+      final bPref = (b["es_preferida"] == true || b["paciente_le_gusta"] == true) ? 1 : 0;
+      if (aPref != bPref) return bPref.compareTo(aPref);
+
+      return (a["nombre"] ?? "").toString().compareTo((b["nombre"] ?? "").toString());
+    });
+    return copy;
+  }
   
   Future<void> _buscarRecetas(String query) async {
     setState(() {
@@ -86,7 +103,7 @@ class _AsignacionComidaManualPageState
       });
       if (mounted) {
         setState(() {
-          _recetasResultados = List<dynamic>.from(res.data);
+          _recetasResultados = _ordenarRecetas(List<dynamic>.from(res.data));
           _isSearching = false;
         });
       }
@@ -502,121 +519,264 @@ class _AsignacionComidaManualPageState
                     ),
                     onSubmitted: _buscarRecetas,
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _isSearching && _recetasResultados.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : (!_isSearching && _recetasResultados.isEmpty) ? const Center(child: Text("No hay recetas que coincidan con la búsqueda.", style: TextStyle(color: Colors.grey))) : ListView.separated(
-                            itemCount: _recetasResultados.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final r = _recetasResultados[index];
-                              final isSelected = _recetasSeleccionadas.any((rec) => rec["id"] == r["id"]);
-                              
-                              final String? imgUrl = r["imagen_url"];
-                              String categorias = "";
-                              if (r["tipos_plato_nombres"] is List) {
-                                categorias = (r["tipos_plato_nombres"] as List).join(", ");
-                              } else if (r["tipos_plato_nombres"] is String) {
-                                categorias = r["tipos_plato_nombres"];
-                              }
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _filtroPrioridad = 0),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _filtroPrioridad == 0 ? Colors.grey.shade900 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text("Todas", style: TextStyle(color: _filtroPrioridad == 0 ? Colors.white : Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _filtroPrioridad = 1),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _filtroPrioridad == 1 ? const Color(0xFFDCFCE7) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: _filtroPrioridad == 1 ? const Color(0xFF16A34A) : Colors.transparent),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.verified, size: 13, color: _filtroPrioridad == 1 ? const Color(0xFF16A34A) : Colors.grey.shade600),
+                              const SizedBox(width: 4),
+                              Text("Recomendadas", style: TextStyle(color: _filtroPrioridad == 1 ? const Color(0xFF166534) : Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _filtroPrioridad = 2),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _filtroPrioridad == 2 ? const Color(0xFFEFF6FF) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: _filtroPrioridad == 2 ? const Color(0xFF2563EB) : Colors.transparent),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.favorite, size: 13, color: _filtroPrioridad == 2 ? const Color(0xFF2563EB) : Colors.grey.shade600),
+                              const SizedBox(width: 4),
+                              Text("Favoritas", style: TextStyle(color: _filtroPrioridad == 2 ? const Color(0xFF1D4ED8) : Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(
+                    builder: (context) {
+                      final listaFiltrada = _recetasResultados.where((r) {
+                        if (_filtroPrioridad == 1) {
+                          return r["es_potenciada"] == true || r["semaforo"] == "verde";
+                        } else if (_filtroPrioridad == 2) {
+                          return r["es_preferida"] == true || r["paciente_le_gusta"] == true;
+                        }
+                        return true;
+                      }).toList();
 
-                              return InkWell(
-                                onTap: () => mostrarDetalleRecetaVerde(
-                                  context, 
-                                  r["id"], 
-                                  ref, 
-                                  onSelect: () => setState(() {
-                                    if (_recetasSeleccionadas.any((rec) => rec["id"] == r["id"])) {
-                                      _recetasSeleccionadas.removeWhere((rec) => rec["id"] == r["id"]);
-                                    } else {
-                                      _recetasSeleccionadas.add(r);
-                                    }
-                                  })
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? Colors.blue.shade50 : Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: isSelected ? Colors.blue.shade400 : Colors.grey.shade200,
-                                      width: isSelected ? 2 : 1
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4)
-                                      )
-                                    ]
+                      if (_isSearching && listaFiltrada.isEmpty) {
+                        return const Expanded(child: Center(child: CircularProgressIndicator()));
+                      }
+                      if (!_isSearching && listaFiltrada.isEmpty) {
+                        return const Expanded(child: Center(child: Text("No hay recetas que coincidan con la búsqueda.", style: TextStyle(color: Colors.grey))));
+                      }
+
+                      return Expanded(
+                        child: ListView.separated(
+                          itemCount: listaFiltrada.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final r = listaFiltrada[index];
+                            final isSelected = _recetasSeleccionadas.any((rec) => rec["id"] == r["id"]);
+                            final isPotenciada = r["es_potenciada"] == true || r["semaforo"] == "verde";
+                            final isPreferida = r["es_preferida"] == true || r["paciente_le_gusta"] == true;
+                            
+                            final String? imgUrl = r["imagen_url"];
+                            String categorias = "";
+                            if (r["tipos_plato_nombres"] is List) {
+                              categorias = (r["tipos_plato_nombres"] as List).join(", ");
+                            } else if (r["tipos_plato_nombres"] is String) {
+                              categorias = r["tipos_plato_nombres"];
+                            }
+
+                            return InkWell(
+                              onTap: () => mostrarDetalleRecetaVerde(
+                                context, 
+                                r["id"], 
+                                ref, 
+                                onSelect: () => setState(() {
+                                  if (_recetasSeleccionadas.any((rec) => rec["id"] == r["id"])) {
+                                    _recetasSeleccionadas.removeWhere((rec) => rec["id"] == r["id"]);
+                                  } else {
+                                    _recetasSeleccionadas.add(r);
+                                  }
+                                })
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isSelected ? Colors.blue.shade50 : (isPotenciada ? const Color(0xFFF0FDF4) : Colors.white),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.blue.shade400
+                                        : (isPotenciada ? const Color(0xFF86EFAC) : Colors.grey.shade200),
+                                    width: isSelected ? 2 : (isPotenciada ? 1.2 : 1)
                                   ),
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      // Imagen de la receta
-                                      Container(
-                                        width: 80,
-                                        height: 80,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(12),
-                                          image: imgUrl != null && imgUrl.isNotEmpty
-                                              ? DecorationImage(
-                                                  image: NetworkImage(imgUrl),
-                                                  fit: BoxFit.cover,
-                                                )
-                                              : null,
-                                        ),
-                                        child: imgUrl == null || imgUrl.isEmpty
-                                            ? const Icon(Icons.restaurant, color: Colors.grey, size: 30)
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4)
+                                    )
+                                  ]
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    // Imagen de la receta
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        image: imgUrl != null && imgUrl.isNotEmpty
+                                            ? DecorationImage(
+                                                image: NetworkImage(imgUrl),
+                                                fit: BoxFit.cover,
+                                              )
                                             : null,
                                       ),
-                                      const SizedBox(width: 16),
-                                      // Textos
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              r["nombre"] ?? "Sin nombre", 
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w700, 
-                                                fontSize: 16,
-                                                color: Colors.blueGrey.shade900
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
+                                      child: imgUrl == null || imgUrl.isEmpty
+                                          ? const Icon(Icons.restaurant, color: Colors.grey, size: 30)
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    // Textos
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            r["nombre"] ?? "Sin nombre", 
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700, 
+                                              fontSize: 15,
+                                              color: Colors.blueGrey.shade900
                                             ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              (r["descripcion"] != null && r["descripcion"].toString().isNotEmpty)
-                                                  ? r["descripcion"]
-                                                  : (categorias.isEmpty ? "Receta general" : categorias),
-                                              style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (isPotenciada || isPreferida) ...[
+                                            const SizedBox(height: 4),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 4,
+                                              children: [
+                                                if (isPotenciada)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFDCFCE7),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: const Color(0xFF22C55E), width: 0.8),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.verified, size: 11, color: Color(0xFF15803D)),
+                                                        SizedBox(width: 3),
+                                                        Text(
+                                                          "Recomendada",
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: Color(0xFF15803D),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (isPreferida)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFEFF6FF),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: const Color(0xFF3B82F6), width: 0.8),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.favorite, size: 11, color: Color(0xFF2563EB)),
+                                                        SizedBox(width: 3),
+                                                        Text(
+                                                          "Favorita",
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: Color(0xFF2563EB),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ],
-                                        ),
-                                      ),
-                                      // Icono de selección
-                                      if (isSelected)
-                                        Container(
-                                          margin: const EdgeInsets.only(left: 12),
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.blue,
-                                            shape: BoxShape.circle
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            r["recomendacion"]?.toString() ??
+                                            ((r["descripcion"] != null && r["descripcion"].toString().isNotEmpty)
+                                                ? r["descripcion"]
+                                                : (categorias.isEmpty ? "Receta general segura" : categorias)),
+                                            style: TextStyle(
+                                              color: isPotenciada ? const Color(0xFF166534) : Colors.blueGrey.shade400,
+                                              fontSize: 12,
+                                              fontWeight: isPotenciada ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          child: const Icon(Icons.check, color: Colors.white, size: 20),
-                                        )
-                                    ],
-                                  ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Icono de selección
+                                    if (isSelected)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 12),
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.blue,
+                                          shape: BoxShape.circle
+                                        ),
+                                        child: const Icon(Icons.check, color: Colors.white, size: 20),
+                                      )
+                                  ],
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   )
                 ],
               ),

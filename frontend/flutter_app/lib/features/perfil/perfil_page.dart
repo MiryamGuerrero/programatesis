@@ -1,4 +1,6 @@
+import "package:dio/dio.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
@@ -104,9 +106,9 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             nombreCompleto: "$nombres $apellidos",
             username: username,
             email: email,
-            cedula: _cedulaController.text,
-            telefono: _telefonoController.text,
-            direccion: _direccionController.text,
+            cedula: _cedulaController.text.trim(),
+            telefono: _telefonoController.text.trim(),
+            direccion: _direccionController.text.trim(),
             rolesAsignados: rolesAsignados.isNotEmpty ? rolesAsignados : null,
           );
         },
@@ -114,6 +116,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     );
 
     if (success == true && mounted) {
+      _initialized = false;
       ref.invalidate(miPerfilProvider);
       ref.invalidate(usersListProvider);
     }
@@ -293,14 +296,24 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             Expanded(
                 child: _buildTextField(
                     controller: _cedulaController,
-                    label: "Identificación",
-                    icon: Icons.fingerprint)),
+                    label: "Identificación (10 dígitos)",
+                    icon: Icons.fingerprint,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ])),
             const SizedBox(width: 16),
             Expanded(
                 child: _buildTextField(
                     controller: _telefonoController,
-                    label: "Teléfono",
-                    icon: Icons.phone_android_outlined))
+                    label: "Teléfono (10 dígitos)",
+                    icon: Icons.phone_android_outlined,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ]))
           ]),
           const SizedBox(height: 32),
           _sectionTitle("Acceso"),
@@ -436,10 +449,14 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           required String label,
           required IconData icon,
           int maxLines = 1,
-          Color? fillColor}) =>
+          Color? fillColor,
+          TextInputType? keyboardType,
+          List<TextInputFormatter>? inputFormatters}) =>
       TextFormField(
           controller: controller,
           maxLines: maxLines,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: GoogleFonts.inter(fontSize: 14),
           decoration: InputDecoration(
               labelText: label,
@@ -488,21 +505,29 @@ class _SaveProgressDialogState extends State<_SaveProgressDialog> {
   Future<void> _ejecutarGuardado() async {
     await Future.delayed(const Duration(milliseconds: 500));
     bool exito = false;
+    String? errorMsg;
     try {
       await widget.onSave();
       exito = true;
     } catch (e) {
       exito = false;
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response?.data;
+        if (data is Map && data.containsKey("detail")) {
+          errorMsg = data["detail"].toString();
+        }
+      }
+      errorMsg ??= e.toString().replaceAll("Exception: ", "");
     }
     
     if (mounted) {
       setState(() {
         _isCompleted = true;
         _isSuccess = exito;
-        _statusText = exito ? "Perfil actualizado" : "Error al guardar";
+        _statusText = exito ? "Perfil actualizado" : (errorMsg ?? "Error al guardar");
       });
       
-      await Future.delayed(const Duration(milliseconds: 1500));
+      await Future.delayed(Duration(milliseconds: exito ? 1200 : 2500));
       if (mounted) {
         Navigator.of(context).pop(exito);
       }

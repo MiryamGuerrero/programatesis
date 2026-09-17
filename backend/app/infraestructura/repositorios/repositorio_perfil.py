@@ -416,12 +416,12 @@ class RepositorioPerfilPostgres(RepositorioBasePostgres, IRepositorioPerfil):
                 internal_id = str(row[0]) if row else user_id
                 
                 if email_val:
-                    cur.execute("select id, nombre_completo from usuarios.usuario where email = %s and id::text != %s limit 1", (email_val, internal_id))
+                    cur.execute("select id, nombre_completo from usuarios.usuario where email = %s and id::text != %s and (auth_user_id::text is null or auth_user_id::text != %s) limit 1", (email_val, internal_id, user_id))
                     dup = cur.fetchone()
                     if dup:
                         raise ValueError(f"El correo {email_val} ya está registrado por el usuario {dup[1]}.")
                 if cedula_val:
-                    cur.execute("select id, nombre_completo from usuarios.usuario where cedula = %s and id::text != %s limit 1", (cedula_val, internal_id))
+                    cur.execute("select id, nombre_completo from usuarios.usuario where cedula = %s and id::text != %s and (auth_user_id::text is null or auth_user_id::text != %s) limit 1", (cedula_val, internal_id, user_id))
                     dup = cur.fetchone()
                     if dup:
                         raise ValueError(f"La cédula {cedula_val} ya está registrada por el usuario {dup[1]}.")

@@ -20,7 +20,6 @@ import "../data/supervision_provider.dart";
 import "_shared/medico_nav_providers.dart";
 import '../../../shared/widgets/role_shell.dart';
 
-
 import '../../../shared/widgets/escalas/escala_selector.dart';
 
 class _HeatLabel extends StatelessWidget {
@@ -165,6 +164,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
   double _tallaIdeal = 0;
   bool _calculandoOMS = false;
   String? _omsError;
+  bool _loadingAnalitica = false;
   Color _omsColor = Colors.grey.shade400;
 
   @override
@@ -209,8 +209,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
           _patologiasCat = allCond
               .where((e) => (e['id_tipo'] ?? e['id_tipo_condicion']) == 1)
               .toList();
-          final catalogosRegistro = results[1] as Map<String, List<Map<String, dynamic>>>;
-          _restriccionesAlimentariasCat = catalogosRegistro["restricciones_alimentarias"] ?? [];
+          final catalogosRegistro =
+              results[1] as Map<String, List<Map<String, dynamic>>>;
+          _restriccionesAlimentariasCat =
+              catalogosRegistro["restricciones_alimentarias"] ?? [];
           _ingredientesCat = results[2] as List? ?? [];
           _subgruposCat = results[3] as List? ?? [];
         });
@@ -253,7 +255,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       setState(() => _loading = true);
     }
     try {
-      final data = await repo.obtenerExpedienteCompleto(patientIdStr, forceReload: forceReload);
+      final data = await repo.obtenerExpedienteCompleto(patientIdStr,
+          forceReload: forceReload);
 
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final historial = data['historial_controles'] as List? ?? [];
@@ -320,6 +323,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
         _loading = false;
       });
+      if (mounted) setState(() => _loadingAnalitica = true);
       unawaited(_cargarAnalitica(patientIdStr));
     } catch (e) {
       debugPrint("Error general en _cargarExpediente: $e");
@@ -341,7 +345,10 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
         return <String, dynamic>{};
       }),
     ]);
-    if (!mounted || widget.paciente['id'].toString() != patientId) return;
+    if (!mounted || widget.paciente['id'].toString() != patientId) {
+      if (mounted) setState(() => _loadingAnalitica = false);
+      return;
+    }
 
     final consumo = results[0];
     final evolucion = results[1];
@@ -352,6 +359,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       _consumoAlimentario = consumo.isEmpty ? null : consumo;
       _evolucionMensual = evolucion.isEmpty ? null : evolucion;
       _controlSeleccionadoEvo = controles.isNotEmpty ? controles.last : null;
+      _loadingAnalitica = false;
     });
   }
 
@@ -575,12 +583,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
     setState(() {
       _idControlEditando = h['id']?.toString();
-        try {
-          final dt = DateTime.parse(h['fecha_control'] ?? "");
-          _fechaControlEditando = DateFormat('dd/MM/yyyy').format(dt);
-        } catch (_) {
-          _fechaControlEditando = h['fecha_control'] ?? "";
-        }
+      try {
+        final dt = DateTime.parse(h['fecha_control'] ?? "");
+        _fechaControlEditando = DateFormat('dd/MM/yyyy').format(dt);
+      } catch (_) {
+        _fechaControlEditando = h['fecha_control'] ?? "";
+      }
       _peso.text = h['peso_kg']?.toString() ?? "";
       _talla.text = h['talla_cm']?.toString() ?? "";
       _artInflam.text = h['articulaciones_inflamadas']?.toString() ?? "0";
@@ -591,16 +599,20 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       _inflamacion = _asDouble(h['escala_inflamacion']);
       _fatiga = _asDouble(h['nivel_fatiga'], fallback: 10);
       _brote = h['en_brote'] ?? false;
-      final savedEstado = (h['estado_enfermedad'] ?? "").toString().trim().toLowerCase();
-        _estadoEnfermedad = _estadosClinicos.firstWhere(
-            (e) {
-                String stripAccents(String str) {
-                    return str.replaceAll('á','a').replaceAll('é','e').replaceAll('í','i').replaceAll('ó','o').replaceAll('ú','u');
-                }
-                return stripAccents(e.toLowerCase()) == stripAccents(savedEstado);
-            },
-            orElse: () => "Seguimiento"
-        );
+      final savedEstado =
+          (h['estado_enfermedad'] ?? "").toString().trim().toLowerCase();
+      _estadoEnfermedad = _estadosClinicos.firstWhere((e) {
+        String stripAccents(String str) {
+          return str
+              .replaceAll('á', 'a')
+              .replaceAll('é', 'e')
+              .replaceAll('í', 'i')
+              .replaceAll('ó', 'o')
+              .replaceAll('ú', 'u');
+        }
+
+        return stripAccents(e.toLowerCase()) == stripAccents(savedEstado);
+      }, orElse: () => "Seguimiento");
       _proximaCita = DateTime.tryParse(h['fecha_proxima_cita'] ?? "") ??
           DateTime.now().add(const Duration(days: 30));
       _proximaCitaCtrl.text =
@@ -678,41 +690,52 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             data: payload);
       }
       final bool esActualizacion = _idControlEditando != null;
-        final String mensajeExito = esActualizacion ? "Datos actualizados" : "Registro mensual completado";
-        
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black54,
-            builder: (ctx) => Center(
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle_outline_rounded, color: Colors.greenAccent, size: 64),
-                      const SizedBox(height: 16),
-                      Text(mensajeExito, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+      final String mensajeExito = esActualizacion
+          ? "Datos actualizados"
+          : "Registro mensual completado";
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierColor: Colors.black54,
+          builder: (ctx) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded,
+                        color: Colors.greenAccent, size: 64),
+                    const SizedBox(height: 16),
+                    Text(mensajeExito,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
             ),
-          );
-          Future.delayed(const Duration(milliseconds: 1800), () {
-            if (mounted && Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          });
-        }
+          ),
+        );
+        Future.delayed(const Duration(milliseconds: 1800), () {
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        });
+      }
 
-      ref.read(repositorioMedicoProvider).invalidateExpediente(widget.paciente['id'].toString());
+      ref
+          .read(repositorioMedicoProvider)
+          .invalidateExpediente(widget.paciente['id'].toString());
       ref.read(medicalPatientsProvider.notifier).loadPage();
 
       _limpiarForm();
@@ -961,15 +984,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             Tab(text: "Monitor de evolución")
           ]));
 
-
   Widget _estadoDropdown() {
     return DropdownButtonFormField<String>(
-      value: _estadosClinicos.contains(_estadoEnfermedad) ? _estadoEnfermedad : null,
+      value: _estadosClinicos.contains(_estadoEnfermedad)
+          ? _estadoEnfermedad
+          : null,
       items: _estadosClinicos.map((estado) {
-        return DropdownMenuItem(
-          value: estado,
-          child: Text(estado)
-        );
+        return DropdownMenuItem(value: estado, child: Text(estado));
       }).toList(),
       onChanged: (v) {
         if (v != null) {
@@ -978,7 +999,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       },
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       hint: const Text("Seleccione el estado actual"),
     );
@@ -1101,18 +1123,19 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       );
     } else {
       content = Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
-          ]
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4))
+              ]),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // HEADER
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1123,17 +1146,22 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _idControlEditando != null 
-                          ? "Actualización de Control Mensual de la fecha $_fechaControlEditando"
-                          : "Registro Mensual", 
-                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal, letterSpacing: -1),
+                        _idControlEditando != null
+                            ? "Actualización de Control Mensual de la fecha $_fechaControlEditando"
+                            : "Registro Mensual",
+                        style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppTema.azulPrincipal,
+                            letterSpacing: -1),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _idControlEditando != null
-                          ? "Actualiza los datos del control previamente registrado. Todos los campos con * son obligatorios."
-                          : "Anotar los cambios notados en el mes o revisión mensual. Todos los campos con * son obligatorios.", 
-                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                            ? "Actualiza los datos del control previamente registrado. Todos los campos con * son obligatorios."
+                            : "Anotar los cambios notados en el mes o revisión mensual. Todos los campos con * son obligatorios.",
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -1172,7 +1200,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.green.withOpacity(0.3))),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.green, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text("Hoy le toca revisión mensual a este paciente",
@@ -1206,12 +1235,18 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             ],
 
             // ENFERMEDAD Y DIAGNOSTICO
-            _sectionHeader("Enfermedad y diagnóstico*", Icons.coronavirus_outlined, isSub: true),
+            _sectionHeader(
+                "Enfermedad y diagnóstico*", Icons.coronavirus_outlined,
+                isSub: true),
             const SizedBox(height: 20),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Estado de la enfermedad*", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text("Estado de la enfermedad*",
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A))),
                 const SizedBox(height: 8),
                 Row(children: [
                   Expanded(
@@ -1225,7 +1260,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             const SizedBox(height: 40),
 
             // ACTIVIDAD DE LA ENFERMEDAD
-            _sectionHeader("Actividad de la enfermedad*", Icons.analytics_outlined, isSub: true),
+            _sectionHeader(
+                "Actividad de la enfermedad*", Icons.analytics_outlined,
+                isSub: true),
             const SizedBox(height: 20),
             if (MediaQuery.of(context).size.width > 900) ...[
               Row(
@@ -1233,51 +1270,50 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 children: [
                   Expanded(
                     child: EscalaSelector(
-                      key: ValueKey(_dolor),
-                      titulo: "Dolor",
-                      descripcion: "Escala EVA dolor",
-                      min: 0,
-                      max: 10,
-                      value: _dolor.toInt(),
-                      icons: const [
-                        Icons.sentiment_very_satisfied_rounded,
-                        Icons.sentiment_satisfied_rounded,
-                        Icons.sentiment_satisfied_rounded,
-                        Icons.sentiment_neutral_rounded,
-                        Icons.sentiment_neutral_rounded,
-                        Icons.sentiment_dissatisfied_rounded,
-                        Icons.sentiment_dissatisfied_rounded,
-                        Icons.sentiment_very_dissatisfied_rounded,
-                        Icons.sentiment_very_dissatisfied_rounded,
-                        Icons.sick_rounded,
-                        Icons.sick_rounded
-                      ],
-                      etiquetas: [
-                        EscalaEtiqueta("Leve", 3),
-                        EscalaEtiqueta("Moderado", 4),
-                        EscalaEtiqueta("Severo", 4)
-                      ],
-                      colorActivo: AppTema.verdeSalud,
-                      colorFondoActivo: AppTema.verdeSalud,
-                      backgroundColor: const Color(0xFFF8FAFC),
-                      showIdentityRow: false,
-                      onChanged: (v) => setState(() => _dolor = v.toDouble()),
-                      puntajeLabel: "/10",
-                      headerIcon: const Text("😣", style: TextStyle(fontSize: 26))
-                    ),
+                        key: ValueKey(_dolor),
+                        titulo: "Dolor",
+                        descripcion: "Escala EVA dolor",
+                        min: 0,
+                        max: 10,
+                        value: _dolor.toInt(),
+                        icons: const [
+                          Icons.sentiment_very_satisfied_rounded,
+                          Icons.sentiment_satisfied_rounded,
+                          Icons.sentiment_satisfied_rounded,
+                          Icons.sentiment_neutral_rounded,
+                          Icons.sentiment_neutral_rounded,
+                          Icons.sentiment_dissatisfied_rounded,
+                          Icons.sentiment_dissatisfied_rounded,
+                          Icons.sentiment_very_dissatisfied_rounded,
+                          Icons.sentiment_very_dissatisfied_rounded,
+                          Icons.sick_rounded,
+                          Icons.sick_rounded
+                        ],
+                        etiquetas: [
+                          EscalaEtiqueta("Leve", 3),
+                          EscalaEtiqueta("Moderado", 4),
+                          EscalaEtiqueta("Severo", 4)
+                        ],
+                        colorActivo: AppTema.verdeSalud,
+                        colorFondoActivo: AppTema.verdeSalud,
+                        backgroundColor: const Color(0xFFF8FAFC),
+                        showIdentityRow: false,
+                        onChanged: (v) => setState(() => _dolor = v.toDouble()),
+                        puntajeLabel: "/10",
+                        headerIcon:
+                            const Text("😣", style: TextStyle(fontSize: 26))),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
                     child: _buildEVACard("Inflamación", _inflamacion, 3,
-                      (v) => setState(() => _inflamacion = v),
-                      icon: Icons.verified_user_outlined,
-                      labels: [
-                        "0 = Sin inflamación",
-                        "1 = Leve",
-                        "2 = Moderada",
-                        "3 = Severa / Activa"
-                      ]
-                    ),
+                        (v) => setState(() => _inflamacion = v),
+                        icon: Icons.verified_user_outlined,
+                        labels: [
+                          "0 = Sin inflamación",
+                          "1 = Leve",
+                          "2 = Moderada",
+                          "3 = Severa / Activa"
+                        ]),
                   ),
                 ],
               ),
@@ -1287,14 +1323,13 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                 children: [
                   Expanded(
                     child: _buildEVACard("Energía", _fatiga, 10,
-                      (v) => setState(() => _fatiga = v),
-                      icon: Icons.battery_full_rounded,
-                      labels: [
-                        "0-3 = Agotamiento",
-                        "4-7 = Intermedio",
-                        "8-10 = Alta energía"
-                      ]
-                    ),
+                        (v) => setState(() => _fatiga = v),
+                        icon: Icons.battery_full_rounded,
+                        labels: [
+                          "0-3 = Agotamiento",
+                          "4-7 = Intermedio",
+                          "8-10 = Alta energía"
+                        ]),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
@@ -1302,12 +1337,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                       children: [
                         Row(children: [
                           Expanded(
-                            child: _buildCounterField("Art. Inflamadas", _artInflam, Icons.track_changes_outlined)
-                          ),
+                              child: _buildCounterField("Art. Inflamadas",
+                                  _artInflam, Icons.track_changes_outlined)),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)
-                          ),
+                              child: _buildCounterField("Art. Dolorosas",
+                                  _artDolor, Icons.back_hand_outlined)),
                         ]),
                         const SizedBox(height: 24),
                         _buildRigidezCard(),
@@ -1353,38 +1388,37 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     showIdentityRow: false,
                     onChanged: (v) => setState(() => _dolor = v.toDouble()),
                     puntajeLabel: "/10",
-                    headerIcon: const Icon(Icons.healing_rounded, color: AppTema.verdeSalud, size: 28),
+                    headerIcon: const Icon(Icons.healing_rounded,
+                        color: AppTema.verdeSalud, size: 28),
                   ),
                   const SizedBox(height: 24),
                   _buildEVACard("Inflamación", _inflamacion, 3,
-                    (v) => setState(() => _inflamacion = v),
-                    icon: Icons.verified_user_outlined,
-                    labels: [
-                      "0 = Sin inflamación",
-                      "1 = Leve",
-                      "2 = Moderada",
-                      "3 = Severa / Activa"
-                    ]
-                  ),
+                      (v) => setState(() => _inflamacion = v),
+                      icon: Icons.verified_user_outlined,
+                      labels: [
+                        "0 = Sin inflamación",
+                        "1 = Leve",
+                        "2 = Moderada",
+                        "3 = Severa / Activa"
+                      ]),
                   const SizedBox(height: 24),
                   _buildEVACard("Energía", _fatiga, 10,
-                    (v) => setState(() => _fatiga = v),
-                    icon: Icons.battery_full_rounded,
-                    labels: [
-                      "0-3 = Agotamiento",
-                      "4-7 = Intermedio",
-                      "8-10 = Alta energía"
-                    ]
-                  ),
+                      (v) => setState(() => _fatiga = v),
+                      icon: Icons.battery_full_rounded,
+                      labels: [
+                        "0-3 = Agotamiento",
+                        "4-7 = Intermedio",
+                        "8-10 = Alta energía"
+                      ]),
                   const SizedBox(height: 24),
                   Row(children: [
                     Expanded(
-                      child: _buildCounterField("Art. Inflamadas", _artInflam, Icons.track_changes_outlined)
-                    ),
+                        child: _buildCounterField("Art. Inflamadas", _artInflam,
+                            Icons.track_changes_outlined)),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _buildCounterField("Art. Dolorosas", _artDolor, Icons.back_hand_outlined)
-                    ),
+                        child: _buildCounterField("Art. Dolorosas", _artDolor,
+                            Icons.back_hand_outlined)),
                   ]),
                   const SizedBox(height: 24),
                   _buildRigidezCard(),
@@ -1404,22 +1438,24 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _sectionHeader("Condición nutricional*", Icons.hourglass_top_rounded, isSub: true),
+                        _sectionHeader("Condición nutricional*",
+                            Icons.hourglass_top_rounded,
+                            isSub: true),
                         const SizedBox(height: 20),
                         Row(children: [
                           Expanded(
-                            child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                onChanged: (_) => _debouncedOMS())
-                          ),
+                              child: _field(_peso, "Peso inicial (kg)*",
+                                  Icons.scale_outlined,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                  onChanged: (_) => _debouncedOMS())),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                onChanged: (_) => _debouncedOMS())
-                          ),
+                              child: _field(_talla, "Talla inicial (cm)*",
+                                  Icons.height_rounded,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                  onChanged: (_) => _debouncedOMS())),
                         ]),
                         const SizedBox(height: 20),
                         _buildOMSDiagnosisRow(),
@@ -1431,7 +1467,9 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _sectionHeader("Recomendador de ingredientes", Icons.thumb_up_alt_outlined, isSub: true),
+                        _sectionHeader("Recomendador de ingredientes",
+                            Icons.thumb_up_alt_outlined,
+                            isSub: true),
                         const SizedBox(height: 20),
                         _buildRecomendacionesSelector(),
                       ],
@@ -1443,27 +1481,31 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sectionHeader("Condición nutricional*", Icons.hourglass_top_rounded, isSub: true),
+                  _sectionHeader(
+                      "Condición nutricional*", Icons.hourglass_top_rounded,
+                      isSub: true),
                   const SizedBox(height: 20),
                   Row(children: [
                     Expanded(
-                      child: _field(_peso, "Peso inicial (kg)*", Icons.scale_outlined,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                          onChanged: (_) => _debouncedOMS())
-                    ),
+                        child: _field(
+                            _peso, "Peso inicial (kg)*", Icons.scale_outlined,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                            onChanged: (_) => _debouncedOMS())),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _field(_talla, "Talla inicial (cm)*", Icons.height_rounded,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                          onChanged: (_) => _debouncedOMS())
-                    ),
+                        child: _field(
+                            _talla, "Talla inicial (cm)*", Icons.height_rounded,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                            onChanged: (_) => _debouncedOMS())),
                   ]),
                   const SizedBox(height: 20),
                   _buildOMSDiagnosisRow(),
                   const SizedBox(height: 40),
-                  _sectionHeader("Recomendador de ingredientes", Icons.thumb_up_alt_outlined, isSub: true),
+                  _sectionHeader("Recomendador de ingredientes",
+                      Icons.thumb_up_alt_outlined,
+                      isSub: true),
                   const SizedBox(height: 20),
                   _buildRecomendacionesSelector(),
                 ],
@@ -1472,20 +1514,24 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             const SizedBox(height: 40),
 
             // SINTOMAS AGUDOS TEMPORALES
-            _sectionHeader("Síntomas agudos temporales", Icons.event_note_rounded, isSub: true),
+            _sectionHeader(
+                "Síntomas agudos temporales", Icons.event_note_rounded,
+                isSub: true),
             const SizedBox(height: 20),
             _buildSintomasTemporalesSelector(),
             const SizedBox(height: 40),
 
             // OBSERVACIONES
-                        _sectionHeader("Observaciones", Icons.edit_note_rounded, isSub: true),
+            _sectionHeader("Observaciones", Icons.edit_note_rounded,
+                isSub: true),
             const SizedBox(height: 20),
             TextField(
               controller: _notas,
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: "Escribe las observaciones aquí...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 40),
@@ -1499,7 +1545,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                     height: 56,
                     child: OutlinedButton.icon(
                       onPressed: _loading ? null : _cancelarEdicion,
-                      icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.close_rounded,
+                          size: 20, color: Color(0xFF64748B)),
                       label: Text(
                         "Cancelar",
                         style: GoogleFonts.inter(
@@ -1509,7 +1556,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+                        side: const BorderSide(
+                            color: Color(0xFFCBD5E1), width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -1523,45 +1571,47 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   width: 300,
                   height: 56,
                   child: FilledButton.icon(
-                    onPressed: _loading ? null : () {
-                      bool esUltimo = true;
-                      if (_idControlEditando != null) {
-                        final hist = _expediente?['historial_controles'] as List?;
-                        if (hist != null && hist.isNotEmpty) {
-                          if (hist.last['id']?.toString() != _idControlEditando) {
-                            esUltimo = false;
-                          }
-                        }
-                      }
-                      if (esUltimo) {
-                        _mostrarModalProximaCita();
-                      } else {
-                        _guardarConsulta();
-                      }
-                    },
-                    icon: _loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save_rounded),
-                    label: Text(
-                        _idControlEditando == null
-                            ? "Registrar valoración"
-                            : "Guardar cambios",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14)),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AppTema.verdeSalud,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)))),
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              bool esUltimo = true;
+                              if (_idControlEditando != null) {
+                                final hist = _expediente?['historial_controles']
+                                    as List?;
+                                if (hist != null && hist.isNotEmpty) {
+                                  if (hist.last['id']?.toString() !=
+                                      _idControlEditando) {
+                                    esUltimo = false;
+                                  }
+                                }
+                              }
+                              if (esUltimo) {
+                                _mostrarModalProximaCita();
+                              } else {
+                                _guardarConsulta();
+                              }
+                            },
+                      icon: _loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.save_rounded),
+                      label: Text(
+                          _idControlEditando == null
+                              ? "Registrar valoración"
+                              : "Guardar cambios",
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: AppTema.verdeSalud,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)))),
                 ),
               ],
             )
-          ]
-        )
-      );
+          ]));
     }
 
     if (isNested)
@@ -1866,7 +1916,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             .add(Duration(days: duracionSugerida))
             .toIso8601String()
             .split('T')[0];
-            
+
     final finDate = DateTime.tryParse(fin) ?? DateTime.now();
     final restantes = finDate.difference(DateTime.now()).inDays;
     final diasRestantes = restantes < 0 ? 0 : restantes;
@@ -2321,7 +2371,8 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none),
@@ -2442,66 +2493,73 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
     String displayDate = v;
     try {
       final dt = DateTime.parse(v);
-      displayDate = dt.year.toString() + "/" + dt.month.toString().padLeft(2,'0') + "/" + dt.day.toString().padLeft(2,'0');
-    } catch(_) {}
+      displayDate = dt.year.toString() +
+          "/" +
+          dt.month.toString().padLeft(2, '0') +
+          "/" +
+          dt.day.toString().padLeft(2, '0');
+    } catch (_) {}
     return InkWell(
-          onTap: () async {
-            final d = await showDatePicker(
-                context: context,
-                initialDate: DateTime.tryParse(v) ?? DateTime.now(),
-                firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                lastDate: DateTime.now().add(const Duration(days: 90)));
-            if (d != null) onP(d);
-          },
-          child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l,
-                        style: const TextStyle(
-                            fontSize: 9,
-                            color: Colors.blueGrey,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(displayDate,
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF10B981)))
-                  ])));
+        onTap: () async {
+          final d = await showDatePicker(
+              context: context,
+              initialDate: DateTime.tryParse(v) ?? DateTime.now(),
+              firstDate: DateTime.now().subtract(const Duration(days: 30)),
+              lastDate: DateTime.now().add(const Duration(days: 90)));
+          if (d != null) onP(d);
+        },
+        child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0))),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(l,
+                  style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.blueGrey,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(displayDate,
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF10B981)))
+            ])));
   }
 
   Widget _dateStaticSmall(String l, String v) {
     String displayDate = v;
     try {
       final dt = DateTime.parse(v);
-      displayDate = dt.year.toString() + "/" + dt.month.toString().padLeft(2,'0') + "/" + dt.day.toString().padLeft(2,'0');
-    } catch(_) {}
+      displayDate = dt.year.toString() +
+          "/" +
+          dt.month.toString().padLeft(2, '0') +
+          "/" +
+          dt.day.toString().padLeft(2, '0');
+    } catch (_) {}
     return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(l,
-              style: const TextStyle(
-                  fontSize: 9,
-                  color: Colors.blueGrey,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(displayDate,
-              style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E293B)))
-        ]),
-      );
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(l,
+            style: const TextStyle(
+                fontSize: 9,
+                color: Colors.blueGrey,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(displayDate,
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1E293B)))
+      ]),
+    );
   }
 
   Widget _richSummary(String text, Color color) {
@@ -2570,15 +2628,38 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
                   borderRadius: BorderRadius.all(Radius.circular(12)))));
 
   Widget _buildHistoryTab({bool isNested = false}) {
-    if (_loading && _expediente == null) {
-      return const Center(child: CircularProgressIndicator());
+    if ((_loading && _expediente == null) ||
+        (_loadingAnalitica && _evolucionMensual == null)) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(60.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text("Cargando monitor de evolución...",
+                  style: TextStyle(color: Colors.blueGrey)),
+            ],
+          ),
+        ),
+      );
     }
-    final evo = _evolucionMensual;
-    final historial = (evo?['controles'] as List? ?? [])
+    final Map<String, dynamic> safeEvo = _evolucionMensual ??
+        {
+          'controles': (_expediente != null &&
+                  _expediente!['historial_controles'] is List)
+              ? _expediente!['historial_controles']
+              : [],
+          'paciente': _expediente?['paciente'] ?? widget.paciente,
+        };
+    final rawControles = (safeEvo['controles'] as List? ?? []);
+    final historial = rawControles
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    if (evo == null || historial.isEmpty) {
+
+    if (historial.isEmpty) {
       final emptyContent = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2646,7 +2727,7 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             style: GoogleFonts.inter(
                 fontSize: 13, color: const Color(0xFF64748B))),
         const SizedBox(height: 28),
-        _buildOpsDashboard(evo, historial),
+        _buildOpsDashboard(safeEvo, historial),
       ],
     );
 
@@ -2663,27 +2744,41 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
       Map<String, dynamic> evo, List<Map<String, dynamic>> historial) {
     final rawControls = _evoFilteredControls(evo);
     final rawMonthlyControls = _groupEvoControlsByMonth(rawControls);
-    
+
     DateTime latestControlDate = DateTime.now();
     if (rawControls.isNotEmpty) {
-      final parsed = DateTime.tryParse(rawControls.last['fecha_control']?.toString() ?? "");
+      final parsed = DateTime.tryParse(
+          rawControls.last['fecha_control']?.toString() ?? "");
       if (parsed != null) latestControlDate = parsed;
     }
     DateTime threshold;
     switch (_tendenciaFilter) {
-      case '6m': threshold = DateTime(latestControlDate.year, latestControlDate.month - 6, latestControlDate.day); break;
-      case '1y': threshold = DateTime(latestControlDate.year - 1, latestControlDate.month, latestControlDate.day); break;
-      case '5y': threshold = DateTime(latestControlDate.year - 5, latestControlDate.month, latestControlDate.day); break;
-      default: threshold = DateTime(2000); break;
+      case '6m':
+        threshold = DateTime(latestControlDate.year,
+            latestControlDate.month - 6, latestControlDate.day);
+        break;
+      case '1y':
+        threshold = DateTime(latestControlDate.year - 1,
+            latestControlDate.month, latestControlDate.day);
+        break;
+      case '5y':
+        threshold = DateTime(latestControlDate.year - 5,
+            latestControlDate.month, latestControlDate.day);
+        break;
+      default:
+        threshold = DateTime(2000);
+        break;
     }
-    
+
     final controls = rawControls.where((c) {
-      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? latestControlDate;
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ??
+          latestControlDate;
       return d.isAfter(threshold);
     }).toList();
-    
+
     final monthlyControls = rawMonthlyControls.where((c) {
-      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? latestControlDate;
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ??
+          latestControlDate;
       return d.isAfter(threshold);
     }).toList();
 
@@ -2862,162 +2957,163 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
 
   Widget _buildOpsLeftPanel(Map<String, dynamic> stats,
       List<Map<String, dynamic>> controls, Map<String, dynamic> evo) {
-        Widget buildMultiKpiBlock(String badge, String title,
-            List<Map<String, dynamic>> kpis, String interp) {
-          Widget kpiWidget(int i) {
-            final valStr = kpis[i]['val'].toString().trim();
-            final Widget valueWidget;
-            if (valStr.contains('/') && valStr.split('/').length == 2) {
-              final parts = valStr.split('/');
-              valueWidget = RichText(
-                  text: TextSpan(children: [
-                TextSpan(
-                    text: parts[0].trim(),
-                    style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: AppTema.azulPrincipal)),
-                TextSpan(
-                    text: " / ${parts[1].trim()}",
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTema.azulPrincipal)),
-              ]));
-            } else {
-              final unitMatch =
-                  RegExp(r'^([^\s]+)\s+([a-zA-Z%°]+.*)$').firstMatch(valStr);
-              if (unitMatch != null) {
-                valueWidget = RichText(
-                    text: TextSpan(children: [
-                  TextSpan(
-                      text: unitMatch.group(1),
-                      style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTema.azulPrincipal)),
-                  TextSpan(
-                      text: " ${unitMatch.group(2)}",
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTema.azulPrincipal)),
-                ]));
-              } else {
-                valueWidget = Text(valStr,
-                    style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: AppTema.azulPrincipal));
-              }
-            }
-
-            return Padding(
-              padding: const EdgeInsets.only(right: 8, bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(kpis[i]['title'],
-                      style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.blueGrey,
-                          height: 1.2)),
-                  const SizedBox(height: 4),
-                  valueWidget,
-                ],
-              ),
-            );
+    Widget buildMultiKpiBlock(String badge, String title,
+        List<Map<String, dynamic>> kpis, String interp) {
+      Widget kpiWidget(int i) {
+        final valStr = kpis[i]['val'].toString().trim();
+        final Widget valueWidget;
+        if (valStr.contains('/') && valStr.split('/').length == 2) {
+          final parts = valStr.split('/');
+          valueWidget = RichText(
+              text: TextSpan(children: [
+            TextSpan(
+                text: parts[0].trim(),
+                style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppTema.azulPrincipal)),
+            TextSpan(
+                text: " / ${parts[1].trim()}",
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTema.azulPrincipal)),
+          ]));
+        } else {
+          final unitMatch =
+              RegExp(r'^([^\s]+)\s+([a-zA-Z%°]+.*)$').firstMatch(valStr);
+          if (unitMatch != null) {
+            valueWidget = RichText(
+                text: TextSpan(children: [
+              TextSpan(
+                  text: unitMatch.group(1),
+                  style: GoogleFonts.inter(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppTema.azulPrincipal)),
+              TextSpan(
+                  text: " ${unitMatch.group(2)}",
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTema.azulPrincipal)),
+            ]));
+          } else {
+            valueWidget = Text(valStr,
+                style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppTema.azulPrincipal));
           }
-
-          return Container(
-            constraints: const BoxConstraints(minHeight: 220),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                      color: AppTema.azulPrincipal,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text(badge,
-                      style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11)),
-                ),
-                const SizedBox(height: 16),
-                Text(title,
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppTema.azulPrincipal,
-                        letterSpacing: -0.5)),
-                const SizedBox(height: 16),
-                for (int i = 0; i < kpis.length; i += 2)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: kpiWidget(i)),
-                      Expanded(child: i + 1 < kpis.length ? kpiWidget(i + 1) : const SizedBox()),
-                    ],
-                  ),
-                const SizedBox(height: 8),
-                const Row(children: [
-                  Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
-                ]),
-                const SizedBox(height: 16),
-                RichText(
-                    text: TextSpan(children: [
-                  TextSpan(
-                      text: "Interpretación: ",
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.blueGrey.shade800)),
-                  TextSpan(
-                      text: interp,
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: Colors.blueGrey.shade700,
-                          height: 1.4)),
-                ])),
-                const SizedBox(height: 16),
-              ],
-            ),
-          );
         }
 
-      DateTime latestControlDate = DateTime.now();
-      if (controls.isNotEmpty) {
-        final parsed =
-            DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
-        if (parsed != null) latestControlDate = parsed;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8, bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(kpis[i]['title'],
+                  style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blueGrey,
+                      height: 1.2)),
+              const SizedBox(height: 4),
+              valueWidget,
+            ],
+          ),
+        );
       }
-      final now = latestControlDate;
 
-      DateTime threshold;
-      switch (_tendenciaFilter) {
-        case '6m':
-          threshold = DateTime(now.year, now.month - 6, now.day);
-          break;
-        case '1y':
-          threshold = DateTime(now.year - 1, now.month, now.day);
-          break;
-        case '5y':
-          threshold = DateTime(now.year - 5, now.month, now.day);
-          break;
-        default:
-          threshold = DateTime(2000);
-          break;
-      }
-      final filteredControls = controls.where((c) {
-        final d =
-            DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
-        return d.isAfter(threshold);
-      }).toList();
+      return Container(
+        constraints: const BoxConstraints(minHeight: 220),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                  color: AppTema.azulPrincipal,
+                  borderRadius: BorderRadius.circular(6)),
+              child: Text(badge,
+                  style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11)),
+            ),
+            const SizedBox(height: 16),
+            Text(title,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal,
+                    letterSpacing: -0.5)),
+            const SizedBox(height: 16),
+            for (int i = 0; i < kpis.length; i += 2)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: kpiWidget(i)),
+                  Expanded(
+                      child: i + 1 < kpis.length
+                          ? kpiWidget(i + 1)
+                          : const SizedBox()),
+                ],
+              ),
+            const SizedBox(height: 8),
+            const Row(children: [
+              Expanded(child: Divider(color: Color(0xFFE2E8F0), height: 1))
+            ]),
+            const SizedBox(height: 16),
+            RichText(
+                text: TextSpan(children: [
+              TextSpan(
+                  text: "Interpretación: ",
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.blueGrey.shade800)),
+              TextSpan(
+                  text: interp,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      color: Colors.blueGrey.shade700,
+                      height: 1.4)),
+            ])),
+            const SizedBox(height: 16),
+          ],
+        ),
+      );
+    }
+
+    DateTime latestControlDate = DateTime.now();
+    if (controls.isNotEmpty) {
+      final parsed =
+          DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+      if (parsed != null) latestControlDate = parsed;
+    }
+    final now = latestControlDate;
+
+    DateTime threshold;
+    switch (_tendenciaFilter) {
+      case '6m':
+        threshold = DateTime(now.year, now.month - 6, now.day);
+        break;
+      case '1y':
+        threshold = DateTime(now.year - 1, now.month, now.day);
+        break;
+      case '5y':
+        threshold = DateTime(now.year - 5, now.month, now.day);
+        break;
+      default:
+        threshold = DateTime(2000);
+        break;
+    }
+    final filteredControls = controls.where((c) {
+      final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
+      return d.isAfter(threshold);
+    }).toList();
 
     String badgeText = "";
     String title = "";
@@ -3191,13 +3287,12 @@ class _RegistroMensualPageState extends ConsumerState<RegistroMensualPage>
             ? null
             : (filteredControls.last['minutos_rigidez'] ?? 0).toInt();
 
-        
         double fig4Infl = 0;
         int fig4BrotesGrafica = 0;
         bool existeBroteActual = false;
         String fig4Estado = "-";
         String fig4Interp = "Información insuficiente para análisis clínico.";
-String jointInterp = "Información insuficiente para análisis clínico.";
+        String jointInterp = "Información insuficiente para análisis clínico.";
         if (filteredControls.isNotEmpty) {
           final orderedControls = _sortControlsByDate(filteredControls);
           final chartControls = _groupActivityControlsByMonth(orderedControls);
@@ -3264,15 +3359,20 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               : (rigCambio > 0
                   ? "La rigidez empeoró $rigCambio minutos frente al control previo."
                   : "La rigidez no cambió frente al control previo.");
-          
-          final monthlyInflControls = _groupInflammationControlsByMonth(orderedControls);
-          fig4BrotesGrafica = monthlyInflControls.where((c) => c['en_brote'] == true).length;
+
+          final monthlyInflControls =
+              _groupInflammationControlsByMonth(orderedControls);
+          fig4BrotesGrafica =
+              monthlyInflControls.where((c) => c['en_brote'] == true).length;
           fig4Infl = _numValue(last['escala_inflamacion'], 0);
           fig4Estado = (last['estado_enfermedad'] ?? 'Seguimiento').toString();
           existeBroteActual = last['en_brote'] == true;
-          fig4Interp = "En los últimos controles, la escala de inflamación actual es de ${fig4Infl.toStringAsFixed(0)} sobre 3. " +
-              (fig4BrotesGrafica > 0 ? "Se han registrado brotes en $fig4BrotesGrafica meses dentro del periodo mostrado. " : "No se han detectado brotes en el periodo mostrado. ") +
-              "El estado clínico actual del paciente es $fig4Estado.";
+          fig4Interp =
+              "En los últimos controles, la escala de inflamación actual es de ${fig4Infl.toStringAsFixed(0)} sobre 3. " +
+                  (fig4BrotesGrafica > 0
+                      ? "Se han registrado brotes en $fig4BrotesGrafica meses dentro del periodo mostrado. "
+                      : "No se han detectado brotes en el periodo mostrado. ") +
+                  "El estado clínico actual del paciente es $fig4Estado.";
           jointInterp =
               "En el periodo evaluado se analizaron ${orderedControls.length} controles en ${chartControls.length} meses. El último control muestra $actividadLectura, con rigidez matutina de $rigActual min. El máximo del periodo fue $inflMax inflamadas, $dolMax dolorosas y $rigMax min de rigidez; el promedio de rigidez fue ${rigAvg.toStringAsFixed(1)} min. $tendenciaLectura $rigidezLectura";
         }
@@ -3320,9 +3420,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   },
                 ],
                 fig4Interp),
-
             const SizedBox(height: 8),
-            
           ],
         );
       }
@@ -3338,10 +3436,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         final pesoActual = _growthValue(last, 'peso_kg');
         final tallaInicial = _growthValue(first, 'talla_cm');
         final tallaActual = _growthValue(last, 'talla_cm');
-        final ganancia = (tallaInicial != null && tallaActual != null) ? tallaActual - tallaInicial : 0.0;
-        
-        final interp5 = "En los controles recientes, el paciente presenta un Peso de ${pesoActual ?? '-'} kg y una Talla de ${tallaActual ?? '-'} cm. Además, mantiene un IMC de ${latestImc?.toStringAsFixed(1) ?? '-'} con un Z-Score de ${latestZScore?.toStringAsFixed(1) ?? '-'}, reflejando su evolución antropométrica.";
-        final interp6 = "El paciente ha alcanzado una talla de ${tallaActual ?? '-'} cm, demostrando una variación de ${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm respecto al control inicial mostrado.";
+        final ganancia = (tallaInicial != null && tallaActual != null)
+            ? tallaActual - tallaInicial
+            : 0.0;
+
+        final interp5 =
+            "En los controles recientes, el paciente presenta un Peso de ${pesoActual ?? '-'} kg y una Talla de ${tallaActual ?? '-'} cm. Además, mantiene un IMC de ${latestImc?.toStringAsFixed(1) ?? '-'} con un Z-Score de ${latestZScore?.toStringAsFixed(1) ?? '-'}, reflejando su evolución antropométrica.";
+        final interp6 =
+            "El paciente ha alcanzado una talla de ${tallaActual ?? '-'} cm, demostrando una variación de ${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm respecto al control inicial mostrado.";
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3352,36 +3454,32 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 [
                   {
                     'title': 'IMC\nActual',
-                    'val': latestImc == null ? "-" : latestImc.toStringAsFixed(1)
+                    'val':
+                        latestImc == null ? "-" : latestImc.toStringAsFixed(1)
                   },
                   {
                     'title': 'Z-Score\nActual',
-                    'val': latestZScore == null ? "-" : latestZScore.toStringAsFixed(1)
+                    'val': latestZScore == null
+                        ? "-"
+                        : latestZScore.toStringAsFixed(1)
                   },
-                  {
-                    'title': 'Peso\nActual',
-                    'val': '${pesoActual ?? '-'} kg'
-                  },
-                  {
-                    'title': 'Talla\nActual',
-                    'val': '${tallaActual ?? '-'} cm'
-                  },
+                  {'title': 'Peso\nActual', 'val': '${pesoActual ?? '-'} kg'},
+                  {'title': 'Talla\nActual', 'val': '${tallaActual ?? '-'} cm'},
                 ],
                 interp5),
-            
-            const SizedBox(height: 312), // 13 saltos de linea (5 anteriores + 8 nuevos)
+
+            const SizedBox(
+                height: 312), // 13 saltos de linea (5 anteriores + 8 nuevos)
 
             buildMultiKpiBlock(
                 "Figura 6",
                 "EVOLUCIÓN DE TALLA",
                 [
-                  {
-                    'title': 'Talla\nActual',
-                    'val': '${tallaActual ?? '-'} cm'
-                  },
+                  {'title': 'Talla\nActual', 'val': '${tallaActual ?? '-'} cm'},
                   {
                     'title': 'Ganancia\nTotal',
-                    'val': '${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm'
+                    'val':
+                        '${ganancia >= 0 ? '+' : ''}${ganancia.toStringAsFixed(1)} cm'
                   },
                   {
                     'title': 'Tendencia',
@@ -3396,61 +3494,82 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         badgeText = "Tabla 1";
         title = "CONSUMO ALIMENTARIO Y ACEPTACIÓN DE RECETAS";
         desc = ""; // Se reemplaza por el resumen clínico
-        
+
         final items = _foodFilteredItems();
         final hasItems = items.isNotEmpty;
-        
+
         int consumidas = 0;
         int rechazadas = 0;
         int sinRegistro = 0;
         int parciales = 0;
-        
+
         for (var item in items) {
           final ec = (item['estado_consumo'] ?? "").toString().toLowerCase();
-          if (ec.contains("consumida")) consumidas++;
-          else if (ec.contains("rechazada") || ec.contains("rechazado")) rechazadas++;
-          else if (ec.contains("parcial")) parciales++;
-          else sinRegistro++;
+          if (ec.contains("consumida"))
+            consumidas++;
+          else if (ec.contains("rechazada") || ec.contains("rechazado"))
+            rechazadas++;
+          else if (ec.contains("parcial"))
+            parciales++;
+          else
+            sinRegistro++;
         }
-        
-        // La fórmula estricta (igual al backend): 
+
+        // La fórmula estricta (igual al backend):
         // Adherencia = (Consumidas / Total de comidas) * 100
         // Las comidas "Sin registro" penalizan la adherencia.
         final validForAdherence = items.length;
-        final dynAdh = validForAdherence > 0 ? (consumidas / validForAdherence) * 100 : 0.0;
+        final dynAdh = validForAdherence > 0
+            ? (consumidas / validForAdherence) * 100
+            : 0.0;
         final impact = _foodRiskLabel(dynAdh, validForAdherence > 0);
         final impactColor = _foodRiskColor(impact);
 
         Widget _bullet(String t) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("• ", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              Expanded(child: Text(t, style: GoogleFonts.inter(fontSize: 11, height: 1.4, color: Colors.blueGrey.shade700))),
-            ]
-          )
-        );
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text("• ",
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey)),
+              Expanded(
+                  child: Text(t,
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: Colors.blueGrey.shade700))),
+            ]));
 
         kpis = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Resumen dinámico (Filtros activos)", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+            Text("Resumen dinámico (Filtros activos)",
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulPrincipal)),
             const SizedBox(height: 12),
             if (!hasItems)
               _bullet("No hay comidas que coincidan con los filtros actuales.")
             else ...[
-              _bullet("Se muestran ${items.length} comidas en el filtro actual."),
+              _bullet(
+                  "Se muestran ${items.length} comidas en el filtro actual."),
               if (validForAdherence > 0)
-                _bullet("Adherencia calculada: ${dynAdh.toStringAsFixed(0)}% (Completas: $consumidas, Parciales: $parciales).")
+                _bullet(
+                    "Adherencia calculada: ${dynAdh.toStringAsFixed(0)}% (Completas: $consumidas, Parciales: $parciales).")
               else
-                _bullet("No hay suficientes datos con registro para calcular adherencia en esta vista."),
+                _bullet(
+                    "No hay suficientes datos con registro para calcular adherencia en esta vista."),
               if (rechazadas > 0)
-                _bullet("Atención: Hay $rechazadas recetas rechazadas bajo estas condiciones.")
+                _bullet(
+                    "Atención: Hay $rechazadas recetas rechazadas bajo estas condiciones.")
               else if (validForAdherence > 0)
-                _bullet("Buena aceptación: No se registran rechazos en este filtro."),
+                _bullet(
+                    "Buena aceptación: No se registran rechazos en este filtro."),
               if (sinRegistro > 0)
-                _bullet("Falta registro en $sinRegistro de las comidas mostradas."),
+                _bullet(
+                    "Falta registro en $sinRegistro de las comidas mostradas."),
             ],
             const SizedBox(height: 12),
             Container(
@@ -3464,11 +3583,19 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Posible impacto clínico (sobre la vista actual):", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: impactColor)),
+                  Text("Posible impacto clínico (sobre la vista actual):",
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: impactColor)),
                   const SizedBox(height: 6),
                   Text(
                     "$impact\n${impact == "Sin registro" ? "sin datos suficientes para estimar impacto en esta vista." : impact == "Alto" ? "baja adherencia en estos filtros con posible riesgo nutricional." : impact == "Medio" ? "requiere seguimiento en estas comidas para evitar deterioro." : "adherencia aceptable en esta selección."}",
-                    style: GoogleFonts.inter(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF334155)),
                   ),
                 ],
               ),
@@ -3478,16 +3605,28 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       }
     } else if (_activeDomainIndex == 2) {
       // Resumen Clínico
-      String kpiInterp = "Indicadores basados en el historial reportado por el paciente. La efectividad del tratamiento se evidencia en la estabilidad de estos parámetros.";
-      
+      String kpiInterp =
+          "Indicadores basados en el historial reportado por el paciente. La efectividad del tratamiento se evidencia en la estabilidad de estos parámetros.";
+
       Widget _lecturaItem(String label, String value) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 2, child: Text(label, style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade600))),
-              Expanded(flex: 3, child: Text(value, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800))),
+              Expanded(
+                  flex: 2,
+                  child: Text(label,
+                      style: GoogleFonts.inter(
+                          fontSize: 10, color: Colors.blueGrey.shade600))),
+              Expanded(
+                  flex: 3,
+                  child: Text(value,
+                      textAlign: TextAlign.right,
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey.shade800))),
             ],
           ),
         );
@@ -3496,13 +3635,26 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       String _mesCompleto(String raw) {
         try {
           final dt = DateTime.parse(raw);
-          final meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+          final meses = [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre"
+          ];
           return "${meses[dt.month - 1]} ${dt.year}";
         } catch (_) {
           return raw;
         }
       }
-      
+
       int brotes = stats['mesesConBrote'] ?? 0;
       String textoBrotes = brotes == 1 ? "1 mes" : "$brotes meses";
 
@@ -3511,23 +3663,43 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         children: [
           const SizedBox(height: 0),
           buildMultiKpiBlock(
-            "Tabla 2", 
-            "MAPA MENSUAL DE IMPACTO GLOBAL", 
-            [
-              {'title': 'Dolor\nmensual', 'val': '${(stats['ultimoDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'},
-              {'title': 'Energía\nmensual', 'val': '${(stats['ultimaEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'},
-              {'title': 'Periodo\nevaluado', 'val': '${stats['totalMeses']} meses'},
-              {'title': 'Presencia\nde brote', 'val': stats['ultimoBrote'] == true ? "Sí" : "No"},
-            ],
-            kpiInterp
-          ),
+              "Tabla 2",
+              "MAPA MENSUAL DE IMPACTO GLOBAL",
+              [
+                {
+                  'title': 'Dolor\nmensual',
+                  'val':
+                      '${(stats['ultimoDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'
+                },
+                {
+                  'title': 'Energía\nmensual',
+                  'val':
+                      '${(stats['ultimaEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'}/10'
+                },
+                {
+                  'title': 'Periodo\nevaluado',
+                  'val': '${stats['totalMeses']} meses'
+                },
+                {
+                  'title': 'Presencia\nde brote',
+                  'val': stats['ultimoBrote'] == true ? "Sí" : "No"
+                },
+              ],
+              kpiInterp),
           const SizedBox(height: 24),
-          Text("LECTURA CLÍNICA RÁPIDA", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: AppTema.azulPrincipal)),
+          Text("LECTURA CLÍNICA RÁPIDA",
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppTema.azulPrincipal)),
           const SizedBox(height: 12),
-          _lecturaItem("Promedio de dolor:", (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'),
-          _lecturaItem("Promedio de energía:", (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Promedio de dolor:",
+              (stats['promedioDolor'] as num?)?.toStringAsFixed(1) ?? '0.0'),
+          _lecturaItem("Promedio de energía:",
+              (stats['promedioEnergia'] as num?)?.toStringAsFixed(1) ?? '0.0'),
           _lecturaItem("Cantidad de brotes:", textoBrotes),
-          _lecturaItem("Última evaluación:", _mesCompleto(stats['ultimoControlFecha']?.toString() ?? '')),
+          _lecturaItem("Última evaluación:",
+              _mesCompleto(stats['ultimoControlFecha']?.toString() ?? '')),
           Builder(
             builder: (context) {
               String patronStr = stats['patronClinico']?.toString() ?? '-';
@@ -3540,11 +3712,14 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ],
       );
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (badgeText == "Tabla 1") const SizedBox(height: 230), // ~10 saltos de línea para alinear con la tabla derecha
+        if (badgeText == "Tabla 1")
+          const SizedBox(
+              height:
+                  230), // ~10 saltos de línea para alinear con la tabla derecha
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -3681,23 +3856,37 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       return _buildEvoHeatmapSection(controls);
     } else {
       // Historial
-      List<Map<String,dynamic>> filteredHist = List.from(historial);
-      
+      List<Map<String, dynamic>> filteredHist = List.from(historial);
+
       DateTime latestControlDate = DateTime.now();
       if (controls.isNotEmpty) {
-        final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+        final parsed =
+            DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
         if (parsed != null) latestControlDate = parsed;
       }
       DateTime thresholdDate;
       switch (_tendenciaFilter) {
-        case '6m': thresholdDate = DateTime(latestControlDate.year, latestControlDate.month - 6, latestControlDate.day); break;
-        case '1y': thresholdDate = DateTime(latestControlDate.year - 1, latestControlDate.month, latestControlDate.day); break;
-        case '5y': thresholdDate = DateTime(latestControlDate.year - 5, latestControlDate.month, latestControlDate.day); break;
-        default: thresholdDate = DateTime(2000); break;
+        case '6m':
+          thresholdDate = DateTime(latestControlDate.year,
+              latestControlDate.month - 6, latestControlDate.day);
+          break;
+        case '1y':
+          thresholdDate = DateTime(latestControlDate.year - 1,
+              latestControlDate.month, latestControlDate.day);
+          break;
+        case '5y':
+          thresholdDate = DateTime(latestControlDate.year - 5,
+              latestControlDate.month, latestControlDate.day);
+          break;
+        default:
+          thresholdDate = DateTime(2000);
+          break;
       }
 
       filteredHist = filteredHist.where((h) {
-        final d = DateTime.tryParse(h['fecha']?.toString() ?? "") ?? latestControlDate;
+        final d = DateTime.tryParse(
+                (h['fecha_control'] ?? h['fecha'])?.toString() ?? "") ??
+            latestControlDate;
         return d.isAfter(thresholdDate);
       }).toList();
 
@@ -3753,8 +3942,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             physics: const NeverScrollableScrollPhysics(),
             itemCount: filteredHist.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) =>
-                _buildHistoryItem(filteredHist[filteredHist.length - 1 - index]),
+            itemBuilder: (context, index) => _buildHistoryItem(
+                filteredHist[filteredHist.length - 1 - index]),
           ),
         ],
       );
@@ -4318,209 +4507,152 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label + ": ", style: GoogleFonts.inter(fontSize: 10, color: baseColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
-            Text(value, style: GoogleFonts.inter(fontSize: 10, color: baseColor, fontWeight: FontWeight.bold)),
+            Text(label + ": ",
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: baseColor.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600)),
+            Text(value,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: baseColor,
+                    fontWeight: FontWeight.bold)),
           ],
         ),
       );
     }
 
-    return StatefulBuilder(
-      builder: (context, setStateItem) {
-        final bool isBrote = (h['en_brote'] ?? false) == true;
-        
-        // Colores de fondo que combinen y no sean blanco.
-        // Si hay brote usamos un fondo rojizo super tenue. Si no, un azul grisaceo claro.
-        final Color normalBg = const Color(0xFFF3F7FA);
-        final Color hoverBg = const Color(0xFFE5EDF4);
-        final Color broteBg = const Color(0xFFFEF2F2);
-        final Color broteHoverBg = const Color(0xFFFEE2E2);
-        
-        final Color currentBg = isBrote 
-            ? (isHovered ? broteHoverBg : broteBg) 
-            : (isHovered ? hoverBg : normalBg);
-            
-        final Color currentBorder = isBrote 
-            ? Colors.red.shade200 
-            : (isHovered ? AppTema.azulPrincipal.withValues(alpha: 0.3) : Colors.transparent);
+    return StatefulBuilder(builder: (context, setStateItem) {
+      final bool isBrote = (h['en_brote'] ?? false) == true;
 
-        return MouseRegion(
-          onEnter: (_) => setStateItem(() => isHovered = true),
-          onExit: (_) => setStateItem(() => isHovered = false),
-          child: GestureDetector(
-            onTap: () => _mostrarDetalleModal(h),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: currentBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: currentBorder),
-                boxShadow: isHovered ? [
-                  BoxShadow(
-                      color: Colors.blueGrey.shade900.withValues(alpha: 0.08),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6))
-                ] : [],
-              ),
-              child: Row(
-                children: [
-                  _dateBadge(DateTime.parse(h['fecha_control'])),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          h['estado_nutricional'] ?? "Sin diagnóstico",
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                              color: AppTema.azulPrincipal),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            metricPill("Peso", "${h['peso_kg']} kg", Colors.blueGrey),
-                            metricPill("Talla", "${h['talla_cm']} cm", Colors.blueGrey),
-                            metricPill("IMC", "${h['imc_calculado'] ?? '-'}", Colors.blueGrey),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            metricPill("Dolor", "${h['puntos_dolor'] ?? '-'}", const Color(0xFFE74C3C)),
-                            metricPill("Inflamación", "${h['escala_inflamacion'] ?? '-'}", const Color(0xFFE67E22)),
-                            metricPill("Fatiga", "${h['nivel_fatiga'] ?? '-'}", const Color(0xFFF39C12)),
-                            metricPill("Rigidez", "${h['minutos_rigidez'] ?? '-'}m", const Color(0xFF3498DB)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isBrote)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text("Brote",
-                          style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    tooltip: "Editar",
-                    onPressed: () => _prepararEdicion(h),
-                    icon: const Icon(Icons.edit_note_rounded, color: greenBrand),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded,
-                      size: 14, color: Colors.grey),
-                ],
-              ),
+      // Colores de fondo que combinen y no sean blanco.
+      // Si hay brote usamos un fondo rojizo super tenue. Si no, un azul grisaceo claro.
+      final Color normalBg = const Color(0xFFF3F7FA);
+      final Color hoverBg = const Color(0xFFE5EDF4);
+      final Color broteBg = const Color(0xFFFEF2F2);
+      final Color broteHoverBg = const Color(0xFFFEE2E2);
+
+      final Color currentBg = isBrote
+          ? (isHovered ? broteHoverBg : broteBg)
+          : (isHovered ? hoverBg : normalBg);
+
+      final Color currentBorder = isBrote
+          ? Colors.red.shade200
+          : (isHovered
+              ? AppTema.azulPrincipal.withValues(alpha: 0.3)
+              : Colors.transparent);
+
+      return MouseRegion(
+        onEnter: (_) => setStateItem(() => isHovered = true),
+        onExit: (_) => setStateItem(() => isHovered = false),
+        child: GestureDetector(
+          onTap: () => _mostrarDetalleModal(h),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: currentBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: currentBorder),
+              boxShadow: isHovered
+                  ? [
+                      BoxShadow(
+                          color:
+                              Colors.blueGrey.shade900.withValues(alpha: 0.08),
+                          blurRadius: 15,
+                          offset: const Offset(0, 6))
+                    ]
+                  : [],
             ),
-          ),
-        );
-      }
-    );
-  }
-
-  void _mostrarDetalleModal(Map<String, dynamic> h) => showDialog(
-        context: context,
-        builder: (ctx) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          child: Container(
-            width: 650,
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.analytics_outlined, color: greenBrand),
-                    const SizedBox(width: 12),
-                    Text("Resumen de valoración",
+                _dateBadge(DateTime.parse(h['fecha_control'])),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        h['estado_nutricional'] ?? "Sin diagnóstico",
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                            color: greenBrand)),
-                    const Spacer(),
-                    IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close)),
-                  ],
-                ),
-                const Divider(height: 32),
-                _infoModalRow(
-                    "Fecha de control",
-                    DateFormat('dd/MM/yyyy')
-                        .format(DateTime.parse(h['fecha_control']))),
-                _infoModalRow(
-                    "Estado nutricional", h['estado_nutricional'] ?? "Normal",
-                    isHighlight: true),
-                _infoModalRow("Peso / Talla",
-                    "${h['peso_kg'] ?? '-'} kg / ${h['talla_cm'] ?? '-'} cm"),
-                _infoModalRow("IMC", h['imc_calculado']?.toString() ?? "-"),
-                _infoModalRow("Actividad clínica",
-                    "Dolor ${h['puntos_dolor'] ?? '-'} | Inflamación ${h['escala_inflamacion'] ?? '-'} | Fatiga ${h['nivel_fatiga'] ?? '-'} | Rigidez ${h['minutos_rigidez'] ?? '-'} min"),
-                _infoModalRow("Estado de enfermedad",
-                    h['estado_enfermedad'] ?? "Seguimiento"),
-                _infoModalRow(
-                    "Próxima cita", h['fecha_proxima_cita'] ?? "Sin fecha"),
-                if ((h['nota_evolucion'] ?? '').toString().isNotEmpty)
-                  _infoModalRow("Notas", h['nota_evolucion']),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _prepararEdicion(h);
-                        },
-                        icon: const Icon(Icons.edit_note_rounded),
-                        label: const Text("Editar valoración"),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: greenBrand,
-                          side: const BorderSide(color: greenBrand),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
+                            fontSize: 14,
+                            color: AppTema.azulPrincipal),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          metricPill(
+                              "Peso", "${h['peso_kg']} kg", Colors.blueGrey),
+                          metricPill(
+                              "Talla", "${h['talla_cm']} cm", Colors.blueGrey),
+                          metricPill("IMC", "${h['imc_calculado'] ?? '-'}",
+                              Colors.blueGrey),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          metricPill("Dolor", "${h['puntos_dolor'] ?? '-'}",
+                              const Color(0xFFE74C3C)),
+                          metricPill(
+                              "Inflamación",
+                              "${h['escala_inflamacion'] ?? '-'}",
+                              const Color(0xFFE67E22)),
+                          metricPill("Fatiga", "${h['nivel_fatiga'] ?? '-'}",
+                              const Color(0xFFF39C12)),
+                          metricPill(
+                              "Rigidez",
+                              "${h['minutos_rigidez'] ?? '-'}m",
+                              const Color(0xFF3498DB)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
+                if (isBrote)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text("Brote",
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: "Editar",
+                  onPressed: () => _prepararEdicion(h),
+                  icon: const Icon(Icons.edit_note_rounded, color: greenBrand),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    size: 14, color: Colors.grey),
               ],
             ),
           ),
         ),
       );
+    });
+  }
 
-  Widget _infoModalRow(String l, String v, {bool isHighlight = false}) =>
-      Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l,
-                style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey)),
-            const SizedBox(height: 2),
-            Text(v,
-                style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: isHighlight ? FontWeight.w900 : FontWeight.w600,
-                    color: isHighlight ? greenBrand : const Color(0xFF1E293B)))
-          ]));
+  void _mostrarDetalleModal(Map<String, dynamic> h) => showDialog(
+        context: context,
+        builder: (ctx) => ResumenValoracionModal(
+          data: h,
+          onEdit: () {
+            Navigator.pop(ctx);
+            _prepararEdicion(h);
+          },
+        ),
+      );
 
   String _capitalize(String value) {
     final text = value.trim();
@@ -5176,8 +5308,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                             quarterTurns: 3,
                             child: Text(
                                 (controls[idx]['mes_label_largo'] ??
-                                        _monthShort(
-                                            controls[idx]['fecha_control'] ?? ""))
+                                        _monthShort(controls[idx]
+                                                ['fecha_control'] ??
+                                            ""))
                                     .toString(),
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.inter(
@@ -6468,7 +6601,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              
               Row(
                 children: [
                   _legendItem("Inflamación", Colors.purple),
@@ -6529,9 +6661,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                           reservedSize: 30,
                           interval: 1,
                           getTitlesWidget: (v, meta) {
-                            if ((v % 1).abs() > 0.01) return const SizedBox.shrink();
-                            return Text(
-                                v.toInt().toString(),
+                            if ((v % 1).abs() > 0.01)
+                              return const SizedBox.shrink();
+                            return Text(v.toInt().toString(),
                                 style: GoogleFonts.inter(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
@@ -6918,7 +7050,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                                   textAlign: TextAlign.center,
                                                   style: GoogleFonts.inter(
                                                       fontSize: 7.5,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       color: const Color(
                                                           0xFF64748B))),
                                             ));
@@ -7397,29 +7530,31 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.chevron_left, color: AppTema.azulPrincipal),
-                      onPressed: () {
-                        if (_heatmapScrollCtrl.hasClients) {
-                          _heatmapScrollCtrl.animateTo(
-                            (_heatmapScrollCtrl.offset - 300).clamp(0.0, _heatmapScrollCtrl.position.maxScrollExtent),
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      }
-                    ),
+                        icon: Icon(Icons.chevron_left,
+                            color: AppTema.azulPrincipal),
+                        onPressed: () {
+                          if (_heatmapScrollCtrl.hasClients) {
+                            _heatmapScrollCtrl.animateTo(
+                              (_heatmapScrollCtrl.offset - 300).clamp(0.0,
+                                  _heatmapScrollCtrl.position.maxScrollExtent),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        }),
                     IconButton(
-                      icon: Icon(Icons.chevron_right, color: AppTema.azulPrincipal),
-                      onPressed: () {
-                        if (_heatmapScrollCtrl.hasClients) {
-                          _heatmapScrollCtrl.animateTo(
-                            (_heatmapScrollCtrl.offset + 300).clamp(0.0, _heatmapScrollCtrl.position.maxScrollExtent),
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      }
-                    ),
+                        icon: Icon(Icons.chevron_right,
+                            color: AppTema.azulPrincipal),
+                        onPressed: () {
+                          if (_heatmapScrollCtrl.hasClients) {
+                            _heatmapScrollCtrl.animateTo(
+                              (_heatmapScrollCtrl.offset + 300).clamp(0.0,
+                                  _heatmapScrollCtrl.position.maxScrollExtent),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        }),
                     const SizedBox(width: 8),
                     Flexible(
                       child: FittedBox(
@@ -7437,9 +7572,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               final double labelWidth =
                   constraints.maxWidth < 520 ? 120.0 : 140.0;
               const double minColumnWidth = 60.0;
-              final double availableWidth =
-                  (constraints.maxWidth - labelWidth)
-                      .clamp(0.0, double.infinity);
+              final double availableWidth = (constraints.maxWidth - labelWidth)
+                  .clamp(0.0, double.infinity);
               final double columnWidth = controls.isNotEmpty
                   ? (availableWidth / controls.length)
                       .clamp(minColumnWidth, double.infinity)
@@ -7459,17 +7593,27 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       width: labelWidth,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            SizedBox(height: 32),
-                            _HeatLabel("Dolor", Icons.sick_rounded, Colors.pinkAccent),
-                            _HeatLabel("Energía", Icons.bolt_rounded, Colors.orangeAccent),
-                            _HeatLabel("Inflamación", Icons.local_fire_department_rounded, Colors.deepOrangeAccent),
-                            _HeatLabel("Articulaciones", Icons.back_hand_rounded, Colors.purpleAccent),
-                            _HeatLabel("Rigidez (min)", Icons.timer_rounded, Colors.blueAccent),
-                            _HeatLabel("IMC", Icons.monitor_weight_outlined, Colors.teal),
-                            _HeatLabel("Actividad", Icons.analytics_outlined, Colors.indigoAccent),
-                            _HeatLabel("Brote", Icons.coronavirus_rounded, Colors.redAccent),
-                          ],
+                        children: const [
+                          SizedBox(height: 32),
+                          _HeatLabel(
+                              "Dolor", Icons.sick_rounded, Colors.pinkAccent),
+                          _HeatLabel("Energía", Icons.bolt_rounded,
+                              Colors.orangeAccent),
+                          _HeatLabel(
+                              "Inflamación",
+                              Icons.local_fire_department_rounded,
+                              Colors.deepOrangeAccent),
+                          _HeatLabel("Articulaciones", Icons.back_hand_rounded,
+                              Colors.purpleAccent),
+                          _HeatLabel("Rigidez (min)", Icons.timer_rounded,
+                              Colors.blueAccent),
+                          _HeatLabel("IMC", Icons.monitor_weight_outlined,
+                              Colors.teal),
+                          _HeatLabel("Actividad", Icons.analytics_outlined,
+                              Colors.indigoAccent),
+                          _HeatLabel("Brote", Icons.coronavirus_rounded,
+                              Colors.redAccent),
+                        ],
                       ),
                     ),
                     Expanded(
@@ -7504,16 +7648,32 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               children: [
                 Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 14, color: Colors.blueGrey.shade700),
+                    Icon(Icons.info_outline_rounded,
+                        size: 14, color: Colors.blueGrey.shade700),
                     const SizedBox(width: 6),
-                    Text("Guía de Interpretación de Indicadores:", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                    Text("Guía de Interpretación de Indicadores:",
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey.shade800)),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text("• Articulaciones (D/I): Dolorosas / Inflamadas. Verde (0). Naranja (1-4). Rojo (>4).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
-                Text("• Rigidez: Verde (<15m). Naranja (15-60m). Rojo (>60m).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
-                Text("• IMC: Verde (18.5-24.9 Normal). Naranja (25-29.9 Sobrepeso). Rojo (<18.5 o ≥30).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
-                Text("• Actividad: REM (Remisión). BAJ (Baja). MOD (Moderada). ALT (Alta).", style: GoogleFonts.inter(fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text(
+                    "• Articulaciones (D/I): Dolorosas / Inflamadas. Verde (0). Naranja (1-4). Rojo (>4).",
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text("• Rigidez: Verde (<15m). Naranja (15-60m). Rojo (>60m).",
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text(
+                    "• IMC: Verde (18.5-24.9 Normal). Naranja (25-29.9 Sobrepeso). Rojo (<18.5 o ≥30).",
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: Colors.blueGrey.shade600)),
+                Text(
+                    "• Actividad: REM (Remisión). BAJ (Baja). MOD (Moderada). ALT (Alta).",
+                    style: GoogleFonts.inter(
+                        fontSize: 9, color: Colors.blueGrey.shade600)),
               ],
             ),
           ],
@@ -7741,32 +7901,45 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   width: cellWidth),
               _heatCell(
                   (c['escala_inflamacion'] ?? 0).toString(),
-                  _heatColor('inflamacion', _numValue(c['escala_inflamacion'], 0)),
+                  _heatColor(
+                      'inflamacion', _numValue(c['escala_inflamacion'], 0)),
                   width: cellWidth),
               Builder(builder: (context) {
                 int dol = _numValue(c['articulaciones_dolorosas'], 0).round();
                 int inf = _numValue(c['articulaciones_inflamadas'], 0).round();
-                Color cArt = (dol == 0 && inf == 0) ? Colors.green : ((dol <= 4 && inf <= 4) ? Colors.orange : Colors.red);
+                Color cArt = (dol == 0 && inf == 0)
+                    ? Colors.green
+                    : ((dol <= 4 && inf <= 4) ? Colors.orange : Colors.red);
                 return _heatCell("$dol/$inf", cArt, width: cellWidth);
               }),
               Builder(builder: (context) {
                 int rig = _numValue(c['minutos_rigidez'], 0).round();
-                Color cRig = rig < 15 ? Colors.green : (rig <= 60 ? Colors.orange : Colors.red);
+                Color cRig = rig < 15
+                    ? Colors.green
+                    : (rig <= 60 ? Colors.orange : Colors.red);
                 return _heatCell("${rig}m", cRig, width: cellWidth);
               }),
               Builder(builder: (context) {
                 double imc = _numValue(c['imc_calculado'], 0).toDouble();
-                Color cImc = (imc >= 18.5 && imc < 25) ? Colors.green : ((imc >= 25 && imc < 30) ? Colors.orange : Colors.red);
-                return _heatCell(imc > 0 ? imc.toStringAsFixed(1) : "-", cImc, width: cellWidth);
+                Color cImc = (imc >= 18.5 && imc < 25)
+                    ? Colors.green
+                    : ((imc >= 25 && imc < 30) ? Colors.orange : Colors.red);
+                return _heatCell(imc > 0 ? imc.toStringAsFixed(1) : "-", cImc,
+                    width: cellWidth);
               }),
               Builder(builder: (context) {
                 String act = (c['estado_enfermedad'] ?? "-").toString();
-                String actShort = act.length > 3 ? act.substring(0,3).toUpperCase() : act.toUpperCase();
+                String actShort = act.length > 3
+                    ? act.substring(0, 3).toUpperCase()
+                    : act.toUpperCase();
                 Color actColor = Colors.grey;
                 String actLower = act.toLowerCase();
-                if(actLower.contains("remis") || actLower.contains("estable")) actColor = Colors.green;
-                else if(actLower.contains("baja")) actColor = Colors.orange;
-                else if(actLower.contains("alta") || actLower.contains("moderada")) actColor = Colors.red;
+                if (actLower.contains("remis") || actLower.contains("estable"))
+                  actColor = Colors.green;
+                else if (actLower.contains("baja"))
+                  actColor = Colors.orange;
+                else if (actLower.contains("alta") ||
+                    actLower.contains("moderada")) actColor = Colors.red;
                 return _heatCell(actShort, actColor, width: cellWidth);
               }),
               _heatCell(c['en_brote'] == true ? "SÍ" : "NO",
@@ -7887,23 +8060,33 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     if (controls.isEmpty) return const SizedBox();
 
     DateTime latestControlDate = DateTime.now();
-    final parsed = DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
+    final parsed =
+        DateTime.tryParse(controls.last['fecha_control']?.toString() ?? "");
     if (parsed != null) latestControlDate = parsed;
     final now = latestControlDate;
 
     DateTime threshold;
     switch (_tendenciaFilter) {
-      case '6m': threshold = DateTime(now.year, now.month - 6, now.day); break;
-      case '1y': threshold = DateTime(now.year - 1, now.month, now.day); break;
-      case '5y': threshold = DateTime(now.year - 5, now.month, now.day); break;
-      default: threshold = DateTime(2000); break;
+      case '6m':
+        threshold = DateTime(now.year, now.month - 6, now.day);
+        break;
+      case '1y':
+        threshold = DateTime(now.year - 1, now.month, now.day);
+        break;
+      case '5y':
+        threshold = DateTime(now.year - 5, now.month, now.day);
+        break;
+      default:
+        threshold = DateTime(2000);
+        break;
     }
-    
+
     List<Map<String, dynamic>> filteredControls = controls.where((c) {
       final d = DateTime.tryParse(c['fecha_control']?.toString() ?? "") ?? now;
       return d.isAfter(threshold);
     }).toList();
-    if (filteredControls.isEmpty) filteredControls = controls; // Fallback if filtered is empty
+    if (filteredControls.isEmpty)
+      filteredControls = controls; // Fallback if filtered is empty
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -7970,8 +8153,12 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     Colors.purple, "Referencia IMC/edad (OMS)")),
             const SizedBox(width: 16),
             Expanded(
-                child: _growthChartCard("Z-score IMC", filteredControls, 'z_score_bmi',
-                    Colors.orange, "Interpretación Z-score (OMS)")),
+                child: _growthChartCard(
+                    "Z-score IMC",
+                    filteredControls,
+                    'z_score_bmi',
+                    Colors.orange,
+                    "Interpretación Z-score (OMS)")),
           ],
         ),
         const SizedBox(height: 24),
@@ -8407,7 +8594,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
           const SizedBox(height: 8),
           Text(refText,
-              style: GoogleFonts.inter(fontSize: 8, color: Colors.blueGrey.shade400, fontStyle: FontStyle.italic)),
+              style: GoogleFonts.inter(
+                  fontSize: 8,
+                  color: Colors.blueGrey.shade400,
+                  fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -8455,8 +8645,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   ? "Sin datos suficientes para comparar talla."
                   : "${tallaDelta >= 0 ? '+' : ''}${tallaDelta.toStringAsFixed(1)} cm en el periodo.",
               _trendLabel(tallaDelta,
-                  positiveLabel: "Crecimiento",
-                  negativeLabel: "Revisar dato"),
+                  positiveLabel: "Crecimiento", negativeLabel: "Revisar dato"),
               Colors.blue),
         ),
         const SizedBox(width: 10),
@@ -8849,20 +9038,25 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   showTitles: true,
                   reservedSize: 36,
                   getTitlesWidget: (v, m) {
-                    String text = (v == v.truncateToDouble()) ? v.toInt().toString() : v.toStringAsFixed(2);
+                    String text = (v == v.truncateToDouble())
+                        ? v.toInt().toString()
+                        : v.toStringAsFixed(2);
                     if (text.contains('.')) {
                       text = text.replaceAll(RegExp(r'0+$'), '');
-                      if (text.endsWith('.')) text = text.substring(0, text.length - 1);
+                      if (text.endsWith('.'))
+                        text = text.substring(0, text.length - 1);
                     }
                     return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          text,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                              fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                        ),
-                      );
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                            fontSize: 8,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600),
+                      ),
+                    );
                   })),
           bottomTitles: AxisTitles(
               sideTitles: SideTitles(
@@ -8877,12 +9071,27 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       return const SizedBox();
                     }
                     String monthStr = "";
-                    final dateStr = controls[idx]['fecha_control']?.toString() ?? '';
+                    final dateStr =
+                        controls[idx]['fecha_control']?.toString() ?? '';
                     if (dateStr.isNotEmpty) {
                       final dt = DateTime.tryParse(dateStr);
                       if (dt != null) {
-                        const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-                        monthStr = "${meses[dt.month - 1]} '${dt.year.toString().substring(2)}";
+                        const meses = [
+                          "Ene",
+                          "Feb",
+                          "Mar",
+                          "Abr",
+                          "May",
+                          "Jun",
+                          "Jul",
+                          "Ago",
+                          "Sep",
+                          "Oct",
+                          "Nov",
+                          "Dic"
+                        ];
+                        monthStr =
+                            "${meses[dt.month - 1]} '${dt.year.toString().substring(2)}";
                       }
                     }
                     return Padding(
@@ -8893,7 +9102,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                           monthStr.isEmpty ? _monthLong(dateStr) : monthStr,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                              fontSize: 8,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     );
@@ -8932,7 +9143,20 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           if (dateStr.isNotEmpty) {
             final dt = DateTime.tryParse(dateStr);
             if (dt != null) {
-              const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+              const meses = [
+                "Enero",
+                "Febrero",
+                "Marzo",
+                "Abril",
+                "Mayo",
+                "Junio",
+                "Julio",
+                "Agosto",
+                "Septiembre",
+                "Octubre",
+                "Noviembre",
+                "Diciembre"
+              ];
               mes = "${meses[dt.month - 1]} ${dt.year}";
             }
           }
@@ -8952,11 +9176,10 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                   style: GoogleFonts.inter(
                       fontSize: 12, color: color, fontWeight: FontWeight.w900)),
               TextSpan(
-                  text: "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
+                  text:
+                      "${item.y.toStringAsFixed(key == 'z_score_bmi' ? 1 : 1)}$unit",
                   style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: color,
-                      fontWeight: FontWeight.w900)),
+                      fontSize: 12, color: color, fontWeight: FontWeight.w900)),
             ],
           );
         }).toList();
@@ -9041,129 +9264,127 @@ String jointInterp = "Información insuficiente para análisis clínico.";
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(
-              child: BarChart(
-                BarChartData(
-                  barGroups: impactData.asMap().entries.map((e) {
-                    final delta = e.value['delta_peso'] as double;
-                    return BarChartGroupData(
-                      x: e.key,
-                      barRods: [
-                        BarChartRodData(
-                          toY: delta,
-                          color: Colors.blue.withOpacity(0.6),
-                          width: 14,
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4)),
-                        )
-                      ],
-                    );
-                  }).toList(),
-                  minY: dyMinY,
-                  maxY: dyMaxY,
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 36,
-                          getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1),
-                              style: const TextStyle(
-                                  fontSize: 8, color: Colors.blue))),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: BarChart(
+              BarChartData(
+                barGroups: impactData.asMap().entries.map((e) {
+                  final delta = e.value['delta_peso'] as double;
+                  return BarChartGroupData(
+                    x: e.key,
+                    barRods: [
+                      BarChartRodData(
+                        toY: delta,
+                        color: Colors.blue.withOpacity(0.6),
+                        width: 14,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4)),
+                      )
+                    ],
+                  );
+                }).toList(),
+                minY: dyMinY,
+                maxY: dyMaxY,
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 36,
+                        getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1),
+                            style: const TextStyle(
+                                fontSize: 8, color: Colors.blue))),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (v, m) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= impactData.length) {
+                          return const SizedBox();
+                        }
+                        final control =
+                            impactData[idx]['control'] as Map<String, dynamic>;
+                        return Text(_monthShort(control['fecha_control']),
+                            style: const TextStyle(fontSize: 8));
+                      },
                     ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
+                  ),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: LineChart(
+              LineChartData(
+                clipData: const FlClipData.none(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: impactData.asMap().entries.map((e) {
+                      final val = e.value['inflamacion'] as int;
+                      return FlSpot(e.key.toDouble(), val.toDouble());
+                    }).toList(),
+                    isCurved: true,
+                    color: Colors.orange,
+                    barWidth: 3,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        final isBrote = impactData[index]['en_brote'] == true;
+                        return FlDotCirclePainter(
+                          radius: isBrote ? 4 : 2,
+                          color: isBrote ? Colors.red : Colors.orange,
+                          strokeWidth: 1.5,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+                minY: inflMinY,
+                maxY: inflMaxY,
+                titlesData: FlTitlesData(
+                  rightTitles: AxisTitles(
+                    sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 28,
+                        interval: 1,
                         getTitlesWidget: (v, m) {
-                          final idx = v.toInt();
-                          if (idx < 0 || idx >= impactData.length) {
-                            return const SizedBox();
+                          final rounded = v.round();
+                          if ((v - rounded).abs() > 0.01 ||
+                              rounded < 0 ||
+                              rounded > 3) {
+                            return const SizedBox.shrink();
                           }
-                          final control = impactData[idx]['control']
-                              as Map<String, dynamic>;
-                          return Text(_monthShort(control['fecha_control']),
-                              style: const TextStyle(fontSize: 8));
-                        },
-                      ),
-                    ),
-                    rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                          return Text(rounded.toString(),
+                              style: const TextStyle(
+                                  fontSize: 8, color: Colors.orange));
+                        }),
                   ),
-                  gridData: const FlGridData(show: false),
-                  borderData: FlBorderData(show: false),
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                 ),
+                gridData: FlGridData(
+                    show: true, drawVerticalLine: false, horizontalInterval: 1),
+                borderData: FlBorderData(show: false),
               ),
             ),
-            Positioned.fill(
-              child: LineChart(
-                LineChartData(
-                  clipData: const FlClipData.none(),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: impactData.asMap().entries.map((e) {
-                        final val = e.value['inflamacion'] as int;
-                        return FlSpot(e.key.toDouble(), val.toDouble());
-                      }).toList(),
-                      isCurved: true,
-                      color: Colors.orange,
-                      barWidth: 3,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          final isBrote = impactData[index]['en_brote'] == true;
-                          return FlDotCirclePainter(
-                            radius: isBrote ? 4 : 2,
-                            color: isBrote ? Colors.red : Colors.orange,
-                            strokeWidth: 1.5,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                  minY: inflMinY,
-                  maxY: inflMaxY,
-                  titlesData: FlTitlesData(
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 28,
-                          interval: 1,
-                          getTitlesWidget: (v, m) {
-                            final rounded = v.round();
-                            if ((v - rounded).abs() > 0.01 ||
-                                rounded < 0 ||
-                                rounded > 3) {
-                              return const SizedBox.shrink();
-                            }
-                            return Text(rounded.toString(),
-                                style: const TextStyle(
-                                    fontSize: 8, color: Colors.orange));
-                          }),
-                    ),
-                    leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 1),
-                  borderData: FlBorderData(show: false),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _sideStatCard(
@@ -9576,8 +9797,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    getDrawingHorizontalLine: (v) => FlLine(
-                        color: const Color(0xFFB6C3CA), strokeWidth: 1)),
+                    getDrawingHorizontalLine: (v) =>
+                        FlLine(color: const Color(0xFFB6C3CA), strokeWidth: 1)),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
@@ -9617,9 +9838,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                           child: RotatedBox(
                             quarterTurns: 3,
                             child: Text(
-                                _monthShort(
-                                    controls[idx]['fecha_control']?.toString() ??
-                                        ''),
+                                _monthShort(controls[idx]['fecha_control']
+                                        ?.toString() ??
+                                    ''),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     fontSize: 7.5,
@@ -9724,8 +9945,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                 gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    getDrawingHorizontalLine: (v) => FlLine(
-                        color: const Color(0xFFB6C3CA), strokeWidth: 1)),
+                    getDrawingHorizontalLine: (v) =>
+                        FlLine(color: const Color(0xFFB6C3CA), strokeWidth: 1)),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
@@ -10032,8 +10253,41 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       "Fecha: ${_formatIsoDate(c['fecha_control'])}\nEstado: ${c['estado_enfermedad'] ?? '-'}\nBrote: ${c['en_brote'] == true ? 'Sí' : 'No'}\n${(c['nota_evolucion'] ?? '').toString()}";
 
   Widget _buildFoodIntakeSection() {
+    if (_loadingAnalitica && _consumoAlimentario == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     final data = _consumoAlimentario;
-    if (data == null) return const SizedBox.shrink();
+    if (data == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.restaurant_outlined,
+                size: 48, color: Colors.blueGrey.shade300),
+            const SizedBox(height: 12),
+            Text("Sin registro de consumo alimentario",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.blueGrey.shade800)),
+            const SizedBox(height: 6),
+            Text("Aún no se registran consumos para este paciente.",
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey)),
+          ],
+        ),
+      );
+    }
 
     final resumen = Map<String, dynamic>.from(data['resumen'] ?? {});
     final items = _foodFilteredItems();
@@ -10054,7 +10308,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -10075,7 +10328,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
             children: [
               Row(
                 children: [
-                  Icon(Icons.filter_alt_outlined, color: AppTema.azulPrincipal, size: 18),
+                  Icon(Icons.filter_alt_outlined,
+                      color: AppTema.azulPrincipal, size: 18),
                   const SizedBox(width: 8),
                   Text("Filtros",
                       style: GoogleFonts.inter(
@@ -10104,17 +10358,22 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 color: Colors.blueGrey.shade500)),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 0),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300, width: 0.8),
+                            border: Border.all(
+                                color: Colors.grey.shade300, width: 0.8),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               isExpanded: true,
                               value: _foodPlanFilter,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueGrey, size: 18),
+                              icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Colors.blueGrey,
+                                  size: 18),
                               isDense: true,
                               style: GoogleFonts.inter(
                                   fontSize: 11,
@@ -10134,12 +10393,16 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                         child: Row(
                                           children: [
                                             if (e['value'] != "todo") ...[
-                                              Icon(Icons.calendar_month_rounded, size: 13, color: Colors.blueGrey.shade400),
+                                              Icon(Icons.calendar_month_rounded,
+                                                  size: 13,
+                                                  color:
+                                                      Colors.blueGrey.shade400),
                                               const SizedBox(width: 6),
                                             ],
                                             Expanded(
                                               child: Text(e['label']!,
-                                                  overflow: TextOverflow.ellipsis),
+                                                  overflow:
+                                                      TextOverflow.ellipsis),
                                             ),
                                           ],
                                         ),
@@ -10186,7 +10449,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           children: [
             _buildFoodLegendItem("Sí", "Consumida", AppTema.verdeSalud),
             _buildFoodLegendItem("No", "Rechazada", Colors.red.shade700),
-            _buildFoodLegendItem("Parcial", "Consumo parcial", Colors.orange.shade700),
+            _buildFoodLegendItem(
+                "Parcial", "Consumo parcial", Colors.orange.shade700),
             _buildFoodLegendItem("S/N", "Sin registro", Colors.grey.shade600),
           ],
         ),
@@ -10247,21 +10511,30 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                             color: WidgetStateProperty.all(
                                 badRating ? Colors.red.shade50 : Colors.white),
                             cells: [
-                              DataCell(_foodCell(_formatIsoDate(item['fecha']), maxWidth: 60)),
-                              DataCell(_foodCell(item['momento']?.toString() ?? "-", maxWidth: 60)),
+                              DataCell(_foodCell(_formatIsoDate(item['fecha']),
+                                  maxWidth: 60)),
                               DataCell(_foodCell(
-                                  (item['receta_consumida'] ?? item['receta_asignada'] ?? "-").toString(),
+                                  item['momento']?.toString() ?? "-",
+                                  maxWidth: 60)),
+                              DataCell(_foodCell(
+                                  (item['receta_consumida'] ??
+                                          item['receta_asignada'] ??
+                                          "-")
+                                      .toString(),
                                   weight: FontWeight.w800,
                                   maxWidth: 130,
-                                  color: badRating ? Colors.red.shade800 : const Color(0xFF334155))),
+                                  color: badRating
+                                      ? Colors.red.shade800
+                                      : const Color(0xFF334155))),
                               DataCell(Container(
-                                width: 75,
-                                child: _foodBadge(estado, color, abbreviate: true)
-                              )),
+                                  width: 75,
+                                  child: _foodBadge(estado, color,
+                                      abbreviate: true))),
                               DataCell(Center(
                                 child: IconButton(
                                   onPressed: () => _showFoodRecipeModal(item),
-                                  icon: const Icon(Icons.visibility_outlined, size: 20),
+                                  icon: const Icon(Icons.visibility_outlined,
+                                      size: 20),
                                   color: AppTema.azulPrincipal,
                                   tooltip: "Ver detalles",
                                 ),
@@ -10360,11 +10633,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         ),
       );
 
-  Widget _buildChoiceChipRow(
-      String title,
-      String currentValue,
-      List<Map<String, String>> options,
-      void Function(String) onChanged) {
+  Widget _buildChoiceChipRow(String title, String currentValue,
+      List<Map<String, String>> options, void Function(String) onChanged) {
     if (title == "Filtrar por estado") {
       options = const [
         {"value": "todo", "label": "Todos"},
@@ -10373,7 +10643,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         {"value": "sin_registro", "label": "Sin registro"},
       ];
     }
-    
+
     IconData? getIcon(String val) {
       if (title == "Filtrar por estado") {
         if (val == "solo_rechazadas") return Icons.thumb_down_rounded;
@@ -10382,9 +10652,13 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         if (val == "todo") return Icons.grid_view_rounded;
       }
       if (title == "Filtrar por momento") {
-        if (val.toLowerCase().contains("desayuno")) return Icons.free_breakfast_rounded;
-        if (val.toLowerCase().contains("almuerzo")) return Icons.restaurant_rounded;
-        if (val.toLowerCase().contains("merienda") || val.toLowerCase().contains("cena")) return Icons.nights_stay_rounded;
+        if (val.toLowerCase().contains("desayuno"))
+          return Icons.free_breakfast_rounded;
+        if (val.toLowerCase().contains("almuerzo"))
+          return Icons.restaurant_rounded;
+        if (val.toLowerCase().contains("merienda") ||
+            val.toLowerCase().contains("cena"))
+          return Icons.nights_stay_rounded;
         if (val == "todo") return Icons.grid_view_rounded;
       }
       return null;
@@ -10425,14 +10699,18 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 13, color: isSelected ? color : Colors.blueGrey.shade400),
+                        Icon(icon,
+                            size: 13,
+                            color:
+                                isSelected ? color : Colors.blueGrey.shade400),
                         const SizedBox(width: 4),
                       ],
                       Text(
                         label,
                         style: GoogleFonts.inter(
                           fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? color : Colors.blueGrey.shade600,
                         ),
                       ),
@@ -10451,7 +10729,8 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                       width: 0.8,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   showCheckmark: false,
                 ),
@@ -10542,7 +10821,6 @@ String jointInterp = "Información insuficiente para análisis clínico.";
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-        
 
     return items.where((item) {
       final planId = item['id_plan']?.toString() ?? "";
@@ -10789,13 +11067,15 @@ String jointInterp = "Información insuficiente para análisis clínico.";
           ),
           child: Text(
             abbr,
-            style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.bold, color: color),
+            style: GoogleFonts.inter(
+                fontSize: 8.5, fontWeight: FontWeight.bold, color: color),
           ),
         ),
         const SizedBox(width: 4),
         Text(
           description,
-          style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700),
+          style:
+              GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey.shade700),
         ),
       ],
     );
@@ -10809,7 +11089,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       if (text == "Rechazada") display = "No";
       if (text == "Consumo parcial") display = "Parcial";
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       decoration: BoxDecoration(
@@ -10907,8 +11187,16 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     final String? imgUrl = item["imagen_url"];
 
     // Calorias y Proteinas
-    double cal = (item['calorias_por_porcion'] ?? item['calorias_kcal'] ?? item['calorias_totales'] ?? 0).toDouble();
-    double prot = (item['proteinas_por_porcion'] ?? item['proteinas_g'] ?? item['proteinas_totales'] ?? 0).toDouble();
+    double cal = (item['calorias_por_porcion'] ??
+            item['calorias_kcal'] ??
+            item['calorias_totales'] ??
+            0)
+        .toDouble();
+    double prot = (item['proteinas_por_porcion'] ??
+            item['proteinas_g'] ??
+            item['proteinas_totales'] ??
+            0)
+        .toDouble();
     if (cal == 0 || prot == 0) {
       for (final ing in ingredientes) {
         cal += (ing['calorias_kcal'] ?? ing['calorias'] ?? 0).toDouble();
@@ -10917,12 +11205,13 @@ String jointInterp = "Información insuficiente para análisis clínico.";
     }
     final caloriasTotales = cal.toInt();
     final proteinasTotales = prot.toInt();
-    
-    final int estrellas = int.tryParse(item['estrellas']?.toString() ?? "") ?? 0;
+
+    final int estrellas =
+        int.tryParse(item['estrellas']?.toString() ?? "") ?? 0;
     final String comentario = (item['comentario'] ?? "").toString().trim();
     final String motivoRechazo = _foodReason(item);
-    final String estadoConsumo = (item['estado_consumo'] ?? "No marcada").toString();
-
+    final String estadoConsumo =
+        (item['estado_consumo'] ?? "No marcada").toString();
 
     showDialog(
       context: context,
@@ -10990,7 +11279,9 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                 ),
                                 Row(
                                   children: [
-                                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.blueGrey.shade400),
+                                    Icon(Icons.calendar_today_outlined,
+                                        size: 14,
+                                        color: Colors.blueGrey.shade400),
                                     const SizedBox(width: 4),
                                     Text(
                                       "${_formatIsoDate(item['fecha'])} • ${item['momento'] ?? 'Sin especificar'}",
@@ -11002,50 +11293,58 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _foodBadge(estadoConsumo, _foodStatusColor(estadoConsumo)),
-                                      if (motivoRechazo != "-")
-                                        _foodBadge(motivoRechazo, Colors.red),
-                                    ],
-                                  ),
-                                  if (estrellas > 0 || comentario.isNotEmpty) ...[
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _foodBadge(estadoConsumo,
+                                        _foodStatusColor(estadoConsumo)),
+                                    if (motivoRechazo != "-")
+                                      _foodBadge(motivoRechazo, Colors.red),
+                                  ],
+                                ),
+                                if (estrellas > 0 || comentario.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
                                         color: Colors.amber.shade50,
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.amber.shade200)
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (estrellas > 0)
-                                            Row(
-                                              children: List.generate(5, (index) => Icon(
-                                                index < estrellas ? Icons.star_rounded : Icons.star_outline_rounded,
-                                                color: Colors.amber.shade600,
-                                                size: 18,
-                                              )),
-                                            ),
-                                          if (estrellas > 0 && comentario.isNotEmpty)
-                                            const SizedBox(height: 6),
-                                          if (comentario.isNotEmpty)
-                                            Text(
-                                              '"$comentario"',
-                                              style: TextStyle(
+                                        border: Border.all(
+                                            color: Colors.amber.shade200)),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (estrellas > 0)
+                                          Row(
+                                            children: List.generate(
+                                                5,
+                                                (index) => Icon(
+                                                      index < estrellas
+                                                          ? Icons.star_rounded
+                                                          : Icons
+                                                              .star_outline_rounded,
+                                                      color:
+                                                          Colors.amber.shade600,
+                                                      size: 18,
+                                                    )),
+                                          ),
+                                        if (estrellas > 0 &&
+                                            comentario.isNotEmpty)
+                                          const SizedBox(height: 6),
+                                        if (comentario.isNotEmpty)
+                                          Text(
+                                            '"$comentario"',
+                                            style: TextStyle(
                                                 color: Colors.amber.shade900,
                                                 fontStyle: FontStyle.italic,
-                                                fontSize: 11
-                                              ),
-                                            )
-                                        ],
-                                      ),
+                                                fontSize: 11),
+                                          )
+                                      ],
                                     ),
-                                  ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -11381,6 +11680,7 @@ String jointInterp = "Información insuficiente para análisis clínico.";
               .toList())
     ]);
   }
+
   Widget _buildSintomasTemporalesSelector() {
     if (_condicionesTemporalesCat.isEmpty) return const SizedBox.shrink();
     final ordenadas = [..._condicionesTemporalesCat]..sort((a, b) =>
@@ -11453,17 +11753,15 @@ String jointInterp = "Información insuficiente para análisis clínico.";
                     color: sel ? AppTema.verdeSalud : const Color(0xFF1E293B),
                   ),
                 ),
-                subtitle: Text(
-                    sel
-                        ? "Activa por  días"
-                        : "Sugerencia:  días",
+                subtitle: Text(sel ? "Activa por  días" : "Sugerencia:  días",
                     style: GoogleFonts.inter(
                         fontSize: 9, color: const Color(0xFF64748B))),
                 children: sel
                     ? [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          child: _buildTemporalDatesRow(index, duracionSugerida),
+                          child:
+                              _buildTemporalDatesRow(index, duracionSugerida),
                         )
                       ]
                     : [],
@@ -11488,86 +11786,94 @@ String jointInterp = "Información insuficiente para análisis clínico.";
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Text("¿Cuándo será la próxima revisión?", 
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
-              content: SizedBox(
-                width: 320,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text("Selecciona la fecha para el próximo control. (Desde pasado mañana hasta máximo 1 mes y medio).", 
-                        style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey)),
-                    const SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+        return StatefulBuilder(builder: (context, setModalState) {
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text("¿Cuándo será la próxima revisión?",
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, color: AppTema.azulOscuro)),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                      "Selecciona la fecha para el próximo control. (Desde pasado mañana hasta máximo 1 mes y medio).",
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: Colors.blueGrey)),
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: ColorScheme.light(
+                          primary: AppTema.verdeSalud,
+                          onPrimary: Colors.white,
+                          onSurface: AppTema.azulOscuro,
+                        ),
                       ),
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: ColorScheme.light(
-                            primary: AppTema.verdeSalud,
-                            onPrimary: Colors.white,
-                            onSurface: AppTema.azulOscuro,
-                          ),
-                        ),
-                        child: CalendarDatePicker(
-                          initialDate: _proximaCita,
-                          firstDate: minDate,
-                          lastDate: maxDate,
-                          onDateChanged: (DateTime date) {
-                            setModalState(() {
-                              _proximaCita = date;
-                            });
-                          },
-                        ),
+                      child: CalendarDatePicker(
+                        initialDate: _proximaCita,
+                        firstDate: minDate,
+                        lastDate: maxDate,
+                        onDateChanged: (DateTime date) {
+                          setModalState(() {
+                            _proximaCita = date;
+                          });
+                        },
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
                         color: AppTema.verdeSalud.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10)
-                      ),
-                      child: Text(
-                        "Fecha agendada: ",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTema.verdeSalud, fontSize: 13),
-                      ),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(
+                      "Fecha agendada: ",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: AppTema.verdeSalud,
+                          fontSize: 13),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text("Cancelar", style: TextStyle(color: Colors.blueGrey.shade600)),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _proximaCitaCtrl.text = DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
-                    });
-                    _guardarConsulta();
-                  },
-                  icon: const Icon(Icons.save_rounded, size: 18),
-                  label: const Text("Confirmar y Guardar", style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: AppTema.verdeSalud,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                )
-              ],
-            );
-          }
-        );
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text("Cancelar",
+                    style: TextStyle(color: Colors.blueGrey.shade600)),
+              ),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _proximaCitaCtrl.text =
+                        DateFormat('dd/MM/yyyy', 'es').format(_proximaCita);
+                  });
+                  _guardarConsulta();
+                },
+                icon: const Icon(Icons.save_rounded, size: 18),
+                label: const Text("Confirmar y Guardar",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppTema.verdeSalud,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+              )
+            ],
+          );
+        });
       },
     );
   }
@@ -11605,5 +11911,364 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
 
+class ResumenValoracionModal extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final VoidCallback onEdit;
+
+  const ResumenValoracionModal({
+    super.key,
+    required this.data,
+    required this.onEdit,
+  });
+
+  Widget _buildSectionTitle(IconData icon, String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: const Color(0xFF0275D8), size: 16),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0275D8),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 3,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(1.5),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF0275D8),
+                Color(0xFF0275D8),
+                Color(0xFF8DC63F),
+                Color(0xFF8DC63F)
+              ],
+              stops: [0.0, 0.15, 0.15, 1.0],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildActivityCard(
+      String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text(value,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B)),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField(IconData icon, String label, String value,
+      {Color? valueColor}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF0275D8),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(icon, size: 14, color: const Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: valueColor ?? const Color(0xFF1E293B),
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 800,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.analytics_outlined,
+                      color: Color(0xFF0275D8), size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Resumen de Valoración",
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Detalle completo del control mensual y estado clínico",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.close,
+                        color: Color(0xFF64748B), size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    splashRadius: 24,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // CONTENT (Single view approach)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // COLUMNA 1: Datos Nutricionales
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle(Icons.restaurant_menu_outlined,
+                          "Datos Nutricionales"),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildField(
+                                  Icons.calendar_today_outlined,
+                                  "Fecha de control*",
+                                  DateFormat('dd/MM/yyyy').format(
+                                      DateTime.parse(data['fecha_control'] ??
+                                          DateTime.now().toIso8601String())))),
+                          const SizedBox(width: 16),
+                          Expanded(
+                              child: _buildField(
+                                  Icons.monitor_weight_outlined,
+                                  "Estado nutricional*",
+                                  data['estado_nutricional'] ?? "Normal")),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildField(
+                                  Icons.height_outlined,
+                                  "Peso / Talla*",
+                                  "${data['peso_kg'] ?? '-'} kg / ${data['talla_cm'] ?? '-'} cm")),
+                          const SizedBox(width: 16),
+                          Expanded(
+                              child: _buildField(
+                                  Icons.calculate_outlined,
+                                  "IMC*",
+                                  data['imc_calculado']?.toString() ?? "-")),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 40),
+                // COLUMNA 2: Estado Clínico
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle(Icons.health_and_safety_outlined,
+                          "Estado Clínico y Evolución"),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Actividad clínica*",
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0275D8),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildActivityCard(
+                                      "Dolor",
+                                      "${data['puntos_dolor'] ?? '-'}",
+                                      Icons.personal_injury_outlined,
+                                      Colors.red)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: _buildActivityCard(
+                                      "Inflam.",
+                                      "${data['escala_inflamacion'] ?? '-'}",
+                                      Icons.local_fire_department_outlined,
+                                      Colors.orange)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: _buildActivityCard(
+                                      "Fatiga",
+                                      "${data['nivel_fatiga'] ?? '-'}",
+                                      Icons.battery_alert_outlined,
+                                      Colors.amber.shade700)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: _buildActivityCard(
+                                      "Rigidez",
+                                      "${data['minutos_rigidez'] ?? '-'}m",
+                                      Icons.accessibility_new_outlined,
+                                      Colors.blueGrey)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildField(
+                                  Icons.healing_outlined,
+                                  "Estado de enfermedad*",
+                                  data['estado_enfermedad'] ?? "Seguimiento")),
+                          const SizedBox(width: 16),
+                          Expanded(
+                              child: _buildField(
+                                  Icons.event_outlined,
+                                  "Próxima cita*",
+                                  data['fecha_proxima_cita'] ?? "Sin fecha")),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if ((data['nota_evolucion'] ?? '').toString().isNotEmpty)
+                        _buildField(Icons.notes_outlined, "Notas de evolución",
+                            data['nota_evolucion']),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // ACTION BUTTONS
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text("Editar valoración"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0275D8),
+                      side: const BorderSide(color: Color(0xFF0275D8)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0275D8),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                    ),
+                    child: const Text("Cerrar Resumen"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

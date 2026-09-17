@@ -585,9 +585,9 @@ def listar_recetas_seguras(
         # Formateamos la respuesta para incluir el mensaje de recomendación
         for r in permitidas:
             if r.get("es_potenciada"):
-                r["recomendacion"] = "POTENCIADA: Contiene ingredientes recomendados para su salud"
+                r["recomendacion"] = r.get("mensaje_regla") or "POTENCIADA: Rica en Omega-3 / Antiinflamatoria"
             else:
-                r["recomendacion"] = "Segura para el paciente"
+                r["recomendacion"] = r.get("mensaje_regla") or "Segura para el paciente"
                 
         return {"id_paciente": id_paciente, "recetas": permitidas}
     except Exception as e:

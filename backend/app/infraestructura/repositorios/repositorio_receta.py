@@ -582,26 +582,33 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                   or exists (select 1 from restricciones_bloqueantes rb where rb.codigo is not null and rb.codigo = any(rec.etiquetas_codigos))
                   or exists (select 1 from reglas_aplicables ra where ra.accion = 'ELIMINAR' and ( (ra.id_receta = rec.id) or (ra.id_ingrediente = any(rec.ingredientes_ids)) or (ra.id_subgrupo_alimentario = any(rec.subgrupos_ids)) or (ra.id_grupo_alimentario = any(rec.grupos_ids)) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))) ))
                 ),
-                clasificadas as (
-                  select rec.*, coalesce(s.puntuacion_promedio, 0) as puntuacion_promedio, coalesce(s.total_evaluaciones, 0) as total_evaluaciones,
-                         (exists (select 1 from reglas_aplicables ra where ra.accion = 'PRIORIZAR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) 
-                          or exists (select 1 from recoms rem where rem.id_ingrediente = any(rec.ingredientes_ids))) as es_potenciada,
-                         exists (select 1 from reglas_aplicables ra where ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) or ra.id_grupo_alimentario = any(rec.grupos_ids) or (ra.id_etiqueta is not null and exists (select 1 from nutricion.etiqueta_nutricional e2 where e2.id = ra.id_etiqueta and e2.codigo = any(rec.etiquetas_codigos))))) as es_disminuida,
-                         exists (select 1 from unnest(rec.subgrupos_ids) as s_id where s_id in (select id_subgrupo_alimentario from prefs)) as es_preferida
-                  from recetas_base rec
-                  left join stats s on s.id_receta = rec.id
-                  where rec.id not in (select id from bloqueadas)
-                )
-                select c.*,
-                       case when c.es_potenciada then 'verde' when c.es_disminuida then 'amarillo' else 'neutral' end as semaforo,
-                       case when c.es_potenciada then 'Recomendada' when c.es_disminuida then 'Menos recomendada' else 'Normal' end as clasificacion_recomendacion,
-                       case when c.es_potenciada then 'PRIORIZAR: recomendada para este paciente' when c.es_disminuida then 'DISMINUIR: usar con menor frecuencia' else 'Segura para el paciente' end as mensaje_regla
-                from clasificadas c 
-                order by 
-                  case when c.es_potenciada then 0 when c.es_disminuida then 2 else 1 end, 
-                  case when c.es_preferida then 0 else 1 end,
-                  c.nombre
-                limit %s offset %s
+                 clasificadas as (
+                   select rec.*, coalesce(s.puntuacion_promedio, 0) as puntuacion_promedio, coalesce(s.total_evaluaciones, 0) as total_evaluaciones,
+                          (
+                            exists (select 1 from recoms rem where rem.id_ingrediente = any(rec.ingredientes_ids))
+                            or exists (select 1 from reglas_aplicables ra where ra.accion = 'PRIORIZAR' and ra.id_receta = rec.id)
+                            or (33 = any(rec.subgrupos_ids) or 18 = any(rec.subgrupos_ids) or 97 = any(rec.subgrupos_ids))
+                            or ('ETIQUETA_75' = any(rec.etiquetas_codigos))
+                            or (rec.ingredientes_nombres::text ilike '%%cúrcuma%%' or rec.ingredientes_nombres::text ilike '%%curcuma%%' or rec.ingredientes_nombres::text ilike '%%jengibre%%' or rec.ingredientes_nombres::text ilike '%%salmón%%' or rec.ingredientes_nombres::text ilike '%%salmon%%' or rec.ingredientes_nombres::text ilike '%%chía%%' or rec.ingredientes_nombres::text ilike '%%chia%%' or rec.ingredientes_nombres::text ilike '%%nuez%%' or rec.ingredientes_nombres::text ilike '%%nueces%%')
+                          ) as es_potenciada,
+                          (
+                            exists (select 1 from reglas_aplicables ra where ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) and ra.id_subgrupo_alimentario in (35, 36, 37, 49, 53))))
+                          ) as es_disminuida,
+                          exists (select 1 from unnest(rec.subgrupos_ids) as s_id where s_id in (select id_subgrupo_alimentario from prefs)) as es_preferida
+                   from recetas_base rec
+                   left join stats s on s.id_receta = rec.id
+                   where rec.id not in (select id from bloqueadas)
+                 )
+                 select c.*,
+                        case when c.es_potenciada then 'verde' when c.es_disminuida then 'amarillo' else 'neutral' end as semaforo,
+                        case when c.es_potenciada then 'Recomendada' when c.es_disminuida then 'Menos recomendada' else 'Normal' end as clasificacion_recomendacion,
+                        case when c.es_potenciada then 'PRIORIZAR: rica en Omega-3 / antiinflamatoria' when c.es_disminuida then 'DISMINUIR: usar con menor frecuencia' else 'Segura para el paciente' end as mensaje_regla
+                 from clasificadas c 
+                 order by 
+                   case when c.es_potenciada then 0 when c.es_disminuida then 2 else 1 end, 
+                   case when c.es_preferida then 0 else 1 end,
+                   c.nombre
+                 limit %s offset %s
             """
             params = (
                 id_momento, id_momento, 

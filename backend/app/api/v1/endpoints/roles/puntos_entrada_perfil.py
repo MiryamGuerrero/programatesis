@@ -34,8 +34,17 @@ def actualizar_mi_perfil(
     """
     Actualiza los datos del perfil del usuario autenticado.
     """
-    exito = caso_uso.actualizar(usuario_actual.user_id, datos)
-    return {"success": exito}
+    try:
+        exito = caso_uso.actualizar(usuario_actual.user_id, datos)
+        if not exito:
+            raise HTTPException(status_code=400, detail="No se pudo actualizar el perfil.")
+        return {"success": exito}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar el perfil: {str(e)}")
 
 
 class CambiarRolRequest(BaseModel):

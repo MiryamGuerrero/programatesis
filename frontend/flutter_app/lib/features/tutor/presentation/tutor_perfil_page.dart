@@ -1,11 +1,12 @@
+import "package:dio/dio.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../core/state/app_providers.dart";
-import "../../../core/theme/app_theme.dart";
 import "../../../core/theme/app_sizes.dart";
 import "../../../core/theme/app_responsive.dart";
 import "../../auth/login_page.dart";
@@ -182,9 +183,9 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       await repo.updateMyProfile(
         nombreCompleto: "$nombres $apellidos",
         email: email,
-        cedula: _cedulaController.text,
-        telefono: _telefonoController.text,
-        direccion: _direccionController.text,
+        cedula: _cedulaController.text.trim(),
+        telefono: _telefonoController.text.trim(),
+        direccion: _direccionController.text.trim(),
       );
 
       if (!mounted) return;
@@ -195,9 +196,16 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       );
     } catch (error) {
       if (mounted) {
+        String errorMsg = error.toString();
+        if (error is DioException && error.response?.data != null) {
+          final data = error.response?.data;
+          if (data is Map && data.containsKey("detail")) {
+            errorMsg = data["detail"].toString();
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text("Error al guardar: $error"),
+              content: Text("Error al guardar: $errorMsg"),
               backgroundColor: Colors.red),
         );
       }
@@ -353,11 +361,27 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
             _buildField(context, "Apellidos", _apellidosController,
                 Icons.person_outline_rounded),
             const SizedBox(height: 20),
-            _buildField(context, "Cédula / ID", _cedulaController,
-                Icons.badge_outlined),
+            _buildField(
+                context,
+                "Cédula / ID (10 dígitos)",
+                _cedulaController,
+                Icons.badge_outlined,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ]),
             const SizedBox(height: 20),
-            _buildField(context, "Teléfono", _telefonoController,
-                Icons.phone_android_rounded),
+            _buildField(
+                context,
+                "Teléfono (10 dígitos)",
+                _telefonoController,
+                Icons.phone_android_rounded,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ]),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Divider(height: 1),
@@ -391,7 +415,10 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
   Widget _buildField(BuildContext context, String label,
       TextEditingController controller, IconData icon,
-      {bool enabled = true, int maxLines = 1}) {
+      {bool enabled = true,
+      int maxLines = 1,
+      TextInputType? keyboardType,
+      List<TextInputFormatter>? inputFormatters}) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,6 +433,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           controller: controller,
           enabled: enabled,
           maxLines: maxLines,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),
             fillColor: enabled ? Colors.white : const Color(0xFFF1F5F9),

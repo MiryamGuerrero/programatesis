@@ -150,6 +150,11 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
         ),
       ),
       home: rootPage,
+      builder: (context, child) {
+        return SelectionArea(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -166,7 +171,6 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
         PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
         PointerDeviceKind.trackpad,
         PointerDeviceKind.stylus,
       };
