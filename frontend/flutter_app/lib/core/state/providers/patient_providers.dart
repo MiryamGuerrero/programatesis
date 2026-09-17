@@ -7,7 +7,14 @@ import "../../data/repositories/inteligencia_api_repository.dart";
 
 final selectedPatientIdProvider = StateProvider<String?>((ref) => null);
 
+final miPerfilOverrideProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+
 final miPerfilProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final override = ref.watch(miPerfilOverrideProvider);
+  if (override != null) {
+    return override;
+  }
+
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) {
     return {};

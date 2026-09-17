@@ -352,6 +352,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
                     from interaccion.plan_nutricional
                     where coalesce(vigente, false) = true
+                      and fecha_fin >= current_date
                     order by id_paciente, created_at desc nulls last, id desc
                 )
                 select
@@ -1091,6 +1092,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     select distinct on (id_paciente) id_paciente, id, fecha_inicio, fecha_fin
                     from interaccion.plan_nutricional
                     where coalesce(vigente, false) = true
+                      and fecha_fin >= current_date
                     order by id_paciente, created_at desc nulls last, id desc
                 )
                 select

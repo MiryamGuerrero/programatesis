@@ -106,6 +106,7 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   void _abrirFormulario([Map<String, dynamic>? etiqueta]) async {
     final exito = await showDialog<bool>(
       context: context,
+      barrierColor: AppTema.azulOscuro.withValues(alpha: 0.4),
       builder: (context) => EtiquetaFormDialog(etiquetaInicial: etiqueta),
     );
 
@@ -118,20 +119,62 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
   Future<void> _deleteEtiqueta(int id, String nombre) async {
     final confirm = await showDialog<bool>(
       context: context,
+      barrierColor: AppTema.azulOscuro.withValues(alpha: 0.4),
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Eliminar etiqueta'),
-        content: Text(
-            '¿Deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de ingredientes y recetas.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+        title: Text(
+          'Eliminar etiqueta',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: AppTema.azulOscuro,
           ),
+        ),
+        content: Text(
+          '¿Deseas eliminar la etiqueta "$nombre"? Esta acción desvinculará la etiqueta de ingredientes y recetas.',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: Colors.blueGrey.shade700,
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: Colors.blueGrey.shade700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Eliminar'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            child: Text(
+              'Eliminar',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),

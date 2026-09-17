@@ -9,7 +9,6 @@ import "../../features/auth/login_page.dart";
 import "../../features/roles/role_module_registry.dart";
 import "../models/app_role.dart";
 import "../../core/services/realtime_service.dart";
-import "layout_components.dart";
 import "smooth_scroll.dart";
 
 final menuExpandedProvider = StateProvider<bool>((ref) => true);
@@ -74,15 +73,6 @@ class _RoleShellState extends ConsumerState<RoleShell>
       _controllers.clear();
       _visitedIndices.clear();
       _animController.value = 1.0;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          NutriSnack.show(
-            context,
-            "Tu vista ha cambiado a ${widget.role.label} debido a una actualización de tus roles.",
-          );
-        }
-      });
     }
   }
 
@@ -569,7 +559,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(unreadCount.toString(),
@@ -602,7 +592,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                   ],
                 ),
               ),
-              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
+              Container(height: 1, width: 320, color: Colors.white.withValues(alpha: 0.15)),
               // List
               if (notifs.isEmpty)
                 SizedBox(
@@ -658,7 +648,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                               },
                               child: Container(
                                 width: 320,
-                                color: n.read ? Colors.transparent : Colors.white.withOpacity(0.08),
+                                color: n.read ? Colors.transparent : Colors.white.withValues(alpha: 0.08),
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,13 +699,13 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
                             );
                           }),
                           if (index < notifs.length - 1)
-                            Container(height: 1, width: 320, color: Colors.white.withOpacity(0.1)),
+                            Container(height: 1, width: 320, color: Colors.white.withValues(alpha: 0.1)),
                         ]
                       ],
                     ),
                   ),
                 ),
-              Container(height: 1, width: 320, color: Colors.white.withOpacity(0.15)),
+              Container(height: 1, width: 320, color: Colors.white.withValues(alpha: 0.15)),
               // Footer
               SizedBox(
                 width: 320,
@@ -780,42 +770,14 @@ class _UserProfileDropdown extends ConsumerStatefulWidget {
 class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
   final MenuController _menuController = MenuController();
 
-  Future<void> _changeRole(int selectedRolId) async {
+  void _changeRole(int selectedRolId) {
     if (selectedRolId == widget.currentRolId) return;
 
     // Cierra el menu
     _menuController.close();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF0068B7)),
-      ),
-    );
-
-    try {
-      final repo = ref.read(supabaseCrudRepositoryProvider);
-      await repo.switchActiveRole(selectedRolId);
-
-      final client = ref.read(supabaseClientProvider);
-      await client.auth.refreshSession();
-
-      ref.invalidate(appRoleProvider);
-      ref.invalidate(miPerfilProvider);
-
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error al cambiar de rol: ${e.toString()}"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    }
+    // Inicia el cambio de rol con la pantalla de carga limpia e intuitiva
+    ref.read(roleSwitchLoadingProvider.notifier).switchRole(selectedRolId);
   }
 
   @override
@@ -877,7 +839,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                   ],
                 ),
               ),
-              Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
+              Container(height: 1, width: 280, color: Colors.white.withValues(alpha: 0.15)),
               
               // Roles list
               if (widget.userRoles.length > 1) ...[
@@ -910,7 +872,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                     child: Container(
                       width: 280,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      color: isCurrent ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                      color: isCurrent ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
                       child: Row(
                         children: [
                           Icon(roleIcon, size: 18, color: Colors.white70),
@@ -930,7 +892,7 @@ class _UserProfileDropdownState extends ConsumerState<_UserProfileDropdown> {
                     ),
                   );
                 }),
-                Container(height: 1, width: 280, color: Colors.white.withOpacity(0.15)),
+                Container(height: 1, width: 280, color: Colors.white.withValues(alpha: 0.15)),
               ],
               const SizedBox(height: 4),
             ],
@@ -1045,7 +1007,7 @@ class _HoverSignOutButtonState extends State<_HoverSignOutButton> {
 }
 
 class _KeepAliveWrapper extends StatefulWidget {
-  const _KeepAliveWrapper({super.key, required this.child});
+  const _KeepAliveWrapper({required this.child});
   final Widget child;
 
   @override

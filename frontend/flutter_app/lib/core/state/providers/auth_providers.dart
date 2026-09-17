@@ -359,7 +359,14 @@ Future<void> _restoreRecoverySessionFromUrl(SupabaseClient client) async {
   }
 }
 
+final activeRoleOverrideProvider = StateProvider<AppRole?>((ref) => null);
+
 final appRoleProvider = FutureProvider<AppRole>((ref) async {
+  final overrideRole = ref.watch(activeRoleOverrideProvider);
+  if (overrideRole != null) {
+    return overrideRole;
+  }
+
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) {
     return AppRole.tutor;

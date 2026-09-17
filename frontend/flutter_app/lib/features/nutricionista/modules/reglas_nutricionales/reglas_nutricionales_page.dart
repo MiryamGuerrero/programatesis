@@ -945,19 +945,52 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
         title: Text("¿Eliminar regla?",
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-        content:
-            const Text("Se eliminará la regla nutricional del motor experto."),
+            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+        content: Text(
+            "Se eliminará la regla nutricional del motor experto. Esta acción es irreversible.",
+            style: GoogleFonts.inter(
+                fontSize: 14, color: Colors.blueGrey.shade800)),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar")),
-          FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Eliminar")),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blueGrey.shade700,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 10),
+                ),
+                child: Text("Cancelar",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 10),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text("Eliminar",
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1269,9 +1302,11 @@ class _NutritionalRuleFormDialogState
   late String _selectedIndicador; // "BMI" or "HFA"
   int? _idAccion, _idObjetivo, _idTarget;
   late TextEditingController _mensajeController;
+  final TextEditingController _condicionSearchCtrl = TextEditingController();
   late List<int> _selectedCondiciones;
   late bool _esEstricta;
   bool _saving = false;
+  int _currentTab = 0;
 
   @override
   void initState() {
@@ -1291,7 +1326,8 @@ class _NutritionalRuleFormDialogState
     if (r != null) {
       String? ind = r["indicador_codigo"]?.toString().toUpperCase();
       if (ind == null || (ind != "BMI" && ind != "HFA")) {
-        final List condIds = r["id_condiciones"] is List ? r["id_condiciones"] : [];
+        final List condIds =
+            r["id_condiciones"] is List ? r["id_condiciones"] : [];
         if (condIds.isNotEmpty) {
           final allConds = widget.formData["condiciones"] ?? [];
           for (final c in allConds) {
@@ -1314,6 +1350,7 @@ class _NutritionalRuleFormDialogState
   @override
   void dispose() {
     _mensajeController.dispose();
+    _condicionSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -1331,65 +1368,321 @@ class _NutritionalRuleFormDialogState
       targetList = widget.formData["subgrupos"] ?? [];
     }
 
-    final condicionesFiltradas = (widget.formData["condiciones"] ?? []).where((c) {
+    final condicionesFiltradas =
+        (widget.formData["condiciones"] ?? []).where((c) {
       final ind = (c["indicador_codigo"]?.toString().toUpperCase() ?? "BMI");
       return ind == _selectedIndicador;
     }).toList();
 
+    Map<String, dynamic>? objetivoItem;
+    for (final o in (widget.formData["objetivos"] ?? [])) {
+      if (o is Map && o["id"] == _idObjetivo) {
+        objetivoItem = Map<String, dynamic>.from(o);
+        break;
+      }
+    }
+    final objetivoNombre = objetivoItem?["nombre"]?.toString();
+
+    Map<String, dynamic>? targetItem;
+    for (final t in targetList) {
+      if (t is Map && t["id"] == _idTarget) {
+        targetItem = Map<String, dynamic>.from(t);
+        break;
+      }
+    }
+    final targetDisplay = targetItem != null
+        ? (targetItem["nombre"] ?? targetItem["nombre_visible"] ?? "-").toString()
+        : null;
+
+    Map<String, dynamic>? accionItem;
+    for (final a in (widget.formData["acciones"] ?? [])) {
+      if (a is Map && a["id"] == _idAccion) {
+        accionItem = Map<String, dynamic>.from(a);
+        break;
+      }
+    }
+    final accionNombre = accionItem?["nombre"]?.toString();
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 520,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEdit ? "Modificar regla nutricional" : "Nueva regla nutricional",
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: AppTema.azulOscuro,
-                  letterSpacing: -0.8,
+        width: 620,
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Cabecera con título e icono
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTema.verdeSalud.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppTema.verdeSalud,
+                    size: 22,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Complete la configuración técnica de la regla para el motor experto.",
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: Colors.blueGrey,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEdit
+                            ? "Modificar regla nutricional"
+                            : "Nueva regla nutricional",
+                        style: GoogleFonts.inter(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppTema.azulOscuro,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Configuración técnica de la regla para el motor experto.",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.blueGrey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: "Cerrar",
+                  icon: const Icon(Icons.close_rounded,
+                      color: Colors.grey, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Pestañas segmentadas (Segmented Tabs)
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 24),
-              _sectionTitle("Clasificación"),
-              Row(
+              child: Row(
                 children: [
-                  _typeOption(
-                    "BMI",
-                    "Peso",
-                    Icons.monitor_weight_rounded,
-                    "Regla para peso",
+                  _buildTabItem(0, "1. Regla & Objetivo", Icons.tune_rounded),
+                  const SizedBox(width: 4),
+                  _buildTabItem(
+                    1,
+                    "2. Condiciones",
+                    Icons.health_and_safety_rounded,
+                    badge: "${_selectedCondiciones.length}",
                   ),
-                  const SizedBox(width: 12),
-                  _typeOption(
-                    "HFA",
-                    "Talla",
-                    Icons.height_rounded,
-                    "Regla para estatura",
-                  ),
+                  const SizedBox(width: 4),
+                  _buildTabItem(2, "3. Mensaje clínico",
+                      Icons.chat_bubble_outline_rounded),
                 ],
               ),
-              const SizedBox(height: 24),
-              _sectionTitle("Objetivo del alimento"),
-              _dropdownInput<int>(
+            ),
+            const SizedBox(height: 16),
+
+            // Contenido de la pestaña activa (altura fija, sin scroll general)
+            SizedBox(
+              height: 350,
+              child: _buildTabContent(condicionesFiltradas, targetList,
+                  objetivoNombre, targetDisplay, accionNombre),
+            ),
+            const SizedBox(height: 18),
+
+            // Botones de acción alineados al estilo del proyecto
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blueGrey.shade700,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                  ),
+                  child: Text(
+                    "Cancelar",
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.blueGrey.shade700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded, size: 18),
+                  label: Text(
+                    isEdit ? "Actualizar regla" : "Guardar regla",
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTema.verdeSalud,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem(int index, String label, IconData icon,
+      {String? badge}) {
+    final active = _currentTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentTab = index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          decoration: BoxDecoration(
+            color: active ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: active ? AppTema.azulOscuro : Colors.blueGrey,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? AppTema.azulOscuro : Colors.blueGrey,
+                  ),
+                ),
+              ),
+              if (badge != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? AppTema.azulPrincipal
+                        : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: active ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent(
+    List<dynamic> condicionesFiltradas,
+    List<dynamic> targetList,
+    String? objetivoNombre,
+    String? targetDisplay,
+    String? accionNombre,
+  ) {
+    switch (_currentTab) {
+      case 0:
+        return _buildTabRegla(targetList);
+      case 1:
+        return _buildTabCondiciones(condicionesFiltradas);
+      case 2:
+      default:
+        return _buildTabMensaje(objetivoNombre, targetDisplay, accionNombre);
+    }
+  }
+
+  Widget _buildTabRegla(List<dynamic> targetList) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle("CLASIFICACIÓN DEL INDICADOR"),
+        Row(
+          children: [
+            _typeOption(
+              "BMI",
+              "Condición por peso",
+              Icons.monitor_weight_rounded,
+              "Indicador peso corporal (BMI)",
+            ),
+            const SizedBox(width: 12),
+            _typeOption(
+              "HFA",
+              "Condición por talla",
+              Icons.height_rounded,
+              "Indicador estatura/talla (HFA)",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _sectionTitle("OBJETIVO DEL ALIMENTO"),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _dropdownInput<int>(
                 value: _idObjetivo,
                 hint: "Tipo de objetivo*",
                 icon: Icons.track_changes_outlined,
@@ -1398,6 +1691,7 @@ class _NutritionalRuleFormDialogState
                           value: o["id"],
                           child: Text(
                             o["nombre"].toString(),
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -1410,30 +1704,56 @@ class _NutritionalRuleFormDialogState
                   _idTarget = null;
                 }),
               ),
-              if (_idObjetivo != null) ...[
-                const SizedBox(height: 12),
-                _dropdownInput<int>(
-                  value: _idTarget,
-                  hint: "Seleccionar elemento*",
-                  icon: Icons.ads_click_outlined,
-                  items: targetList
-                      .map((t) => DropdownMenuItem<int>(
-                            value: t["id"],
-                            child: Text(
-                              t["nombre"] ?? t["nombre_visible"] ?? "-",
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _idTarget = v),
-                ),
-              ],
-              const SizedBox(height: 24),
-              _sectionTitle("Acción y restricción"),
-              _dropdownInput<int>(
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _idObjetivo == null
+                  ? Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Selecciona primero el tipo",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    )
+                  : _dropdownInput<int>(
+                      value: _idTarget,
+                      hint: "Elemento específico*",
+                      icon: Icons.ads_click_outlined,
+                      items: targetList
+                          .map((t) => DropdownMenuItem<int>(
+                                value: t["id"],
+                                child: Text(
+                                  t["nombre"] ?? t["nombre_visible"] ?? "-",
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(() => _idTarget = v),
+                    ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _sectionTitle("ACCIÓN Y RESTRICCIÓN"),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: _dropdownInput<int>(
                 value: _idAccion,
                 hint: "Acción sugerida*",
                 icon: Icons.lightbulb_outline_rounded,
@@ -1442,6 +1762,7 @@ class _NutritionalRuleFormDialogState
                           value: a["id"],
                           child: Text(
                             _sentenceCaseLabel(a["nombre"]),
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -1451,48 +1772,63 @@ class _NutritionalRuleFormDialogState
                     .toList(),
                 onChanged: (v) => setState(() => _idAccion = v),
               ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: AppTema.grisLienzo,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
+                  color: _esEstricta
+                      ? Colors.red.shade50
+                      : AppTema.grisLienzo,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _esEstricta
+                        ? Colors.red.shade200
+                        : Colors.grey.shade200,
+                  ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      _esEstricta ? Icons.lock_rounded : Icons.lock_open_rounded,
+                      _esEstricta
+                          ? Icons.lock_rounded
+                          : Icons.lock_open_rounded,
                       color: _esEstricta ? Colors.redAccent : Colors.grey,
-                      size: 20,
+                      size: 18,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "Restricción estricta",
+                            "Estricta",
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: AppTema.azulOscuro,
+                              color: _esEstricta
+                                  ? Colors.red.shade900
+                                  : AppTema.azulOscuro,
                             ),
                           ),
                           Text(
-                            _esEstricta
-                                ? "Bloqueo obligatorio al generar planes nutricionales."
-                                : "Regla sugerida o de ajuste no bloqueante.",
-                            style: GoogleFonts.inter(
+                            _esEstricta ? "Obligatoria" : "Sugerida",
+                            style: TextStyle(
                               fontSize: 10,
-                              color: Colors.blueGrey,
+                              color: _esEstricta
+                                  ? Colors.red.shade700
+                                  : Colors.blueGrey,
                             ),
                           ),
                         ],
                       ),
                     ),
                     Transform.scale(
-                      scale: 0.8,
+                      scale: 0.75,
                       child: Switch.adaptive(
                         value: _esEstricta,
                         activeTrackColor: Colors.redAccent,
@@ -1502,123 +1838,266 @@ class _NutritionalRuleFormDialogState
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              _sectionTitle(
-                  "Aplicabilidad (${_selectedIndicador == 'BMI' ? 'Condiciones de peso' : 'Condiciones de talla'})"),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 140),
-                decoration: BoxDecoration(
-                  color: AppTema.grisLienzo,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabCondiciones(List<dynamic> condicionesFiltradas) {
+    final indLabel = _selectedIndicador == 'BMI' ? 'peso' : 'talla';
+    final query = _condicionSearchCtrl.text.trim().toLowerCase();
+    final list = condicionesFiltradas.where((c) {
+      if (query.isEmpty) return true;
+      final nombre = (c["nombre"]?.toString() ?? "").toLowerCase();
+      return nombre.contains(query);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                "Condiciones aplicables ($indLabel):",
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppTema.azulOscuro,
                 ),
-                child: condicionesFiltradas.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: Text(
-                            "No hay condiciones registradas para este indicador.",
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: Colors.blueGrey,
-                              fontWeight: FontWeight.w500,
-                            ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedCondiciones = condicionesFiltradas
+                      .map((c) => (c["id"] as num).toInt())
+                      .toList();
+                });
+              },
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text("Todas", style: TextStyle(fontSize: 11)),
+            ),
+            const SizedBox(width: 4),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedCondiciones.clear();
+                });
+              },
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text("Ninguna",
+                  style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _condicionSearchCtrl,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: "Buscar condición clínica...",
+            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+            suffixIcon: _condicionSearchCtrl.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 16),
+                    onPressed: () =>
+                        setState(() => _condicionSearchCtrl.clear()),
+                  )
+                : null,
+            filled: true,
+            fillColor: AppTema.grisLienzo,
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTema.grisLienzo,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: list.isEmpty
+                ? Center(
+                    child: Text(
+                      condicionesFiltradas.isEmpty
+                          ? "No hay condiciones registradas para este indicador."
+                          : "No se encontraron coincidencias.",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.blueGrey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: Colors.grey.shade200),
+                    itemBuilder: (context, idx) {
+                      final c = list[idx];
+                      final int id = (c["id"] as num).toInt();
+                      final bool isChecked = _selectedCondiciones.contains(id);
+                      return CheckboxListTile(
+                        title: Text(
+                          c["nombre"]?.toString() ?? "Condición",
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight:
+                                isChecked ? FontWeight.w700 : FontWeight.w500,
+                            color: isChecked
+                                ? AppTema.azulOscuro
+                                : Colors.blueGrey.shade800,
                           ),
                         ),
-                      )
-                    : Scrollbar(
-                        thumbVisibility: true,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: condicionesFiltradas.length,
-                          separatorBuilder: (_, __) =>
-                              Divider(height: 1, color: Colors.grey.shade200),
-                          itemBuilder: (context, idx) {
-                            final c = condicionesFiltradas[idx];
-                            final int id = (c["id"] as num).toInt();
-                            final bool isChecked =
-                                _selectedCondiciones.contains(id);
-                            return CheckboxListTile(
-                              title: Text(
-                                c["nombre"]?.toString() ?? "Condición",
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: isChecked
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isChecked
-                                      ? AppTema.azulOscuro
-                                      : Colors.blueGrey.shade800,
-                                ),
-                              ),
-                              value: isChecked,
-                              activeColor: AppTema.verdeSalud,
-                              checkboxShape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              dense: true,
-                              onChanged: (v) {
-                                setState(() {
-                                  if (v == true) {
-                                    _selectedCondiciones.add(id);
-                                  } else {
-                                    _selectedCondiciones.remove(id);
-                                  }
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 24),
-              _sectionTitle("Mensaje clínico (opcional)"),
-              _minimalInput(
-                _mensajeController,
-                "Mensaje explicativo para el paciente o reporte...",
-                Icons.chat_bubble_outline_rounded,
-                lines: 2,
-              ),
-              const SizedBox(height: 32),
+                        value: isChecked,
+                        activeColor: AppTema.verdeSalud,
+                        checkboxShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4)),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        dense: true,
+                        onChanged: (v) {
+                          setState(() {
+                            if (v == true) {
+                              _selectedCondiciones.add(id);
+                            } else {
+                              _selectedCondiciones.remove(id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabMensaje(
+    String? objetivoNombre,
+    String? targetDisplay,
+    String? accionNombre,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle("MENSAJE CLÍNICO (OPCIONAL)"),
+        Text(
+          "Mensaje o recomendación personalizada para el paciente o reporte:",
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: Colors.blueGrey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _minimalInput(
+          _mensajeController,
+          "Ej. Consumo moderado debido al diagnóstico clínico actual...",
+          Icons.chat_bubble_outline_rounded,
+          lines: 3,
+        ),
+        const SizedBox(height: 14),
+        _sectionTitle("RESUMEN DE LA CONFIGURACIÓN"),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTema.grisLienzo,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            children: [
               Row(
                 children: [
+                  _badgePreview(
+                    "Indicador",
+                    _selectedIndicador == 'BMI' ? 'Peso (BMI)' : 'Talla (HFA)',
+                    AppTema.azulPrincipal,
+                  ),
+                  const SizedBox(width: 8),
+                  _badgePreview(
+                    "Restricción",
+                    _esEstricta ? 'Estricta (Bloqueante)' : 'Sugerida',
+                    _esEstricta ? Colors.redAccent : Colors.orange,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.track_changes_outlined,
+                      size: 16, color: AppTema.azulPrincipal),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        "Cancelar",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.grey,
-                          fontSize: 11,
-                        ),
+                    child: Text(
+                      targetDisplay != null
+                          ? "$targetDisplay (${objetivoNombre ?? '-'})"
+                          : "Objetivo no seleccionado",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTema.azulOscuro,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline_rounded,
+                      size: 16, color: AppTema.verdeSalud),
+                  const SizedBox(width: 8),
                   Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 48,
-                      child: FilledButton(
-                        onPressed: _saving ? null : _save,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTema.azulPrincipal,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          _saving ? "Procesando..." : "Guardar regla",
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                    child: Text(
+                      accionNombre != null
+                          ? "Acción: ${_sentenceCaseLabel(accionNombre)}"
+                          : "Acción no seleccionada",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueGrey.shade800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.health_and_safety_rounded,
+                      size: 16, color: Colors.teal),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "${_selectedCondiciones.length} condición(es) clínica(s) asociada(s)",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.teal.shade800,
                       ),
                     ),
                   ),
@@ -1627,26 +2106,46 @@ class _NutritionalRuleFormDialogState
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _badgePreview(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text("$label: ",
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w500, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+        ],
       ),
     );
   }
 
   Widget _sectionTitle(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           t,
           style: GoogleFonts.inter(
             fontSize: 9,
             fontWeight: FontWeight.w900,
-            color: AppTema.azulPrincipal.withValues(alpha: 0.5),
-            letterSpacing: 1.5,
+            color: AppTema.azulPrincipal.withValues(alpha: 0.6),
+            letterSpacing: 1.2,
           ),
         ),
       );
 
   Widget _typeOption(String val, String title, IconData icon, String sub) {
     final sel = _selectedIndicador == val;
-    final color = sel ? AppTema.verdeSalud : Colors.grey.shade300;
     return Expanded(
       child: InkWell(
         onTap: () {
@@ -1655,41 +2154,67 @@ class _NutritionalRuleFormDialogState
             _selectedIndicador = val;
             final validIds = (widget.formData["condiciones"] ?? [])
                 .where((c) =>
-                    (c["indicador_codigo"]?.toString().toUpperCase() ?? "BMI") ==
+                    (c["indicador_codigo"]?.toString().toUpperCase() ??
+                        "BMI") ==
                     val)
                 .map((c) => (c["id"] as num).toInt())
                 .toSet();
-            _selectedCondiciones.removeWhere((id) => !validIds.contains(id));
+            _selectedCondiciones
+                .removeWhere((id) => !validIds.contains(id));
           });
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: sel
-                ? AppTema.verdeSalud.withValues(alpha: 0.05)
+                ? AppTema.verdeSalud.withValues(alpha: 0.06)
                 : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color, width: sel ? 2 : 1.5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: sel ? AppTema.verdeSalud : Colors.grey.shade200,
+                width: sel ? 2 : 1),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: sel ? AppTema.verdeSalud : Colors.grey.shade500,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: sel
+                      ? AppTema.verdeSalud.withValues(alpha: 0.12)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon,
+                    color: sel ? AppTema.verdeSalud : Colors.grey.shade600,
+                    size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: sel ? AppTema.verdeSalud : Colors.grey.shade700,
+                      ),
+                    ),
+                    Text(
+                      sub,
+                      style: GoogleFonts.inter(
+                          fontSize: 10, color: Colors.blueGrey),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                sub,
-                style: GoogleFonts.inter(fontSize: 10, color: Colors.blueGrey),
-              ),
+              if (sel)
+                const Icon(Icons.check_circle_rounded,
+                    color: AppTema.verdeSalud, size: 16),
             ],
           ),
         ),
@@ -1720,10 +2245,14 @@ class _NutritionalRuleFormDialogState
         filled: true,
         fillColor: AppTema.grisLienzo,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         hintStyle: GoogleFonts.inter(
           fontSize: 12,
@@ -1750,10 +2279,14 @@ class _NutritionalRuleFormDialogState
           filled: true,
           fillColor: AppTema.grisLienzo,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
           ),
           hintStyle: GoogleFonts.inter(
             fontSize: 12,
@@ -1764,13 +2297,21 @@ class _NutritionalRuleFormDialogState
       );
 
   Future<void> _save() async {
-    if (_idAccion == null ||
-        _idObjetivo == null ||
-        _idTarget == null ||
-        _selectedCondiciones.isEmpty) {
+    if (_idObjetivo == null || _idTarget == null || _idAccion == null) {
+      setState(() => _currentTab = 0);
       NutriSnack.show(
         context,
-        "Por favor completa el objetivo, acción y selecciona al menos una condición.",
+        "Por favor completa el tipo de objetivo, el elemento y la acción sugerida.",
+        isError: true,
+        ref: ref,
+      );
+      return;
+    }
+    if (_selectedCondiciones.isEmpty) {
+      setState(() => _currentTab = 1);
+      NutriSnack.show(
+        context,
+        "Debes seleccionar al menos una condición clínica aplicable.",
         isError: true,
         ref: ref,
       );
@@ -1796,7 +2337,8 @@ class _NutritionalRuleFormDialogState
             "reglas-nutricionales/${widget.initialRule!['id']}",
             data: payload);
       } else {
-        await ref.read(dioProvider).post("reglas-nutricionales", data: payload);
+        await ref.read(dioProvider).post("reglas-nutricionales",
+            data: payload);
       }
       widget.onSaved();
       if (mounted) {

@@ -33,6 +33,12 @@ class PlanDay {
   PlanDay({required this.date, required this.slots});
 }
 
+enum PatientSelectionAction {
+  history,
+  createPlan,
+  modifyPlan,
+}
+
 class PlanManualPage extends ConsumerStatefulWidget {
   const PlanManualPage({super.key});
 
@@ -346,10 +352,26 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     _calendarViewDate = _startDate;
   }
 
+  bool _isPlanActivo(Map<String, dynamic> p) {
+    bool activo = p["plan_activo"] == true;
+    final finStr = p["plan_activo_fin"];
+    if (activo && finStr != null) {
+      try {
+        final fFin = DateTime.parse(finStr.toString());
+        final today = DateTime.now();
+        final todayOnly = DateTime(today.year, today.month, today.day);
+        if (fFin.isBefore(todayOnly)) {
+          activo = false;
+        }
+      } catch (_) {}
+    }
+    return activo;
+  }
+
   List<Map<String, dynamic>> get _patientsFiltrados {
     final filtro = _selectedFilter;
     return _patients.where((p) {
-      final planActivo = p["plan_activo"] == true;
+      final planActivo = _isPlanActivo(p);
       final validacionConfirmada = p["validacion_confirmada"] == true;
 
       switch (filtro) {
@@ -367,14 +389,20 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     }).toList();
   }
 
-  Future<void> _onPatientSelected(Map<String, dynamic> patient) async {
+  Future<void> _onPatientSelected(
+    Map<String, dynamic> patient, {
+    PatientSelectionAction action = PatientSelectionAction.history,
+  }) async {
     ref.read(menuExpandedProvider.notifier).state = false;
     final isSamePatient = _selectedPatient != null &&
         _selectedPatient!['id']?.toString() == patient['id']?.toString();
 
+    final bool directToEditor = action == PatientSelectionAction.createPlan ||
+        action == PatientSelectionAction.modifyPlan;
+
     setState(() {
       _selectedPatient = patient;
-      _viewingHistory = true;
+      _viewingHistory = !directToEditor;
       _isLoading = true;
       if (!isSamePatient) {
         _patientProfile = null;
@@ -478,12 +506,53 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     } catch (e) {
       debugPrint("Error en _onPatientSelected: $e");
       if (mounted) {
+        setState(() => _viewingHistory = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error al cargar datos del paciente: $e")),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (!mounted || _selectedPatient == null) return;
+
+    if (action == PatientSelectionAction.createPlan) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedPatient != null) {
+          _startNewPlan();
+        }
+      });
+    } else if (action == PatientSelectionAction.modifyPlan) {
+      Map<String, dynamic>? planAModificar = _planVigente;
+      if (planAModificar == null || planAModificar['id'] == null) {
+        final int? planActivoId = (patient['plan_activo_id'] as num?)?.toInt();
+        if (planActivoId != null) {
+          final found = _patientPlans.firstWhere(
+            (pl) => (pl['id'] as num?)?.toInt() == planActivoId,
+            orElse: () => {'id': planActivoId},
+          );
+          planAModificar = found;
+        }
+      }
+      if (planAModificar == null || planAModificar['id'] == null) {
+        final idx = _patientPlans.indexWhere((pl) => pl['vigente'] == true);
+        if (idx != -1) {
+          planAModificar = _patientPlans[idx];
+        } else if (_patientPlans.isNotEmpty) {
+          planAModificar = _patientPlans.first;
+        }
+      }
+
+      if (planAModificar != null && planAModificar['id'] != null) {
+        await _verDetallePlan(planAModificar);
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _selectedPatient != null) {
+            _startNewPlan();
+          }
+        });
+      }
     }
   }
 
@@ -1354,8 +1423,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         _planInitialized = true;
         _editingPlanId = planId;
         _isDirty = false;
-        _startDate = reconstructed.first.date;
-        _endDate = reconstructed.last.date;
+        if (reconstructed.isNotEmpty) {
+          _startDate = reconstructed.first.date;
+          _endDate = reconstructed.last.date;
+        }
         _morningSnackEnabled =
             reconstructed.any((d) => d.slots.any((s) => s.momentId == 2));
         _afternoonSnackEnabled =
@@ -1614,12 +1685,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final String diagnostico = p["enfermedad_principal"] ?? "No registrado";
     final String condicionNutri = p["condicion_nutricional"] ?? "Desconocida";
 
-    final bool planActivo = p["plan_activo"] == true;
+    final bool planActivo = _isPlanActivo(p);
     final bool validacionConfirmada = p["validacion_confirmada"] == true;
-
-    void handleTap() {
-      _onPatientSelected(p);
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1639,7 +1706,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: handleTap,
+          onTap: () => _onPatientSelected(p, action: PatientSelectionAction.history),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
@@ -1706,24 +1773,35 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: 20),
                 OutlinedButton.icon(
-                  onPressed: handleTap,
+                  onPressed: () => _onPatientSelected(p,
+                      action: planActivo
+                          ? PatientSelectionAction.modifyPlan
+                          : PatientSelectionAction.createPlan),
                   icon: Icon(
-                    planActivo ? Icons.edit : Icons.add,
+                    planActivo ? Icons.edit_rounded : Icons.add_rounded,
                     size: 14,
-                    color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
+                    color: planActivo
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF22C55E),
                   ),
                   label: Text(
                     planActivo ? "Modificar plan" : "Crear plan",
                     style: TextStyle(
-                      color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
+                      color: planActivo
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF22C55E),
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
+                    foregroundColor: planActivo
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF22C55E),
                     side: BorderSide(
-                      color: planActivo ? const Color(0xFF3B82F6) : const Color(0xFF22C55E),
+                      color: planActivo
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF22C55E),
                       width: 1.2,
                     ),
                     padding: const EdgeInsets.symmetric(
@@ -1738,8 +1816,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Icon(Icons.chevron_right,
-                    color: const Color(0xFF94A3B8), 
+                const Icon(Icons.chevron_right,
+                    color: Color(0xFF94A3B8), 
                     size: 22),
               ],
             ),

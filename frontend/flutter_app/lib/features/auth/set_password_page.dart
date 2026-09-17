@@ -1,5 +1,4 @@
 import "dart:math" as math;
-import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
@@ -33,6 +32,70 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
   static const Color _grisTexto = Color(0xFF64748B);
   static const Color _grisFuerte = Color(0xFF334155);
 
+  bool get _hasMinLength => _passwordController.text.length >= 8;
+  bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasNumber => _passwordController.text.contains(RegExp(r'[0-9]'));
+  bool get _hasSpecialChar =>
+      _passwordController.text.contains(RegExp(r'[^a-zA-Z0-9\s]'));
+
+  bool get _isPasswordSecure =>
+      _hasMinLength &&
+      _hasUppercase &&
+      _hasLowercase &&
+      _hasNumber &&
+      _hasSpecialChar;
+
+  bool get _passwordsMatch =>
+      _passwordController.text.isNotEmpty &&
+      _passwordController.text == _confirmController.text;
+
+  int get _strengthScore {
+    int score = 0;
+    if (_hasMinLength) score++;
+    if (_hasUppercase) score++;
+    if (_hasLowercase) score++;
+    if (_hasNumber) score++;
+    if (_hasSpecialChar) score++;
+    return score;
+  }
+
+  String get _strengthLabel {
+    if (_passwordController.text.isEmpty) return "Sin ingresar";
+    switch (_strengthScore) {
+      case 1:
+        return "Muy débil";
+      case 2:
+        return "Débil";
+      case 3:
+        return "Regular";
+      case 4:
+        return "Buena";
+      case 5:
+        return "Muy segura";
+      default:
+        return "Muy débil";
+    }
+  }
+
+  Color get _strengthColor {
+    if (_passwordController.text.isEmpty) return Colors.grey.shade300;
+    switch (_strengthScore) {
+      case 1:
+        return Colors.red.shade600;
+      case 2:
+        return Colors.orange.shade700;
+      case 3:
+        return Colors.amber.shade700;
+      case 4:
+        return AppTema.azulPrincipal;
+      case 5:
+        return AppTema.verdeSalud;
+      default:
+        return Colors.red.shade600;
+    }
+  }
+
   @override
   void dispose() {
     _passwordController.dispose();
@@ -41,8 +104,8 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
   }
 
   Future<void> _submit() async {
-    final password = _passwordController.text.trim();
-    final confirm = _confirmController.text.trim();
+    final password = _passwordController.text;
+    final confirm = _confirmController.text;
 
     setState(() {
       _errorMessage = null;
@@ -54,9 +117,9 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
       return;
     }
 
-    if (password.length < 8) {
-      setState(() =>
-          _errorMessage = "La contraseña debe tener al menos 8 caracteres.");
+    if (!_isPasswordSecure) {
+      setState(() => _errorMessage =
+          "La contraseña debe cumplir con todos los estándares de seguridad solicitados.");
       return;
     }
 
@@ -78,7 +141,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
 
       // Mostrar feedback de exito y cerrar sesión para forzar el reingreso manual
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
               "Contraseña configurada correctamente. Por favor, inicia sesión de nuevo."),
           backgroundColor: AppTema.verdeSalud,
@@ -128,12 +191,14 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
   }
 
   Widget _buildPasswordCard(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= 768;
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
         Container(
-          width: AppSizes.maxFormWidth,
+          width: isWide ? 820.0 : AppSizes.maxFormWidth,
           padding: EdgeInsets.fromLTRB(
             context.responsiveSpacing(AppSpacing.xl),
             context.responsiveSpacing(AppSpacing.xxl + 10),
@@ -145,7 +210,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
             borderRadius: BorderRadius.circular(AppSizes.cardRadius + 8),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 40,
                   offset: const Offset(0, 20)),
             ],
@@ -228,51 +293,94 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
                 ),
               ],
               const SizedBox(height: AppSpacing.xl),
-              _buildField(
-                  context: context,
-                  controller: _passwordController,
-                  label: "Nueva contraseña",
-                  hint: "Mínimo 8 caracteres",
-                  icon: Icons.lock_outline,
-                  obscureState: _obscurePassword,
-                  onToggleObscure: () =>
-                      setState(() => _obscurePassword = !_obscurePassword)),
-              const SizedBox(height: AppSpacing.lg),
-              _buildField(
-                  context: context,
-                  controller: _confirmController,
-                  label: "Confirmar contraseña",
-                  hint: "Mínimo 8 caracteres",
-                  icon: Icons.lock_outline,
-                  obscureState: _obscureConfirm,
-                  onToggleObscure: () =>
-                      setState(() => _obscureConfirm = !_obscureConfirm)),
-              const SizedBox(height: AppSpacing.xl),
-              SizedBox(
-                width: double.infinity,
-                height: AppSizes.buttonHeightLarge,
-                child: FilledButton(
-                  onPressed:
-                      _loading || _successMessage != null ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
+              if (isWide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Columna Izquierda: Campos y Botón de Acción
+                    Expanded(
+                      flex: 11,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildField(
+                            context: context,
+                            controller: _passwordController,
+                            label: "Nueva contraseña",
+                            hint: "Ingresa tu contraseña",
+                            icon: Icons.lock_outline_rounded,
+                            obscureState: _obscurePassword,
+                            onToggleObscure: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                            onChanged: (_) => setState(() {}),
                           ),
-                        )
-                      : Text(
-                          "Guardar contraseña",
-                          style: GoogleFonts.montserrat(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
+                          const SizedBox(height: AppSpacing.lg),
+                          _buildField(
+                            context: context,
+                            controller: _confirmController,
+                            label: "Confirmar contraseña",
+                            hint: "Repite tu nueva contraseña",
+                            icon: Icons.lock_reset_rounded,
+                            obscureState: _obscureConfirm,
+                            onToggleObscure: () => setState(
+                                () => _obscureConfirm = !_obscureConfirm),
+                            onChanged: (_) => setState(() {}),
                           ),
-                        ),
+                          if (_confirmController.text.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _buildMatchIndicator(),
+                          ],
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildSubmitButton(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 28),
+                    // Columna Derecha: Panel Integrado de Requisitos y Fortaleza
+                    Expanded(
+                      flex: 10,
+                      child: _buildSecurityPanel(),
+                    ),
+                  ],
+                )
+              else
+                // Disposición vertical en pantallas móviles
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildField(
+                      context: context,
+                      controller: _passwordController,
+                      label: "Nueva contraseña",
+                      hint: "Ingresa tu contraseña",
+                      icon: Icons.lock_outline_rounded,
+                      obscureState: _obscurePassword,
+                      onToggleObscure: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _buildSecurityPanel(),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildField(
+                      context: context,
+                      controller: _confirmController,
+                      label: "Confirmar contraseña",
+                      hint: "Repite tu nueva contraseña",
+                      icon: Icons.lock_reset_rounded,
+                      obscureState: _obscureConfirm,
+                      onToggleObscure: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (_confirmController.text.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _buildMatchIndicator(),
+                    ],
+                    const SizedBox(height: AppSpacing.xl),
+                    _buildSubmitButton(),
+                  ],
                 ),
-              ),
             ],
           ),
         ),
@@ -287,7 +395,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 )
@@ -312,6 +420,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
     required IconData icon,
     required bool obscureState,
     required VoidCallback onToggleObscure,
+    ValueChanged<String>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,33 +440,308 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
         TextField(
           controller: controller,
           obscureText: obscureState,
-          style: GoogleFonts.lato(
+          onChanged: onChanged,
+          style: GoogleFonts.inter(
               fontSize: AppTextSizes.body(context.screenWidth),
               color: _grisFuerte,
               fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.lato(
-              color: _grisTexto.withOpacity(0.4),
+            hintStyle: GoogleFonts.inter(
+              color: _grisTexto.withValues(alpha: 0.45),
               fontSize: AppTextSizes.body(context.screenWidth),
               fontWeight: FontWeight.w500,
             ),
             floatingLabelBehavior: FloatingLabelBehavior.never,
             hintFadeDuration: Duration.zero,
-            prefixIcon: Icon(icon, size: 22),
+            prefixIcon: Icon(icon, size: 22, color: AppTema.azulPrincipal),
             suffixIcon: IconButton(
               icon: Icon(
                   obscureState
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  size: 20),
+                  size: 20,
+                  color: Colors.blueGrey.shade400),
               onPressed: onToggleObscure,
             ),
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+              borderSide:
+                  const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSecurityPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: Colors.blueGrey.shade100.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: (_isPasswordSecure
+                          ? AppTema.verdeSalud
+                          : AppTema.azulPrincipal)
+                      .withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isPasswordSecure
+                      ? Icons.verified_user_rounded
+                      : Icons.shield_outlined,
+                  size: 18,
+                  color: _isPasswordSecure
+                      ? AppTema.verdeSalud
+                      : AppTema.azulPrincipal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Requisitos de seguridad",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _azulOscuro,
+                      ),
+                    ),
+                    Text(
+                      "Estándar de la industria (OWASP)",
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _grisTexto,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildStrengthMeter(),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 14),
+          _buildRequirementItem(
+            label: "Mínimo 8 caracteres",
+            isMet: _hasMinLength,
+          ),
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            label: "Al menos una letra mayúscula (A-Z)",
+            isMet: _hasUppercase,
+          ),
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            label: "Al menos una letra minúscula (a-z)",
+            isMet: _hasLowercase,
+          ),
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            label: "Al menos un número (0-9)",
+            isMet: _hasNumber,
+          ),
+          const SizedBox(height: 8),
+          _buildRequirementItem(
+            label: "Al menos un carácter especial (!@#\$%...)",
+            isMet: _hasSpecialChar,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStrengthMeter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Fortaleza:",
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _grisTexto,
+              ),
+            ),
+            Text(
+              _strengthLabel,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _strengthColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: List.generate(5, (index) {
+            final isFilled = index < _strengthScore;
+            return Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                height: 5,
+                margin: EdgeInsets.only(right: index < 4 ? 6 : 0),
+                decoration: BoxDecoration(
+                  color: isFilled ? _strengthColor : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequirementItem({
+    required String label,
+    required bool isMet,
+  }) {
+    return Row(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: isMet
+                ? AppTema.verdeSalud.withValues(alpha: 0.15)
+                : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isMet
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            size: 14,
+            color: isMet ? AppTema.verdeSalud : Colors.grey.shade400,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: isMet ? FontWeight.w600 : FontWeight.w500,
+              color: isMet ? AppTema.azulOscuro : Colors.blueGrey.shade600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMatchIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        children: [
+          Icon(
+            _passwordsMatch
+                ? Icons.check_circle_rounded
+                : Icons.info_outline_rounded,
+            size: 16,
+            color:
+                _passwordsMatch ? AppTema.verdeSalud : Colors.amber.shade800,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _passwordsMatch
+                ? "Las contraseñas coinciden"
+                : "Las contraseñas no coinciden aún",
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _passwordsMatch
+                  ? AppTema.verdeSalud
+                  : Colors.amber.shade900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    final bool canSubmit = !_loading &&
+        _successMessage == null &&
+        _isPasswordSecure &&
+        _passwordsMatch;
+
+    return SizedBox(
+      width: double.infinity,
+      height: AppSizes.buttonHeightLarge,
+      child: FilledButton.icon(
+        onPressed: canSubmit ? _submit : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTema.verdeSalud,
+          disabledBackgroundColor: Colors.grey.shade200,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.buttonRadius),
+          ),
+        ),
+        icon: _loading
+            ? const SizedBox.shrink()
+            : Icon(
+                Icons.check_circle_outline_rounded,
+                size: 20,
+                color: canSubmit ? Colors.white : Colors.grey.shade500,
+              ),
+        label: _loading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                "Guardar contraseña",
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: canSubmit ? Colors.white : Colors.grey.shade500,
+                ),
+              ),
+      ),
     );
   }
 }

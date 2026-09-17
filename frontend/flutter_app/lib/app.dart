@@ -8,6 +8,7 @@ import "package:flutter_localizations/flutter_localizations.dart";
 import "core/state/app_providers.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
+import "shared/models/app_role.dart";
 import "shared/widgets/role_shell.dart";
 
 class ReumaNutriApp extends ConsumerStatefulWidget {
@@ -27,6 +28,9 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
           data.event == AuthChangeEvent.tokenRefreshed) {
         ref.invalidate(appRoleProvider);
         ref.invalidate(miPerfilProvider);
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        ref.read(activeRoleOverrideProvider.notifier).state = null;
+        ref.read(miPerfilOverrideProvider.notifier).state = null;
       }
     });
   }
@@ -54,9 +58,29 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
           return const LoginPage();
         }
 
+        final isSwitchingRole = ref.watch(roleSwitchLoadingProvider);
+        final targetRole = ref.watch(targetRoleProvider);
         final roleAsync = ref.watch(appRoleProvider);
+        final currentRole = roleAsync.valueOrNull;
+
+        // Mantener la pantalla de carga activa mientras se procese el cambio
+        // o mientras el rol actual no coincida con el rol objetivo solicitado
+        if (isSwitchingRole || (targetRole != null && currentRole != targetRole)) {
+          return const Scaffold(
+            backgroundColor: Color(0xFFF8FAFC),
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF0171BB),
+              ),
+            ),
+          );
+        }
+
+        if (currentRole != null) {
+          return RoleShell(key: ValueKey(currentRole.id), role: currentRole);
+        }
         return roleAsync.when(
-          data: (role) => RoleShell(role: role),
+          data: (role) => RoleShell(key: ValueKey(role.id), role: role),
           loading: () => const Scaffold(
             backgroundColor: Color(0xFFF8FAFC),
             body: Center(
@@ -80,6 +104,7 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
     );
 
     return MaterialApp(
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       title: "NutriReuma",
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AppScrollBehavior(),

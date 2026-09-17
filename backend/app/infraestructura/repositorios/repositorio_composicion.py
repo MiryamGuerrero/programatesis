@@ -599,6 +599,12 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
             return dict(zip(cols, r))
 
     def crear_momento(self, datos: dict) -> int:
+        h_ini = datos.get("hora_inicio")
+        if isinstance(h_ini, str) and (not h_ini.strip() or h_ini == "--:--"):
+            h_ini = None
+        h_fin = datos.get("hora_fin")
+        if isinstance(h_fin, str) and (not h_fin.strip() or h_fin == "--:--"):
+            h_fin = None
         with db_cursor() as cur:
             cur.execute("""
                 INSERT INTO nutricion.momento_comida
@@ -606,7 +612,7 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
                 VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id
             """, (
                 datos["nombre"], datos.get("orden", 0),
-                datos.get("hora_inicio"), datos.get("hora_fin"),
+                h_ini, h_fin,
                 datos.get("obligatorio", False),
                 datos.get("activo", True),
                 datos.get("color", "#4CAF50")
@@ -617,7 +623,10 @@ class RepositorioComposicionPostgres(IRepositorioComposicion):
         campos, vals = [], []
         for k in ("nombre","orden","hora_inicio","hora_fin","obligatorio","activo","color"):
             if k in datos:
-                campos.append(f"{k} = %s"); vals.append(datos[k])
+                val = datos[k]
+                if k in ("hora_inicio", "hora_fin") and isinstance(val, str) and (not val.strip() or val == "--:--"):
+                    val = None
+                campos.append(f"{k} = %s"); vals.append(val)
         if not campos: return False
         vals.append(id_momento)
         with db_cursor() as cur:
