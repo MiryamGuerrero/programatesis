@@ -149,12 +149,9 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
           }),
         ),
       ),
-      home: rootPage,
-      builder: (context, child) {
-        return SelectionArea(
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
+      home: SelectionArea(
+        child: rootPage,
+      ),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

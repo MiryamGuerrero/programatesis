@@ -43,6 +43,20 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
   };
 
   static const Map<String, String> _nombresCriticosAmigables = {
+    'NO_APTO_INTOLERANCIA_FRUCTOSA': 'No apto para intolerantes a la fructosa',
+    'NO_APTO_FRUCTOSA': 'No apto para intolerantes a la fructosa',
+    'NO_APTO_PARA_INTOLERANTES_A_LACTOSA': 'No apto para intolerantes a la lactosa',
+    'NO_APTO_LACTOSA': 'No apto para intolerantes a la lactosa',
+    'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN': 'No apto para intolerantes al gluten',
+    'NO_APTO_GLUTEN': 'No apto para intolerantes al gluten',
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITO': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITOS': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_SULFITO': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_SULFITOS': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_VEGETARIANOS': 'No apto para vegetarianos',
+    'NO_APTO_VEGETARIANO': 'No apto para vegetarianos',
+    'NO_APTO_DIABETICOS': 'No apto para diabéticos',
+    'NO_APTO_DIABETICO': 'No apto para diabéticos',
     'E9001_ALFALFA_L_CANAVANINA': 'LES: alfalfa / L-canavanina',
   };
 
@@ -1059,7 +1073,14 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
 
   String _nombreAmigableEtiqueta(String codigo, String fallback) {
     final normalizado = _normalizarCodigoEtiqueta(codigo);
-    return _nombresCriticosAmigables[normalizado] ?? fallback;
+    if (_nombresCriticosAmigables.containsKey(normalizado)) {
+      return _nombresCriticosAmigables[normalizado]!;
+    }
+    final fallbackNorm = _normalizarCodigoEtiqueta(fallback);
+    if (_nombresCriticosAmigables.containsKey(fallbackNorm)) {
+      return _nombresCriticosAmigables[fallbackNorm]!;
+    }
+    return fallback;
   }
 
   Future<List<Map<String, dynamic>>?>
@@ -1668,7 +1689,7 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'advertencia clínica: revisa si falta o están demás estas etiquetas críticas: no_apto_intolerancia_fructosa, no_apto_para_intolerantes_a_lactosa, no_apto_para_intolerantes_al_gluten, no_apto_para_intolerantes_a_sulfito, no_apto_vegetarianos.',
+              'Advertencia clínica: Revisa si faltan o están de más estas etiquetas críticas: No apto para intolerantes a la fructosa, No apto para intolerantes a la lactosa, No apto para intolerantes al gluten, No apto para intolerantes a sulfitos, No apto para vegetarianos.',
               style: GoogleFonts.montserrat(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -1783,6 +1804,12 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
     if (_nombresCriticosAmigables.containsKey(codigo)) {
       return _nombresCriticosAmigables[codigo]!;
     }
+    final nombreNorm = _normalizarCodigoEtiqueta(
+      etiqueta['titulo'] ?? etiqueta['nombre_visible'] ?? etiqueta['nombre'],
+    );
+    if (_nombresCriticosAmigables.containsKey(nombreNorm)) {
+      return _nombresCriticosAmigables[nombreNorm]!;
+    }
     return (etiqueta['titulo'] ??
                 etiqueta['nombre_visible'] ??
                 etiqueta['nombre'])
@@ -1866,7 +1893,11 @@ class _RecetaFormPageState extends ConsumerState<RecetaFormPage> {
                               : Icons.label_outline_rounded,
                           size: 14,
                           color: yaSeleccionada ? Colors.green : Colors.grey)),
-                  title: Text(tag['nombre_visible'],
+                  title: Text(
+                      _nombreAmigableEtiqueta(
+                        tag['codigo']?.toString() ?? '',
+                        (tag['nombre_visible'] ?? tag['titulo'] ?? tag['nombre'] ?? '').toString(),
+                      ),
                       style: GoogleFonts.montserrat(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

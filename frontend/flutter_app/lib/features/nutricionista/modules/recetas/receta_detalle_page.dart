@@ -35,6 +35,20 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
   };
 
   static const Map<String, String> _nombresCriticosAmigables = {
+    'NO_APTO_INTOLERANCIA_FRUCTOSA': 'No apto para intolerantes a la fructosa',
+    'NO_APTO_FRUCTOSA': 'No apto para intolerantes a la fructosa',
+    'NO_APTO_PARA_INTOLERANTES_A_LACTOSA': 'No apto para intolerantes a la lactosa',
+    'NO_APTO_LACTOSA': 'No apto para intolerantes a la lactosa',
+    'NO_APTO_PARA_INTOLERANTES_AL_GLUTEN': 'No apto para intolerantes al gluten',
+    'NO_APTO_GLUTEN': 'No apto para intolerantes al gluten',
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITO': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_PARA_INTOLERANTES_A_SULFITOS': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_SULFITO': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_SULFITOS': 'No apto para intolerantes a sulfitos',
+    'NO_APTO_VEGETARIANOS': 'No apto para vegetarianos',
+    'NO_APTO_VEGETARIANO': 'No apto para vegetarianos',
+    'NO_APTO_DIABETICOS': 'No apto para diabéticos',
+    'NO_APTO_DIABETICO': 'No apto para diabéticos',
     'E9001_ALFALFA_L_CANAVANINA': 'LES: alfalfa / L-canavanina',
   };
 
@@ -912,6 +926,12 @@ class _RecetaDetallePageState extends ConsumerState<RecetaDetallePage>
     final codigo = _normalizarCodigoEtiqueta(etiqueta['codigo']);
     if (_nombresCriticosAmigables.containsKey(codigo)) {
       return _nombresCriticosAmigables[codigo]!;
+    }
+    final nombreNorm = _normalizarCodigoEtiqueta(
+      etiqueta['titulo'] ?? etiqueta['nombre_visible'] ?? etiqueta['nombre'],
+    );
+    if (_nombresCriticosAmigables.containsKey(nombreNorm)) {
+      return _nombresCriticosAmigables[nombreNorm]!;
     }
     return _textoLimpio(
       etiqueta['titulo'] ?? etiqueta['nombre_visible'] ?? etiqueta['nombre'],
