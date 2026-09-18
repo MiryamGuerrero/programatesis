@@ -283,6 +283,8 @@ class _RoleShellState extends ConsumerState<RoleShell>
     const Color brandBlue = Color(0xFF0068B7);
     const Color brandGreen = Color(0xFF58A932);
 
+    final bool isExpanded = ref.watch(menuExpandedProvider);
+
     return Container(
       height: 75,
       decoration: BoxDecoration(
@@ -291,43 +293,77 @@ class _RoleShellState extends ConsumerState<RoleShell>
       ),
       child: Row(
         children: [
-          Container(
-            width: isWide ? 280 : 260,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded,
-                      color: brandBlue, size: 28),
-                  onPressed: () =>
-                      ref.read(menuExpandedProvider.notifier).state = !ref.watch(menuExpandedProvider),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  "assets/images/logo_reuma_nutri.png",
-                  width: 60,
-                  height: 60,
-                  filterQuality: FilterQuality.high,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: RichText(
-                    overflow: TextOverflow.clip,
-                    text: TextSpan(
-                      style: GoogleFonts.montserrat(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5),
-                      children: const [
-                        TextSpan(
-                            text: "Nutri", style: TextStyle(color: brandBlue)),
-                        TextSpan(
-                            text: "Reuma", style: TextStyle(color: brandGreen)),
-                      ],
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOutCubic,
+            width: isWide ? (isExpanded ? 270 : 76) : 260,
+            padding: EdgeInsets.symmetric(horizontal: isWide && !isExpanded ? 6 : 12),
+            child: ClipRect(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: isWide && !isExpanded ? 64 : 48,
+                    child: Center(
+                      child: IconButton(
+                        icon: const Icon(Icons.menu_rounded,
+                            color: brandBlue, size: 26),
+                        tooltip: isExpanded ? "Contraer menú" : "Expandir menú",
+                        onPressed: () =>
+                            ref.read(menuExpandedProvider.notifier).state = !isExpanded,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.centerLeft,
+                        minWidth: 0,
+                        maxWidth: 220,
+                        child: SizedBox(
+                          width: 200,
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            opacity: (!isWide || isExpanded) ? 1.0 : 0.0,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 4),
+                                Image.asset(
+                                  "assets/images/logo_reuma_nutri.png",
+                                  width: 48,
+                                  height: 48,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: RichText(
+                                    maxLines: 1,
+                                    overflow: TextOverflow.clip,
+                                    text: TextSpan(
+                                      style: GoogleFonts.montserrat(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.5),
+                                      children: const [
+                                        TextSpan(
+                                            text: "Nutri",
+                                            style: TextStyle(color: brandBlue)),
+                                        TextSpan(
+                                            text: "Reuma",
+                                            style: TextStyle(color: brandGreen)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const Spacer(),
@@ -354,6 +390,7 @@ class _RoleShellState extends ConsumerState<RoleShell>
   Widget _buildSidebar(List<RoleModule> modules) {
     const Color companyBlue = Color(0xFF0068B7);
     const Color selectionGreen = Color(0xFF58A932);
+    final bool isExpanded = ref.watch(menuExpandedProvider);
 
     final Map<String, List<int>> categorizedModules = {};
     for (int i = 0; i < modules.length; i++) {
@@ -364,91 +401,144 @@ class _RoleShellState extends ConsumerState<RoleShell>
     final List<Widget> listItems = [];
     
     categorizedModules.forEach((categoryName, indices) {
-      if (categoryName.isNotEmpty && ref.watch(menuExpandedProvider)) {
-        final isExpanded = _categoryExpanded[categoryName] ?? true;
+      if (categoryName.isNotEmpty) {
+        final isCatExpanded = _categoryExpanded[categoryName] ?? true;
         listItems.add(
-          InkWell(
-            onTap: () {
-              setState(() {
-                _categoryExpanded[categoryName] = !isExpanded;
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      categoryName,
-                      style: GoogleFonts.montserrat(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: isExpanded
+                  ? InkWell(
+                      onTap: () {
+                        setState(() {
+                          _categoryExpanded[categoryName] = !isCatExpanded;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                categoryName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.montserrat(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              isCatExpanded
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              color: Colors.white70,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Center(
+                        child: SizedBox(
+                          width: 28,
+                          child: Divider(
+                              color: Colors.white24, height: 1, thickness: 1),
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                    color: Colors.white70,
-                    size: 16,
-                  ),
-                ],
-              ),
             ),
           ),
         );
-      } else if (categoryName.isNotEmpty && !ref.watch(menuExpandedProvider)) {
-        listItems.add(const SizedBox(height: 24));
       }
 
-      final isExpanded = _categoryExpanded[categoryName] ?? true;
-      if (isExpanded || !ref.watch(menuExpandedProvider)) {
+      final isCatExpanded = _categoryExpanded[categoryName] ?? true;
+      if (isCatExpanded || !isExpanded) {
         for (final i in indices) {
           final active = i == _index;
           listItems.add(
-            InkWell(
-              onTap: () => _selectModule(i),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 16, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: active ? selectionGreen : Colors.transparent,
-                  border: active
-                      ? const Border(
-                          left: BorderSide(color: Colors.white, width: 4))
-                      : null,
-                ),
-                child: Row(
-                  children: [
-                    Icon(modules[i].icon, color: Colors.white, size: 24),
-                    if (ref.watch(menuExpandedProvider)) ...[
-                      const SizedBox(width: 12),
+            Tooltip(
+              message: !isExpanded ? modules[i].title : '',
+              waitDuration: const Duration(milliseconds: 250),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              textStyle: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              child: InkWell(
+                onTap: () => _selectModule(i),
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: active ? selectionGreen : Colors.transparent,
+                    border: active
+                        ? const Border(
+                            left: BorderSide(color: Colors.white, width: 4),
+                          )
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: active ? 72 : 76,
+                        child: Center(
+                          child: Icon(modules[i].icon, color: Colors.white, size: 22),
+                        ),
+                      ),
                       Expanded(
-                        child: Text(
-                          modules[i].title,
-                          style: GoogleFonts.montserrat(
-                              color: Colors.white,
-                              fontWeight: active
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              fontSize: 13),
-                          softWrap: false,
+                        child: ClipRect(
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            opacity: isExpanded ? 1.0 : 0.0,
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOutCubic,
+                              offset: isExpanded
+                                  ? Offset.zero
+                                  : const Offset(-0.15, 0),
+                              child: Text(
+                                modules[i].title,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.montserrat(
+                                  color: Colors.white,
+                                  fontWeight: active
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            )
+            ),
           );
         }
       }
     });
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: ref.watch(menuExpandedProvider) ? 280 : 85,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOutCubic,
+      width: isExpanded ? 270 : 76,
       color: companyBlue,
       child: Column(
         children: [
@@ -464,23 +554,24 @@ class _RoleShellState extends ConsumerState<RoleShell>
           ),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: ref.watch(menuExpandedProvider) ? 1.0 : 0.0,
-            child: Container(
+            curve: Curves.easeInOut,
+            opacity: isExpanded ? 1.0 : 0.0,
+            child: SizedBox(
               width: double.infinity,
-              padding: const EdgeInsets.all(16.0),
-              child: ref.watch(menuExpandedProvider)
-                  ? Text(
-                      "ReumaNutri v1.0",
-                      style: GoogleFonts.montserrat(
-                          color: Colors.white24,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1),
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      softWrap: false,
-                    )
-                  : const SizedBox.shrink(),
+              height: 38,
+              child: Center(
+                child: Text(
+                  "ReumaNutri v1.0",
+                  style: GoogleFonts.montserrat(
+                      color: Colors.white24,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                ),
+              ),
             ),
           ),
         ],

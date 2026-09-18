@@ -857,10 +857,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("PROFESIONAL", width: usableWidth * 0.35),
+              _col("PROFESIONAL", width: usableWidth * 0.30),
               _col("ROL / CARGO", width: usableWidth * 0.25),
               _col("ESTADO", width: usableWidth * 0.15, center: true),
-              _col("ACCIONES", width: usableWidth * 0.25, center: true),
+              _col("ACCIONES", width: usableWidth * 0.30, center: true),
             ],
             source: _AdminUsersDataSource(
               items: state.users,
@@ -882,6 +882,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     .toggleUserStatus(u["id"].toString(), u["activo"] == true);
               },
               onDelete: (u) => _eliminarUsuario(u),
+              onResend: (u) => _reenviarCorreo(u),
               isSelfChecker: _isCurrentUser,
               totalWidth: usableWidth,
               context: context,
@@ -986,6 +987,17 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     }
   }
 
+  Future<void> _reenviarCorreo(Map<String, dynamic> user) async {
+    final res = await ref.read(adminUsersProvider.notifier).resendInviteEmail(user["id"].toString());
+    if (mounted) {
+      if (res) {
+        NutriSnack.show(context, "Correo de configuración enviado a ${user['email']}");
+      } else {
+        NutriSnack.show(context, "No se pudo reenviar el correo", isError: true);
+      }
+    }
+  }
+
   void _dialogoUsuario(Map<String, dynamic>? user) {
     showDialog(
       context: context,
@@ -1005,6 +1017,7 @@ class _AdminUsersDataSource extends DataTableSource {
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onToggle;
   final Function(Map<String, dynamic>) onDelete;
+  final Function(Map<String, dynamic>) onResend;
   final bool Function(Map<String, dynamic>) isSelfChecker;
   final double totalWidth;
   final BuildContext context;
@@ -1017,6 +1030,7 @@ class _AdminUsersDataSource extends DataTableSource {
     required this.onEdit,
     required this.onToggle,
     required this.onDelete,
+    required this.onResend,
     required this.isSelfChecker,
     required this.totalWidth,
     required this.context,
@@ -1031,7 +1045,7 @@ class _AdminUsersDataSource extends DataTableSource {
         color: WidgetStateProperty.all(rowColor),
         cells: [
         DataCell(SizedBox(
-          width: totalWidth * 0.35,
+          width: totalWidth * 0.30,
           child: Row(
             children: [
               const NutriShimmer(
@@ -1063,10 +1077,15 @@ class _AdminUsersDataSource extends DataTableSource {
             width: totalWidth * 0.15,
             child: const Center(child: NutriShimmer(width: 60, height: 20)))),
         DataCell(SizedBox(
-          width: totalWidth * 0.25,
+          width: totalWidth * 0.30,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              NutriShimmer(
+                  width: 24,
+                  height: 24,
+                  borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
               NutriShimmer(
                   width: 24,
                   height: 24,
@@ -1182,18 +1201,25 @@ class _AdminUsersDataSource extends DataTableSource {
         ),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.25,
+        width: totalWidth * 0.30,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _HoverActionButton(
+                  icon: Icons.mark_email_unread_rounded,
+                  label: "Reenviar",
+                  color: AppTema.azulOscuro,
+                  tooltip: "Reenviar correo de configuración",
+                  onTap: () => onResend(u)),
+              const SizedBox(width: 8),
+              _HoverActionButton(
                   icon: Icons.edit_note_rounded,
                   label: "Editar",
-                  color: Colors.blueGrey,
+                  color: AppTema.azulPrincipal,
                   onTap: () => onEdit(u)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _HoverActionButton(
                   icon: u["activo"] == true
                       ? Icons.block_flipped
@@ -1205,7 +1231,7 @@ class _AdminUsersDataSource extends DataTableSource {
                       ? "No puedes darte de baja a ti mismo"
                       : (u["activo"] == true ? "Dar de baja" : "Dar de alta"),
                   onTap: isSelf ? null : () => onToggle(u)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _HoverActionButton(
                   icon: Icons.delete_outline_rounded,
                   label: "Borrar",
@@ -1381,7 +1407,8 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
 
   String? _emailErrorText;
   String? _cedulaErrorText;
-  String? _generalErrorText;
+  String? _rolesErrorText;
+  String? _formWarningText;
 
   @override
   void initState() {
@@ -1430,10 +1457,10 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
         }
       }
     } else {
-      // Default unchecked, let them check what they need.
-      _checkedMedico = true;
-      _tituloMedicoCtrl.text = "Doctor Reumatólogo";
-      _instMedicoCtrl.text = "Universidad de Especialidades Médicas";
+      // Default sin ningún rol elegido para nuevo miembro
+      _checkedAdmin = false;
+      _checkedMedico = false;
+      _checkedNutri = false;
     }
   }
 
@@ -1579,7 +1606,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: 780,
-        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 580),
+        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 620),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1657,6 +1684,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               "Nombre completo",
                               "Ingresar nombre completo",
                               Icons.badge_outlined,
+                              isRequired: true,
                             ),
                             const SizedBox(height: 16),
                             _input(
@@ -1664,6 +1692,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               "Correo electrónico",
                               "usuario@nutrireuma.com",
                               Icons.mail_outline,
+                              isRequired: true,
                               errorText: _emailErrorText,
                             ),
                             const SizedBox(height: 16),
@@ -1672,6 +1701,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               "Cédula",
                               "Número de cédula",
                               Icons.person_outline_rounded,
+                              isRequired: true,
                               keyboardType: TextInputType.number,
                               errorText: _cedulaErrorText,
                               inputFormatters: [
@@ -1704,15 +1734,53 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(left: 4, bottom: 12),
-                              child: Text(
-                                "Roles y Títulos Profesionales",
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTema.azulOscuro,
+                              child: RichText(
+                                text: TextSpan(
+                                  text: "Roles y Títulos Profesionales",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTema.azulOscuro,
+                                  ),
+                                  children: const [
+                                    TextSpan(
+                                      text: " *",
+                                      style: TextStyle(
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
+                            if (_rolesErrorText != null) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFDC2626)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _rolesErrorText!,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFFB91C1C),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             
                             // Administrador checkbox and fields
                             _buildRoleToggle(
@@ -1722,6 +1790,8 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               onChanged: (val) {
                                 setState(() {
                                   _checkedAdmin = val ?? false;
+                                  _rolesErrorText = null;
+                                  _formWarningText = null;
                                   if (_checkedAdmin && _tituloAdminCtrl.text.isEmpty) {
                                     _tituloAdminCtrl.text = "Administrador del Sistema";
                                   }
@@ -1762,6 +1832,8 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               onChanged: (val) {
                                 setState(() {
                                   _checkedMedico = val ?? false;
+                                  _rolesErrorText = null;
+                                  _formWarningText = null;
                                   if (_checkedMedico && _tituloMedicoCtrl.text.isEmpty) {
                                     _tituloMedicoCtrl.text = "Doctor Reumatólogo";
                                   }
@@ -1802,6 +1874,8 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                               onChanged: (val) {
                                 setState(() {
                                   _checkedNutri = val ?? false;
+                                  _rolesErrorText = null;
+                                  _formWarningText = null;
                                   if (_checkedNutri && _tituloNutriCtrl.text.isEmpty) {
                                     _tituloNutriCtrl.text = "Nutricionista Clínico";
                                   }
@@ -1842,8 +1916,49 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_formWarningText != null) ...[
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _formWarningText!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF92400E),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16, color: Color(0xFF92400E)),
+                      onPressed: () => setState(() => _formWarningText = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: AppTema.pastelCeleste,
                 borderRadius: BorderRadius.circular(12),
@@ -1857,16 +1972,16 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
                   const Icon(
                     Icons.info_rounded,
                     color: AppTema.azulPrincipal,
-                    size: 22,
+                    size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isEdit
                           ? "Actualiza los datos de acceso y perfil profesional."
-                          : "Al guardar, se enviará una invitación por correo para que configure su contraseña.",
+                          : "Al guardar, se enviará una invitación al correo del usuario para que configure su contraseña.",
                       style: GoogleFonts.inter(
-                        fontSize: 13,
+                        fontSize: 12,
                         height: 1.3,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF0F172A),
@@ -1928,6 +2043,7 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     String hint,
     IconData icon, {
     bool obscure = false,
+    bool isRequired = false,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? errorText,
@@ -1937,12 +2053,24 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTema.azulOscuro,
+          child: RichText(
+            text: TextSpan(
+              text: label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppTema.azulOscuro,
+              ),
+              children: [
+                if (isRequired)
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -1951,6 +2079,15 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           obscureText: obscure,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
+          onChanged: (v) {
+            if (_formWarningText != null || errorText != null) {
+              setState(() {
+                _formWarningText = null;
+                _emailErrorText = null;
+                _cedulaErrorText = null;
+              });
+            }
+          },
           style: GoogleFonts.inter(
             fontSize: 14,
             color: const Color(0xFF334155),
@@ -2005,21 +2142,27 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     setState(() {
       _emailErrorText = null;
       _cedulaErrorText = null;
-      _generalErrorText = null;
+      _rolesErrorText = null;
+      _formWarningText = null;
     });
 
-    if (_nombreCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
-      NutriSnack.show(context, "Por favor complete los campos obligatorios",
-          isError: true);
+    final nombre = _nombreCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final String cedulaVal = _cedulaCtrl.text.trim();
+
+    if (nombre.isEmpty || email.isEmpty || cedulaVal.isEmpty) {
+      setState(() {
+        _formWarningText = "Por favor complete los campos obligatorios.";
+      });
       return;
     }
 
-    final String cedulaVal = _cedulaCtrl.text.trim();
-    if (cedulaVal.isNotEmpty) {
-      if (cedulaVal.length != 10) {
-        NutriSnack.show(context, "La cédula debe contener exactamente 10 dígitos numéricos", isError: true);
-        return;
-      }
+    if (cedulaVal.length != 10) {
+      setState(() {
+        _cedulaErrorText = "La cédula debe contener exactamente 10 dígitos numéricos";
+        _formWarningText = "La cédula debe contener exactamente 10 dígitos numéricos";
+      });
+      return;
     }
 
     final List<Map<String, dynamic>> rolesAsignados = [];
@@ -2046,8 +2189,10 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
     }
 
     if (rolesAsignados.isEmpty) {
-      NutriSnack.show(context, "Debe seleccionar al menos un rol para el usuario",
-          isError: true);
+      setState(() {
+        _rolesErrorText = "Debe seleccionar al menos un rol para el usuario";
+        _formWarningText = "Debe seleccionar al menos un rol para el usuario";
+      });
       return;
     }
 
@@ -2059,19 +2204,19 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
       if (widget.user != null) {
         await repo.updateUser(
           userId: widget.user!["id"].toString(),
-          nombreCompleto: _nombreCtrl.text,
-          email: _emailCtrl.text,
-          cedula: _cedulaCtrl.text,
+          nombreCompleto: nombre,
+          email: email,
+          cedula: cedulaVal,
           idRol: primaryRolId,
           rolesAsignados: rolesAsignados,
         );
       } else {
         await repo.createUser(
-          email: _emailCtrl.text,
-          nombreCompleto: _nombreCtrl.text,
+          email: email,
+          nombreCompleto: nombre,
           idRol: primaryRolId,
           rolesAsignados: rolesAsignados,
-          cedula: _cedulaCtrl.text,
+          cedula: cedulaVal,
         );
       }
       widget.onSuccess();
@@ -2094,16 +2239,14 @@ class _FormularioUsuarioState extends ConsumerState<_FormularioUsuario> {
           final lower = errorMsg.toLowerCase();
           if (lower.contains('cédula') || lower.contains('cedula')) {
              _cedulaErrorText = errorMsg;
+             _formWarningText = errorMsg;
           } else if (lower.contains('correo') || lower.contains('email')) {
              _emailErrorText = errorMsg;
+             _formWarningText = errorMsg;
           } else {
-             _generalErrorText = errorMsg;
+             _formWarningText = errorMsg;
           }
         });
-        
-        if (_generalErrorText != null) {
-          NutriSnack.show(context, "Error al guardar: $_generalErrorText", isError: true);
-        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);

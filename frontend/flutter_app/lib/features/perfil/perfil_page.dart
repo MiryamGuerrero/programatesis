@@ -254,11 +254,16 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           const Divider(),
           const SizedBox(height: 16),
           _infoMiniItem(Icons.badge_outlined, "Usuario", displayUsername),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _infoMiniItem(Icons.alternate_email, "Correo", _emailController.text),
-          const SizedBox(height: 12),
-          _infoMiniItem(Icons.verified_user_outlined, "Estado",
-              activo ? "Activo" : "Inactivo"),
+          const SizedBox(height: 14),
+          _infoMiniItem(
+            Icons.verified_user_outlined,
+            "Estado",
+            activo ? "Activo" : "Inactivo",
+            isStatus: true,
+            isActive: activo,
+          ),
         ],
       ),
     );
@@ -429,21 +434,68 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           fontWeight: FontWeight.w800,
           color: Colors.black87,
           letterSpacing: 1.2));
-  Widget _infoMiniItem(IconData icon, String label, String value) =>
-      Row(children: [
-        Icon(icon, size: 16, color: Colors.blueGrey),
-        const SizedBox(width: 8),
-        Text("$label: ",
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey)),
-        Expanded(
-            child: Text(value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
+  Widget _infoMiniItem(
+    IconData icon,
+    String label,
+    String value, {
+    bool isStatus = false,
+    bool isActive = false,
+  }) =>
+      SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: Colors.blueGrey),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87)))
-      ]);
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 22),
+              child: isStatus
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isActive ? AppTema.verdeSalud : Colors.redAccent)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        value,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isActive
+                              ? AppTema.verdeSalud
+                              : Colors.redAccent,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      value,
+                      softWrap: true,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      );
   Widget _buildTextField(
           {required TextEditingController controller,
           required String label,
