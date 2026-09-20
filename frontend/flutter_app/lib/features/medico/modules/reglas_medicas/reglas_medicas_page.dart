@@ -948,10 +948,13 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
     }
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => _NutritionalRuleFormDialog(
         formData: state.formData,
         initialRule: rule,
-        onSaved: () => ref.read(medicalRulesProvider.notifier).loadPage(force: true),
+        defaultOrigen: state.origenFilter,
+        onSaved: () =>
+            ref.read(medicalRulesProvider.notifier).refreshAfterMutation(),
       ),
     );
   }
@@ -1281,9 +1284,14 @@ class _MedicalRulesDataSource extends DataTableSource {
 class _NutritionalRuleFormDialog extends ConsumerStatefulWidget {
   final Map<String, List<dynamic>> formData;
   final Map<String, dynamic>? initialRule;
+  final String? defaultOrigen;
   final VoidCallback onSaved;
-  const _NutritionalRuleFormDialog(
-      {required this.formData, this.initialRule, required this.onSaved});
+  const _NutritionalRuleFormDialog({
+    required this.formData,
+    this.initialRule,
+    this.defaultOrigen,
+    required this.onSaved,
+  });
   @override
   ConsumerState<_NutritionalRuleFormDialog> createState() =>
       _NutritionalRuleFormDialogState();
@@ -1296,6 +1304,8 @@ class _NutritionalRuleFormDialogState
   late List<int> _selectedCondiciones;
   late bool _esEstricta;
   bool _saving = false;
+  String _condicionSearch = "";
+  int _filtroTipoCondicion = 0; // 0: Todas, 1: Crónicas, 2: Temporales
 
   @override
   void initState() {
@@ -1307,15 +1317,29 @@ class _NutritionalRuleFormDialogState
         r?["id_grupo_alimentario"] ??
         r?["id_subgrupo_alimentario"] ??
         r?["id_etiqueta"];
-    _mensajeController = TextEditingController(text: r?["mensaje_error"]);
+    _mensajeController = TextEditingController(text: r?["mensaje_error"] ?? "");
     _selectedCondiciones = List<int>.from(r?["id_condiciones"] ?? []);
     _esEstricta = r?["es_estricta"] ?? false;
+
+    if (widget.defaultOrigen == "TEMPORAL") {
+      _filtroTipoCondicion = 2;
+    } else if (widget.defaultOrigen == "CLINICA") {
+      _filtroTipoCondicion = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _mensajeController.dispose();
+    super.dispose();
   }
 
   bool _computeIsClinicalRule() {
     final condiciones = widget.formData["condiciones"] ?? [];
     for (final c in condiciones) {
-      if (c is Map && _selectedCondiciones.contains(c["id"]) && c["id_tipo_condicion"] == 1) {
+      if (c is Map &&
+          _selectedCondiciones.contains(c["id"]) &&
+          c["id_tipo_condicion"] == 1) {
         return true;
       }
     }
@@ -1340,206 +1364,731 @@ class _NutritionalRuleFormDialogState
     final forceStrict = _idAccion == 1 || isClinicalRule;
     final activeEsEstricta = forceStrict ? true : _esEstricta;
 
-    return AlertDialog(
+    return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      titlePadding: EdgeInsets.zero,
-      title: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-            color: AppTema.azulPrincipal,
-            borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(24), topRight: Radius.circular(24))),
-        child: Row(children: [
-          const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
-          const SizedBox(width: 12),
-          Text(isEdit ? "Editar regla clínica" : "Nueva regla clínica",
-              style: GoogleFonts.montserrat(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16)),
-        ]),
-      ),
-      content: SizedBox(
-        width: 500,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildFieldSection("Objetivo", [
-                DropdownButtonFormField<int>(
-                  initialValue: _idObjetivo,
-                  decoration:
-                      _modalDecor("Tipo de objetivo*", Icons.track_changes),
-                  items: (widget.formData["objetivos"] ?? [])
-                      .map((o) => DropdownMenuItem<int>(
-                          value: o["id"],
-                          child: Text(o["nombre"].toString(),
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 12, fontWeight: FontWeight.w600))))
-                      .toList(),
-                  onChanged: (v) => setState(() {
-                    _idObjetivo = v;
-                    _idTarget = null;
-                  }),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(isEdit),
+            Flexible(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildObjetivoSection(targetList),
+                    const SizedBox(height: 20),
+                    _buildAccionSection(forceStrict, activeEsEstricta),
+                    const SizedBox(height: 20),
+                    _buildCondicionesSection(),
+                    const SizedBox(height: 20),
+                    _buildMensajeSection(),
+                  ],
                 ),
-                if (_idObjetivo != null) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: _idTarget,
-                    decoration:
-                        _modalDecor("Seleccionar elemento*", Icons.ads_click),
-                    items: targetList
-                        .map((t) => DropdownMenuItem<int>(
-                            value: t["id"],
-                            child: Text(
-                                t["nombre"] ?? t["nombre_visible"] ?? "-",
-                                style: GoogleFonts.montserrat(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _idTarget = v),
-                  ),
-                ],
-              ]),
-              const SizedBox(height: 16),
-              _buildFieldSection("Acción", [
-                DropdownButtonFormField<int>(
-                  initialValue: _idAccion,
-                  decoration:
-                      _modalDecor("Acción sugerida*", Icons.lightbulb_outline),
-                  items: (widget.formData["acciones"] ?? [])
-                      .map((a) => DropdownMenuItem<int>(
-                          value: a["id"],
-                          child: Text(a["nombre"].toString(),
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 12, fontWeight: FontWeight.w600))))
-                      .toList(),
-                  onChanged: (v) => setState(() => _idAccion = v),
-                ),
-                SwitchListTile(
-                    title: Text(
-                        forceStrict
-                            ? "Restricción Estricta (Requerido)"
-                            : "Restricción Estricta",
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: forceStrict ? Colors.grey : null)),
-                    subtitle: forceStrict
-                        ? Text(
-                            "Las reglas de eliminación y las condiciones clínicas son estrictas por defecto.",
-                            style: GoogleFonts.montserrat(fontSize: 10, color: Colors.blueGrey))
-                        : null,
-                    value: activeEsEstricta,
-                    onChanged: forceStrict ? null : (v) => setState(() => _esEstricta = v)),
-              ]),
-              const SizedBox(height: 16),
-              _buildFieldSection("Aplicabilidad del diagnóstico", [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12)),
-                  child: ListView(
-                      children: (widget.formData["condiciones"] ?? [])
-                          .map((c) => CheckboxListTile(
-                              title: Text(
-                                  c["nombre"]?.toString() ?? "Condición",
-                                  style: GoogleFonts.montserrat(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                              value: _selectedCondiciones.contains(c["id"]),
-                              activeColor: AppTema.azulPrincipal,
-                              onChanged: (v) => setState(() {
-                                    final id = (c["id"] as num).toInt();
-                                    if (v == true) {
-                                      _selectedCondiciones.add(id);
-                                    } else {
-                                      _selectedCondiciones.remove(id);
-                                    }
-                                  }),
-                              dense: true))
-                          .toList()),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              TextFormField(
-                  controller: _mensajeController,
-                  maxLines: 2,
-                  style: GoogleFonts.montserrat(fontSize: 13),
-                  decoration: _modalDecor(
-                      "Mensaje clínico", Icons.chat_bubble_outline)),
-            ],
-          ),
+              ),
+            ),
+            _buildFooter(),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
+    );
+  }
+
+  Widget _buildHeader(bool isEdit) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTema.azulPrincipal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.rule_folder_rounded,
+              color: AppTema.azulPrincipal,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEdit ? "Editar Regla Clínica" : "Nueva Regla Clínica",
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                Text(
+                  "Configuración de restricciones o recomendaciones médicas",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancelar",
-                style: GoogleFonts.montserrat(
-                    fontWeight: FontWeight.bold, color: Colors.grey))),
-        FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? "..." : "Guardar regla",
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold))),
+            icon: const Icon(Icons.close_rounded, color: Colors.blueGrey),
+            tooltip: "Cerrar",
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppTema.azulPrincipal),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: AppTema.azulOscuro,
+            letterSpacing: 0.8,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildFieldSection(String title, List<Widget> children) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: GoogleFonts.montserrat(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: Colors.blueGrey,
-                letterSpacing: 1)),
-        const SizedBox(height: 8),
-        ...children
-      ]);
-  InputDecoration _modalDecor(String l, IconData i) => InputDecoration(
-      labelText: l,
-      prefixIcon: Icon(i, size: 18),
+  Widget _buildObjetivoSection(List<dynamic> targetList) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel("1. Elemento y Objetivo Nutricional", Icons.track_changes),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            initialValue: _idObjetivo,
+            decoration: _inputDecor(
+              "Tipo de objetivo *",
+              Icons.category_outlined,
+            ),
+            items: (widget.formData["objetivos"] ?? [])
+                .map((o) => DropdownMenuItem<int>(
+                      value: o["id"],
+                      child: Text(
+                        o["nombre"].toString(),
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTema.azulOscuro,
+                        ),
+                      ),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _idObjetivo = v;
+              _idTarget = null;
+            }),
+          ),
+          if (_idObjetivo != null) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _idTarget != null && targetList.any((t) => t["id"] == _idTarget)
+                  ? _idTarget
+                  : null,
+              isExpanded: true,
+              decoration: _inputDecor(
+                "Seleccionar elemento específico *",
+                Icons.ads_click_rounded,
+              ),
+              items: targetList
+                  .map((t) => DropdownMenuItem<int>(
+                        value: t["id"],
+                        child: Text(
+                          t["nombre"] ?? t["nombre_visible"] ?? "-",
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTema.azulOscuro,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _idTarget = v),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccionSection(bool forceStrict, bool activeEsEstricta) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel("2. Acción Clínica", Icons.shield_outlined),
+          const SizedBox(height: 12),
+          // Opciones de acción en tarjetas interactivas
+          Row(
+            children: [
+              _buildAccionCard(
+                id: 1,
+                label: "Eliminar",
+                desc: "Exclusión total",
+                icon: Icons.cancel_outlined,
+                activeColor: Colors.red.shade700,
+                activeBg: Colors.red.shade50,
+              ),
+              const SizedBox(width: 8),
+              _buildAccionCard(
+                id: 2,
+                label: "Limitar",
+                desc: "Consumo moderado",
+                icon: Icons.warning_amber_rounded,
+                activeColor: Colors.amber.shade800,
+                activeBg: Colors.amber.shade50,
+              ),
+              const SizedBox(width: 8),
+              _buildAccionCard(
+                id: 3,
+                label: "Recomendar",
+                desc: "Favorecer uso",
+                icon: Icons.check_circle_outline,
+                activeColor: AppTema.verdeSalud,
+                activeBg: const Color(0xFFE8F5E9),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(
+                forceStrict
+                    ? "Restricción Estricta (Bloqueo Requerido)"
+                    : "Restricción Estricta",
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: forceStrict ? Colors.blueGrey : AppTema.azulOscuro,
+                ),
+              ),
+              subtitle: Text(
+                forceStrict
+                    ? "Las reglas de eliminación y las patologías crónicas son estrictas por seguridad clínica."
+                    : "Si está activo, bloquea totalmente recetas y menús que contengan el elemento.",
+                style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey),
+              ),
+              value: activeEsEstricta,
+              activeTrackColor: AppTema.azulPrincipal,
+              onChanged: forceStrict
+                  ? null
+                  : (v) => setState(() => _esEstricta = v),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccionCard({
+    required int id,
+    required String label,
+    required String desc,
+    required IconData icon,
+    required Color activeColor,
+    required Color activeBg,
+  }) {
+    final isSelected = _idAccion == id;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _idAccion = id),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? activeColor : const Color(0xFFE2E8F0),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: isSelected ? activeColor : Colors.grey, size: 22),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? activeColor : AppTema.azulOscuro,
+                ),
+              ),
+              Text(
+                desc,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Colors.blueGrey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCondicionesSection() {
+    final todasCondiciones = (widget.formData["condiciones"] ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    // Filtrar por pestaña de tipo (0: Todas, 1: Crónicas, 2: Temporales)
+    var listaFiltrada = todasCondiciones.where((c) {
+      if (_filtroTipoCondicion == 1 && c["id_tipo_condicion"] != 1) return false;
+      if (_filtroTipoCondicion == 2 && c["id_tipo_condicion"] != 2) return false;
+      if (_condicionSearch.isNotEmpty) {
+        final nom = (c["nombre"] ?? "").toString().toLowerCase();
+        return nom.contains(_condicionSearch.toLowerCase());
+      }
+      return true;
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildSectionLabel(
+                "3. Diagnóstico o Enfermedad Asociada",
+                Icons.medical_information_outlined,
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _selectedCondiciones.isNotEmpty
+                      ? AppTema.azulPrincipal.withValues(alpha: 0.1)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _selectedCondiciones.isEmpty
+                      ? "0 seleccionadas"
+                      : "${_selectedCondiciones.length} seleccionada(s)",
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _selectedCondiciones.isNotEmpty
+                        ? AppTema.azulPrincipal
+                        : Colors.blueGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Banner informativo aclarando aplicabilidad
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    size: 16, color: AppTema.verdeSalud),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Seleccione la enfermedad o condición deseada. Puede aplicar solo a una enfermedad específica (no es obligatorio marcar otras).",
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: const Color(0xFF166534),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Barra de filtros rápidos de tipo
+          Row(
+            children: [
+              _buildTipoChip(0, "Todas"),
+              const SizedBox(width: 6),
+              _buildTipoChip(1, "🩺 Crónicas / Patologías"),
+              const SizedBox(width: 6),
+              _buildTipoChip(2, "⏱️ Síntomas Temporales"),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            onChanged: (val) => setState(() => _condicionSearch = val.trim()),
+            decoration: _inputDecor(
+              "Buscar enfermedad o síntoma...",
+              Icons.search_rounded,
+            ),
+            style: GoogleFonts.inter(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          // Contenedor scrolleable con Chips de selección rápida
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: listaFiltrada.isEmpty
+                  ? Center(
+                      child: Text(
+                        "No se encontraron condiciones con ese criterio",
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: Colors.blueGrey),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: listaFiltrada.map((c) {
+                          final int id = (c["id"] as num).toInt();
+                          final bool isSelected =
+                              _selectedCondiciones.contains(id);
+                          final bool isCronica = c["id_tipo_condicion"] == 1;
+
+                          return FilterChip(
+                            selected: isSelected,
+                            avatar: Icon(
+                              isCronica
+                                  ? Icons.healing_rounded
+                                  : Icons.history_toggle_off_rounded,
+                              size: 15,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isCronica
+                                      ? AppTema.azulPrincipal
+                                      : Colors.amber.shade800),
+                            ),
+                            label: Text(c["nombre"]?.toString() ?? "Condición"),
+                            labelStyle: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTema.azulOscuro,
+                            ),
+                            selectedColor: AppTema.azulPrincipal,
+                            checkmarkColor: Colors.white,
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppTema.azulPrincipal
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            onSelected: (val) {
+                              setState(() {
+                                if (val) {
+                                  _selectedCondiciones.add(id);
+                                } else {
+                                  _selectedCondiciones.remove(id);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTipoChip(int tipo, String label) {
+    final isSelected = _filtroTipoCondicion == tipo;
+    return InkWell(
+      onTap: () => setState(() => _filtroTipoCondicion = tipo),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTema.azulPrincipal
+              : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.blueGrey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMensajeSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel(
+            "4. Mensaje Clínico Informativo",
+            Icons.chat_bubble_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _mensajeController,
+            maxLines: 2,
+            style: GoogleFonts.inter(fontSize: 13, color: AppTema.azulOscuro),
+            decoration: _inputDecor(
+              "Ej: Evitar o limitar este alimento para prevenir brotes agudos...",
+              Icons.notes_rounded,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blueGrey,
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(
+              "Cancelar",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.azulPrincipal,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            icon: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.check_circle_outline, size: 18),
+            label: Text(
+              _saving ? "Guardando..." : "Guardar Regla",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecor(String hint, IconData icon) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icon, size: 18, color: AppTema.azulPrincipal),
       filled: true,
-      fillColor: const Color(0xFFF1F5F9),
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none));
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+      ),
+    );
+  }
 
   Future<void> _save() async {
-    if (_idAccion == null ||
-        _idObjetivo == null ||
-        _idTarget == null ||
-        _selectedCondiciones.isEmpty) {
+    if (_idObjetivo == null) {
+      NutriSnack.show(
+        context,
+        "Por favor seleccione el tipo de objetivo",
+        isError: true,
+      );
       return;
     }
+    if (_idTarget == null) {
+      NutriSnack.show(
+        context,
+        "Por favor seleccione el elemento específico",
+        isError: true,
+      );
+      return;
+    }
+    if (_idAccion == null) {
+      NutriSnack.show(
+        context,
+        "Por favor seleccione la acción clínica",
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedCondiciones.isEmpty) {
+      NutriSnack.show(
+        context,
+        "Por favor seleccione al menos una enfermedad o condición",
+        isError: true,
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final isClinicalRule = _computeIsClinicalRule();
       final forceStrict = _idAccion == 1 || isClinicalRule;
       final activeEsEstricta = forceStrict ? true : _esEstricta;
 
+      // Determinar origen coherente
+      String origen = "CLINICA";
+      final condiciones = (widget.formData["condiciones"] ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final selectedTipos = condiciones
+          .where((c) => _selectedCondiciones.contains(c["id"]))
+          .map((c) => c["id_tipo_condicion"])
+          .toSet();
+
+      if (selectedTipos.length == 1 && selectedTipos.first == 2) {
+        origen = "TEMPORAL";
+      }
+
       final payload = {
         "id_accion": _idAccion,
         "id_tipo_objetivo": _idObjetivo,
-        "mensaje_error": _mensajeController.text,
+        "mensaje_error": _mensajeController.text.trim(),
         "id_condiciones": _selectedCondiciones,
         "es_estricta": activeEsEstricta,
+        "origen_regla": origen,
         "id_ingrediente": _idObjetivo == 1 ? _idTarget : null,
         "id_grupo_alimentario": _idObjetivo == 2 ? _idTarget : null,
         "id_etiqueta": _idObjetivo == 3 ? _idTarget : null,
-        "id_subgrupo_alimentario": _idObjetivo == 4 ? _idTarget : null
+        "id_subgrupo_alimentario": _idObjetivo == 4 ? _idTarget : null,
       };
+
+      final dio = ref.read(dioProvider);
       if (widget.initialRule != null) {
-        await ref
-            .read(dioProvider)
-            .put("reglas-medicas/${widget.initialRule!['id']}", data: payload);
+        await dio.put("reglas-medicas/${widget.initialRule!['id']}",
+            data: payload);
+        if (mounted) {
+          NutriSnack.show(context, "Regla clínica actualizada exitosamente");
+        }
       } else {
-        await ref.read(dioProvider).post("reglas-medicas", data: payload);
+        await dio.post("reglas-medicas", data: payload);
+        if (mounted) {
+          NutriSnack.show(context, "Regla clínica guardada exitosamente");
+        }
       }
+
       widget.onSaved();
       if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(
+          context,
+          "Error al guardar regla clínica: $e",
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

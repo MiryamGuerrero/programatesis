@@ -938,6 +938,7 @@ class _FormularioCondicion extends ConsumerStatefulWidget {
 class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
   final _nombreCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _duracionCtrl = TextEditingController();
   int _idTipo = 1;
   bool _activa = true;
   bool _saving = false;
@@ -950,52 +951,268 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
       _descCtrl.text = widget.condicion!["descripcion"] ?? "";
       _idTipo = widget.condicion!["id_tipo_condicion"] ?? 1;
       _activa = widget.condicion!["activa"] ?? true;
+      if (widget.condicion!["dias_duracion_estandar"] != null) {
+        _duracionCtrl.text =
+            widget.condicion!["dias_duracion_estandar"].toString();
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _descCtrl.dispose();
+    _duracionCtrl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.condicion != null;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(32),
-        child: SingleChildScrollView(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 580,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(isEdit),
+            Flexible(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel(
+                      "1. Clasificación Clínica",
+                      Icons.category_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _typeOption(
+                          1,
+                          "Patología Crónica",
+                          Icons.healing_rounded,
+                          "Diagnóstico base persistente (ej. Artritis, Lupus)",
+                        ),
+                        const SizedBox(width: 12),
+                        _typeOption(
+                          2,
+                          "Condición Temporal",
+                          Icons.history_toggle_off_rounded,
+                          "Síntoma o evento agudo (ej. Diarrea, Náuseas)",
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionLabel(
+                      "2. Información del Diagnóstico",
+                      Icons.medical_information_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _nombreCtrl,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: AppTema.azulOscuro),
+                      decoration: _inputDecor(
+                        "Nombre del diagnóstico / patología *",
+                        Icons.badge_outlined,
+                        hint: "Ej: Artritis Idiopática Juvenil",
+                      ),
+                    ),
+                    if (_idTipo == 2) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _duracionCtrl,
+                        keyboardType: TextInputType.number,
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: AppTema.azulOscuro),
+                        decoration: _inputDecor(
+                          "Duración estimada sugerida (días)",
+                          Icons.timer_outlined,
+                          hint: "Ej: 14 (días habituales de seguimiento)",
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descCtrl,
+                      maxLines: 3,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: AppTema.azulOscuro),
+                      decoration: _inputDecor(
+                        "Descripción clínica o criterios",
+                        Icons.text_snippet_outlined,
+                        hint: "Detalles clínicos, referencias o notas técnicas...",
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionLabel(
+                      "3. Estado en el Catálogo",
+                      Icons.toggle_on_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: Text(
+                          "Condición médica activa",
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTema.azulOscuro,
+                          ),
+                        ),
+                        subtitle: Text(
+                          "Habilitada para selección en expedientes y vinculación con reglas clínicas.",
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: Colors.blueGrey,
+                          ),
+                        ),
+                        value: _activa,
+                        activeTrackColor: AppTema.azulPrincipal,
+                        onChanged: (v) => setState(() => _activa = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(bool isEdit) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTema.azulPrincipal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.medical_services_rounded,
+              color: AppTema.azulPrincipal,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEdit ? "Modificar Condición Médica" : "Nueva Condición Médica",
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                Text(
+                  "Catálogo clínico de patologías y eventos sintomáticos",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.blueGrey),
+            tooltip: "Cerrar",
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppTema.azulPrincipal),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: AppTema.azulOscuro,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _typeOption(int val, String title, IconData icon, String sub) {
+    final sel = _idTipo == val;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _idTipo = val),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: sel
+                ? AppTema.azulPrincipal.withValues(alpha: 0.05)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: sel ? AppTema.azulPrincipal : const Color(0xFFE2E8F0),
+              width: sel ? 2 : 1,
+            ),
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(isEdit ? "Modificar registro" : "Nueva condición médica",
-                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: AppTema.azulOscuro)),
-              const SizedBox(height: 24),
-              _sectionTitle("Clasificación"),
-              Row(
-                children: [
-                  _typeOption(1, "Crónica", Icons.auto_graph_rounded, "Patología base"),
-                  const SizedBox(width: 12),
-                  _typeOption(2, "Temporal", Icons.history_toggle_off_rounded, "Evento agudo"),
-                ],
+              Icon(icon, color: sel ? AppTema.azulPrincipal : Colors.grey, size: 22),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: sel ? AppTema.azulPrincipal : AppTema.azulOscuro,
+                ),
               ),
-              const SizedBox(height: 24),
-              _sectionTitle("Información general"),
-              _minimalInput(_nombreCtrl, "Nombre del diagnóstico", Icons.badge_outlined),
-              const SizedBox(height: 24),
-              _sectionTitle("Detalles clínicos"),
-              _minimalInput(_descCtrl, "Descripción técnica...", Icons.text_snippet_outlined, lines: 3),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar"))),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: _saving ? null : _save,
-                      child: Text(_saving ? "Guardando..." : "Guardar registro"),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Colors.blueGrey,
+                  height: 1.3,
+                ),
               ),
             ],
           ),
@@ -1004,71 +1221,131 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
     );
   }
 
-  Widget _sectionTitle(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(t, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900, color: AppTema.azulPrincipal, letterSpacing: 1.5)),
-      );
+  InputDecoration _inputDecor(String label, IconData icon, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey),
+      prefixIcon: Icon(icon, size: 18, color: AppTema.azulPrincipal),
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+      ),
+    );
+  }
 
-  Widget _minimalInput(TextEditingController c, String h, IconData i, {int lines = 1}) =>
-      TextFormField(
-        controller: c, maxLines: lines,
-        decoration: InputDecoration(
-          hintText: h, prefixIcon: Icon(i, size: 18),
-          filled: true, fillColor: AppTema.grisLienzo,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        ),
-      );
-
-  Widget _typeOption(int val, String title, IconData icon, String sub) {
-    final sel = _idTipo == val;
-    final color = sel ? AppTema.azulPrincipal : Colors.grey.shade300;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _idTipo = val),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: sel ? AppTema.azulPrincipal.withValues(alpha: 0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color, width: sel ? 2 : 1.5),
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blueGrey,
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(
+              "Cancelar",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 8),
-              Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: sel ? AppTema.azulPrincipal : Colors.grey.shade500)),
-              Text(sub, style: GoogleFonts.inter(fontSize: 9, color: Colors.grey.shade500)),
-            ],
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTema.verdeSalud,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            icon: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.check_circle_outline, size: 18),
+            label: Text(
+              _saving ? "Guardando..." : "Guardar Registro",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Future<void> _save() async {
-    if (_nombreCtrl.text.isEmpty) return;
+    final nombre = _nombreCtrl.text.trim();
+    if (nombre.isEmpty) {
+      NutriSnack.show(
+        context,
+        "Por favor ingrese el nombre del diagnóstico",
+        isError: true,
+      );
+      return;
+    }
+
+    int? duracion;
+    if (_idTipo == 2 && _duracionCtrl.text.trim().isNotEmpty) {
+      duracion = int.tryParse(_duracionCtrl.text.trim());
+    }
+
     setState(() => _saving = true);
     try {
       final dio = ref.read(dioProvider);
       final payload = {
-        "nombre": _nombreCtrl.text,
-        "descripcion": _descCtrl.text,
+        "nombre": nombre,
+        "descripcion": _descCtrl.text.trim(),
         "id_tipo": _idTipo,
         "activa": _activa,
+        if (_idTipo == 2 && duracion != null) "dias_duracion_estandar": duracion,
       };
 
       if (widget.condicion != null) {
-        await dio.put("catalogos/condiciones/${widget.condicion!['id']}", data: payload);
+        await dio.put("catalogos/condiciones/${widget.condicion!['id']}",
+            data: payload);
+        if (mounted) {
+          NutriSnack.show(context, "Condición médica actualizada exitosamente");
+        }
       } else {
         await dio.post("catalogos/condiciones", data: payload);
+        if (mounted) {
+          NutriSnack.show(context, "Condición médica creada exitosamente");
+        }
       }
 
       widget.onSuccess();
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) NutriSnack.show(context, "Error al guardar", isError: true);
+      if (mounted) {
+        NutriSnack.show(context, "Error al guardar condición: $e", isError: true);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

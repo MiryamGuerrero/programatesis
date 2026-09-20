@@ -145,11 +145,38 @@ class _RegistroPacientePageState extends ConsumerState<RegistroPacientePage> {
   }
 
   Future<void> _pickProximaCita() async {
-    final d = await showCustomDatePicker(
-      context,
-      initialDate: _proximaCita,
-      colorActivo: AppTema.azulPrincipal,
-      colorTexto: AppTema.azulOscuro,
+    final now = DateTime.now();
+    final hoy = DateTime(now.year, now.month, now.day);
+    final initial = _proximaCita.isBefore(hoy)
+        ? hoy.add(const Duration(days: 30))
+        : _proximaCita;
+
+    final d = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: hoy,
+      lastDate: hoy.add(const Duration(days: 365)),
+      helpText: 'SELECCIONE LA FECHA DE PRÓXIMA CONSULTA',
+      confirmText: 'SELECCIONAR',
+      cancelText: 'CANCELAR',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppTema.azulPrincipal,
+              onPrimary: Colors.white,
+              onSurface: AppTema.azulOscuro,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppTema.azulPrincipal,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (d != null) {
       setState(() {

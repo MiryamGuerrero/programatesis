@@ -441,13 +441,28 @@ class MedicalRulesNotifier extends StateNotifier<MedicalRulesState> {
     loadPage(offset: 0, force: true);
   }
 
+  Future<void> refreshAfterMutation({String? preferredOrigen}) async {
+    state = state.copyWith(
+      cachedPagesByOrigen: const {"CLINICA": {}, "TEMPORAL": {}},
+    );
+    if (preferredOrigen != null && state.origenFilter != preferredOrigen) {
+      state = state.copyWith(
+        origenFilter: preferredOrigen,
+        offsetClinicas: 0,
+        offsetTemporales: 0,
+      );
+    }
+    await loadPage(force: true);
+    final otherOrigen =
+        state.origenFilter == "CLINICA" ? "TEMPORAL" : "CLINICA";
+    await loadPageSilently(origen: otherOrigen);
+  }
+
   Future<void> deleteRule(int id) async {
     try {
       final dio = _ref.read(dioProvider);
       await dio.delete("reglas-medicas/$id");
-      state = state.copyWith(cachedPagesByOrigen: const {"CLINICA": {}, "TEMPORAL": {}});
-      await loadPage(force: true);
-      loadPageSilently(origen: state.origenFilter == "CLINICA" ? "TEMPORAL" : "CLINICA");
+      await refreshAfterMutation();
     } catch (e) {
       state = state.copyWith(errorMessage: "Error al eliminar: $e");
     }
