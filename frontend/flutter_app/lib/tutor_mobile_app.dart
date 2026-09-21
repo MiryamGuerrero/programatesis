@@ -7,6 +7,7 @@ import "core/theme/app_theme.dart";
 import "features/auth/login_page.dart";
 import "features/auth/set_password_page.dart";
 import "shared/widgets/tutor_mobile_shell.dart";
+import "shared/widgets/error_conexion_widget.dart";
 
 class TutorMobileApp extends ConsumerWidget {
   const TutorMobileApp({super.key});
@@ -39,7 +40,17 @@ class TutorMobileApp extends ConsumerWidget {
           return const TutorMobileShell();
         },
         error: (error, stackTrace) => Scaffold(
-          body: Center(child: Text("Error de autenticacion: $error")),
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ErrorConexionWidget(
+                  error: error,
+                  onRetry: () => ref.refresh(authSessionProvider),
+                ),
+              ),
+            ),
+          ),
         ),
         loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator()),

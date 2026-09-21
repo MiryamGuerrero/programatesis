@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/error_conexion_widget.dart';
 import 'tutor_home_page.dart';
 
 class MisPacientesPage extends ConsumerStatefulWidget {
@@ -146,8 +147,14 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 _buildHeader(theme),
-                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                Center(child: Text("Error: $err")),
+                SizedBox(height: MediaQuery.of(context).size.height * 0.08),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: ErrorConexionWidget(
+                    error: err,
+                    onRetry: _onRefresh,
+                  ),
+                ),
               ],
             ),
           ),

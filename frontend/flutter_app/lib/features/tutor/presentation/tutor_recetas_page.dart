@@ -207,7 +207,7 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
 
   Widget _buildRecetasShimmer(BuildContext context) {
     final double cardHeight =
-        context.responsiveValue(mobile: 136.0, tablet: 156.0);
+        context.responsiveValue(mobile: 178.0, tablet: 195.0);
     final double imageWidth =
         context.responsiveValue(mobile: 125.0, tablet: 155.0);
 
@@ -740,7 +740,7 @@ class _RecipeCard extends StatelessWidget {
         double.tryParse(receta['puntuacion_promedio']?.toString() ?? "0") ?? 0;
 
     final double cardHeight =
-        context.responsiveValue(mobile: 136.0, tablet: 156.0);
+        context.responsiveValue(mobile: 178.0, tablet: 195.0);
     final double imageWidth =
         context.responsiveValue(mobile: 125.0, tablet: 155.0);
 
@@ -891,44 +891,38 @@ class _RecipeCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Pie de tarjeta: Etiquetas informativas
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            if (receta['es_potenciada'] == true ||
-                                receta['semaforo'] == 'verde') ...[
-                              _buildBadge(
-                                context,
-                                Icons.verified_rounded,
-                                "Terapéutica",
-                                const Color(0xFF16A34A),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
+                      // Pie de tarjeta: Etiquetas informativas organizadas con Wrap para mostrarse completas sin recorte
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4.5,
+                        children: [
+                          if (receta['es_potenciada'] == true ||
+                              receta['semaforo'] == 'verde')
                             _buildBadge(
                               context,
-                              Icons.local_fire_department_rounded,
-                              "${(receta['calorias_por_porcion'] ?? receta['calorias_kcal'] ?? receta['calorias_totales'] ?? 0).toInt()} kcal",
-                              const Color(0xFFEA580C),
+                              Icons.verified_rounded,
+                              "Terapéutica",
+                              const Color(0xFF16A34A),
                             ),
-                            const SizedBox(width: 8),
-                            _buildBadge(
-                              context,
-                              Icons.timer_outlined,
-                              "${receta['tiempo_total_min'] ?? ((receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0) + (receta['tiempo_coccion_min'] ?? receta['tiempo_coccion'] ?? 0))} min",
-                              AppTema.azulPrincipal,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildBadge(
-                              context,
-                              Icons.bar_chart_rounded,
-                              "${receta['dificultad'] ?? 'Media'}",
-                              AppTema.verdeSalud,
-                            ),
-                          ],
-                        ),
+                          _buildBadge(
+                            context,
+                            Icons.local_fire_department_rounded,
+                            "${(receta['calorias_por_porcion'] ?? receta['calorias_kcal'] ?? receta['calorias_totales'] ?? 0).toInt()} kcal",
+                            const Color(0xFFEA580C),
+                          ),
+                          _buildBadge(
+                            context,
+                            Icons.timer_outlined,
+                            "${receta['tiempo_total_min'] ?? ((receta['tiempo_preparacion_min'] ?? receta['tiempo_preparacion'] ?? 0) + (receta['tiempo_coccion_min'] ?? receta['tiempo_coccion'] ?? 0))} min",
+                            AppTema.azulPrincipal,
+                          ),
+                          _buildBadge(
+                            context,
+                            Icons.bar_chart_rounded,
+                            "${receta['dificultad'] ?? 'Media'}",
+                            AppTema.verdeSalud,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -944,21 +938,21 @@ class _RecipeCard extends StatelessWidget {
   Widget _buildBadge(
       BuildContext context, IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+      padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.18), width: 0.8),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.22), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3.5),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10.5,
+              fontSize: 10,
               color: Color(0xFF334155),
               fontWeight: FontWeight.w700,
             ),

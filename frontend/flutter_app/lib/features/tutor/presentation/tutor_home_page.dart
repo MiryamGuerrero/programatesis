@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_sizes.dart';
+import '../../../shared/widgets/error_conexion_widget.dart';
 import '../../../core/theme/app_responsive.dart';
 import 'tutor_calendario_page.dart';
 import 'tutor_recetas_page.dart';
@@ -433,8 +434,13 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
                                       child: Center(
                                           child: CircularProgressIndicator())),
                                   error: (err, _) => Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Text("Error: $err")),
+                                      padding: const EdgeInsets.all(12),
+                                      child: ErrorConexionWidget(
+                                        error: err,
+                                        compact: true,
+                                        onRetry: () => ref.refresh(misPacientesProvider),
+                                      ),
+                                    ),
                                 ),
                               ),
                             ),

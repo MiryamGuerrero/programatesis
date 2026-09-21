@@ -3,7 +3,10 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 
 import "../../core/services/realtime_service.dart";
+import "../../core/services/notification_service.dart";
+import "../../core/state/app_providers.dart";
 import "../../features/roles/role_module_registry.dart";
+import "../../features/tutor/presentation/widgets/tutor_tutorial_modal.dart";
 import "../models/app_role.dart";
 
 class TutorMobileShell extends ConsumerStatefulWidget {
@@ -21,8 +24,23 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _index);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(realtimeServiceProvider).init();
+      final debeVerFuture = tutorDebeVerTutorial();
+      final notifService = ref.read(notificationServiceProvider);
+      await notifService.init();
+      await notifService.solicitarPermisos();
+
+      // Mostrar el tutorial de inmediato tras responder al permiso de notificaciones
+      if (mounted) {
+        final debeVer = await debeVerFuture;
+        if (debeVer && mounted) {
+          mostrarTutorialTutor(context, initialIndex: 0, guardarVisto: true);
+        }
+      }
+
+      // La sincronización de comidas se procesa en segundo plano sin retrasar la guía
+      notifService.sincronizarNotificacionesPlanHoy();
     });
   }
 
@@ -34,6 +52,14 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(misPacientesProvider, (previous, next) {
+      next.whenData((pacientes) {
+        ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy(
+          pacientesInput: pacientes,
+        );
+      });
+    });
+
     final theme = Theme.of(context);
     final modules = modulesForRole(AppRole.tutor);
     if (_index >= modules.length) _index = 0;
@@ -65,7 +91,7 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 12,
                 offset: const Offset(0, -4),
               ),
@@ -141,6 +167,58 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
               ),
             ],
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Tooltip(
+                message: "Guía y Ayuda",
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      // Mapeo contextual: si está en Mi Paciente (_index == 0) abre en el paso de Pacientes (1)
+                      // Si está en Mi Perfil (_index == 1) abre en el paso de Alertas/Perfil (4)
+                      final int targetSlide = _index == 1 ? 4 : 1;
+                      mostrarTutorialTutor(
+                        context,
+                        initialIndex: targetSlide,
+                        guardarVisto: true,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.help_outline_rounded,
+                            size: 17,
+                            color: brandBlue,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            "Ayuda",
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: brandBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

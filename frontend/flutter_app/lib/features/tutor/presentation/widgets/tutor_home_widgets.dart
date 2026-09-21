@@ -11,6 +11,8 @@ import '../../../../../core/theme/app_responsive.dart';
 import '../tutor_receta_detalle_page.dart';
 import '../momento_horario.dart';
 import '../../data/repositorio_tutor.dart';
+import '../../../../../core/services/notification_service.dart';
+import '../../../../../shared/widgets/error_conexion_widget.dart';
 import 'generar_plan_automatico_modal.dart';
 
 class DashboardView extends ConsumerStatefulWidget {
@@ -95,6 +97,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       } else {
         ref.invalidate(planDiarioProvider);
       }
+      ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy();
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
       if (mounted) {
@@ -117,6 +120,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       } else {
         ref.invalidate(planDiarioProvider);
       }
+      ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -150,6 +154,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                       } else {
                         ref.invalidate(planDiarioProvider);
                       }
+                      ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy();
                     } catch (err) {
                       debugPrint("Error eliminando receta: $err");
                     }
@@ -301,6 +306,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                           );
                           if (result == true) {
                             ref.invalidate(planDiarioProvider);
+                            ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy();
                           }
                       },
                       icon: const Icon(Icons.auto_awesome),
@@ -614,12 +620,36 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       );
         },
         loading: () => _buildDashboardShimmer(context),
-        error: (err, _) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Container(
-            height: 400,
-            alignment: Alignment.center,
-            child: Text("Error: $err"),
+        error: (err, _) => RefreshIndicator(
+          onRefresh: () async {
+            if (widget.idPaciente != null) {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              await ref.refresh(planDiarioProvider(
+                      (idPaciente: widget.idPaciente!, fecha: today))
+                  .future);
+            } else {
+              ref.invalidate(planDiarioProvider);
+            }
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
+              child: ErrorConexionWidget(
+                error: err,
+                onRetry: () {
+                  if (widget.idPaciente != null) {
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+                    ref.invalidate(planDiarioProvider(
+                        (idPaciente: widget.idPaciente!, fecha: today)));
+                  } else {
+                    ref.invalidate(planDiarioProvider);
+                  }
+                },
+              ),
+            ),
           ),
         ),
       ),

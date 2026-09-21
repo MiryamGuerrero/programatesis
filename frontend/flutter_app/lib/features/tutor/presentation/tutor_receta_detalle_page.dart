@@ -6,6 +6,7 @@ import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_sizes.dart';
 import '../../../core/theme/app_responsive.dart';
+import '../../../core/services/notification_service.dart';
 import 'momento_horario.dart';
 
 class TutorRecetaDetallePage extends ConsumerStatefulWidget {
@@ -99,6 +100,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       } else {
         ref.invalidate(planDiarioProvider);
       }
+      ref.read(notificationServiceProvider).sincronizarNotificacionesPlanHoy();
     } catch (e) {
       debugPrint("Error marcando consumo: $e");
     } finally {
@@ -372,7 +374,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                       ? "Consumida"
                       : (canToggle
                           ? "¿Ya la preparaste?"
-                          : "No completada (Horario vencido)"),
+                          : "No completada"),
                   style: TextStyle(
                     fontSize: AppTextSizes.caption(context.screenWidth),
                     color: isConsumida

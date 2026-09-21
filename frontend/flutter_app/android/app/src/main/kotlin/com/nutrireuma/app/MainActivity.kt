@@ -1,4 +1,4 @@
-package com.example.reuma_nutri_app
+package com.nutrireuma.app
 
 import io.flutter.embedding.android.FlutterActivity
 

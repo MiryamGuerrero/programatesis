@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/error_conexion_widget.dart';
 import '../data/seguimiento_provider.dart';
 
 class TutorGustosPage extends ConsumerStatefulWidget {
@@ -246,7 +247,19 @@ class _TutorGustosPageState extends ConsumerState<TutorGustosPage> {
     );
       },
       loading: () => _buildGustosShimmer(context),
-      error: (e, _) => Center(child: Text("Error al cargar gustos: $e")),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ErrorConexionWidget(
+            error: e,
+            onRetry: () {
+              if (idPaciente != null) {
+                ref.invalidate(subgruposGustosProvider(idPaciente));
+              }
+            },
+          ),
+        ),
+      ),
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/error_conexion_widget.dart';
 import 'tutor_receta_detalle_page.dart';
 
 class TutorCalendarioPage extends ConsumerStatefulWidget {
@@ -201,7 +202,27 @@ class _TutorCalendarioPageState extends ConsumerState<TutorCalendarioPage> {
               },
               loading: () => _buildCalendarioShimmer(),
               error: (err, stack) => SliverFillRemaining(
-                  child: Center(child: Text("Error: $err"))),
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: ErrorConexionWidget(
+                    error: err,
+                    onRetry: () {
+                      if (idPaciente != null) {
+                        ref.invalidate(planDiarioProvider((
+                          idPaciente: idPaciente,
+                          fecha: DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day),
+                        )));
+                        ref.invalidate(diasConPlanProvider((
+                          idPaciente: idPaciente,
+                          mes: _displayedMonth.month,
+                          anio: _displayedMonth.year,
+                        )));
+                      }
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
         ),

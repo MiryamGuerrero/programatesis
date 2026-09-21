@@ -82,5 +82,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 *.bat
-  
- 
+
+# Android signing keys
+**/android/key.properties
+*.jks
+*.keystore

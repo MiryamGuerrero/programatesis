@@ -7,9 +7,13 @@ import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../../../core/state/app_providers.dart";
+import "../../../core/theme/app_theme.dart";
 import "../../../core/theme/app_sizes.dart";
 import "../../../core/theme/app_responsive.dart";
+import "../../../core/services/notification_service.dart";
+import "../../../shared/widgets/error_conexion_widget.dart";
 import "../../auth/login_page.dart";
+import "widgets/cerrar_sesion_dialog.dart";
 
 class TutorPerfilPage extends ConsumerStatefulWidget {
   const TutorPerfilPage({super.key});
@@ -257,9 +261,38 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                       child: Column(
                         children: [
                           _buildFormCard(context),
-                          const SizedBox(height: AppSpacing.xl),
+                          const SizedBox(height: AppSpacing.lg),
                           _buildSaveButton(context),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: 36),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Divider(
+                                  color: Color(0xFFE2E8F0),
+                                  thickness: 1,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  "CUENTA Y SESIÓN",
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.1,
+                                    color: const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ),
+                              const Expanded(
+                                child: Divider(
+                                  color: Color(0xFFE2E8F0),
+                                  thickness: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
                           _buildLogoutButton(context),
                           const SizedBox(height: AppSpacing.xxl),
                         ],
@@ -276,10 +309,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           onRefresh: _onRefreshPage,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Container(
-              height: 400,
-              alignment: Alignment.center,
-              child: Text("Error al cargar perfil: $e"),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
+              child: ErrorConexionWidget(
+                error: e,
+                onRetry: _onRefreshPage,
+              ),
             ),
           ),
         ),
@@ -298,7 +333,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           top: context.responsiveSpacing(40),
           bottom: context.responsiveSpacing(40)),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.4),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.4),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
@@ -329,7 +364,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
+              color: colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -447,15 +482,34 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
   Widget _buildSaveButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: FilledButton(
+      child: FilledButton.icon(
         onPressed: _saving ? null : _saveProfile,
-        child: _saving
+        icon: _saving
             ? const SizedBox(
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2))
-            : const Text("GUARDAR CAMBIOS"),
+                    color: Colors.white, strokeWidth: 2.2),
+              )
+            : const Icon(Icons.check_circle_outline_rounded, size: 20),
+        label: Text(
+          _saving ? "GUARDANDO..." : "GUARDAR CAMBIOS",
+          style: GoogleFonts.montserrat(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTema.azulPrincipal,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 2,
+          shadowColor: AppTema.azulPrincipal.withValues(alpha: 0.35),
+        ),
       ),
     );
   }
@@ -466,34 +520,35 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       child: OutlinedButton.icon(
         onPressed: _handleSignOut,
         icon:
-            const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
-        label: const Text("CERRAR SESIÓN"),
+            const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 20),
+        label: Text(
+          "CERRAR SESIÓN",
+          style: GoogleFonts.montserrat(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.redAccent,
-          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+          foregroundColor: const Color(0xFFDC2626),
+          backgroundColor: const Color(0xFFFEF2F2),
+          side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.2),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );
   }
 
   Future<void> _handleSignOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Cerrar Sesión"),
-        content: const Text("¿Estás seguro de que deseas salir?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("CANCELAR")),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("SÍ, SALIR")),
-        ],
-      ),
-    );
+    final confirm = await showCerrarSesionDialog(context);
 
     if (confirm == true) {
+      try {
+        await ref.read(notificationServiceProvider).cancelarTodasLasNotificaciones();
+      } catch (_) {}
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(

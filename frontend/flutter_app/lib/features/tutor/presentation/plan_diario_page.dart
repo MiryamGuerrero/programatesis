@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../shared/widgets/error_conexion_widget.dart";
 import "../data/seguimiento_provider.dart";
 import "../data/repositorio_tutor.dart";
 import "momento_horario.dart";
@@ -143,7 +144,15 @@ class PlanDiarioPage extends ConsumerWidget {
                 ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text("Error: $e")),
+        error: (e, st) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ErrorConexionWidget(
+              error: e,
+              onRetry: () => ref.refresh(planDiarioProvider((idPaciente: idPaciente, fecha: _fechaApi)).future),
+            ),
+          ),
+        ),
       ),
     );
   }

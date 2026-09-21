@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/state/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/error_conexion_widget.dart';
 
 class TutorComprasPage extends ConsumerStatefulWidget {
   const TutorComprasPage({super.key});
@@ -185,7 +186,13 @@ class _TutorComprasPageState extends ConsumerState<TutorComprasPage> {
                       );
                     },
                     loading: () => _buildComprasShimmer(context),
-                    error: (err, stack) => Center(child: Text("Error: $err")),
+                    error: (err, stack) => Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                      child: ErrorConexionWidget(
+                        error: err,
+                        onRetry: () => ref.invalidate(listaComprasProvider),
+                      ),
+                    ),
                   ),
                 ),
               ),
