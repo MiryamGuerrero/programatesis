@@ -1306,6 +1306,7 @@ class _NutritionalRuleFormDialogState
   bool _saving = false;
   String _condicionSearch = "";
   int _filtroTipoCondicion = 0; // 0: Todas, 1: Crónicas, 2: Temporales
+  String? _formWarningText;
 
   @override
   void initState() {
@@ -1346,6 +1347,21 @@ class _NutritionalRuleFormDialogState
     return false;
   }
 
+  String _getTargetName(int? id, int? idObj) {
+    if (id == null || idObj == null) return "";
+    List<dynamic> list = [];
+    if (idObj == 1) list = widget.formData["ingredientes"] ?? [];
+    if (idObj == 2) list = widget.formData["grupos"] ?? [];
+    if (idObj == 3) list = widget.formData["etiquetas"] ?? [];
+    if (idObj == 4) list = widget.formData["subgrupos"] ?? [];
+    for (final item in list) {
+      if (item is Map && item["id"] == id) {
+        return (item["nombre"] ?? item["nombre_visible"] ?? "").toString();
+      }
+    }
+    return "";
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.initialRule != null;
@@ -1364,327 +1380,11 @@ class _NutritionalRuleFormDialogState
     final forceStrict = _idAccion == 1 || isClinicalRule;
     final activeEsEstricta = forceStrict ? true : _esEstricta;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      backgroundColor: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 640,
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(isEdit),
-            Flexible(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildObjetivoSection(targetList),
-                    const SizedBox(height: 20),
-                    _buildAccionSection(forceStrict, activeEsEstricta),
-                    const SizedBox(height: 20),
-                    _buildCondicionesSection(),
-                    const SizedBox(height: 20),
-                    _buildMensajeSection(),
-                  ],
-                ),
-              ),
-            ),
-            _buildFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(bool isEdit) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTema.azulPrincipal.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.rule_folder_rounded,
-              color: AppTema.azulPrincipal,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isEdit ? "Editar Regla Clínica" : "Nueva Regla Clínica",
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulOscuro,
-                  ),
-                ),
-                Text(
-                  "Configuración de restricciones o recomendaciones médicas",
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.blueGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded, color: Colors.blueGrey),
-            tooltip: "Cerrar",
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppTema.azulPrincipal),
-        const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppTema.azulOscuro,
-            letterSpacing: 0.8,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildObjetivoSection(List<dynamic> targetList) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionLabel("1. Elemento y Objetivo Nutricional", Icons.track_changes),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: _idObjetivo,
-            decoration: _inputDecor(
-              "Tipo de objetivo *",
-              Icons.category_outlined,
-            ),
-            items: (widget.formData["objetivos"] ?? [])
-                .map((o) => DropdownMenuItem<int>(
-                      value: o["id"],
-                      child: Text(
-                        o["nombre"].toString(),
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTema.azulOscuro,
-                        ),
-                      ),
-                    ))
-                .toList(),
-            onChanged: (v) => setState(() {
-              _idObjetivo = v;
-              _idTarget = null;
-            }),
-          ),
-          if (_idObjetivo != null) ...[
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _idTarget != null && targetList.any((t) => t["id"] == _idTarget)
-                  ? _idTarget
-                  : null,
-              isExpanded: true,
-              decoration: _inputDecor(
-                "Seleccionar elemento específico *",
-                Icons.ads_click_rounded,
-              ),
-              items: targetList
-                  .map((t) => DropdownMenuItem<int>(
-                        value: t["id"],
-                        child: Text(
-                          t["nombre"] ?? t["nombre_visible"] ?? "-",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTema.azulOscuro,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _idTarget = v),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAccionSection(bool forceStrict, bool activeEsEstricta) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionLabel("2. Acción Clínica", Icons.shield_outlined),
-          const SizedBox(height: 12),
-          // Opciones de acción en tarjetas interactivas
-          Row(
-            children: [
-              _buildAccionCard(
-                id: 1,
-                label: "Eliminar",
-                desc: "Exclusión total",
-                icon: Icons.cancel_outlined,
-                activeColor: Colors.red.shade700,
-                activeBg: Colors.red.shade50,
-              ),
-              const SizedBox(width: 8),
-              _buildAccionCard(
-                id: 2,
-                label: "Limitar",
-                desc: "Consumo moderado",
-                icon: Icons.warning_amber_rounded,
-                activeColor: Colors.amber.shade800,
-                activeBg: Colors.amber.shade50,
-              ),
-              const SizedBox(width: 8),
-              _buildAccionCard(
-                id: 3,
-                label: "Recomendar",
-                desc: "Favorecer uso",
-                icon: Icons.check_circle_outline,
-                activeColor: AppTema.verdeSalud,
-                activeBg: const Color(0xFFE8F5E9),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(
-                forceStrict
-                    ? "Restricción Estricta (Bloqueo Requerido)"
-                    : "Restricción Estricta",
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: forceStrict ? Colors.blueGrey : AppTema.azulOscuro,
-                ),
-              ),
-              subtitle: Text(
-                forceStrict
-                    ? "Las reglas de eliminación y las patologías crónicas son estrictas por seguridad clínica."
-                    : "Si está activo, bloquea totalmente recetas y menús que contengan el elemento.",
-                style: GoogleFonts.inter(fontSize: 11, color: Colors.blueGrey),
-              ),
-              value: activeEsEstricta,
-              activeTrackColor: AppTema.azulPrincipal,
-              onChanged: forceStrict
-                  ? null
-                  : (v) => setState(() => _esEstricta = v),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAccionCard({
-    required int id,
-    required String label,
-    required String desc,
-    required IconData icon,
-    required Color activeColor,
-    required Color activeBg,
-  }) {
-    final isSelected = _idAccion == id;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _idAccion = id),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? activeBg : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? activeColor : const Color(0xFFE2E8F0),
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: isSelected ? activeColor : Colors.grey, size: 22),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: isSelected ? activeColor : AppTema.azulOscuro,
-                ),
-              ),
-              Text(
-                desc,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  color: Colors.blueGrey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCondicionesSection() {
     final todasCondiciones = (widget.formData["condiciones"] ?? [])
         .whereType<Map<String, dynamic>>()
         .toList();
 
-    // Filtrar por pestaña de tipo (0: Todas, 1: Crónicas, 2: Temporales)
-    var listaFiltrada = todasCondiciones.where((c) {
+    final listaFiltrada = todasCondiciones.where((c) {
       if (_filtroTipoCondicion == 1 && c["id_tipo_condicion"] != 1) return false;
       if (_filtroTipoCondicion == 2 && c["id_tipo_condicion"] != 2) return false;
       if (_condicionSearch.isNotEmpty) {
@@ -1694,174 +1394,843 @@ class _NutritionalRuleFormDialogState
       return true;
     }).toList();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Container(
+        width: 960,
+        constraints: BoxConstraints(
+          maxWidth: 980,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5EAF2)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionLabel(
-                "3. Diagnóstico o Enfermedad Asociada",
-                Icons.medical_information_outlined,
+              // Encabezado
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isEdit
+                          ? Icons.edit_note_rounded
+                          : Icons.rule_folder_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEdit ? "Editar Regla Clínica" : "Nueva Regla Clínica",
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulOscuro,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    iconSize: 20,
+                    tooltip: "Cerrar",
+                    splashRadius: 18,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
-              const Spacer(),
+              const SizedBox(height: 16),
+              // Guía explicativa: Cómo crear una regla clínica
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: _selectedCondiciones.isNotEmpty
-                      ? AppTema.azulPrincipal.withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF0FDF4),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
-                child: Text(
-                  _selectedCondiciones.isEmpty
-                      ? "0 seleccionadas"
-                      : "${_selectedCondiciones.length} seleccionada(s)",
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _selectedCondiciones.isNotEmpty
-                        ? AppTema.azulPrincipal
-                        : Colors.blueGrey,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.lightbulb_outline_rounded,
+                        color: AppTema.verdeSalud,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Configuración de Regla Clínica",
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "1. Seleccione elemento   ➜   2. Defina acción médica   ➜   3. Elija patología",
+                            style: GoogleFonts.inter(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF15803D),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "Las reglas clínicas aplican a las condiciones seleccionadas. Puede asociar la regla a una sola condición sin necesidad de seleccionar otras.",
+                            style: GoogleFonts.inter(
+                              fontSize: 10.5,
+                              color: const Color(0xFF14532D),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Cuerpo del Modal: 3 Columnas
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Columna 1: Elemento y Objetivo (Flex 7)
+                Expanded(
+                  flex: 7,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildFieldLabel("Tipo de objetivo", isRequired: true),
+                      DropdownButtonFormField<int>(
+                        key: ValueKey("obj_$_idObjetivo"),
+                        initialValue: _idObjetivo,
+                        isExpanded: true,
+                        decoration: _fieldDecor(
+                          "Tipo de objetivo",
+                          Icons.category_outlined,
+                        ),
+                        items: (widget.formData["objetivos"] ?? [])
+                            .map((o) => DropdownMenuItem<int>(
+                                  value: o["id"],
+                                  child: Text(
+                                    o["nombre"].toString(),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTema.azulOscuro,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(() {
+                          _idObjetivo = v;
+                          _idTarget = null;
+                          _formWarningText = null;
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFieldLabel("Elemento específico", isRequired: true),
+                      LayoutBuilder(
+                        builder: (context, colConstraints) {
+                          return Autocomplete<Map<String, dynamic>>(
+                            key: ValueKey("auto_$_idObjetivo"),
+                            initialValue: TextEditingValue(
+                              text: _getTargetName(_idTarget, _idObjetivo),
+                            ),
+                            displayStringForOption: (opt) =>
+                                (opt["nombre"] ?? opt["nombre_visible"] ?? "")
+                                    .toString(),
+                            optionsBuilder: (textEditingValue) {
+                              if (_idObjetivo == null) return const [];
+                              if (textEditingValue.text.isEmpty) {
+                                return targetList
+                                    .whereType<Map<String, dynamic>>()
+                                    .take(15);
+                              }
+                              final q = textEditingValue.text.toLowerCase();
+                              return targetList
+                                  .whereType<Map<String, dynamic>>()
+                                  .where((item) {
+                                final name = (item["nombre"] ??
+                                        item["nombre_visible"] ??
+                                        "")
+                                    .toString()
+                                    .toLowerCase();
+                                return name.contains(q);
+                              }).take(20);
+                            },
+                            onSelected: (opt) {
+                              setState(() {
+                                _idTarget = (opt["id"] as num?)?.toInt();
+                                _formWarningText = null;
+                              });
+                            },
+                            fieldViewBuilder: (context, textEditingController,
+                                focusNode, onFieldSubmitted) {
+                              return TextField(
+                                controller: textEditingController,
+                                focusNode: focusNode,
+                                enabled: _idObjetivo != null,
+                                style: GoogleFonts.inter(fontSize: 12),
+                                decoration: _fieldDecor(
+                                  _idObjetivo == null
+                                      ? "Seleccione un tipo primero"
+                                      : "Escriba para buscar...",
+                                  Icons.search_rounded,
+                                ).copyWith(
+                                  suffixIcon: _idTarget != null
+                                      ? IconButton(
+                                          icon: const Icon(
+                                              Icons.close_rounded,
+                                              size: 16,
+                                              color: Colors.blueGrey),
+                                          tooltip: "Borrar selección",
+                                          onPressed: () {
+                                            textEditingController.clear();
+                                            setState(() {
+                                              _idTarget = null;
+                                              _formWarningText = null;
+                                            });
+                                          },
+                                        )
+                                      : const Icon(
+                                          Icons.arrow_drop_down_rounded,
+                                          color: Colors.blueGrey),
+                                ),
+                              );
+                            },
+                            optionsViewBuilder:
+                                (context, onSelected, options) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 8,
+                                  shadowColor: Colors.black26,
+                                  borderRadius: BorderRadius.circular(10),
+                                  color: Colors.white,
+                                  child: Container(
+                                    width: colConstraints.maxWidth,
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 200),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                      border: Border.all(
+                                          color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: options.isEmpty
+                                        ? Padding(
+                                            padding:
+                                                const EdgeInsets.all(12.0),
+                                            child: Text(
+                                              "No se encontraron elementos",
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color: Colors.blueGrey),
+                                            ),
+                                          )
+                                        : ListView.builder(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    vertical: 4),
+                                            shrinkWrap: true,
+                                            itemCount: options.length,
+                                            itemBuilder: (context, index) {
+                                              final opt =
+                                                  options.elementAt(index);
+                                              final name = opt["nombre"] ??
+                                                  opt["nombre_visible"] ??
+                                                  "-";
+                                              final isSel =
+                                                  opt["id"] == _idTarget;
+                                              return InkWell(
+                                                onTap: () =>
+                                                    onSelected(opt),
+                                                child: Container(
+                                                  color: isSel
+                                                      ? AppTema.azulPrincipal
+                                                          .withValues(
+                                                              alpha: 0.08)
+                                                      : Colors.transparent,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          name,
+                                                          style: GoogleFonts
+                                                              .inter(
+                                                            fontSize: 11.5,
+                                                            fontWeight: isSel
+                                                                ? FontWeight
+                                                                    .w700
+                                                                : FontWeight
+                                                                    .w500,
+                                                            color: isSel
+                                                                ? AppTema
+                                                                    .azulPrincipal
+                                                                : AppTema
+                                                                    .azulOscuro,
+                                                          ),
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                        ),
+                                                      ),
+                                                      if (isSel)
+                                                        const Icon(
+                                                            Icons.check,
+                                                            size: 14,
+                                                            color: AppTema
+                                                                .azulPrincipal),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Banner informativo aclarando aplicabilidad
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 16, color: AppTema.verdeSalud),
-                const SizedBox(width: 8),
+
+                // Divisor vertical 1
+                Container(
+                  width: 1.0,
+                  height: 260,
+                  color: const Color(0xFFE2E8F0),
+                  margin: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+
+                // Columna 2: Acción Clínica y Severidad (Flex 7)
                 Expanded(
-                  child: Text(
-                    "Seleccione la enfermedad o condición deseada. Puede aplicar solo a una enfermedad específica (no es obligatorio marcar otras).",
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: const Color(0xFF166534),
-                      fontWeight: FontWeight.w500,
-                    ),
+                  flex: 7,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildFieldLabel("Acción clínica", isRequired: true),
+                      DropdownButtonFormField<int>(
+                        key: ValueKey("accion_$_idAccion"),
+                        initialValue: _idAccion,
+                        isExpanded: true,
+                        decoration: _fieldDecor(
+                          "Acción clínica",
+                          Icons.shield_outlined,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 1,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.cancel_outlined,
+                                    color: Colors.red, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Eliminar (Exclusión)",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 2,
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    color: Colors.amber.shade800, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Limitar (Moderado)",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 3,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline,
+                                    color: AppTema.verdeSalud, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Recomendar (Beneficioso)",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTema.verdeSalud,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() {
+                          _idAccion = v;
+                          _formWarningText = null;
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFieldLabel("Restricción estricta"),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            forceStrict
+                                ? "Bloqueo Requerido"
+                                : "Bloqueo Estricto",
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: forceStrict
+                                  ? Colors.blueGrey
+                                  : AppTema.azulOscuro,
+                            ),
+                          ),
+                          subtitle: Text(
+                            forceStrict
+                                ? "Obligatorio en exclusiones o patologías crónicas."
+                                : "Bloquea recetas y menús con este elemento.",
+                            style: GoogleFonts.inter(
+                                fontSize: 9.5, color: Colors.blueGrey),
+                          ),
+                          value: activeEsEstricta,
+                          activeTrackColor: AppTema.azulPrincipal,
+                          onChanged: forceStrict
+                              ? null
+                              : (v) => setState(() => _esEstricta = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Divisor vertical 2
+                Container(
+                  width: 1.0,
+                  height: 260,
+                  color: const Color(0xFFE2E8F0),
+                  margin: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+
+                // Columna 3: Diagnósticos y Condiciones Clínicas (Flex 10)
+                Expanded(
+                  flex: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          _buildFieldLabel(
+                            "Condición o Patología",
+                            isRequired: true,
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _selectedCondiciones.isNotEmpty
+                                  ? AppTema.azulPrincipal
+                                      .withValues(alpha: 0.1)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _selectedCondiciones.isEmpty
+                                  ? "0 sel."
+                                  : "${_selectedCondiciones.length} sel.",
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: _selectedCondiciones.isNotEmpty
+                                    ? AppTema.azulPrincipal
+                                    : Colors.blueGrey,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextField(
+                        onChanged: (val) =>
+                            setState(() => _condicionSearch = val.trim()),
+                        decoration: _fieldDecor(
+                          "Buscar patología o síntoma...",
+                          Icons.search_rounded,
+                        ),
+                        style: GoogleFonts.inter(fontSize: 11.5),
+                      ),
+                      const SizedBox(height: 4),
+                      // Filtros de categoría abajo del buscador
+                      Row(
+                        children: [
+                          _buildTipoChip(0, "Todas"),
+                          const SizedBox(width: 4),
+                          _buildTipoChip(1, "🩺 Crónicas"),
+                          const SizedBox(width: 4),
+                          _buildTipoChip(2, "⏱️ Temporales"),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Lista scrolleable con tarjetas tipo toggle
+                      Container(
+                        height: 168,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: listaFiltrada.isEmpty
+                            ? Center(
+                                child: Text(
+                                  "Sin resultados con ese criterio",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: Colors.blueGrey,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(4),
+                                itemCount: listaFiltrada.length,
+                                itemBuilder: (context, index) {
+                                  final c = listaFiltrada[index];
+                                  final int id =
+                                      (c["id"] as num).toInt();
+                                  final bool isSelected =
+                                      _selectedCondiciones.contains(id);
+                                  final bool isCronica =
+                                      c["id_tipo_condicion"] == 1;
+                                  return _buildCondicionToggle(
+                                    label: c["nombre"]?.toString() ??
+                                        "Condición",
+                                    description: c["descripcion"]
+                                            ?.toString() ??
+                                        (isCronica
+                                            ? "Patología crónica reumatológica"
+                                            : "Síntoma o condición temporal"),
+                                    checked: isSelected,
+                                    isCronica: isCronica,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedCondiciones.add(id);
+                                        } else {
+                                          _selectedCondiciones.remove(id);
+                                        }
+                                        _formWarningText = null;
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          // Barra de filtros rápidos de tipo
-          Row(
-            children: [
-              _buildTipoChip(0, "Todas"),
-              const SizedBox(width: 6),
-              _buildTipoChip(1, "🩺 Crónicas / Patologías"),
-              const SizedBox(width: 6),
-              _buildTipoChip(2, "⏱️ Síntomas Temporales"),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            onChanged: (val) => setState(() => _condicionSearch = val.trim()),
-            decoration: _inputDecor(
-              "Buscar enfermedad o síntoma...",
-              Icons.search_rounded,
-            ),
-            style: GoogleFonts.inter(fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          // Contenedor scrolleable con Chips de selección rápida
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: listaFiltrada.isEmpty
-                  ? Center(
-                      child: Text(
-                        "No se encontraron condiciones con ese criterio",
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: Colors.blueGrey),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: listaFiltrada.map((c) {
-                          final int id = (c["id"] as num).toInt();
-                          final bool isSelected =
-                              _selectedCondiciones.contains(id);
-                          final bool isCronica = c["id_tipo_condicion"] == 1;
 
-                          return FilterChip(
-                            selected: isSelected,
-                            avatar: Icon(
-                              isCronica
-                                  ? Icons.healing_rounded
-                                  : Icons.history_toggle_off_rounded,
-                              size: 15,
-                              color: isSelected
-                                  ? Colors.white
-                                  : (isCronica
-                                      ? AppTema.azulPrincipal
-                                      : Colors.amber.shade800),
-                            ),
-                            label: Text(c["nombre"]?.toString() ?? "Condición"),
-                            labelStyle: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppTema.azulOscuro,
-                            ),
-                            selectedColor: AppTema.azulPrincipal,
-                            checkmarkColor: Colors.white,
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? AppTema.azulPrincipal
-                                    : const Color(0xFFCBD5E1),
-                              ),
-                            ),
-                            onSelected: (val) {
-                              setState(() {
-                                if (val) {
-                                  _selectedCondiciones.add(id);
-                                } else {
-                                  _selectedCondiciones.remove(id);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
+            const SizedBox(height: 12),
+
+            // Parte de Abajo: Mensaje Clínico Informativo (Ancho Completo)
+            _buildFieldLabel("Mensaje clínico informativo (opcional)"),
+            TextFormField(
+              controller: _mensajeController,
+              maxLines: 2,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF334155),
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: _fieldDecor(
+                "Ej: Evitar o limitar este alimento para prevenir brotes agudos en fases inflamatorias...",
+                Icons.notes_rounded,
+              ),
+            ),
+
+            // Banner de advertencia si faltan campos
+            if (_formWarningText != null) ...[
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B),
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFD97706),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _formWarningText!,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF92400E),
+                        ),
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 14, color: Color(0xFF92400E)),
+                      onPressed: () => setState(() => _formWarningText = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // Botones de acción
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTema.azulPrincipal,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    textStyle: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                  child: const Text("Cancelar"),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 136,
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTema.azulPrincipal,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(isEdit ? "Guardar" : "Guardar"),
+                  ),
+                ),
+              ],
             ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildFieldLabel(String label, {bool isRequired = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 5),
+      child: RichText(
+        text: TextSpan(
+          text: label,
+          style: GoogleFonts.inter(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: AppTema.azulOscuro,
           ),
-        ],
+          children: [
+            if (isRequired)
+              const TextSpan(
+                text: " *",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCondicionToggle({
+    required String label,
+    required String description,
+    required bool checked,
+    required bool isCronica,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    final activeColor =
+        isCronica ? AppTema.azulPrincipal : Colors.amber.shade800;
+    return InkWell(
+      onTap: () => onChanged(!checked),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 3.5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+        decoration: BoxDecoration(
+          color: checked
+              ? activeColor.withValues(alpha: 0.05)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: checked
+                ? activeColor.withValues(alpha: 0.4)
+                : const Color(0xFFE2E8F0),
+            width: checked ? 1.4 : 1.0,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: checked,
+                onChanged: onChanged,
+                activeColor: activeColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4)),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: checked ? activeColor : AppTema.azulOscuro,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isCronica
+                              ? AppTema.azulPrincipal.withValues(alpha: 0.1)
+                              : Colors.amber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          isCronica ? "Crónica" : "Temporal",
+                          style: GoogleFonts.inter(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                            color: isCronica
+                                ? AppTema.azulPrincipal
+                                : Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: GoogleFonts.inter(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blueGrey.shade600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1870,19 +2239,19 @@ class _NutritionalRuleFormDialogState
     final isSelected = _filtroTipoCondicion == tipo;
     return InkWell(
       onTap: () => setState(() => _filtroTipoCondicion = tipo),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTema.azulPrincipal
               : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           label,
           style: GoogleFonts.inter(
-            fontSize: 11,
+            fontSize: 9.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected ? Colors.white : Colors.blueGrey,
           ),
@@ -1891,115 +2260,37 @@ class _NutritionalRuleFormDialogState
     );
   }
 
-  Widget _buildMensajeSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionLabel(
-            "4. Mensaje Clínico Informativo",
-            Icons.chat_bubble_outline_rounded,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _mensajeController,
-            maxLines: 2,
-            style: GoogleFonts.inter(fontSize: 13, color: AppTema.azulOscuro),
-            decoration: _inputDecor(
-              "Ej: Evitar o limitar este alimento para prevenir brotes agudos...",
-              Icons.notes_rounded,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blueGrey,
-              side: const BorderSide(color: Color(0xFFCBD5E1)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: Text(
-              "Cancelar",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.azulPrincipal,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            icon: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(
-              _saving ? "Guardando..." : "Guardar Regla",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _inputDecor(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: Icon(icon, size: 18, color: AppTema.azulPrincipal),
-      filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
-      ),
-    );
-  }
+  InputDecoration _fieldDecor(String hint, IconData icon) => InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          color: Colors.grey.shade400,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF1F5F9),
+        prefixIcon: Icon(icon, size: 18, color: Colors.blueGrey.shade400),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      );
 
   Future<void> _save() async {
+    setState(() => _formWarningText = null);
     if (_idObjetivo == null) {
+      setState(() => _formWarningText = "Por favor seleccione el tipo de objetivo.");
       NutriSnack.show(
         context,
         "Por favor seleccione el tipo de objetivo",
@@ -2008,6 +2299,7 @@ class _NutritionalRuleFormDialogState
       return;
     }
     if (_idTarget == null) {
+      setState(() => _formWarningText = "Por favor seleccione el elemento específico.");
       NutriSnack.show(
         context,
         "Por favor seleccione el elemento específico",
@@ -2016,6 +2308,7 @@ class _NutritionalRuleFormDialogState
       return;
     }
     if (_idAccion == null) {
+      setState(() => _formWarningText = "Por favor seleccione la acción clínica.");
       NutriSnack.show(
         context,
         "Por favor seleccione la acción clínica",
@@ -2024,6 +2317,7 @@ class _NutritionalRuleFormDialogState
       return;
     }
     if (_selectedCondiciones.isEmpty) {
+      setState(() => _formWarningText = "Por favor seleccione al menos una enfermedad o condición.");
       NutriSnack.show(
         context,
         "Por favor seleccione al menos una enfermedad o condición",

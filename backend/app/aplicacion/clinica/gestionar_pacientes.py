@@ -58,7 +58,7 @@ class CasoUsoGestionarPacientes:
     def actualizar_control_mensual(self, id_control: int, datos: Dict[str, Any]) -> bool:
         return self.repo_paciente.actualizar_control_mensual_especifico(id_control, datos)
 
-    def eliminar(self, id_paciente: str) -> bool:
+    def eliminar(self, id_paciente: str) -> Dict[str, Any] | bool:
         return self.repo_paciente.eliminar_paciente_integral(id_paciente)
 
     def archivar(self, id_paciente: str) -> bool:

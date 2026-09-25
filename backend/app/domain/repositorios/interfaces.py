@@ -58,7 +58,7 @@ class IRepositorioPaciente(ABC):
         pass
 
     @abstractmethod
-    def eliminar_paciente_integral(self, id_paciente: str) -> bool:
+    def eliminar_paciente_integral(self, id_paciente: str) -> dict | bool:
         pass
 
     @abstractmethod

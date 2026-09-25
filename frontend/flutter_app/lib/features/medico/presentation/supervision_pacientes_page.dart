@@ -544,11 +544,11 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             dataRowMaxHeight: double.infinity,
             headingRowColor: WidgetStateProperty.all(AppTema.azulPrincipal),
             columns: [
-              _col("PACIENTE", width: usableWidth * 0.30),
-              _col("CÉDULA", width: usableWidth * 0.15),
-              _col("ENFERMEDAD", width: usableWidth * 0.20),
+              _col("PACIENTE", width: usableWidth * 0.28),
+              _col("CÉDULA", width: usableWidth * 0.14),
+              _col("ENFERMEDAD", width: usableWidth * 0.18),
               _col("ESTADO", width: usableWidth * 0.15, center: true),
-              _col("ACCIONES", width: usableWidth * 0.20, center: true),
+              _col("ACCIONES", width: usableWidth * 0.25, center: true),
             ],
             source: _MedicalPatientsDataSource(
               items: state.patients,
@@ -563,6 +563,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               },
               onArchive: (p) => _confirmarArchivarPaciente(p),
               onUnarchive: (p) => _confirmarDesarchivarPaciente(p),
+              onDelete: (p) => _confirmarEliminarPaciente(p),
               totalWidth: usableWidth,
               context: context,
             ),
@@ -597,6 +598,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   Future<void> _confirmarArchivarPaciente(Map<String, dynamic> p) async {
     final confirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.65),
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text("Archivar paciente",
@@ -612,7 +615,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.archive_outlined, size: 18),
             label: const Text("Archivar"),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Colors.blueGrey),
           ),
         ],
       ),
@@ -654,6 +657,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
   Future<void> _confirmarDesarchivarPaciente(Map<String, dynamic> p) async {
     final confirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.65),
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text("Desarchivar paciente",
@@ -707,6 +712,157 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
       }
     }
   }
+
+  Future<void> _confirmarEliminarPaciente(Map<String, dynamic> p) async {
+    final nombre = p['nombre_completo'] ?? 'este paciente';
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.65),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.delete_forever_rounded, color: Colors.red.shade700, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Eliminar paciente",
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: AppTema.azulOscuro,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: GoogleFonts.inter(fontSize: 13, color: Colors.blueGrey.shade800, height: 1.4),
+                children: [
+                  const TextSpan(text: "¿Está seguro de eliminar definitivamente a "),
+                  TextSpan(
+                    text: "$nombre",
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                  ),
+                  const TextSpan(text: "? Esta acción es "),
+                  const TextSpan(
+                    text: "radical e irreversible",
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red),
+                  ),
+                  const TextSpan(text: " y borrará todo su historial clínico, planes nutricionales, controles y diagnósticos."),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Colors.red.shade700, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Regla de tutor: Si el tutor asociado solo tiene a este paciente, su cuenta y acceso también serán eliminados para evitar registros huérfanos. Si tiene otros pacientes a su cargo, su cuenta se conservará intacta.",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              "Cancelar",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_forever_rounded, size: 18),
+            label: const Text("Eliminar definitivamente"),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _eliminarPaciente(p);
+    }
+  }
+
+  Future<void> _eliminarPaciente(Map<String, dynamic> p) async {
+    if (_archiving) return;
+    setState(() {
+      _archiving = true;
+      _archiveSuccess = false;
+      _archiveLoadingText = "Eliminando paciente y registros...";
+      _archiveSuccessText = "Paciente eliminado con éxito";
+    });
+
+    try {
+      final res = await ref
+          .read(repositorioMedicoProvider)
+          .eliminarPaciente(p["id"].toString());
+      await ref.read(medicalPatientsProvider.notifier).loadPage(forceRefresh: true);
+      if (!mounted) return;
+
+      final msg = res["message"] as String? ?? "Paciente eliminado correctamente";
+      setState(() {
+        _archiveSuccess = true;
+        _archiveSuccessText = msg;
+      });
+      await Future.delayed(const Duration(milliseconds: 1400));
+      if (mounted) {
+        NutriSnack.show(context, msg, isError: false, ref: ref);
+      }
+    } catch (e) {
+      if (mounted) {
+        NutriSnack.show(context, "Error al eliminar el paciente: $e", isError: true, ref: ref);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _archiving = false;
+          _archiveSuccess = false;
+        });
+      }
+    }
+  }
 }
 
 class _MedicalPatientsDataSource extends DataTableSource {
@@ -718,6 +874,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
   final Function(Map<String, dynamic>) onEdit;
   final Function(Map<String, dynamic>) onArchive;
   final Function(Map<String, dynamic>) onUnarchive;
+  final Function(Map<String, dynamic>) onDelete;
   final double totalWidth;
   final BuildContext context;
 
@@ -730,6 +887,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
     required this.onEdit,
     required this.onArchive,
     required this.onUnarchive,
+    required this.onDelete,
     required this.totalWidth,
     required this.context,
   });
@@ -743,7 +901,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
         color: WidgetStateProperty.all(rowColor),
         cells: [
         DataCell(SizedBox(
-          width: totalWidth * 0.30,
+          width: totalWidth * 0.28,
           child: Row(
             children: [
               const NutriShimmer(
@@ -767,12 +925,12 @@ class _MedicalPatientsDataSource extends DataTableSource {
           ),
         )),
         DataCell(SizedBox(
-            width: totalWidth * 0.15,
+            width: totalWidth * 0.14,
             child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: NutriShimmer(width: 80, height: 10)))),
         DataCell(SizedBox(
-            width: totalWidth * 0.20,
+            width: totalWidth * 0.18,
             child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: NutriShimmer(width: 100, height: 10)))),
@@ -780,10 +938,13 @@ class _MedicalPatientsDataSource extends DataTableSource {
             width: totalWidth * 0.15,
             child: const Center(child: NutriShimmer(width: 60, height: 20)))),
         DataCell(SizedBox(
-          width: totalWidth * 0.20,
+          width: totalWidth * 0.25,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              NutriShimmer(
+                  width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 8),
               NutriShimmer(
                   width: 24, height: 24, borderRadius: BorderRadius.circular(12)),
               const SizedBox(width: 8),
@@ -806,7 +967,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
       color: WidgetStateProperty.all(rowColor),
       cells: [
       DataCell(SizedBox(
-        width: totalWidth * 0.30,
+        width: totalWidth * 0.28,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12),
           child: Row(
@@ -869,7 +1030,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
         ),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.15,
+        width: totalWidth * 0.14,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(p["cedula"]?.toString() ?? "-",
@@ -878,7 +1039,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
         ),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.20,
+        width: totalWidth * 0.18,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(p["enfermedad_principal"]?.toString() ?? "-",
@@ -894,7 +1055,7 @@ class _MedicalPatientsDataSource extends DataTableSource {
         child: Center(child: _buildSeverityOrArchivedBadge(p["severidad"], activo: p["activo"] ?? true)),
       )),
       DataCell(SizedBox(
-        width: totalWidth * 0.20,
+        width: totalWidth * 0.25,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -905,13 +1066,13 @@ class _MedicalPatientsDataSource extends DataTableSource {
                   label: "Control",
                   color: AppTema.azulPrincipal,
                   onTap: () => onControl(p)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _HoverActionButton(
                   icon: Icons.edit_note_rounded,
                   label: "Editar",
                   color: Colors.orange,
                   onTap: () => onEdit(p)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               if (p["activo"] == false)
                 _HoverActionButton(
                     icon: Icons.unarchive_outlined,
@@ -922,8 +1083,14 @@ class _MedicalPatientsDataSource extends DataTableSource {
                 _HoverActionButton(
                     icon: Icons.archive_outlined,
                     label: "Archivar",
-                    color: Colors.redAccent,
+                    color: Colors.blueGrey.shade600,
                     onTap: () => onArchive(p)),
+              const SizedBox(width: 8),
+              _HoverActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: "Eliminar",
+                  color: const Color(0xFFDC2626),
+                  onTap: () => onDelete(p)),
             ],
           ),
         ),
