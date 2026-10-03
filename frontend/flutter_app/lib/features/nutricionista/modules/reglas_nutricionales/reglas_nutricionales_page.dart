@@ -1077,7 +1077,19 @@ class _ReglasNutricionalesDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= rules.length) return null;
+    if (localIndex < 0 || localIndex >= rules.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            6,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final r = rules[localIndex];
 
     final condicionesIdsRaw = r["id_condiciones"];

@@ -539,6 +539,13 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         if (mounted) {
           NutriSnack.show(context, "Alimento eliminado", ref: ref);
         }
+        final newTotal = _total > 0 ? _total : 0;
+        int newOffset = _offset;
+        if (newOffset >= newTotal && newOffset > 0) {
+          newOffset = ((newTotal - 1) ~/ _rowsPerPage) * _rowsPerPage;
+          if (newOffset < 0) newOffset = 0;
+        }
+        await _fetch(offset: newOffset, forceRefresh: true);
       } catch (e) {
         setState(() {
           _items = oldItems;
@@ -747,7 +754,19 @@ class _IngredientesDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= items.length) return null;
+    if (localIndex < 0 || localIndex >= items.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            7,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final ing = items[localIndex];
 
     return DataRow(

@@ -960,7 +960,19 @@ class _MedicalPatientsDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= items.length) return null;
+    if (localIndex < 0 || localIndex >= items.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            6,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final p = items[localIndex];
 
     return DataRow(

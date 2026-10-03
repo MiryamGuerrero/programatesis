@@ -133,6 +133,12 @@ def eliminar_usuario(
     exito = repo.eliminar_usuario(user_id)
     if not exito:
         raise HTTPException(status_code=404, detail="Usuario no encontrado o no se pudo eliminar")
+    try:
+        from app.api.v1.simple_cache import _lock, _cache
+        with _lock:
+            _cache.clear()
+    except Exception:
+        pass
     return {"id": user_id, "deleted": True}
 
 @router.post("/usuarios/{user_id}/reenviar-invitacion")

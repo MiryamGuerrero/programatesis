@@ -196,6 +196,13 @@ class _EtiquetasPageState extends ConsumerState<EtiquetasPage> {
         if (mounted) {
           NutriSnack.show(context, 'Etiqueta eliminada con éxito');
         }
+        final newTotal = _total > 0 ? _total : 0;
+        int newOffset = _offset;
+        if (newOffset >= newTotal && newOffset > 0) {
+          newOffset = ((newTotal - 1) ~/ _rowsPerPage) * _rowsPerPage;
+          if (newOffset < 0) newOffset = 0;
+        }
+        await _loadEtiquetas(offset: newOffset, updateStats: true, forceRefresh: true);
       } catch (e) {
         setState(() {
           _etiquetas = oldEtiquetas;
@@ -573,7 +580,19 @@ class _EtiquetasDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= items.length) return null;
+    if (localIndex < 0 || localIndex >= items.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            4,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final e = items[localIndex];
 
     final String fechaRaw = e['created_at'] ?? '';

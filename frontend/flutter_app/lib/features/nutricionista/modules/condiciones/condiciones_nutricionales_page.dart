@@ -682,6 +682,13 @@ class _CondicionesNutricionalesPageState
         _dirtyTabs.addAll([0, 1]);
         _cachedPagesByTab[0]!.clear();
         _cachedPagesByTab[1]!.clear();
+        final newTotal = _total > 0 ? _total - 1 : 0;
+        int newOffset = _offset;
+        if (newOffset >= newTotal && newOffset > 0) {
+          newOffset = ((newTotal - 1) ~/ 5) * 5;
+          if (newOffset < 0) newOffset = 0;
+        }
+        await _fetchData(offset: newOffset, updateStats: true);
         if (mounted) {
           NutriSnack.show(context, "Condición eliminada", ref: ref);
         }
@@ -1430,7 +1437,19 @@ class _CondicionesDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= items.length) return null;
+    if (localIndex < 0 || localIndex >= items.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            4,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final c = items[localIndex] as Map<String, dynamic>;
     final bool isTalla =
         (c["indicador_codigo"]?.toString() ?? "").toUpperCase() == "HFA";

@@ -226,23 +226,25 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
   }
 
   Future<bool> deleteUser(String userId) async {
-    final oldUsers = List<Map<String, dynamic>>.from(state.users);
-    final nextUsers = oldUsers.where((u) => u["id"] != userId).toList();
-
-    state = state.copyWith(
-        users: nextUsers,
-        totalItems: state.totalItems - 1,
-        cachedPages: const {});
-
     try {
       final dio = _ref.read(dioProvider);
       await dio.delete("usuarios/$userId");
+
+      final newTotal = state.totalItems > 0 ? state.totalItems - 1 : 0;
+      int newOffset = state.offset;
+      if (newOffset >= newTotal && newOffset > 0) {
+        newOffset = ((newTotal - 1) ~/ pageSize) * pageSize;
+        if (newOffset < 0) newOffset = 0;
+      }
+
+      await loadPage(
+        offset: newOffset,
+        forceRefresh: true,
+        refreshRoleCounts: true,
+      );
       return true;
     } catch (e) {
-      state = state.copyWith(
-          users: oldUsers,
-          totalItems: state.totalItems + 1,
-          errorMessage: "Error al eliminar usuario");
+      state = state.copyWith(errorMessage: "Error al eliminar usuario: $e");
       return false;
     }
   }

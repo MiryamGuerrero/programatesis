@@ -675,7 +675,19 @@ class _MedicalConditionsDataSource extends DataTableSource {
     }
 
     final localIndex = index - offset;
-    if (localIndex < 0 || localIndex >= items.length) return null;
+    if (localIndex < 0 || localIndex >= items.length) {
+      if (index < totalRows) {
+        return DataRow.byIndex(
+          index: index,
+          color: WidgetStateProperty.all(rowColor),
+          cells: List<DataCell>.filled(
+            4,
+            const DataCell(SizedBox.shrink()),
+          ),
+        );
+      }
+      return null;
+    }
     final c = items[localIndex] as Map<String, dynamic>;
 
     final int tipoCondicion = c["id_tipo_condicion"] ?? 1;
