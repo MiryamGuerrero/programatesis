@@ -114,4 +114,25 @@ async def manejador_error_inesperado(request: Request, exc: Exception):
 def healthcheck():
     return {"status": "ok", "ambiente": "produccion_vf", "arquitectura": "hexagonal"}
 
+
+@app.get("/.well-known/assetlinks.json", response_class=ORJSONResponse)
+def assetlinks_json():
+    """Digital Asset Links para verificación de Android App Links (autoverify)
+    en com.nutrireuma.app.
+    """
+    return [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.nutrireuma.app",
+                "sha256_cert_fingerprint_list": [
+                    "FF:EF:CE:E1:47:87:B9:53:42:A8:92:2E:3F:E3:1D:B6:46:95:37:BA:7F:26:52:E5:74:A1:EC:84:0B:36:C3:79"
+                ]
+            }
+        }
+    ]
+
+
 app.include_router(api_router, prefix="/api/v1")
+

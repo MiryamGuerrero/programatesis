@@ -200,10 +200,10 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
         Container(
           width: isWide ? 820.0 : AppSizes.maxFormWidth,
           padding: EdgeInsets.fromLTRB(
-            context.responsiveSpacing(AppSpacing.xl),
-            context.responsiveSpacing(AppSpacing.xxl + 10),
-            context.responsiveSpacing(AppSpacing.xl),
-            context.responsiveSpacing(AppSpacing.xl),
+            context.responsiveSpacing(isWide ? AppSpacing.xl : AppSpacing.lg),
+            context.responsiveSpacing(isWide ? AppSpacing.xxl + 10 : AppSpacing.xxl),
+            context.responsiveSpacing(isWide ? AppSpacing.xl : AppSpacing.lg),
+            context.responsiveSpacing(isWide ? AppSpacing.xl : AppSpacing.lg),
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -220,19 +220,22 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
             children: [
               Text("Configuración",
                   style: GoogleFonts.montserrat(
-                      fontSize:
-                          AppTextSizes.headline(context.screenWidth) * 0.9,
+                      fontSize: isWide
+                          ? AppTextSizes.headline(context.screenWidth) * 0.9
+                          : 20,
                       fontWeight: FontWeight.w800,
                       color: _azulOscuro,
                       letterSpacing: -0.5)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text("Define tu nueva contraseña segura",
                   style: GoogleFonts.lato(
-                      fontSize: AppTextSizes.body(context.screenWidth),
+                      fontSize: isWide
+                          ? AppTextSizes.body(context.screenWidth)
+                          : 13.5,
                       color: _grisTexto)),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: 10),
               Container(
-                  width: 40,
+                  width: 36,
                   height: 3,
                   decoration: BoxDecoration(
                       color: _verde, borderRadius: BorderRadius.circular(2))),
@@ -359,9 +362,9 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
                           setState(() => _obscurePassword = !_obscurePassword),
                       onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    _buildSecurityPanel(),
-                    const SizedBox(height: AppSpacing.lg),
+                    const SizedBox(height: 12),
+                    _buildSecurityPanel(isCompact: true),
+                    const SizedBox(height: 14),
                     _buildField(
                       context: context,
                       controller: _confirmController,
@@ -377,7 +380,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
                       const SizedBox(height: 8),
                       _buildMatchIndicator(),
                     ],
-                    const SizedBox(height: AppSpacing.xl),
+                    const SizedBox(height: AppSpacing.lg),
                     _buildSubmitButton(),
                   ],
                 ),
@@ -487,7 +490,80 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
     );
   }
 
-  Widget _buildSecurityPanel() {
+  Widget _buildSecurityPanel({bool isCompact = false}) {
+    if (isCompact) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.blueGrey.shade100.withValues(alpha: 0.6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _isPasswordSecure
+                      ? Icons.verified_user_rounded
+                      : Icons.shield_outlined,
+                  size: 16,
+                  color: _isPasswordSecure
+                      ? AppTema.verdeSalud
+                      : AppTema.azulPrincipal,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Requisitos de seguridad",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _azulOscuro,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildStrengthMeter(),
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 10),
+            _buildRequirementItem(
+              label: "Mínimo 8 caracteres",
+              isMet: _hasMinLength,
+              isCompact: true,
+            ),
+            const SizedBox(height: 5),
+            _buildRequirementItem(
+              label: "Al menos una mayúscula (A-Z)",
+              isMet: _hasUppercase,
+              isCompact: true,
+            ),
+            const SizedBox(height: 5),
+            _buildRequirementItem(
+              label: "Al menos una minúscula (a-z)",
+              isMet: _hasLowercase,
+              isCompact: true,
+            ),
+            const SizedBox(height: 5),
+            _buildRequirementItem(
+              label: "Al menos un número (0-9)",
+              isMet: _hasNumber,
+              isCompact: true,
+            ),
+            const SizedBox(height: 5),
+            _buildRequirementItem(
+              label: "Al menos un carácter especial (!@#\$...)",
+              isMet: _hasSpecialChar,
+              isCompact: true,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
@@ -523,26 +599,13 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Requisitos de seguridad",
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: _azulOscuro,
-                      ),
-                    ),
-                    Text(
-                      "Estándar de la industria (OWASP)",
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: _grisTexto,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  "Requisitos de seguridad",
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _azulOscuro,
+                  ),
                 ),
               ),
             ],
@@ -630,13 +693,18 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
   Widget _buildRequirementItem({
     required String label,
     required bool isMet,
+    bool isCompact = false,
   }) {
+    final double iconBoxSize = isCompact ? 16 : 18;
+    final double iconSize = isCompact ? 12 : 14;
+    final double fontSize = isCompact ? 11.5 : 12;
+
     return Row(
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 18,
-          height: 18,
+          width: iconBoxSize,
+          height: iconBoxSize,
           decoration: BoxDecoration(
             color: isMet
                 ? AppTema.verdeSalud.withValues(alpha: 0.15)
@@ -647,7 +715,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
             isMet
                 ? Icons.check_circle_rounded
                 : Icons.radio_button_unchecked_rounded,
-            size: 14,
+            size: iconSize,
             color: isMet ? AppTema.verdeSalud : Colors.grey.shade400,
           ),
         ),
@@ -656,7 +724,7 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
           child: Text(
             label,
             style: GoogleFonts.inter(
-              fontSize: 12,
+              fontSize: fontSize,
               fontWeight: isMet ? FontWeight.w600 : FontWeight.w500,
               color: isMet ? AppTema.azulOscuro : Colors.blueGrey.shade600,
             ),

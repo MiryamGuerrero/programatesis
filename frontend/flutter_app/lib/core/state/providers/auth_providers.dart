@@ -129,6 +129,10 @@ final authSessionProvider = StreamProvider<Session?>((ref) async* {
 
   if (isRecovery) {
     ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
+    final initialUri = DeepLinkService().initialLink;
+    if (initialUri != null && client.auth.currentSession == null) {
+      await _handleMobileDeepLink(client, initialUri);
+    }
   } else if (kIsWeb && _isPasswordRecoveryUrl()) {
     // Fallback web para flujo implicit legacy (fragment con token).
     ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.setPassword;
@@ -180,9 +184,8 @@ final authSessionProvider = StreamProvider<Session?>((ref) async* {
 /// Se llama DESPUÉS de que Supabase.initialize() completó, por lo que si
 /// había un code PKCE, ya fue intercambiado y hay sesión activa.
 bool _isRecoveryLaunch(SupabaseClient client, Session? session) {
-  if (session == null) return false;
-
   if (kIsWeb) {
+    if (session == null) return false;
     // En web con PKCE, el code ya fue consumido y la URL limpiada.
     // Leemos la URL del navegador en el momento exacto del launch (antes de
     // cualquier redirect de Flutter). Si había ?code= o #type=recovery, es recovery.
@@ -200,11 +203,15 @@ bool _isRecoveryLaunch(SupabaseClient client, Session? session) {
     } catch (_) {}
   }
   final type = (params['type'] ?? '').trim().toLowerCase();
-  // En PKCE, el deep link es reumanutri://auth/callback?code=...
-  // Si hay code sin type explícito en este callback, también es recovery
-  // ya que en este proyecto el único flujo que llega aquí es recovery/invite.
   final hasCode = params.containsKey('code');
-  return type == 'recovery' || type == 'invite' || hasCode;
+  final hasTokenHash = params.containsKey('token_hash');
+  final hasAccessToken = params.containsKey('access_token');
+  final isRecoveryPath = initialUri.path.contains('tutor-redirect') ||
+      initialUri.path.contains('callback');
+
+  return type == 'recovery' ||
+      type == 'invite' ||
+      ((hasCode || hasTokenHash || hasAccessToken) && isRecoveryPath);
 }
 
 
