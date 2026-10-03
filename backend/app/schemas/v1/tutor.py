@@ -20,6 +20,8 @@ class GenerarPlanRequest(BaseModel):
     fecha_inicio: date
     momentos_obligatorios: List[int]
     momentos_opcionales: List[int]
+    hora_actual: Optional[str] = None
+
 
 class IntercambiarRecetaRequest(BaseModel):
     id_plan_item: int

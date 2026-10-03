@@ -315,12 +315,22 @@ def generar_plan_automatico(
         def simple_logger(msg: str):
             print(f"[GEN_PLAN] {msg}")
 
+        hora_act = None
+        if request.hora_actual:
+            try:
+                from datetime import time
+                parts = [int(p) for p in request.hora_actual.split(":")]
+                hora_act = time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            except Exception:
+                pass
+
         return caso_uso.ejecutar_tutor(
             id_paciente=request.id_paciente,
             dias=request.dias,
             fecha_inicio=request.fecha_inicio,
             momentos_obligatorios=request.momentos_obligatorios,
             momentos_opcionales=request.momentos_opcionales,
+            hora_actual=hora_act,
             log_callback=simple_logger
         )
     except Exception as e:

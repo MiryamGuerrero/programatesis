@@ -28,6 +28,7 @@ class _RoleShellState extends ConsumerState<RoleShell>
   
   final Map<String, Widget> _moduleCache = <String, Widget>{};
   final Map<int, SmoothScrollController> _controllers = {};
+  final Map<int, FocusScopeNode> _focusScopeNodes = {};
   final Map<String, bool> _categoryExpanded = {};
   final Set<int> _visitedIndices = {};
   bool _navigatingForward = true;
@@ -58,6 +59,9 @@ class _RoleShellState extends ConsumerState<RoleShell>
     for (final controller in _controllers.values) {
       controller.dispose();
     }
+    for (final node in _focusScopeNodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -71,6 +75,10 @@ class _RoleShellState extends ConsumerState<RoleShell>
         controller.dispose();
       }
       _controllers.clear();
+      for (final node in _focusScopeNodes.values) {
+        node.dispose();
+      }
+      _focusScopeNodes.clear();
       _visitedIndices.clear();
       _animController.value = 1.0;
     }
@@ -115,7 +123,17 @@ class _RoleShellState extends ConsumerState<RoleShell>
           children: [
             for (int i = 0; i < modules.length; i++)
               _visitedIndices.contains(i)
-                  ? _moduleFor(modules[i], i)
+                  ? ExcludeFocus(
+                      excluding: i != safeIndex,
+                      child: FocusScope(
+                        node: _focusScopeNodes.putIfAbsent(
+                          i,
+                          () => FocusScopeNode(debugLabel: "ModuleScope_${modules[i].key}"),
+                        ),
+                        canRequestFocus: i == safeIndex,
+                        child: _moduleFor(modules[i], i),
+                      ),
+                    )
                   : const SizedBox.expand(),
           ],
         ),
@@ -125,6 +143,9 @@ class _RoleShellState extends ConsumerState<RoleShell>
 
   void _selectModule(int index) {
     if (_index == index) return;
+    _focusScopeNodes[_index]?.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    FocusManager.instance.primaryFocus?.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    FocusScope.of(context).unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
     setState(() {
       _navigatingForward = index > _index;
       _index = index;

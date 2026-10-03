@@ -67,12 +67,23 @@ class InteligenciaApiRepository {
         {"id_paciente": idPaciente, "id_momento": idMomento});
   }
 
-  Future<Map<String, dynamic>> planAutomatico({required String idPaciente, required DateTime fechaInicio, int dias = 7, List<int>? momentosIds}) {
+  Future<Map<String, dynamic>> planAutomatico({
+    required String idPaciente,
+    required DateTime fechaInicio,
+    int dias = 7,
+    List<int>? momentosIds,
+    String? horaActual,
+  }) {
+    final now = DateTime.now();
+    final horaStr = horaActual ??
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
     return _post("plan-automatico", {
       "id_paciente": idPaciente,
       "fecha_inicio": fechaInicio.toIso8601String().split("T").first,
       "dias": dias,
       if (momentosIds != null) "momentos_ids": momentosIds,
+      "hora_actual": horaStr,
     });
   }
 

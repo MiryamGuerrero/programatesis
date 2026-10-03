@@ -1,7 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:intl/intl.dart";
-import "../../../../core/theme/app_theme.dart";
 import "../../data/repositorio_tutor.dart";
 import "../../../../core/state/app_providers.dart";
 
@@ -17,7 +16,7 @@ class GenerarPlanAutomaticoModal extends ConsumerStatefulWidget {
 class _GenerarPlanAutomaticoModalState
     extends ConsumerState<GenerarPlanAutomaticoModal> {
   String _durationType = "una semana";
-  DateTime _startDate = DateTime.now();
+  final DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 6));
   
   bool _morningSnackEnabled = false;
@@ -86,7 +85,7 @@ class _GenerarPlanAutomaticoModalState
       } else if (_durationType == "una semana") {
         _endDate = _startDate.add(const Duration(days: 6));
       } else if (_durationType == "un mes") {
-        _endDate = _startDate.add(const Duration(days: 30));
+        _endDate = _startDate.add(const Duration(days: 29));
       }
     });
   }
@@ -108,6 +107,9 @@ class _GenerarPlanAutomaticoModalState
       }
 
       final totalDias = _endDate.difference(_startDate).inDays + 1;
+      final now = DateTime.now();
+      final horaActualStr =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
       await repo.generarPlanAutomatico(
         idPaciente: widget.idPaciente,
@@ -115,6 +117,7 @@ class _GenerarPlanAutomaticoModalState
         fechaInicio: _startDate,
         momentosObligatorios: momentosObligatorios,
         momentosOpcionales: momentosOpcionales,
+        horaActual: horaActualStr,
       );
 
       if (mounted) {
@@ -131,35 +134,44 @@ class _GenerarPlanAutomaticoModalState
 
   String _getMomentName(int id) {
     switch (id) {
-      case 1: return "Desayuno";
-      case 2: return "Media mañana";
-      case 3: return "Almuerzo";
-      case 4: return "Media tarde";
-      case 5: return "Merienda";
-      default: return "Comida";
+      case 1:
+        return "Desayuno";
+      case 2:
+        return "Media mañana";
+      case 3:
+        return "Almuerzo";
+      case 4:
+        return "Media tarde";
+      case 5:
+        return "Merienda";
+      default:
+        return "Comida";
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final availableMoments = [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+    final availableMoments =
+        [1, 2, 3, 4, 5].where((id) => _momentosPasados[id] != true).toList();
+    final bool algunMomentoPasoHoy =
+        _momentosPasados.values.any((pasado) => pasado);
 
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Column(
+      title: const Column(
         children: [
-          const Icon(Icons.auto_awesome_rounded, size: 40, color: Colors.blue),
-          const SizedBox(height: 12),
-          const Text("Configurar Plan",
+          Icon(Icons.auto_awesome_rounded, size: 40, color: Colors.blue),
+          SizedBox(height: 12),
+          Text("Configurar Plan Inteligente",
               textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ],
       ),
       content: SizedBox(
-        width: 400,
-        height: screenHeight * 0.55, // Altura restringida para móvil
+        width: 440,
+        height: screenHeight * 0.62,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -181,22 +193,22 @@ class _GenerarPlanAutomaticoModalState
                   DropdownMenuItem(value: "un día", child: Text("Un día completo")),
                   DropdownMenuItem(
                       value: "una semana", child: Text("Una semana")),
-                  DropdownMenuItem(value: "un mes", child: Text("Un mes")),
+                  DropdownMenuItem(value: "un mes", child: Text("Un mes (30 días)")),
                 ],
                 onChanged: (v) {
                   _durationType = v!;
                   _updateEndDate();
                 },
               ),
-              const SizedBox(height: 20),
-              _buildModalSectionTitle("Resumen"),
+              const SizedBox(height: 16),
+              _buildModalSectionTitle("Resumen de Vigencia"),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.05),
+                  color: Colors.blue.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.blue.withOpacity(0.1)),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
                 ),
                 child: Column(
                   children: [
@@ -209,8 +221,8 @@ class _GenerarPlanAutomaticoModalState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _durationType == "una comida" 
-                          ? "Generación rápida de 1 comida"
+                      _durationType == "una comida"
+                          ? "Generación de 1 momento de comida para hoy"
                           : "${_endDate.difference(_startDate).inDays + 1} días de vigencia",
                       style: TextStyle(
                           color: Colors.blue.shade700,
@@ -220,18 +232,47 @@ class _GenerarPlanAutomaticoModalState
                   ],
                 ),
               ),
-              const Divider(height: 40, thickness: 1),
-              
+
+              if (algunMomentoPasoHoy && _durationType != "una comida") ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.schedule_rounded,
+                          size: 18, color: Colors.amber.shade900),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Ajuste de horario: Las comidas de hoy cuyo horario ya transcurrió se omitirán hoy y se programarán a partir de mañana.",
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.amber.shade900,
+                              height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const Divider(height: 32, thickness: 1),
+
               if (_durationType == "una comida") ...[
                 _buildModalSectionTitle("Selecciona la comida"),
                 if (availableMoments.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.shade200)
-                    ),
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200)),
                     child: const Text(
                       "Todos los momentos de comida para el día de hoy ya han pasado.",
                       style: TextStyle(color: Colors.deepOrange, fontSize: 12),
@@ -240,7 +281,9 @@ class _GenerarPlanAutomaticoModalState
                   )
                 else
                   DropdownButtonFormField<int>(
-                    value: availableMoments.contains(_singleMealId) ? _singleMealId : availableMoments.first,
+                    value: availableMoments.contains(_singleMealId)
+                        ? _singleMealId
+                        : availableMoments.first,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.blue.shade50,
@@ -250,37 +293,75 @@ class _GenerarPlanAutomaticoModalState
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
-                    items: availableMoments.map((id) => DropdownMenuItem(
-                      value: id,
-                      child: Text(_getMomentName(id), style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
-                    )).toList(),
+                    items: availableMoments
+                        .map((id) => DropdownMenuItem(
+                              value: id,
+                              child: Text(_getMomentName(id),
+                                  style: TextStyle(
+                                      color: Colors.blue.shade900,
+                                      fontWeight: FontWeight.bold)),
+                            ))
+                        .toList(),
                     onChanged: (v) => setState(() => _singleMealId = v!),
                   ),
               ] else ...[
                 _buildModalSectionTitle("Comidas base"),
-                const Text("Se establecerán Desayuno, Almuerzo y Merienda.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.blueGrey, height: 1.4)),
+                _buildConfigTile(
+                  "Desayuno",
+                  _momentosPasados[1] == true
+                      ? "Principal (horario pasado hoy, inicia mañana)"
+                      : "Principal",
+                  Icons.wb_twilight,
+                  true,
+                  null,
+                  isMuted: _momentosPasados[1] == true,
+                ),
+                _buildConfigTile(
+                  "Almuerzo",
+                  _momentosPasados[3] == true
+                      ? "Principal (horario pasado hoy, inicia mañana)"
+                      : "Principal",
+                  Icons.wb_sunny,
+                  true,
+                  null,
+                  isMuted: _momentosPasados[3] == true,
+                ),
+                _buildConfigTile(
+                  "Merienda",
+                  _momentosPasados[5] == true
+                      ? "Principal (horario pasado hoy, inicia mañana)"
+                      : "Principal",
+                  Icons.nightlight_round,
+                  true,
+                  null,
+                  isMuted: _momentosPasados[5] == true,
+                ),
                 const SizedBox(height: 16),
                 _buildModalSectionTitle("Snacks opcionales"),
                 _buildConfigTile(
-                    "Media mañana",
-                    "Entre desayuno y almuerzo",
-                    Icons.coffee,
-                    _morningSnackEnabled,
-                    (v) => setState(() => _morningSnackEnabled = v!)),
+                  "Media mañana",
+                  _momentosPasados[2] == true
+                      ? "Entre desayuno y almuerzo (pasado hoy, inicia mañana)"
+                      : "Entre desayuno y almuerzo",
+                  Icons.coffee,
+                  _morningSnackEnabled,
+                  (v) => setState(() => _morningSnackEnabled = v!),
+                ),
                 _buildConfigTile(
-                    "Media tarde",
-                    "Entre almuerzo y cena",
-                    Icons.apple,
-                    _afternoonSnackEnabled,
-                    (v) => setState(() => _afternoonSnackEnabled = v!)),
+                  "Media tarde",
+                  _momentosPasados[4] == true
+                      ? "Entre almuerzo y cena (pasado hoy, inicia mañana)"
+                      : "Entre almuerzo y cena",
+                  Icons.apple,
+                  _afternoonSnackEnabled,
+                  (v) => setState(() => _afternoonSnackEnabled = v!),
+                ),
               ],
             ],
           ),
         ),
       ),
+
       actions: [
         Row(
           children: [
@@ -336,28 +417,40 @@ class _GenerarPlanAutomaticoModalState
   }
 
   Widget _buildConfigTile(String title, String subtitle, IconData icon,
-      bool value, Function(bool?)? onChanged) {
+      bool value, Function(bool?)? onChanged, {bool isMuted = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: value ? Colors.blue.withOpacity(0.03) : Colors.transparent,
+        color: isMuted
+            ? Colors.grey.shade50
+            : (value ? Colors.blue.withValues(alpha: 0.03) : Colors.transparent),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: value ? Colors.blue.withOpacity(0.2) : Colors.grey.shade200,
+          color: isMuted
+              ? Colors.grey.shade300
+              : (value ? Colors.blue.withValues(alpha: 0.2) : Colors.grey.shade200),
         ),
       ),
       child: CheckboxListTile(
-        secondary: Icon(icon, color: value ? Colors.blue : Colors.grey),
+        secondary: Icon(icon,
+            color: isMuted
+                ? Colors.grey.shade400
+                : (value ? Colors.blue : Colors.grey)),
         title: Text(title,
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: value ? Colors.blue.shade900 : Colors.grey.shade700)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
+                color: isMuted
+                    ? Colors.grey.shade600
+                    : (value ? Colors.blue.shade900 : Colors.grey.shade700))),
+        subtitle: Text(subtitle,
+            style: TextStyle(
+                fontSize: 11,
+                color: isMuted ? Colors.orange.shade800 : Colors.grey.shade600)),
         value: value,
         onChanged: onChanged,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        activeColor: Colors.blue,
+        activeColor: isMuted ? Colors.grey : Colors.blue,
       ),
     );
   }

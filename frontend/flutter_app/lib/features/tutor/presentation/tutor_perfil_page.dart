@@ -30,6 +30,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
   final _telefonoController = TextEditingController();
   final _direccionController = TextEditingController();
 
+  final _nombresFocus = FocusNode();
+  final _apellidosFocus = FocusNode();
+  final _cedulaFocus = FocusNode();
+  final _telefonoFocus = FocusNode();
+  final _direccionFocus = FocusNode();
+
   bool _initialized = false;
   bool _saving = false;
 
@@ -41,11 +47,16 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     _cedulaController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
+    _nombresFocus.dispose();
+    _apellidosFocus.dispose();
+    _cedulaFocus.dispose();
+    _telefonoFocus.dispose();
+    _direccionFocus.dispose();
     super.dispose();
   }
 
-  void _initializeFields(Map<String, dynamic> profile) {
-    if (_initialized) return;
+  void _initializeFields(Map<String, dynamic> profile, {bool force = false}) {
+    if (_initialized && !force) return;
 
     final fullName = profile["nombre_completo"]?.toString() ?? "";
     List<String> partes = fullName.trim().split(" ");
@@ -71,9 +82,11 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
   }
 
   Future<void> _onRefreshPage() async {
-    _initialized = false;
-    ref.invalidate(miPerfilProvider);
-    await ref.read(miPerfilProvider.future);
+    final updated = await ref.refresh(miPerfilProvider.future);
+    if (mounted) {
+      _initializeFields(updated, force: true);
+      setState(() {});
+    }
   }
 
   Widget _buildPerfilShimmer(BuildContext context) {
@@ -168,6 +181,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
   }
 
   Future<void> _saveProfile() async {
+    _nombresFocus.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    _apellidosFocus.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    _cedulaFocus.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    _telefonoFocus.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    _direccionFocus.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    FocusScope.of(context).unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
     final nombres = _nombresController.text.trim();
     final apellidos = _apellidosController.text.trim();
     final email = _emailController.text.trim();
@@ -193,11 +212,13 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       );
 
       if (!mounted) return;
-      _initialized = false;
-      ref.invalidate(miPerfilProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Perfil actualizado con éxito")),
-      );
+      final updatedProfile = await ref.refresh(miPerfilProvider.future);
+      if (mounted) {
+        _initializeFields(updatedProfile, force: true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Perfil actualizado con éxito")),
+        );
+      }
     } catch (error) {
       if (mounted) {
         String errorMsg = error.toString();
@@ -231,9 +252,12 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: perfilAsync.when(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: perfilAsync.when(
         data: (profile) {
           _initializeFields(profile);
           final String parentesco =
@@ -319,8 +343,9 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildProfileHeader(
       BuildContext context, String iniciales, String parentesco) {
@@ -391,16 +416,19 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
             _buildSectionTitle(context, "Información Personal"),
             const SizedBox(height: 24),
             _buildField(context, "Nombres", _nombresController,
-                Icons.person_outline_rounded),
+                Icons.person_outline_rounded,
+                focusNode: _nombresFocus),
             const SizedBox(height: 20),
             _buildField(context, "Apellidos", _apellidosController,
-                Icons.person_outline_rounded),
+                Icons.person_outline_rounded,
+                focusNode: _apellidosFocus),
             const SizedBox(height: 20),
             _buildField(
                 context,
                 "Cédula / ID (10 dígitos)",
                 _cedulaController,
                 Icons.badge_outlined,
+                focusNode: _cedulaFocus,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -412,6 +440,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                 "Teléfono (10 dígitos)",
                 _telefonoController,
                 Icons.phone_android_rounded,
+                focusNode: _telefonoFocus,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -429,6 +458,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
             const SizedBox(height: 20),
             _buildField(context, "Dirección", _direccionController,
                 Icons.location_on_outlined,
+                focusNode: _direccionFocus,
                 maxLines: 2),
           ],
         ),
@@ -450,7 +480,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
   Widget _buildField(BuildContext context, String label,
       TextEditingController controller, IconData icon,
-      {bool enabled = true,
+      {FocusNode? focusNode,
+      bool enabled = true,
       int maxLines = 1,
       TextInputType? keyboardType,
       List<TextInputFormatter>? inputFormatters}) {
@@ -466,6 +497,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           enabled: enabled,
           maxLines: maxLines,
           keyboardType: keyboardType,

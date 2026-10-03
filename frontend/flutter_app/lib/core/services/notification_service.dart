@@ -1,6 +1,7 @@
 import "package:flutter/foundation.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:flutter_timezone/flutter_timezone.dart";
 import "package:timezone/data/latest_all.dart" as tz;
 import "package:timezone/timezone.dart" as tz;
 
@@ -49,6 +50,10 @@ class NotificationService {
 
     try {
       tz.initializeTimeZones();
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = timeZoneInfo.identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+      debugPrint("Zona horaria configurada: $timeZoneName");
     } catch (e) {
       debugPrint("Error inicializando zonas horarias: $e");
     }
@@ -230,6 +235,7 @@ class NotificationService {
           channelDescription: _channelDesc,
           importance: Importance.max,
           priority: Priority.high,
+          icon: "@mipmap/ic_launcher",
           styleInformation: BigTextStyleInformation(
             cuerpo,
             contentTitle: titulo,

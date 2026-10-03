@@ -1,5 +1,6 @@
 import random
-from datetime import date, timedelta
+import zoneinfo
+from datetime import date, timedelta, time, datetime
 from typing import List, Dict, Optional
 from ...domain.repositorios.interfaces import (
     IRepositorioComposicion,
@@ -31,6 +32,7 @@ class CasoUsoGenerarPlanAutomatico:
         fecha_inicio: date,
         momentos_obligatorios: List[int],
         momentos_opcionales: List[int],
+        hora_actual: Optional[time] = None,
         log_callback: Optional[callable] = None
     ) -> dict:
 
@@ -66,11 +68,20 @@ class CasoUsoGenerarPlanAutomatico:
             dias=dias,
             momentos_ids=sorted(list(set(momentos_obligatorios + momentos_opcionales))),
             log_callback=log_callback,
-            momentos_a_omitir=momentos_a_omitir
+            momentos_a_omitir=momentos_a_omitir,
+            hora_actual=hora_actual
         )
         
         if log_callback: log_callback(f"Guardando plan de {dias} días en el sistema...")
-        # 2. Crear el plan nutricional (cabecera) en la BD
+        # 2. Desactivar planes automáticos anteriores en este rango de fechas y limpiar items automáticos previos
+        if hasattr(self.repo_seguimiento, 'limpiar_items_automaticos_rango'):
+            self.repo_seguimiento.limpiar_items_automaticos_rango(
+                id_paciente=id_paciente,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=plan_semanal.dias[-1].fecha
+            )
+
+        # 3. Crear el plan nutricional (cabecera) en la BD
         id_plan = self.repo_seguimiento.crear_plan_nutricional({
             "id_paciente": id_paciente,
             "id_origen_plan": 2, # Sistema
@@ -80,7 +91,7 @@ class CasoUsoGenerarPlanAutomatico:
             "comidas_por_dia": len(momentos_obligatorios) + len(momentos_opcionales)
         })
 
-        # 3. Preparar items para insertar
+        # 4. Preparar items para insertar
         items_a_insertar = []
         for dia in plan_semanal.dias:
             for comida in dia.comidas:
@@ -92,7 +103,7 @@ class CasoUsoGenerarPlanAutomatico:
                     "semaforo": comida.semaforo
                 })
 
-        # 4. Guardar items
+        # 5. Guardar items
         if items_a_insertar:
             self.repo_seguimiento.agregar_items_plan(items_a_insertar)
             
@@ -111,7 +122,8 @@ class CasoUsoGenerarPlanAutomatico:
         dias: int,
         momentos_ids: List[int],
         log_callback: Optional[callable] = None,
-        momentos_a_omitir: Optional[dict] = None
+        momentos_a_omitir: Optional[dict] = None,
+        hora_actual: Optional[time] = None
     ) -> PlanSemanal:
         # TRUNCAR DIAS HASTA LA PROXIMA REVISION (CONTROL MEDICO)
         # El plan solo debe abarcar hasta un día antes de la consulta.
@@ -134,9 +146,21 @@ class CasoUsoGenerarPlanAutomatico:
         todos_momentos = self.repo_receta.listar_momentos_comida()
         momentos_cat = {m["id"]: m["nombre"] for m in todos_momentos}
         
-        hoy = date.today()
-        from datetime import datetime
-        ahora = datetime.now().time() if fecha_inicio == hoy else None
+        # Determinar zona horaria de Ecuador (America/Guayaquil) para sincronizar con la hora del usuario
+        try:
+            tz_ec = zoneinfo.ZoneInfo("America/Guayaquil")
+        except Exception:
+            from datetime import timezone
+            tz_ec = timezone(timedelta(hours=-5))
+
+        ahora_dt = datetime.now(tz_ec)
+        hoy = ahora_dt.date()
+
+        if hora_actual is not None:
+            ahora = hora_actual if fecha_inicio == hoy else None
+        else:
+            ahora = ahora_dt.time() if fecha_inicio == hoy else None
+
 
         # 3. OPTIMIZACIÓN CRÍTICA Nivel 1: Traer todas las combinaciones aplicables de golpe
         if log_callback: log_callback("Cargando reglas de combinación clínica...")

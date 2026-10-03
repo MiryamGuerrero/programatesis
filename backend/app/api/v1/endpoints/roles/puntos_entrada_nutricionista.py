@@ -128,11 +128,21 @@ def generar_plan_automatico(
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
     try:
+        hora_act = None
+        if payload.hora_actual:
+            try:
+                from datetime import time
+                parts = [int(p) for p in payload.hora_actual.split(":")]
+                hora_act = time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            except Exception:
+                pass
+
         return caso_uso.generar_plan_objeto(
             id_paciente=payload.id_paciente, 
             fecha_inicio=payload.fecha_inicio, 
             dias=payload.dias, 
-            momentos_ids=payload.momentos_ids or [1, 2, 3, 4, 5]
+            momentos_ids=payload.momentos_ids or [1, 2, 3, 4, 5],
+            hora_actual=hora_act
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))

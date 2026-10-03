@@ -118,12 +118,16 @@ class _MisPacientesPageState extends ConsumerState<MisPacientesPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: _PatientCard(
                           patientData: p,
-                          onTap: () {
+                          onTap: () async {
+                            FocusScope.of(context).unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
                             ref.read(selectedPatientIdProvider.notifier).state = p["id"].toString();
-                            Navigator.push(
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const TutorHomePage()),
                             );
+                            if (context.mounted) {
+                              FocusScope.of(context).unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+                            }
                           },
                         ),
                       );

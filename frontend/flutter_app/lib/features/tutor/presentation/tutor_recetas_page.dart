@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
@@ -16,9 +17,15 @@ class TutorRecetasPage extends ConsumerStatefulWidget {
   ConsumerState<TutorRecetasPage> createState() => _TutorRecetasPageState();
 }
 
-class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
+class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  AnimationController? _headerAnimController;
+  Animation<double>? _headerAnimation;
+  bool _isHeaderVisible = true;
 
   List<Map<String, dynamic>> _recetas = [];
   List<Map<String, dynamic>> _momentos = [];
@@ -34,20 +41,46 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
   int _offset = 0;
   final int _limit = 20;
 
+  void _initAnimation() {
+    _headerAnimController ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      value: 1.0,
+    );
+    _headerAnimation ??= CurvedAnimation(
+      parent: _headerAnimController!,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
+    );
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _initAnimation();
+  }
+
   @override
   void initState() {
     super.initState();
+    _initAnimation();
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
+    _headerAnimController?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels <= 0) {
+      _showHeader();
+    }
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoadingMore && _hasMore) {
@@ -56,7 +89,25 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
     }
   }
 
+  void _hideHeader() {
+    if (_searchFocusNode.hasFocus) {
+      _searchFocusNode.unfocus();
+    }
+    if (_isHeaderVisible) {
+      setState(() => _isHeaderVisible = false);
+      _headerAnimController?.reverse();
+    }
+  }
+
+  void _showHeader() {
+    if (!_isHeaderVisible) {
+      setState(() => _isHeaderVisible = true);
+      _headerAnimController?.forward();
+    }
+  }
+
   Future<void> _cargarDatosIniciales() async {
+    _showHeader();
     setState(() {
       _isLoading = true;
       _offset = 0;
@@ -108,6 +159,7 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
 
   @override
   Widget build(BuildContext context) {
+    _initAnimation();
     final colorScheme = Theme.of(context).colorScheme;
     final idPaciente = ref.watch(selectedPatientIdProvider);
 
@@ -136,13 +188,43 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
       });
     }
 
+    final anim = _headerAnimation ?? const AlwaysStoppedAnimation(1.0);
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: Column(
         children: [
-          _buildSearchAndFilters(context),
+          SizeTransition(
+            sizeFactor: anim,
+            alignment: Alignment.topCenter,
+            child: FadeTransition(
+              opacity: anim,
+              child: _buildSearchAndFilters(context),
+            ),
+          ),
           Expanded(
-            child: RefreshIndicator(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is UserScrollNotification) {
+                  if (notification.direction == ScrollDirection.reverse) {
+                    _hideHeader();
+                  } else if (notification.direction ==
+                      ScrollDirection.forward) {
+                    _showHeader();
+                  }
+                } else if (notification is ScrollUpdateNotification) {
+                  final double? delta = notification.scrollDelta;
+                  if (delta != null) {
+                    if (delta > 0.0) {
+                      _hideHeader();
+                    } else if (delta < -1.0) {
+                      _showHeader();
+                    }
+                  }
+                }
+                return false;
+              },
+              child: RefreshIndicator(
               onRefresh: () async {
                 if (idPaciente != null) {
                   setState(() => _isLoading = true);
@@ -198,6 +280,7 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
                           );
                         },
                       ),
+              ),
             ),
           ),
         ],
@@ -339,6 +422,7 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage> {
           children: [
             TextField(
               controller: _searchController,
+              focusNode: _searchFocusNode,
               onSubmitted: (v) => _cargarDatosIniciales(),
               decoration: InputDecoration(
                 hintText: "Buscar recetas seguras...",

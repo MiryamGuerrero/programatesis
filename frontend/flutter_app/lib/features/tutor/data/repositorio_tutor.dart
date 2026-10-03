@@ -60,14 +60,20 @@ class RepositorioTutor {
     required DateTime fechaInicio,
     required List<int> momentosObligatorios,
     required List<int> momentosOpcionales,
+    String? horaActual,
   }) async {
     try {
+      final now = DateTime.now();
+      final horaStr = horaActual ??
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
       final response = await _dio.post("tutor/generar-plan-automatico", data: {
         "id_paciente": idPaciente,
         "dias": dias,
         "fecha_inicio": fechaInicio.toIsoformat(),
         "momentos_obligatorios": momentosObligatorios,
         "momentos_opcionales": momentosOpcionales,
+        "hora_actual": horaStr,
       });
       return Map<String, dynamic>.from(response.data);
     } on DioException catch (e) {

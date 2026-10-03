@@ -279,3 +279,25 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
             sql = "delete from interaccion.plan_item where id = %s"
             cur.execute(sql, (id_plan_item,))
             return cur.rowcount > 0
+
+    def limpiar_items_automaticos_rango(self, id_paciente: str, fecha_inicio: date, fecha_fin: date) -> int:
+        with db_cursor() as cur:
+            sql_items = """
+                delete from interaccion.plan_item
+                where id_plan in (
+                    select id from interaccion.plan_nutricional
+                    where id_paciente = %s and id_origen_plan = 2
+                )
+                and fecha_programada >= %s and fecha_programada <= %s
+            """
+            cur.execute(sql_items, (id_paciente, fecha_inicio, fecha_fin))
+            filas_eliminadas = cur.rowcount
+
+            sql_planes = """
+                update interaccion.plan_nutricional
+                set vigente = false
+                where id_paciente = %s and id_origen_plan = 2
+                  and fecha_inicio <= %s and fecha_fin >= %s
+            """
+            cur.execute(sql_planes, (id_paciente, fecha_fin, fecha_inicio))
+            return filas_eliminadas

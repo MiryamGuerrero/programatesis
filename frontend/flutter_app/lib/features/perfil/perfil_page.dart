@@ -43,8 +43,8 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     super.dispose();
   }
 
-  void _initializeFields(Map<String, dynamic> profile) {
-    if (_initialized) return;
+  void _initializeFields(Map<String, dynamic> profile, {bool force = false}) {
+    if (_initialized && !force) return;
 
     final fullName = profile["nombre_completo"]?.toString() ?? "";
     List<String> partes = fullName.trim().split(" ");
@@ -77,6 +77,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   }
 
   Future<void> _saveProfile() async {
+    FocusScope.of(context).unfocus();
     final nombres = _nombresController.text.trim();
     final apellidos = _apellidosController.text.trim();
     final username = _usernameController.text.trim();
@@ -116,8 +117,11 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     );
 
     if (success == true && mounted) {
-      _initialized = false;
-      ref.invalidate(miPerfilProvider);
+      final updatedProfile = await ref.refresh(miPerfilProvider.future);
+      if (mounted) {
+        _initializeFields(updatedProfile, force: true);
+        setState(() {});
+      }
       ref.invalidate(usersListProvider);
     }
   }
@@ -126,51 +130,55 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   Widget build(BuildContext context) {
     final perfilAsync = ref.watch(miPerfilProvider);
 
-    return perfilAsync.when(
-      data: (profile) {
-        _initializeFields(profile);
-        final String role = (profile["titulo_profesional"]?.toString().isNotEmpty == true)
-            ? profile["titulo_profesional"].toString()
-            : (profile["rol_nombre"]?.toString() ?? "Usuario");
-        final activo = profile["activo"] == true;
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: perfilAsync.when(
+        data: (profile) {
+          _initializeFields(profile);
+          final String role = (profile["titulo_profesional"]?.toString().isNotEmpty == true)
+              ? profile["titulo_profesional"].toString()
+              : (profile["rol_nombre"]?.toString() ?? "Usuario");
+          final activo = profile["activo"] == true;
 
-        return Scaffold(
-          backgroundColor: AppTema.grisLienzo,
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Mi perfil",
-                    style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: AppTema.azulPrincipal,
-                        letterSpacing: -0.5)),
-                Text("Gestiona tu información personal y profesional.",
-                    style: GoogleFonts.inter(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
-                const SizedBox(height: 32),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAvatarCard(profile, role, activo),
-                    const SizedBox(width: 32),
-                    Expanded(child: _buildFormCard()),
-                  ],
-                ),
-              ],
+          return Scaffold(
+            backgroundColor: AppTema.grisLienzo,
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Mi perfil",
+                      style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppTema.azulPrincipal,
+                          letterSpacing: -0.5)),
+                  Text("Gestiona tu información personal y profesional.",
+                      style: GoogleFonts.inter(
+                          color: Colors.blueGrey,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 32),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAvatarCard(profile, role, activo),
+                      const SizedBox(width: 32),
+                      Expanded(child: _buildFormCard()),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-      loading: () => const Scaffold(
-        backgroundColor: AppTema.grisLienzo,
-        body: NutriLoading(mensaje: "Sincronizando perfil..."),
+          );
+        },
+        loading: () => const Scaffold(
+          backgroundColor: AppTema.grisLienzo,
+          body: NutriLoading(mensaje: "Sincronizando perfil..."),
+        ),
+        error: (e, _) => Center(child: Text("Error al cargar perfil: $e")),
       ),
-      error: (e, _) => Center(child: Text("Error al cargar perfil: $e")),
     );
   }
 

@@ -44,3 +44,4 @@ class PlanAutomaticoRequest(BaseModel):
     fecha_inicio: date
     dias: int = 7
     momentos_ids: Optional[List[int]] = None
+    hora_actual: Optional[str] = None

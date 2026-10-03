@@ -95,8 +95,8 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       if (idPaciente != null) {
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        await ref.refresh(
-            planDiarioProvider((idPaciente: idPaciente, fecha: today)).future);
+        ref.invalidate(
+            planDiarioProvider((idPaciente: idPaciente, fecha: today)));
       } else {
         ref.invalidate(planDiarioProvider);
       }
@@ -135,7 +135,6 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     final String url = r['imagen_url'] ?? "";
 
     return Scaffold(
-      bottomNavigationBar: _buildRatingSection(context, theme, r['id']),
       body: RefreshIndicator(
         onRefresh: () async {
           await _cargarDetalle();
@@ -419,85 +418,367 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
     );
   }
 
-  Widget _buildRatingSection(
-      BuildContext context, ThemeData theme, int recetaId) {
+  Widget _buildRatingCircleButton(
+      BuildContext context, Map<String, dynamic> r) {
+    final double promedio =
+        double.tryParse(r['puntuacion_promedio']?.toString() ?? "0") ?? 0;
+    final int recetaId = r['id'];
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Center(
+        child: Tooltip(
+          message: "Toca para calificar esta receta",
+          child: InkWell(
+            onTap: () => _openRatingModal(context, recetaId),
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: _userRating > 0
+                          ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                          : [Colors.white, const Color(0xFFF8FAFC)],
+                    ),
+                    border: Border.all(
+                      color: Colors.amber.shade400,
+                      width: 1.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                      if (_userRating > 0)
+                        BoxShadow(
+                          color: Colors.amber.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          color: _userRating > 0
+                              ? Colors.white
+                              : const Color(0xFFF59E0B),
+                          size: 15,
+                        ),
+                        Text(
+                          promedio > 0 ? promedio.toStringAsFixed(1) : "-",
+                          style: GoogleFonts.montserrat(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            height: 1.0,
+                            color: _userRating > 0
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -1,
+                  right: -1,
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: _userRating > 0
+                          ? const Color(0xFF16A34A)
+                          : AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.2),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 3),
+                      ],
+                    ),
+                    child: Icon(
+                      _userRating > 0 ? Icons.check : Icons.edit_rounded,
+                      color: Colors.white,
+                      size: 9,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRatingModal(BuildContext context, int recetaId) async {
     final double promedio =
         double.tryParse(_receta!['puntuacion_promedio']?.toString() ?? "0") ??
             0;
     final int total = _receta!['total_evaluaciones'] ?? 0;
+    int selectedRating = 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5))
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "¿Qué te pareció?",
-                  style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: AppTextSizes.bodySmall(context.screenWidth),
-                      color: AppTema.azulOscuro),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.star_rounded,
-                        color: Colors.amber, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$promedio",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize:
-                              AppTextSizes.bodySmall(context.screenWidth)),
-                    ),
-                    Text(
-                      " ($total)",
-                      style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: AppTextSizes.caption(context.screenWidth)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (index) {
-                final starValue = index + 1;
-                return IconButton(
-                  onPressed: () => _handleRating(starValue, recetaId),
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    starValue <= _userRating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    size: context.responsiveValue(mobile: 32, tablet: 40),
-                    color: starValue <= _userRating
-                        ? Colors.amber
-                        : Colors.amber.withOpacity(0.3),
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            String ratingLabel = "";
+            switch (selectedRating) {
+              case 1:
+                ratingLabel = "No me gustó (1 / 5)";
+                break;
+              case 2:
+                ratingLabel = "Regular (2 / 5)";
+                break;
+              case 3:
+                ratingLabel = "Buena (3 / 5)";
+                break;
+              case 4:
+                ratingLabel = "Muy buena (4 / 5)";
+                break;
+              case 5:
+                ratingLabel = "¡Excelente! (5 / 5)";
+                break;
+              default:
+                ratingLabel = "Toca las estrellas para calificar";
+            }
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              backgroundColor: Colors.white,
+              elevation: 16,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.amber.shade200),
+                                ),
+                                child: const Icon(
+                                  Icons.star_rounded,
+                                  color: Colors.amber,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                "Calificar receta",
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTema.azulOscuro,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded,
+                                color: Colors.grey),
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            tooltip: "Cerrar",
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _receta!['nombre'] ?? 'Receta',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.star_rounded,
+                              color: Colors.amber.shade600, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            "$promedio",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          Text(
+                            " ($total ${total == 1 ? 'evaluación' : 'evaluaciones'})",
+                            style: TextStyle(
+                                color: Colors.grey.shade500, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(height: 1),
+                      ),
+                      Text(
+                        "¿Qué puntuación le das a este plato?",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF475569),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final starValue = index + 1;
+                          final isFilled = starValue <= selectedRating;
+                          return IconButton(
+                            iconSize: 42,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedRating = starValue;
+                              });
+                            },
+                            icon: Icon(
+                              isFilled
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: isFilled
+                                  ? Colors.amber
+                                  : Colors.grey.shade300,
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: selectedRating == 0
+                                ? const Color(0xFFF8FAFC)
+                                : (selectedRating <= 2
+                                    ? const Color(0xFFFEF2F2)
+                                    : const Color(0xFFF0FDF4)),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: selectedRating == 0
+                                  ? const Color(0xFFE2E8F0)
+                                  : (selectedRating <= 2
+                                      ? const Color(0xFFFECACA)
+                                      : const Color(0xFFBBF7D0)),
+                            ),
+                          ),
+                          child: Text(
+                            ratingLabel,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: selectedRating == 0
+                                  ? const Color(0xFF64748B)
+                                  : (selectedRating <= 2
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFF16A34A)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (selectedRating > 0 && selectedRating <= 2) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          "Al seleccionar 1 o 2 estrellas, te pediremos un breve motivo para no volver a sugerir platos similares.",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.lato(
+                            fontSize: 11.5,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(dialogCtx),
+                              style: OutlinedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                "Cancelar",
+                                style: GoogleFonts.montserrat(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: selectedRating == 0
+                                  ? null
+                                  : () {
+                                      Navigator.pop(dialogCtx);
+                                      _handleRating(selectedRating, recetaId);
+                                    },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppTema.azulPrincipal,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                "Guardar",
+                                style: GoogleFonts.montserrat(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                );
-              }),
-            ),
-          ],
-        ),
-      ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -819,6 +1100,7 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
       String url, ColorScheme colorScheme) {
     return SliverAppBar(
       expandedHeight: context.responsiveValue(mobile: 280, tablet: 400),
+      toolbarHeight: 68,
       pinned: true,
       backgroundColor: AppTema.azulOscuro,
       surfaceTintColor: AppTema.azulOscuro,
@@ -826,16 +1108,23 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
+      actions: [
+        _buildRatingCircleButton(context, r),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: false,
-        titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 20),
+        titlePadding: const EdgeInsets.only(left: 56, bottom: 12, right: 66),
         title: Text(
           r['nombre'] ?? 'Receta',
+          softWrap: true,
           style: GoogleFonts.montserrat(
             fontWeight: FontWeight.bold,
-            fontSize: AppTextSizes.title(context.screenWidth),
+            fontSize: AppTextSizes.title(context.screenWidth) * 0.82,
             color: Colors.white,
-            shadows: [const Shadow(blurRadius: 8, color: Colors.black)],
+            shadows: const [
+              Shadow(blurRadius: 8, color: Colors.black, offset: Offset(0, 1)),
+              Shadow(blurRadius: 16, color: Colors.black87),
+            ],
           ),
         ),
         background: Stack(
