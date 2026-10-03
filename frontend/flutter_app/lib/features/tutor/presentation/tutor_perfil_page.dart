@@ -14,6 +14,7 @@ import "../../../core/services/notification_service.dart";
 import "../../../shared/widgets/error_conexion_widget.dart";
 import "../../auth/login_page.dart";
 import "widgets/cerrar_sesion_dialog.dart";
+import "widgets/tutor_privacy_policy_dialog.dart";
 
 class TutorPerfilPage extends ConsumerStatefulWidget {
   const TutorPerfilPage({super.key});
@@ -317,6 +318,8 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
                             ],
                           ),
                           const SizedBox(height: 20),
+                          _buildPrivacyPolicyButton(context),
+                          const SizedBox(height: 12),
                           _buildLogoutButton(context),
                           const SizedBox(height: AppSpacing.xxl),
                         ],
@@ -541,6 +544,33 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
           ),
           elevation: 2,
           shadowColor: AppTema.azulPrincipal.withValues(alpha: 0.35),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyPolicyButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => mostrarModalPoliticaPrivacidad(context, forceInteractive: true),
+        icon: const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 20),
+        label: Text(
+          "POLÍTICA DE PRIVACIDAD",
+          style: GoogleFonts.montserrat(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTema.verdeSalud,
+          backgroundColor: const Color(0xFFF0FDF4),
+          side: const BorderSide(color: Color(0xFFBBF7D0), width: 1.2),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );

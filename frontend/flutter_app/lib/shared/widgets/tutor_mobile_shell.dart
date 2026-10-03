@@ -7,6 +7,7 @@ import "../../core/services/notification_service.dart";
 import "../../core/state/app_providers.dart";
 import "../../features/roles/role_module_registry.dart";
 import "../../features/tutor/presentation/widgets/tutor_tutorial_modal.dart";
+import "../../features/tutor/presentation/widgets/tutor_privacy_policy_dialog.dart";
 import "../models/app_role.dart";
 
 class TutorMobileShell extends ConsumerStatefulWidget {
@@ -26,12 +27,20 @@ class _TutorMobileShellState extends ConsumerState<TutorMobileShell> {
     _pageController = PageController(initialPage: _index);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(realtimeServiceProvider).init();
+
+      // 1. Verificar y mostrar primero la Política de Privacidad obligatoria
+      final aceptoPolitica = await mostrarModalPoliticaPrivacidad(context);
+      if (!aceptoPolitica || !mounted) {
+        // Si no aceptó o cerró sesión, detenemos el flujo aquí
+        return;
+      }
+
+      // 2. Tras aceptar la política de privacidad, inicializar notificaciones y mostrar tutorial
       final debeVerFuture = tutorDebeVerTutorial();
       final notifService = ref.read(notificationServiceProvider);
       await notifService.init();
       await notifService.solicitarPermisos();
 
-      // Mostrar el tutorial de inmediato tras responder al permiso de notificaciones
       if (mounted) {
         final debeVer = await debeVerFuture;
         if (debeVer && mounted) {
