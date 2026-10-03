@@ -1,5 +1,4 @@
-/politica-privacidad.html    /politica-privacidad.html    200
-/politica-privacidad         /politica-privacidad.html    200
-/privacidad                  /politica-privacidad.html    200
-/assets/*                    /assets/:splat               200
-/*                           /index.html                  200
+/politica-privacidad    /politica-privacidad.html    200
+/privacidad             /politica-privacidad.html    200
+/assets/*               /assets/:splat               200
+/*                      /index.html                  200
