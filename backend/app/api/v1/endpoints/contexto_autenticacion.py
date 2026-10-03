@@ -55,6 +55,7 @@ def auth_context_compat(user: UserContext = Depends(get_current_user)):
     return perfil
 
 
+@router.get("/auth/tutor-redirect")
 @router.get("/tutor-redirect")
 def tutor_redirect_bridge():
     """Página puente para redirección de configuración de contraseña de tutores.
