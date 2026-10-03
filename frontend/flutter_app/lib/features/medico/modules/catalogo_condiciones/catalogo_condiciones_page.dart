@@ -942,6 +942,7 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
   int _idTipo = 1;
   bool _activa = true;
   bool _saving = false;
+  String? _formWarningText;
 
   @override
   void initState() {
@@ -970,248 +971,422 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
   Widget build(BuildContext context) {
     final isEdit = widget.condicion != null;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      backgroundColor: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Container(
+        width: 620,
         constraints: BoxConstraints(
-          maxWidth: 580,
+          maxWidth: 640,
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(isEdit),
-            Flexible(
-              child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5EAF2)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Encabezado
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: const BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isEdit
+                          ? Icons.edit_note_rounded
+                          : Icons.medical_services_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEdit
+                          ? "Editar Condición Médica"
+                          : "Nueva Condición Médica",
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTema.azulOscuro,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                    color: const Color(0xFF64748B),
+                    iconSize: 20,
+                    tooltip: "Cerrar",
+                    splashRadius: 18,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Guía explicativa: Configuración de la condición médica
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionLabel(
-                      "1. Clasificación Clínica",
-                      Icons.category_outlined,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _typeOption(
-                          1,
-                          "Patología Crónica",
-                          Icons.healing_rounded,
-                          "Diagnóstico base persistente (ej. Artritis, Lupus)",
-                        ),
-                        const SizedBox(width: 12),
-                        _typeOption(
-                          2,
-                          "Condición Temporal",
-                          Icons.history_toggle_off_rounded,
-                          "Síntoma o evento agudo (ej. Diarrea, Náuseas)",
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildSectionLabel(
-                      "2. Información del Diagnóstico",
-                      Icons.medical_information_outlined,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _nombreCtrl,
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: AppTema.azulOscuro),
-                      decoration: _inputDecor(
-                        "Nombre del diagnóstico / patología *",
-                        Icons.badge_outlined,
-                        hint: "Ej: Artritis Idiopática Juvenil",
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.lightbulb_outline_rounded,
+                        color: AppTema.verdeSalud,
+                        size: 18,
                       ),
                     ),
-                    if (_idTipo == 2) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _duracionCtrl,
-                        keyboardType: TextInputType.number,
-                        style: GoogleFonts.inter(
-                            fontSize: 13, color: AppTema.azulOscuro),
-                        decoration: _inputDecor(
-                          "Duración estimada sugerida (días)",
-                          Icons.timer_outlined,
-                          hint: "Ej: 14 (días habituales de seguimiento)",
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _descCtrl,
-                      maxLines: 3,
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: AppTema.azulOscuro),
-                      decoration: _inputDecor(
-                        "Descripción clínica o criterios",
-                        Icons.text_snippet_outlined,
-                        hint: "Detalles clínicos, referencias o notas técnicas...",
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildSectionLabel(
-                      "3. Estado en el Catálogo",
-                      Icons.toggle_on_outlined,
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: Text(
-                          "Condición médica activa",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTema.azulOscuro,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Configuración de Condición Médica",
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF166534),
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          "Habilitada para selección en expedientes y vinculación con reglas clínicas.",
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: Colors.blueGrey,
+                          const SizedBox(height: 3),
+                          Text(
+                            "1. Seleccione clasificación   ➜   2. Ingrese nombre y detalles   ➜   3. Active y guarde",
+                            style: GoogleFonts.inter(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF15803D),
+                            ),
                           ),
-                        ),
-                        value: _activa,
-                        activeTrackColor: AppTema.azulPrincipal,
-                        onChanged: (v) => setState(() => _activa = v),
+                          const SizedBox(height: 3),
+                          Text(
+                            "Las condiciones registradas estarán disponibles para expedientes clínicos y vinculación con reglas de compatibilidad nutricional.",
+                            style: GoogleFonts.inter(
+                              fontSize: 10.5,
+                              color: const Color(0xFF14532D),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            _buildFooter(),
+
+              // Formulario Vertical (Sin Columnas)
+              _buildFieldLabel("Clasificación clínica", isRequired: true),
+              Row(
+                children: [
+                  _typeOption(
+                    1,
+                    "Patología Crónica",
+                    Icons.healing_rounded,
+                    "Diagnóstico base persistente (ej. Artritis, Lupus)",
+                  ),
+                  const SizedBox(width: 10),
+                  _typeOption(
+                    2,
+                    "Condición Temporal",
+                    Icons.history_toggle_off_rounded,
+                    "Síntoma o evento agudo (ej. Diarrea, Náuseas)",
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              _buildFieldLabel("Nombre de la condición o patología",
+                  isRequired: true),
+              TextFormField(
+                controller: _nombreCtrl,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF334155),
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: _fieldDecor(
+                  "Ej: Artritis Idiopática Juvenil",
+                  Icons.badge_outlined,
+                ),
+                onChanged: (_) {
+                  if (_formWarningText != null) {
+                    setState(() => _formWarningText = null);
+                  }
+                },
+              ),
+
+              if (_idTipo == 2) ...[
+                const SizedBox(height: 12),
+                _buildFieldLabel("Duración estimada sugerida (días)"),
+                TextFormField(
+                  controller: _duracionCtrl,
+                  keyboardType: TextInputType.number,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF334155),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: _fieldDecor(
+                    "Ej: 14 (días habituales de seguimiento)",
+                    Icons.timer_outlined,
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 12),
+              _buildFieldLabel("Descripción clínica o criterios (opcional)"),
+              TextFormField(
+                controller: _descCtrl,
+                maxLines: 2,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF334155),
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: _fieldDecor(
+                  "Detalles clínicos, referencias o notas técnicas...",
+                  Icons.notes_rounded,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              _buildFieldLabel("Estado en el catálogo"),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                    _activa ? "Condición Médica Activa" : "Condición Inactiva",
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTema.azulOscuro,
+                    ),
+                  ),
+                  subtitle: Text(
+                    "Habilitada para selección en expedientes y reglas clínicas.",
+                    style: GoogleFonts.inter(
+                        fontSize: 9.5, color: Colors.blueGrey),
+                  ),
+                  value: _activa,
+                  activeTrackColor: AppTema.azulPrincipal,
+                  onChanged: (v) => setState(() => _activa = v),
+                ),
+              ),
+
+              // Banner de advertencia si faltan campos
+              if (_formWarningText != null) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFF59E0B),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFD97706),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _formWarningText!,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 14, color: Color(0xFF92400E)),
+                        onPressed: () =>
+                            setState(() => _formWarningText = null),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Botones de acción
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTema.azulPrincipal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    child: const Text("Cancelar"),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 136,
+                    height: 40,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTema.azulPrincipal,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(isEdit ? "Guardar" : "Guardar"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label, {bool isRequired = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 5),
+      child: RichText(
+        text: TextSpan(
+          text: label,
+          style: GoogleFonts.inter(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: AppTema.azulOscuro,
+          ),
+          children: [
+            if (isRequired)
+              const TextSpan(
+                text: " *",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(bool isEdit) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTema.azulPrincipal.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.medical_services_rounded,
-              color: AppTema.azulPrincipal,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isEdit ? "Modificar Condición Médica" : "Nueva Condición Médica",
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppTema.azulOscuro,
-                  ),
-                ),
-                Text(
-                  "Catálogo clínico de patologías y eventos sintomáticos",
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.blueGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded, color: Colors.blueGrey),
-            tooltip: "Cerrar",
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppTema.azulPrincipal),
-        const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppTema.azulOscuro,
-            letterSpacing: 0.8,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _typeOption(int val, String title, IconData icon, String sub) {
     final sel = _idTipo == val;
+    final activeColor =
+        val == 1 ? AppTema.azulPrincipal : Colors.amber.shade900;
     return Expanded(
       child: InkWell(
         onTap: () => setState(() => _idTipo = val),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(14),
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: sel
-                ? AppTema.azulPrincipal.withValues(alpha: 0.05)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(14),
+                ? activeColor.withValues(alpha: 0.07)
+                : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: sel ? AppTema.azulPrincipal : const Color(0xFFE2E8F0),
-              width: sel ? 2 : 1,
+              color: sel ? activeColor : const Color(0xFFE2E8F0),
+              width: sel ? 1.5 : 1.0,
             ),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: sel ? AppTema.azulPrincipal : Colors.grey, size: 22),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: sel ? AppTema.azulPrincipal : AppTema.azulOscuro,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                sub,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  color: Colors.blueGrey,
-                  height: 1.3,
+              Icon(icon,
+                  color: sel ? activeColor : Colors.blueGrey.shade400, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: sel ? activeColor : AppTema.azulOscuro,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sub,
+                      style: GoogleFonts.inter(
+                        fontSize: 9.5,
+                        color: Colors.blueGrey,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1221,88 +1396,39 @@ class _FormularioCondicionState extends ConsumerState<_FormularioCondicion> {
     );
   }
 
-  InputDecoration _inputDecor(String label, IconData icon, {String? hint}) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      labelStyle: GoogleFonts.inter(fontSize: 12, color: Colors.blueGrey),
-      prefixIcon: Icon(icon, size: 18, color: AppTema.azulPrincipal),
-      filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blueGrey,
-              side: const BorderSide(color: Color(0xFFCBD5E1)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: Text(
-              "Cancelar",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTema.verdeSalud,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            icon: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(
-              _saving ? "Guardando..." : "Guardar Registro",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  InputDecoration _fieldDecor(String hint, IconData icon) => InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          color: Colors.grey.shade400,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF1F5F9),
+        prefixIcon: Icon(icon, size: 18, color: Colors.blueGrey.shade400),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: AppTema.azulPrincipal, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      );
 
   Future<void> _save() async {
+    setState(() => _formWarningText = null);
     final nombre = _nombreCtrl.text.trim();
     if (nombre.isEmpty) {
+      setState(() => _formWarningText =
+          "Por favor ingrese el nombre del diagnóstico.");
       NutriSnack.show(
         context,
         "Por favor ingrese el nombre del diagnóstico",

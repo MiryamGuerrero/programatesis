@@ -432,8 +432,14 @@ def eliminar_paciente_clinico(
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico"))
 ):
-    exito = caso_uso.eliminar(id_paciente)
-    return {"success": exito}
+    resultado = caso_uso.eliminar(id_paciente)
+    if isinstance(resultado, dict):
+        if not resultado.get("success", False):
+            raise HTTPException(status_code=404, detail=resultado.get("message", "Paciente no encontrado"))
+        return resultado
+    if not resultado:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return {"success": True, "message": "Paciente eliminado correctamente"}
 
 @router.patch("/pacientes/{id_paciente}/archivar")
 def archivar_paciente_clinico(

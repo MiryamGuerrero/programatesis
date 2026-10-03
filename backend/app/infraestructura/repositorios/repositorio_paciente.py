@@ -1349,33 +1349,40 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 logging.error(f"Error en actualizar_paciente_integral: {str(e)}", exc_info=True)
                 raise Exception(f"Fallo en la actualizaciÃ³n integral: {str(e)}")
 
-    def eliminar_paciente_integral(self, id_paciente: str) -> bool:
+    def eliminar_paciente_integral(self, id_paciente: str) -> dict:
         from app.core.auth_onboarding import delete_auth_user
         auth_users_tutores_a_eliminar = []
+        nombres_tutores_eliminados = []
+        nombres_tutores_conservados = []
+        nombre_paciente = ""
 
         with db_cursor() as cur:
             try:
                 cur.execute("BEGIN")
 
                 cur.execute(
-                    "select id from usuarios.paciente where id = %s",
+                    "select id, coalesce(nombre_completo, 'Paciente') from usuarios.paciente where id = %s",
                     (id_paciente,),
                 )
-                if not cur.fetchone():
+                pac = cur.fetchone()
+                if not pac:
                     cur.execute("ROLLBACK")
-                    return False
+                    return {"success": False, "message": "Paciente no encontrado"}
 
+                nombre_paciente = pac[1]
+
+                # Obtener tutores vinculados con sus datos
                 cur.execute(
                     """
-                    select distinct u.id, u.auth_user_id
+                    select distinct u.id, u.auth_user_id, 
+                           coalesce(u.nombre_completo, u.email, 'Tutor') as nombre
                     from usuarios.tutor_paciente tp
                     join usuarios.usuario u on u.id = tp.id_usuario_tutor
                     where tp.id_paciente = %s
                     """,
                     (id_paciente,),
                 )
-                tutores_vinculados = cur.fetchall()
-                ids_tutores_vinculados = [row[0] for row in tutores_vinculados]
+                tutores_info = cur.fetchall()
 
                 cur.execute(
                     """
@@ -1418,7 +1425,8 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 cur.execute("delete from usuarios.tutor_paciente where id_paciente = %s", (id_paciente,))
                 cur.execute("delete from usuarios.paciente where id = %s", (id_paciente,))
 
-                if ids_tutores_vinculados:
+                ids_tutores = [t[0] for t in tutores_info]
+                if ids_tutores:
                     cur.execute(
                         """
                         delete from usuarios.usuario u
@@ -1428,17 +1436,24 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                               from usuarios.tutor_paciente tp
                               where tp.id_usuario_tutor = u.id
                           )
-                        returning auth_user_id
+                        returning u.id, u.auth_user_id
                         """,
-                        (ids_tutores_vinculados,),
+                        (ids_tutores,),
                     )
-                    auth_users_tutores_a_eliminar = [
-                        row[0] for row in cur.fetchall() if row and row[0]
-                    ]
+                    tutores_eliminados_db = cur.fetchall()
+                    ids_eliminados = {str(row[0]) for row in tutores_eliminados_db}
+                    auth_users_tutores_a_eliminar = [str(row[1]) for row in tutores_eliminados_db if row and row[1]]
+
+                    for t_id, t_auth, t_nombre in tutores_info:
+                        if str(t_id) in ids_eliminados:
+                            nombres_tutores_eliminados.append(t_nombre)
+                        else:
+                            nombres_tutores_conservados.append(t_nombre)
 
                 cur.execute("COMMIT")
             except Exception as e:
-                cur.execute("ROLLBACK"); raise e
+                cur.execute("ROLLBACK")
+                raise e
 
         for auth_user_id in auth_users_tutores_a_eliminar:
             try:
@@ -1450,7 +1465,25 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                     exc_info=True,
                 )
 
-        return True
+        tutor_eliminado = len(nombres_tutores_eliminados) > 0
+        if tutor_eliminado:
+            detalle_tutores = f"Se eliminó también al tutor ({', '.join(nombres_tutores_eliminados)}) al no contar con otros pacientes a su cargo."
+        elif nombres_tutores_conservados:
+            detalle_tutores = f"El tutor ({', '.join(nombres_tutores_conservados)}) se conservó porque tiene otros pacientes a su cargo."
+        else:
+            detalle_tutores = ""
+
+        mensaje = f"Paciente {nombre_paciente} eliminado correctamente. {detalle_tutores}".strip()
+
+        return {
+            "success": True,
+            "paciente_id": id_paciente,
+            "nombre_paciente": nombre_paciente,
+            "tutor_eliminado": tutor_eliminado,
+            "nombres_tutores_eliminados": nombres_tutores_eliminados,
+            "nombres_tutores_conservados": nombres_tutores_conservados,
+            "message": mensaje,
+        }
 
     def archivar_paciente(self, id_paciente: str) -> bool:
         with db_cursor() as cur:

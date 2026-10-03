@@ -237,8 +237,13 @@ class RepositorioMedico {
     invalidateExpediente(idPaciente);
   }
 
-  Future<void> eliminarPaciente(String idPaciente) async {
-    await archivarPaciente(idPaciente);
+  Future<Map<String, dynamic>> eliminarPaciente(String idPaciente) async {
+    final response = await _dio.delete("pacientes/$idPaciente");
+    invalidateExpediente(idPaciente);
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    return <String, dynamic>{"success": true};
   }
 
   Future<Map<String, dynamic>> buscarTutorPorCedula(String cedula) async {
