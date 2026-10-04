@@ -60,11 +60,23 @@ class _TutorPrivacyPolicyDialogState extends State<TutorPrivacyPolicyDialog> {
   Future<void> _abrirNavegadorPolitica() async {
     final uri = Uri.parse(kUrlPoliticaPrivacidad);
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.platformDefault,
+        );
       }
     } catch (e) {
       debugPrint("Error abriendo enlace de privacidad: $e");
+      try {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      } catch (e2) {
+        debugPrint("Error al abrir navegador: $e2");
+      }
     }
   }
 
@@ -249,7 +261,7 @@ class _TutorPrivacyPolicyDialogState extends State<TutorPrivacyPolicyDialog> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  "Leer Política de Privacidad completa en línea",
+                                  "Leer Política de Privacidad completa",
                                   style: GoogleFonts.inter(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
