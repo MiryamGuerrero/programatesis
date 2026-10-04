@@ -48,7 +48,7 @@ class PoliticaPrivacidadPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Proyecto de Tesis e Investigación",
+                          "Proyecto de Titulación & Vinculación",
                           style: GoogleFonts.inter(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -98,7 +98,7 @@ class PoliticaPrivacidadPage extends StatelessWidget {
               number: "5",
               title: "Derechos del Usuario",
               content:
-                  "Puede solicitar la actualización o eliminación de su cuenta y datos asociados en cualquier momento contactando al equipo de investigación.",
+                  "Puede solicitar la actualización o eliminación de su cuenta y datos asociados en cualquier momento contactando al equipo del proyecto.",
             ),
             _buildSection(
               number: "6",

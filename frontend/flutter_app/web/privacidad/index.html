@@ -40,16 +40,19 @@
       color: var(--text-main);
       line-height: 1.65;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
     /* Header */
     header {
       background-color: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border-soft);
       position: sticky;
       top: 0;
       z-index: 100;
-      padding: 16px 32px;
+      padding: 14px 32px;
+      transition: all 0.2s ease;
     }
 
     .header-container {
@@ -58,6 +61,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
     }
 
     .brand {
@@ -65,6 +69,7 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
+      flex-shrink: 0;
     }
 
     .brand-logo {
@@ -80,6 +85,7 @@
       font-weight: 800;
       font-size: 18px;
       letter-spacing: -0.5px;
+      flex-shrink: 0;
     }
 
     .brand-name {
@@ -87,29 +93,36 @@
       font-size: 22px;
       font-weight: 800;
       letter-spacing: -0.5px;
+      white-space: nowrap;
     }
 
-    .brand-name .nutri { color: var(--primary); }
-    .brand-name .reuma { color: var(--secondary); }
+    .brand-name .nutri {
+      color: var(--primary);
+    }
+
+    .brand-name .reuma {
+      color: var(--secondary);
+    }
 
     .academic-tag {
       background-color: var(--pastel-celeste);
       color: var(--primary-dark);
-      border: 1px solid rgba(1, 113, 187, 0.2);
-      padding: 6px 16px;
+      border: 1px solid rgba(1, 113, 187, 0.25);
+      padding: 6px 14px;
       border-radius: 20px;
       font-family: 'Montserrat', sans-serif;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      line-height: 1.3;
     }
 
     /* Hero */
     .hero {
       background-color: var(--bg-surface);
       border-bottom: 1px solid var(--border-soft);
-      padding: 56px 24px 40px 24px;
+      padding: 48px 24px 36px 24px;
       text-align: center;
     }
 
@@ -120,31 +133,35 @@
 
     .hero h1 {
       font-family: 'Inter', sans-serif;
-      font-size: 36px;
+      font-size: 34px;
       font-weight: 800;
       color: var(--primary-dark);
       letter-spacing: -0.8px;
       margin-bottom: 14px;
+      line-height: 1.25;
     }
 
     .hero p {
       font-size: 16px;
       color: var(--text-secondary);
       max-width: 660px;
-      margin: 0 auto 24px auto;
+      margin: 0 auto 20px auto;
+      line-height: 1.55;
     }
 
     .meta-bar {
       display: inline-flex;
       align-items: center;
-      gap: 24px;
+      gap: 20px;
       background-color: var(--bg-main);
-      padding: 8px 20px;
+      padding: 8px 18px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border-soft);
       font-size: 13px;
       color: var(--text-secondary);
       font-weight: 500;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     .meta-item {
@@ -161,6 +178,7 @@
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
+      flex-shrink: 0;
     }
 
     /* Layout */
@@ -176,7 +194,7 @@
     /* Sidebar */
     .sidebar {
       position: sticky;
-      top: 96px;
+      top: 86px;
       height: fit-content;
     }
 
@@ -228,7 +246,8 @@
     .content-area {
       display: flex;
       flex-direction: column;
-      gap: 32px;
+      gap: 28px;
+      min-width: 0;
     }
 
     /* Declaration Banner */
@@ -236,7 +255,7 @@
       background-color: var(--pastel-verde);
       border: 1px solid #BBF7D0;
       border-radius: var(--radius-md);
-      padding: 24px;
+      padding: 22px;
       display: flex;
       gap: 16px;
       align-items: flex-start;
@@ -257,7 +276,7 @@
 
     .banner-content h3 {
       font-family: 'Inter', sans-serif;
-      font-size: 17px;
+      font-size: 16.5px;
       font-weight: 700;
       color: #14532D;
       margin-bottom: 6px;
@@ -274,16 +293,18 @@
       background-color: var(--bg-surface);
       border: 1px solid var(--border-soft);
       border-radius: var(--radius-md);
-      padding: 32px;
+      padding: 30px;
       box-shadow: var(--shadow-sm);
-      scroll-margin-top: 100px;
+      scroll-margin-top: 96px;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
 
     .section-head {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
     .section-badge {
@@ -298,19 +319,22 @@
       font-family: 'Montserrat', sans-serif;
       font-weight: 800;
       font-size: 14px;
+      flex-shrink: 0;
     }
 
     .policy-section h2 {
       font-family: 'Inter', sans-serif;
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 700;
       color: var(--primary-dark);
+      line-height: 1.35;
     }
 
     .policy-section p {
       font-size: 15px;
       color: var(--text-main);
       margin-bottom: 14px;
+      line-height: 1.65;
     }
 
     .policy-section p:last-child {
@@ -327,6 +351,7 @@
     .bullet-list li {
       font-size: 14.5px;
       color: var(--text-main);
+      line-height: 1.6;
     }
 
     .bullet-list strong {
@@ -345,6 +370,7 @@
       font-size: 14px;
       color: var(--text-secondary);
       margin: 0;
+      line-height: 1.55;
     }
 
     /* Footer */
@@ -352,7 +378,7 @@
       background-color: var(--primary-dark);
       color: white;
       padding: 36px 24px;
-      margin-top: 80px;
+      margin-top: 60px;
       text-align: center;
     }
 
@@ -368,12 +394,16 @@
     .footer-text {
       font-size: 13.5px;
       color: #94A3B8;
+      line-height: 1.55;
     }
 
+    /* Responsive Breakpoints */
     @media (max-width: 850px) {
       .main-container {
         grid-template-columns: 1fr;
-        padding: 0 16px;
+        padding: 0 20px;
+        margin: 28px auto;
+        gap: 24px;
       }
 
       .sidebar {
@@ -388,8 +418,140 @@
         padding: 24px;
       }
     }
+
+    @media (max-width: 680px) {
+      header {
+        padding: 12px 16px;
+      }
+
+      .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .brand {
+        gap: 10px;
+      }
+
+      .brand-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+        border-radius: 8px;
+      }
+
+      .brand-name {
+        font-size: 20px;
+      }
+
+      .academic-tag {
+        font-size: 10.5px;
+        padding: 4px 10px;
+        border-radius: 14px;
+        letter-spacing: 0.3px;
+      }
+
+      .hero {
+        padding: 32px 16px 24px 16px;
+      }
+
+      .hero h1 {
+        font-size: 22px;
+        letter-spacing: -0.5px;
+        margin-bottom: 10px;
+      }
+
+      .hero p {
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+
+      .meta-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+        gap: 8px;
+        padding: 12px 14px;
+        font-size: 12px;
+      }
+
+      .main-container {
+        padding: 0 14px;
+        margin: 20px auto;
+        gap: 18px;
+      }
+
+      .declaration-banner {
+        padding: 16px;
+        gap: 12px;
+        border-radius: 12px;
+      }
+
+      .banner-icon {
+        width: 30px;
+        height: 30px;
+      }
+
+      .banner-content h3 {
+        font-size: 15px;
+      }
+
+      .banner-content p {
+        font-size: 13.5px;
+      }
+
+      .policy-section {
+        padding: 18px 14px;
+        border-radius: 12px;
+      }
+
+      .section-head {
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .section-badge {
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
+      }
+
+      .policy-section h2 {
+        font-size: 16.5px;
+      }
+
+      .policy-section p {
+        font-size: 14px;
+      }
+
+      .bullet-list {
+        margin: 10px 0 12px 16px;
+        gap: 8px;
+      }
+
+      .bullet-list li {
+        font-size: 13.5px;
+      }
+
+      .info-box {
+        padding: 12px 14px;
+        margin: 12px 0;
+      }
+
+      footer {
+        padding: 28px 16px;
+        margin-top: 40px;
+      }
+
+      .footer-text {
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
+
 <body>
 
   <!-- Header -->
@@ -402,7 +564,7 @@
         </div>
       </a>
       <div class="academic-tag">
-        Proyecto de Investigación & Tesis
+        Proyecto de Titulación & Vinculación
       </div>
     </div>
   </header>
@@ -414,11 +576,19 @@
       <p>Marco de protección de información y condiciones de uso de la plataforma NutriReuma para soporte nutricional clínico pediátrico.</p>
       <div class="meta-bar">
         <div class="meta-item">
-          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
           Última actualización: 30 de Julio de 2026
         </div>
         <div class="meta-item">
-          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
           Versión 1.0 (Google Play Console Standard)
         </div>
       </div>
@@ -427,7 +597,7 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    
+
     <!-- Sidebar Nav -->
     <aside class="sidebar">
       <div class="nav-card">
@@ -452,11 +622,13 @@
       <!-- Declaration Banner -->
       <div class="declaration-banner">
         <div class="banner-icon">
-          <svg class="svg-icon" style="width:20px; height:20px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <svg class="svg-icon" style="width:20px; height:20px;" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
         </div>
         <div class="banner-content">
           <h3>Declaración de No Comercialización de Datos</h3>
-          <p>NutriReuma es una plataforma desarrollada exclusivamente para fines investigativos de tesis universitaria. <strong>No recopila información con fines comerciales, no comercializa datos personales y no comparte información con redes publicitarias ni terceros.</strong></p>
+          <p>NutriReuma es una plataforma desarrollada exclusivamente en el marco de un <strong>proyecto de titulación y vinculación con la sociedad universitaria</strong>. No recopila información con fines comerciales, no comercializa datos personales y no comparte información con redes publicitarias ni terceros.</p>
         </div>
       </div>
 
@@ -466,8 +638,8 @@
           <div class="section-badge">1</div>
           <h2>Marco Académico del Proyecto</h2>
         </div>
-        <p>NutriReuma es un sistema integral de evaluación y supervisión nutricional enfocado en pacientes pediátricos en el área de reumatología. Su diseño e implementación corresponden a un trabajo de investigación y titulación universitaria.</p>
-        <p>El objetivo principal del sistema es proporcionar una herramienta técnica que facilite a médicos, nutricionistas y tutores autorizados la coordinación y seguimiento de planes alimentarios y controles clínicos de manera segura y estructurada.</p>
+        <p>NutriReuma es un sistema integral de evaluación y supervisión nutricional enfocado en pacientes pediátricos en el área de reumatología. Su diseño e implementación corresponden a un proyecto académico de <strong>titulación y vinculación con la sociedad</strong>.</p>
+        <p>El objetivo principal del sistema es proporcionar una herramienta técnica de beneficio social que facilite a médicos, nutricionistas y tutores autorizados la coordinación y seguimiento de planes alimentarios y controles clínicos de manera segura y estructurada.</p>
       </section>
 
       <!-- Section 2 -->
@@ -493,7 +665,7 @@
           <div class="section-badge">3</div>
           <h2>Política de No Transferencia a Terceros</h2>
         </div>
-        <p>El equipo de investigación garantiza formalmente las siguientes condiciones:</p>
+        <p>El equipo del proyecto garantiza formalmente las siguientes condiciones:</p>
         <ul class="bullet-list">
           <li><strong>Sin Venta ni Alquiler de Datos:</strong> Ningún registro almacenado es objeto de comercialización, venta o transferencia onerosa.</li>
           <li><strong>Ausencia de Publicidad y Monitoreo Comercial:</strong> La aplicación no integra librerías ni SDKs de terceros orientados a la publicidad comportamental o el rastreo comercial (tales como Google AdMob o Meta Pixel).</li>
@@ -569,13 +741,13 @@
       <section id="contacto" class="policy-section">
         <div class="section-head">
           <div class="section-badge">9</div>
-          <h2>Contacto de Soporte e Investigación</h2>
+          <h2>Contacto y Soporte</h2>
         </div>
         <p>Para consultas relacionadas con esta política de privacidad o la gestión de datos en NutriReuma, puede comunicarse con el equipo responsable a través del canal oficial:</p>
         <div class="info-box">
-          <p><strong>Equipo de Investigación y Desarrollo - NutriReuma</strong></p>
+          <p><strong>Equipo de Titulación & Vinculación - NutriReuma</strong></p>
           <p>Correo de Soporte: <strong>nutrireumaapp@gmail.com</strong></p>
-          <p>Proyecto de Titulación / Investigación Universitaria</p>
+          <p>Proyecto de Titulación & Vinculación Universitaria</p>
         </div>
       </section>
 
@@ -591,7 +763,7 @@
           <span class="nutri" style="color: white;">Nutri</span><span class="reuma" style="color: #A3E635;">Reuma</span>
         </div>
       </div>
-      <p class="footer-text">© 2026 NutriReuma. Todos los derechos reservados. Proyecto de Titulación e Investigación Académica.</p>
+      <p class="footer-text">© 2026 NutriReuma. Todos los derechos reservados. Proyecto de Titulación & Vinculación con la Sociedad.</p>
     </div>
   </footer>
 
