@@ -478,7 +478,7 @@
         </div>
         <p>Para la adecuada operación de la plataforma en el entorno tutelar y clínico, únicamente se procesan los datos indispensables para la gestión nutricional:</p>
         <ul class="bullet-list">
-          <li><strong>Datos de Registro de Usuarios:</strong> Nombre completo, correo electrónico institucional o personal proporcionado por el profesional médico, cédula de identidad y rol asignado en el sistema.</li>
+          <li><strong>Datos de Registro de Usuarios:</strong> Nombre completo, correo electrónico personal proporcionado por el usuario, cédula de identidad y rol asignado en el sistema.</li>
           <li><strong>Parámetros Antropométricos Pediátricos:</strong> Fecha de nacimiento, peso, talla, preferencias alimentarias y diagnósticos nutricionales generados a través de tablas de referencia de la OMS.</li>
           <li><strong>Credenciales y Autenticación:</strong> Identificadores de sesión encriptados gestionados mediante Supabase Auth.</li>
         </ul>
@@ -531,9 +531,10 @@
           <div class="section-badge">6</div>
           <h2>Permisos Solicitados en la Aplicación Móvil Android</h2>
         </div>
-        <p>La aplicación móvil Android de NutriReuma únicamente requiere los permisos esenciales para su interacción con el servidor:</p>
+        <p>La aplicación móvil Android de NutriReuma únicamente requiere los permisos indispensables para su interacción con el servidor y la experiencia del tutor:</p>
         <ul class="bullet-list">
-          <li><strong>INTERNET y ACCESS_NETWORK_STATE:</strong> Requeridos para realizar la sincronización de planes nutricionales, autenticación y consulta de recetas desde el servidor backend.</li>
+          <li><strong>INTERNET y ACCESS_NETWORK_STATE:</strong> Requeridos para realizar la sincronización de planes nutricionales, autenticación segura y consulta de recetas desde el servidor backend.</li>
+          <li><strong>POST_NOTIFICATIONS (Notificaciones):</strong> Requerido para emitir recordatorios y alertas locales programadas sobre los horarios de comida y meriendas del plan nutricional infantil asignado, garantizando que el tutor pueda administrar oportunamente la dieta del paciente.</li>
         </ul>
         <p>La aplicación no solicita permisos para ubicación geográfica en tiempo real, libreta de contactos, cámara ni almacenamiento externo para su función regular.</p>
       </section>
@@ -547,7 +548,7 @@
         <p>El usuario registrado dispone de las siguientes opciones respecto a su información personal:</p>
         <ul class="bullet-list">
           <li><strong>Acceso y Modificación:</strong> Posibilidad de consultar y actualizar la contraseña o datos de perfil dentro de la aplicación.</li>
-          <li><strong>Solicitud de Eliminación de Cuenta:</strong> Posibilidad de solicitar la baja definitiva del perfil de tutor y sus datos asociados enviando una solicitud formal a la dirección de correo institucional del proyecto.</li>
+          <li><strong>Solicitud de Eliminación de Cuenta:</strong> Posibilidad de solicitar la baja definitiva del perfil de tutor y sus datos asociados enviando una solicitud a la dirección de correo de soporte del proyecto.</li>
         </ul>
       </section>
 
@@ -573,7 +574,7 @@
         <p>Para consultas relacionadas con esta política de privacidad o la gestión de datos en NutriReuma, puede comunicarse con el equipo responsable a través del canal oficial:</p>
         <div class="info-box">
           <p><strong>Equipo de Investigación y Desarrollo - NutriReuma</strong></p>
-          <p>Correo de Soporte: <strong>soporte.nutrireuma@gmail.com</strong></p>
+          <p>Correo de Soporte: <strong>nutrireumaapp@gmail.com</strong></p>
           <p>Proyecto de Titulación / Investigación Universitaria</p>
         </div>
       </section>

@@ -104,7 +104,7 @@ class PoliticaPrivacidadPage extends StatelessWidget {
               number: "6",
               title: "Contacto",
               content:
-                  "Para dudas o solicitudes sobre la privacidad de sus datos:\nCorreo de soporte: soporte.nutrireuma@gmail.com",
+                  "Para dudas o solicitudes sobre la privacidad de sus datos:\nCorreo de soporte: nutrireumaapp@gmail.com",
             ),
             const SizedBox(height: 32),
             Center(
