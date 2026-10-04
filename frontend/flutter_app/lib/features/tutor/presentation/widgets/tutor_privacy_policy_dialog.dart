@@ -10,7 +10,7 @@ import "../../../../core/theme/app_theme.dart";
 const String kPrefPoliticaPrivacidadAceptada = "politica_privacidad_aceptada_v1";
 
 /// URL pública institucional de la política de privacidad alojada en Cloudflare Pages
-const String kUrlPoliticaPrivacidad = "https://nutrireuma-web1.pages.dev/politica-privacidad.html";
+const String kUrlPoliticaPrivacidad = "https://nutrireuma-web1.pages.dev/politica-privacidad";
 
 /// Comprueba si el usuario tutor ya aceptó las políticas de privacidad.
 Future<bool> tutorDebeAceptarPoliticaPrivacidad() async {
