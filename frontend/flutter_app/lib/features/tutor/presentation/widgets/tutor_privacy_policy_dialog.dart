@@ -6,6 +6,8 @@ import "package:url_launcher/url_launcher.dart";
 
 import "../../../../core/theme/app_theme.dart";
 
+import "../politica_privacidad_page.dart";
+
 /// Clave de almacenamiento local para registrar la aceptación de la política de privacidad.
 const String kPrefPoliticaPrivacidadAceptada = "politica_privacidad_aceptada_v1";
 
@@ -48,26 +50,50 @@ Future<bool> mostrarModalPoliticaPrivacidad(
 }
 
 /// Abre la URL pública de la política de privacidad en el navegador del dispositivo.
-Future<void> abrirUrlPoliticaPrivacidad() async {
+///
+/// Se ejecuta con un timeout estricto para evitar bloqueos del hilo de la interfaz
+/// en modo debug. Si no se puede abrir externamente (por ejemplo, en un emulador
+/// sin navegador predeterminado), recurre a la pantalla interna de la app.
+Future<void> abrirUrlPoliticaPrivacidad([BuildContext? context]) async {
   final uri = Uri.parse(kUrlPoliticaPrivacidad);
+  bool lanzado = false;
+
   try {
-    final launched = await launchUrl(
+    lanzado = await launchUrl(
       uri,
       mode: LaunchMode.externalApplication,
+    ).timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => false,
     );
-    if (!launched) {
-      await launchUrl(
+  } catch (e) {
+    debugPrint("Error lanzando URL con externalApplication: $e");
+    lanzado = false;
+  }
+
+  if (!lanzado) {
+    try {
+      lanzado = await launchUrl(
         uri,
         mode: LaunchMode.platformDefault,
+      ).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => false,
       );
+    } catch (e) {
+      debugPrint("Error lanzando URL con platformDefault: $e");
+      lanzado = false;
     }
-  } catch (e) {
-    debugPrint("Error abriendo enlace de privacidad: $e");
-    try {
-      await launchUrl(uri, mode: LaunchMode.platformDefault);
-    } catch (e2) {
-      debugPrint("Error al abrir navegador: $e2");
-    }
+  }
+
+  // Fallback seguro: si el navegador externo no abrió y tenemos contexto,
+  // mostramos la página de privacidad nativa de la app sin bloquear al usuario
+  if (!lanzado && context != null && context.mounted) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PoliticaPrivacidadPage(),
+      ),
+    );
   }
 }
 
@@ -81,7 +107,7 @@ class TutorPrivacyPolicyDialog extends StatefulWidget {
 class _TutorPrivacyPolicyDialogState extends State<TutorPrivacyPolicyDialog> {
   bool _procesando = false;
 
-  Future<void> _abrirNavegadorPolitica() => abrirUrlPoliticaPrivacidad();
+  Future<void> _abrirNavegadorPolitica() => abrirUrlPoliticaPrivacidad(context);
 
   Future<void> _aceptarPolitica() async {
     setState(() => _procesando = true);

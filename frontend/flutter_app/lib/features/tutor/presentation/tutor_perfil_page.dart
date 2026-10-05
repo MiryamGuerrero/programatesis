@@ -39,6 +39,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
 
   bool _initialized = false;
   bool _saving = false;
+  bool _abriendoPolitica = false;
 
   @override
   void dispose() {
@@ -549,14 +550,35 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     );
   }
 
+  Future<void> _handleAbrirPolitica() async {
+    if (_abriendoPolitica) return;
+    setState(() => _abriendoPolitica = true);
+    try {
+      await abrirUrlPoliticaPrivacidad(context);
+    } finally {
+      if (mounted) {
+        setState(() => _abriendoPolitica = false);
+      }
+    }
+  }
+
   Widget _buildPrivacyPolicyButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: abrirUrlPoliticaPrivacidad,
-        icon: const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 20),
+        onPressed: _abriendoPolitica ? null : _handleAbrirPolitica,
+        icon: _abriendoPolitica
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: AppTema.verdeSalud,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 20),
         label: Text(
-          "POLÍTICA DE PRIVACIDAD",
+          _abriendoPolitica ? "ABRIENDO..." : "POLÍTICA DE PRIVACIDAD",
           style: GoogleFonts.montserrat(
             fontSize: 14,
             fontWeight: FontWeight.w700,
