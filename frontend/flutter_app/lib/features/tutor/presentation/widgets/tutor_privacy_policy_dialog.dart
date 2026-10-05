@@ -47,6 +47,30 @@ Future<bool> mostrarModalPoliticaPrivacidad(
   return resultado ?? false;
 }
 
+/// Abre la URL pública de la política de privacidad en el navegador del dispositivo.
+Future<void> abrirUrlPoliticaPrivacidad() async {
+  final uri = Uri.parse(kUrlPoliticaPrivacidad);
+  try {
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.platformDefault,
+      );
+    }
+  } catch (e) {
+    debugPrint("Error abriendo enlace de privacidad: $e");
+    try {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    } catch (e2) {
+      debugPrint("Error al abrir navegador: $e2");
+    }
+  }
+}
+
 class TutorPrivacyPolicyDialog extends StatefulWidget {
   const TutorPrivacyPolicyDialog({super.key});
 
@@ -57,28 +81,7 @@ class TutorPrivacyPolicyDialog extends StatefulWidget {
 class _TutorPrivacyPolicyDialogState extends State<TutorPrivacyPolicyDialog> {
   bool _procesando = false;
 
-  Future<void> _abrirNavegadorPolitica() async {
-    final uri = Uri.parse(kUrlPoliticaPrivacidad);
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.platformDefault,
-        );
-      }
-    } catch (e) {
-      debugPrint("Error abriendo enlace de privacidad: $e");
-      try {
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
-      } catch (e2) {
-        debugPrint("Error al abrir navegador: $e2");
-      }
-    }
-  }
+  Future<void> _abrirNavegadorPolitica() => abrirUrlPoliticaPrivacidad();
 
   Future<void> _aceptarPolitica() async {
     setState(() => _procesando = true);

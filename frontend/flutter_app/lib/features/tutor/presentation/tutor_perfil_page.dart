@@ -553,7 +553,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () => mostrarModalPoliticaPrivacidad(context, forceInteractive: true),
+        onPressed: abrirUrlPoliticaPrivacidad,
         icon: const Icon(Icons.verified_user_outlined, color: AppTema.verdeSalud, size: 20),
         label: Text(
           "POLÍTICA DE PRIVACIDAD",
