@@ -854,6 +854,10 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = ReglasNutricionalesNotifier.pageSize;
+        final initialIndex =
+            (state.totalItems > 0 && state.offset < state.totalItems)
+                ? state.offset
+                : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -862,6 +866,8 @@ class _ReglasNutricionalesPageState extends ConsumerState<ReglasNutricionalesPag
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("tabla_reglas_nutricionales_${state.indicadorFilter}_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,

@@ -103,11 +103,6 @@ class NotificationService {
     final notifGranted =
         await androidPlugin.requestNotificationsPermission() ?? false;
 
-    // Permiso de alarmas exactas en Android 12+
-    try {
-      await androidPlugin.requestExactAlarmsPermission();
-    } catch (_) {}
-
     return notifGranted;
   }
 
@@ -258,7 +253,7 @@ class NotificationService {
             cuerpo,
             tzScheduled,
             notificationDetails,
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
             uiLocalNotificationDateInterpretation:
                 UILocalNotificationDateInterpretation.absoluteTime,
           );
@@ -266,22 +261,7 @@ class NotificationService {
           debugPrint(
               "Notificación programada para las $hora:$minuto (ID: $notifId) - $titulo");
         } catch (e) {
-          // Fallback en caso de restricciones de alarmas exactas en el dispositivo
-          try {
-            final tzScheduled = tz.TZDateTime.from(scheduledDate, tz.local);
-            await _plugin.zonedSchedule(
-              notifId,
-              titulo,
-              cuerpo,
-              tzScheduled,
-              notificationDetails,
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation:
-                  UILocalNotificationDateInterpretation.absoluteTime,
-            );
-          } catch (e2) {
-            debugPrint("Error programando notificación de comida: $e2");
-          }
+          debugPrint("Error programando notificación de comida: $e");
         }
       }
     } catch (e) {

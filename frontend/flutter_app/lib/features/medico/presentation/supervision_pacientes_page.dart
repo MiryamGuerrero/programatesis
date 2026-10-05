@@ -522,6 +522,10 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = MedicalPatientsNotifier.pageSize;
+        final initialIndex =
+            (state.totalItems > 0 && state.offset < state.totalItems)
+                ? state.offset
+                : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -530,6 +534,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("supervision_pacientes_table_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,

@@ -463,6 +463,10 @@ class _CatalogoCondicionesPageState
             final totalWidth = constraints.maxWidth;
             final usableWidth = totalWidth - 20;
             const rowsPerPage = MedicalConditionsNotifier.pageSize;
+            final initialIndex =
+                (state.totalItems > 0 && state.offset < state.totalItems)
+                    ? state.offset
+                    : 0;
 
             return Theme(
               data: Theme.of(context).copyWith(
@@ -471,7 +475,8 @@ class _CatalogoCondicionesPageState
                 dividerColor: Colors.transparent,
               ),
               child: PaginatedDataTable(
-                key: ValueKey("pdt_condiciones_${state.selectedTipo}"),
+                key: ValueKey("pdt_condiciones_${state.selectedTipo}_$initialIndex"),
+                initialFirstRowIndex: initialIndex,
                 header: null,
                 rowsPerPage: rowsPerPage,
                 showEmptyRows: true,

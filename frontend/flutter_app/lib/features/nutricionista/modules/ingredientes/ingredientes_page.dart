@@ -592,6 +592,7 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = _rowsPerPage;
+        final initialIndex = (_total > 0 && _offset < _total) ? _offset : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -600,6 +601,8 @@ class _IngredientesPageState extends ConsumerState<IngredientesPage> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("ingredientes_table_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,

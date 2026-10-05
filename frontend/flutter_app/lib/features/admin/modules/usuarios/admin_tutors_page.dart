@@ -227,6 +227,10 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = AdminUsersNotifier.pageSize;
+        final initialIndex =
+            (state.totalItems > 0 && state.offset < state.totalItems)
+                ? state.offset
+                : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -235,6 +239,8 @@ class _AdminTutorsPageState extends ConsumerState<AdminTutorsPage> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("admin_tutors_table_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,

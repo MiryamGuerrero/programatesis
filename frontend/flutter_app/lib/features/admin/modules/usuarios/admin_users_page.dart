@@ -835,6 +835,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = AdminUsersNotifier.pageSize;
+        final initialIndex =
+            (state.totalItems > 0 && state.offset < state.totalItems)
+                ? state.offset
+                : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -843,6 +847,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
+            key: ValueKey("admin_users_table_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,

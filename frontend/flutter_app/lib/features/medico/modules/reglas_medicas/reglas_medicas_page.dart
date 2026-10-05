@@ -863,6 +863,10 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
         final totalWidth = constraints.maxWidth;
         final usableWidth = totalWidth - 20;
         const rowsPerPage = MedicalRulesNotifier.pageSize;
+        final initialIndex =
+            (state.totalItems > 0 && state.offset < state.totalItems)
+                ? state.offset
+                : 0;
 
         return Theme(
           data: Theme.of(context).copyWith(
@@ -871,7 +875,8 @@ class _ReglasMedicasPageState extends ConsumerState<ReglasMedicasPage> {
             dividerColor: Colors.transparent,
           ),
           child: PaginatedDataTable(
-            key: ValueKey("tabla_reglas_datatable_${state.origenFilter}"),
+            key: ValueKey("tabla_reglas_datatable_${state.origenFilter}_$initialIndex"),
+            initialFirstRowIndex: initialIndex,
             header: null,
             rowsPerPage: rowsPerPage,
             showEmptyRows: true,
