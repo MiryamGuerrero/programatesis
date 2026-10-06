@@ -8,6 +8,7 @@ import '../../../core/theme/app_sizes.dart';
 import '../../../core/theme/app_responsive.dart';
 import '../../../core/services/notification_service.dart';
 import 'momento_horario.dart';
+import '../../../shared/widgets/foquito_semaforo.dart';
 
 class TutorRecetaDetallePage extends ConsumerStatefulWidget {
   final int idReceta;
@@ -151,6 +152,10 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (r['semaforo'] != null) ...[
+                        _buildSemaforoBanner(r),
+                        const SizedBox(height: 16),
+                      ],
                       _buildSummarySection(context, r),
                       const SizedBox(height: 20),
 
@@ -1151,6 +1156,57 @@ class _TutorRecetaDetallePageState extends ConsumerState<TutorRecetaDetallePage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSemaforoBanner(Map<String, dynamic> r) {
+    final sem = (r['semaforo'] ?? 'neutral').toString().toLowerCase();
+    final Color bgColor;
+    final Color borderColor;
+    final Color textColor;
+    final String label;
+
+    if (sem == 'verde') {
+      bgColor = const Color(0xFFDCFCE7);
+      borderColor = const Color(0xFFBBF7D0);
+      textColor = const Color(0xFF16A34A);
+      label = "Semáforo Verde: Receta recomendada / potenciada para el paciente";
+    } else if (sem == 'amarillo') {
+      bgColor = const Color(0xFFFEF3C7);
+      borderColor = const Color(0xFFFDE68A);
+      textColor = const Color(0xFFD97706);
+      label = "Semáforo Amarillo: Consumo moderado (máx. 2 veces por semana, días alternos)";
+    } else {
+      bgColor = const Color(0xFFF1F5F9);
+      borderColor = const Color(0xFFE2E8F0);
+      textColor = const Color(0xFF475569);
+      label = "Semáforo Neutro: Receta segura y balanceada para el paciente";
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          FoquitoSemaforo(semaforo: sem, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

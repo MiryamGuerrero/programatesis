@@ -89,10 +89,19 @@ class RepositorioSeguimientoPostgres(IRepositorioSeguimiento):
         with db_cursor() as cur:
             sql = """
                 insert into interaccion.plan_item (
-                    id_plan, fecha_programada, id_momento, id_receta, consumida
-                ) values (%s, %s, %s, %s, false)
+                    id_plan, fecha_programada, id_momento, id_receta, consumida, semaforo
+                ) values (%s, %s, %s, %s, false, %s)
             """
-            params = [(i["id_plan"], i["fecha_programada"], i["id_momento"], i["id_receta"]) for i in items]
+            params = [
+                (
+                    i["id_plan"],
+                    i["fecha_programada"],
+                    i["id_momento"],
+                    i["id_receta"],
+                    str(i.get("semaforo") or "neutral").lower()
+                )
+                for i in items
+            ]
             cur.executemany(sql, params)
             return True
 

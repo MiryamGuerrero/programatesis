@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/state/app_providers.dart';
 import '../../../../shared/widgets/patient_summary_panel.dart';
+import '../../../../shared/widgets/foquito_semaforo.dart';
 import 'widgets/receta_modal_verde.dart';
 
 class AsignacionComidaManualPage extends ConsumerStatefulWidget {
@@ -620,13 +621,16 @@ class _AsignacionComidaManualPageState
                                 context, 
                                 r["id"], 
                                 ref, 
+                                semaforo: (r["semaforo"] ?? (r["es_potenciada"] == true ? "verde" : (r["es_disminuida"] == true ? "amarillo" : "neutral"))).toString(),
+                                idPaciente: widget.idPaciente.toString(),
+                                mensajeRegla: r["mensaje_regla"]?.toString(),
                                 onSelect: () => setState(() {
                                   if (_recetasSeleccionadas.any((rec) => rec["id"] == r["id"])) {
                                     _recetasSeleccionadas.removeWhere((rec) => rec["id"] == r["id"]);
                                   } else {
                                     _recetasSeleccionadas.add(r);
                                   }
-                                })
+                                }),
                               ),
                               borderRadius: BorderRadius.circular(16),
                               child: Container(
@@ -674,83 +678,64 @@ class _AsignacionComidaManualPageState
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            r["nombre"] ?? "Sin nombre", 
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700, 
-                                              fontSize: 15,
-                                              color: Colors.blueGrey.shade900
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  r["nombre"] ?? "Sin nombre", 
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700, 
+                                                    fontSize: 15,
+                                                    color: Colors.blueGrey.shade900
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              FoquitoSemaforo(
+                                                semaforo: r["semaforo"]?.toString(),
+                                                esPotenciada: isPotenciada,
+                                                esDisminuida: r["es_disminuida"] == true,
+                                                size: 15,
+                                              ),
+                                            ],
                                           ),
-                                          if (isPotenciada || isPreferida) ...[
+                                          if (isPreferida) ...[
                                             const SizedBox(height: 4),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              children: [
-                                                if (isPotenciada)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFDCFCE7),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(color: const Color(0xFF22C55E), width: 0.8),
-                                                    ),
-                                                    child: const Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.verified, size: 11, color: Color(0xFF15803D)),
-                                                        SizedBox(width: 3),
-                                                        Text(
-                                                          "Recomendada",
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: Color(0xFF15803D),
-                                                          ),
-                                                        ),
-                                                      ],
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEFF6FF),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: const Color(0xFF3B82F6), width: 0.8),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.favorite, size: 11, color: Color(0xFF2563EB)),
+                                                  SizedBox(width: 3),
+                                                  Text(
+                                                    "Favorita",
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Color(0xFF2563EB),
                                                     ),
                                                   ),
-                                                if (isPreferida)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFEFF6FF),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(color: const Color(0xFF3B82F6), width: 0.8),
-                                                    ),
-                                                    child: const Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.favorite, size: 11, color: Color(0xFF2563EB)),
-                                                        SizedBox(width: 3),
-                                                        Text(
-                                                          "Favorita",
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: Color(0xFF2563EB),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ],
                                           const SizedBox(height: 4),
                                           Text(
-                                            r["recomendacion"]?.toString() ??
-                                            ((r["descripcion"] != null && r["descripcion"].toString().isNotEmpty)
-                                                ? r["descripcion"]
-                                                : (categorias.isEmpty ? "Receta general segura" : categorias)),
-                                            style: TextStyle(
-                                              color: isPotenciada ? const Color(0xFF166534) : Colors.blueGrey.shade400,
+                                            (r["descripcion"] != null && r["descripcion"].toString().trim().isNotEmpty)
+                                                ? r["descripcion"].toString().trim()
+                                                : (categorias.isNotEmpty ? categorias : "Receta nutritiva"),
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
                                               fontSize: 12,
-                                              fontWeight: isPotenciada ? FontWeight.w600 : FontWeight.normal,
+                                              fontWeight: FontWeight.normal,
                                             ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,

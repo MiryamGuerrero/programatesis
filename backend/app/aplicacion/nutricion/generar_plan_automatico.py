@@ -12,6 +12,40 @@ from .evaluar_reglas_paciente import CasoUsoEvaluarReglasPaciente
 
 from ...domain.modelos.plan_nutricional import PlanSemanal, DiaPlan, ItemPlan
 
+def _es_receta_amarilla(receta: dict) -> bool:
+    return str(receta.get("semaforo", "")).lower() == "amarillo" or bool(receta.get("es_disminuida"))
+
+def _calcular_semaforo(receta: dict) -> str:
+    sem = str(receta.get("semaforo", "")).lower()
+    if sem in ("verde", "amarillo", "neutral"):
+        return sem
+    if receta.get("es_potenciada"):
+        return "verde"
+    if receta.get("es_disminuida"):
+        return "amarillo"
+    return "neutral"
+
+def _puede_usar_receta_amarilla(receta: dict, fecha: date, historial_amarillos: Dict[int, List[date]]) -> bool:
+    if not _es_receta_amarilla(receta):
+        return True
+    rid = receta.get("id")
+    if not rid:
+        return True
+    fechas = historial_amarillos.get(rid, [])
+    if not fechas:
+        return True
+    # Regla 1: NUNCA en días consecutivos (ayer ni mañana)
+    ayer = fecha - timedelta(days=1)
+    manana = fecha + timedelta(days=1)
+    if ayer in fechas or manana in fechas:
+        return False
+    # Regla 2: Máximo 2 veces en la misma semana ISO
+    yw = fecha.isocalendar()
+    conteo_semana = sum(1 for f in fechas if f.isocalendar()[:2] == yw[:2])
+    if conteo_semana >= 2:
+        return False
+    return True
+
 class CasoUsoGenerarPlanAutomatico:
     def __init__(
         self,
@@ -202,11 +236,16 @@ class CasoUsoGenerarPlanAutomatico:
         dias_plan = []
         # MEJORA: Historial a largo plazo basado en la DB (ultimos 3 dias)
         historial_recientes = [] 
+        historial_amarillos: Dict[int, List[date]] = {}
         try:
             for i in range(1, 4):
                 dia_prev = fecha_inicio - timedelta(days=i)
                 items_prev = self.repo_seguimiento.obtener_plan_del_dia(id_paciente, dia_prev)
-                historial_recientes.extend([it["id_receta"] for it in items_prev if "id_receta" in it])
+                for it in items_prev:
+                    if "id_receta" in it:
+                        historial_recientes.append(it["id_receta"])
+                        if str(it.get("semaforo", "")).lower() == "amarillo":
+                            historial_amarillos.setdefault(it["id_receta"], []).append(dia_prev)
         except Exception:
             pass # Si falla no bloqueamos la generacion
         # 4. Generar items día por día (Procesamiento en memoria ultra-rápido)
@@ -301,6 +340,19 @@ class CasoUsoGenerarPlanAutomatico:
                                 if opciones_saladas:
                                     opciones = opciones_saladas
                                     
+                            # Regla Clínica Estricta: Filtrar recetas amarillas que violen no consecutivos o max 2/semana
+                            if opciones:
+                                opciones_seguras_amarillo = [
+                                    op for op in opciones
+                                    if _puede_usar_receta_amarilla(op, fecha_dia, historial_amarillos)
+                                ]
+                                if opciones_seguras_amarillo:
+                                    opciones = opciones_seguras_amarillo
+                                else:
+                                    opciones_no_amarillas = [op for op in opciones if not _es_receta_amarilla(op)]
+                                    if opciones_no_amarillas:
+                                        opciones = opciones_no_amarillas
+
                             if opciones:
                                 r_elegida = self._seleccionar_receta_con_prioridad(opciones, historial_recientes)
                                 
@@ -318,17 +370,20 @@ class CasoUsoGenerarPlanAutomatico:
                                 g_ids_receta = set(r_elegida.get("g_ids") or [])
                                 grupos_proteina_usados.update(g_ids_receta & grupos_proteina_fuertes)
 
-                                    
                                 # Marcar TODOS los tipos que cubre esta receta para evitar redundancias luego (ej. Arroz)
                                 for t_id in (r_elegida.get("tipos_plato_ids") or []):
                                     tipos_cubiertos.add(t_id)
+
+                                sem_elegido = _calcular_semaforo(r_elegida)
+                                if sem_elegido == "amarillo":
+                                    historial_amarillos.setdefault(r_elegida["id"], []).append(fecha_dia)
                                     
                                 temp_comidas.append(ItemPlan(
                                     id_receta=r_elegida["id"],
                                     nombre_receta=r_elegida["nombre"],
                                     id_momento=m_id,
                                     nombre_momento=momentos_cat.get(m_id, "Momento"),
-                                    semaforo=r_elegida.get("semaforo", "neutral"),
+                                    semaforo=sem_elegido,
                                     imagen_url=r_elegida.get("imagen_url")
                                 ))
                             else:
@@ -355,16 +410,33 @@ class CasoUsoGenerarPlanAutomatico:
                             if opciones_filtradas:
                                 opciones_fallback = opciones_filtradas
 
+                        # Filtrar amarillos no permitidos en fallback
+                        opciones_fb_seguras = [
+                            r for r in opciones_fallback
+                            if _puede_usar_receta_amarilla(r, fecha_dia, historial_amarillos)
+                        ]
+                        if opciones_fb_seguras:
+                            opciones_fallback = opciones_fb_seguras
+                        else:
+                            opciones_fb_limpias = [r for r in opciones_fallback if not _es_receta_amarilla(r)]
+                            if opciones_fb_limpias:
+                                opciones_fallback = opciones_fb_limpias
+
                         r_elegida = self._seleccionar_receta_con_prioridad(opciones_fallback, historial_recientes)
                         historial_recientes.append(r_elegida["id"])
                         if len(historial_recientes) > 20:
                             historial_recientes.pop(0)
+
+                        sem_elegido = _calcular_semaforo(r_elegida)
+                        if sem_elegido == "amarillo":
+                            historial_amarillos.setdefault(r_elegida["id"], []).append(fecha_dia)
+
                         comidas_dia.append(ItemPlan(
                             id_receta=r_elegida["id"],
                             nombre_receta=r_elegida["nombre"],
                             id_momento=m_id,
                             nombre_momento=momentos_cat.get(m_id, "Momento"),
-                            semaforo=r_elegida.get("semaforo", "neutral"),
+                            semaforo=sem_elegido,
                             imagen_url=r_elegida.get("imagen_url")
                         ))
 
@@ -418,6 +490,34 @@ class CasoUsoGenerarPlanAutomatico:
             and r["id"] not in recetas_del_dia
             and set(r.get("tipos_plato_ids") or []) == tipos_actuales
         ]
+
+        # Validar reglas de seguridad para recetas amarillas en el intercambio
+        items_cercanos = []
+        try:
+            for d_offset in (-2, -1, 1, 2):
+                f_check = fecha_programada + timedelta(days=d_offset)
+                items_cercanos.extend(self.repo_seguimiento.obtener_plan_del_dia(id_paciente, f_check))
+        except Exception:
+            pass
+        
+        hist_amarillos_swap: Dict[int, List[date]] = {}
+        for it in items_cercanos:
+            if it.get("id_receta") and str(it.get("semaforo", "")).lower() == "amarillo":
+                f_it = it.get("fecha_programada")
+                if isinstance(f_it, str):
+                    try:
+                        f_it = date.fromisoformat(f_it)
+                    except Exception:
+                        pass
+                if isinstance(f_it, date):
+                    hist_amarillos_swap.setdefault(it["id_receta"], []).append(f_it)
+
+        alternativas_filtradas = [
+            r for r in alternativas
+            if _puede_usar_receta_amarilla(r, fecha_programada, hist_amarillos_swap)
+        ]
+        if alternativas_filtradas:
+            alternativas = alternativas_filtradas
         
         if not alternativas:
             raise ValueError("Por el momento no se tienen mas recetas con este mismo tipo de comida para el paciente.")

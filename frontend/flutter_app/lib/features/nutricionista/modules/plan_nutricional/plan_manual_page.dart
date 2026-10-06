@@ -14,6 +14,7 @@ import '../../../../shared/widgets/patient_summary_panel.dart';
 import '../../../../shared/widgets/shimmer_components.dart';
 import 'asignacion_comida_manual_page.dart';
 import 'widgets/receta_modal_verde.dart';
+import '../../../../shared/widgets/foquito_semaforo.dart';
 
 // --- MODELOS ---
 class MealSlot {
@@ -324,34 +325,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
 
-    DateTime latestEnd = todayOnly;
-    // Solo considerar planes que estén actualmente vigentes y no hayan caducado
-    for (var p in planes) {
-      if (p["vigente"] != true) continue;
-      final rawFin = p["fecha_fin"];
-      if (rawFin == null) continue;
-      try {
-        final fFin = DateTime.parse(rawFin.toString());
-        if (fFin.isAfter(latestEnd)) latestEnd = fFin;
-      } catch (_) {}
-    }
-    final rawPlanVigenteFin = planVigente?["fecha_fin"];
-    if (rawPlanVigenteFin != null && planVigente?["vigente"] == true) {
-      try {
-        final vigFin = DateTime.parse(rawPlanVigenteFin.toString());
-        if (vigFin.isAfter(latestEnd)) latestEnd = vigFin;
-      } catch (_) {}
-    }
-    
-    if (latestEnd.isAfter(todayOnly)) {
-      _startDate = latestEnd.add(const Duration(days: 1));
-    } else {
-      _startDate = todayOnly;
-    }
-
-    _endDate = _startDate.add(const Duration(days: 6));
-
-    // REGLA CLÍNICA ESTRICTA: El plan nunca debe superar un día antes de la próxima consulta médica
+    // 1. Obtener la fecha de la próxima consulta médica / revisión
     DateTime? proximaCitaDate;
     if (_patientProfile != null) {
       final c = _patientProfile!['ultimo_control'] ?? {};
@@ -360,11 +334,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
       }
     }
-    if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
-      final maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day).subtract(const Duration(days: 1));
-      if (_endDate.isAfter(maxAllowedEnd)) {
-        _endDate = maxAllowedEnd;
-      }
+
+    // Límite estricto: el día de la cita de revisión médica
+    DateTime? maxAllowedEnd;
+    if (proximaCitaDate != null && !proximaCitaDate.isBefore(todayOnly)) {
+      maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day);
+    }
+
+    // 2. Determinar fecha de inicio: SIEMPRE debe ser a partir de hoy
+    _startDate = todayOnly;
+
+    // 4. Calcular fecha fin según la duración seleccionada
+    if (_durationType == "un día") {
+      _endDate = _startDate;
+    } else if (_durationType == "una semana") {
+      _endDate = _startDate.add(const Duration(days: 6));
+    } else if (_durationType == "un mes") {
+      _endDate = _startDate.add(const Duration(days: 29));
+    } else if (_durationType == "hasta revision" && maxAllowedEnd != null) {
+      _endDate = maxAllowedEnd;
+    }
+
+    // REGLA CLÍNICA ESTRICTA: El plan NUNCA debe sobrepasar el día de la revisión médica
+    if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
+      _endDate = maxAllowedEnd;
     }
 
     _calendarViewDate = _startDate;
@@ -1342,6 +1335,9 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       if (mounted) {
         setState(() {
           _patientPlans.removeWhere((p) => p["id"] == id);
+          if (_planVigente != null && (_planVigente!["id"] == id || _planVigente!["id"] == null)) {
+            _planVigente = null;
+          }
           _deleteSuccess = true;
           final hasVigente = _patientPlans.any((p) => p["vigente"] == true || p["plan_activo"] == true);
           final pId = _selectedPatient?["id"]?.toString();
@@ -1355,6 +1351,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
               _selectedPatient!['plan_activo'] = hasVigente;
             }
           }
+          // Al eliminar un plan, asegurar que las fechas vuelvan a partir de hoy
+          final today = DateTime.now();
+          _startDate = DateTime(today.year, today.month, today.day);
+          _calculateSmartDates(_patientPlans, planVigente: _planVigente);
         });
         _fetchPatientsSilently();
         await Future.delayed(const Duration(milliseconds: 1200));
@@ -1373,6 +1373,46 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Future<void> _startNewPlan() async {
     if (_selectedPatient == null) return;
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+
+    // 1. Obtener la fecha de la próxima cita médica / revisión
+    DateTime? proximaCitaDate;
+    if (_patientProfile != null) {
+      final c = _patientProfile!['ultimo_control'] ?? {};
+      final str = c['fecha_proxima_cita']?.toString();
+      if (str != null && str.isNotEmpty) {
+        try { proximaCitaDate = DateTime.parse(str); } catch (_) {}
+      }
+    }
+
+    // 2. Buscar si hay un plan vigente que ya cubra hasta hoy o después
+    DateTime? latestPlanEnd;
+    Map<String, dynamic>? latestPlan;
+    for (var p in _patientPlans) {
+      if (p["vigente"] != true) continue;
+      final rawFin = p["fecha_fin"];
+      if (rawFin == null) continue;
+      try {
+        final fFin = DateTime.parse(rawFin.toString());
+        if (fFin.isAfter(todayOnly) || fFin.isAtSameMomentAs(todayOnly)) {
+          if (latestPlanEnd == null || fFin.isAfter(latestPlanEnd)) {
+            latestPlanEnd = fFin;
+            latestPlan = p;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Caso: Si ya cubre completamente hasta la fecha de revisión médica, avisar que no hay espacio libre
+    if (proximaCitaDate != null && latestPlanEnd != null) {
+      final maxAllowed = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day);
+      if (latestPlanEnd.isAtSameMomentAs(maxAllowed) || latestPlanEnd.isAfter(maxAllowed)) {
+        _mostrarModalPeriodoCubierto(proximaCitaDate, latestPlan);
+        return;
+      }
+    }
+
     setState(() {
       _viewingHistory = false;
       _planInitialized = false;
@@ -1389,6 +1429,83 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       _calculateSmartDates(_patientPlans, planVigente: _planVigente);
     });
     _showConfigModal();
+  }
+
+  void _mostrarModalPeriodoCubierto(DateTime proximaCitaDate, Map<String, dynamic>? planVigente) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.event_available, color: Colors.blue.shade700, size: 28),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "Periodo cubierto",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "El paciente ya tiene un plan alimentario activo que cubre hasta la próxima consulta de revisión médica (${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}).",
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Text(
+                "No hay espacio libre sin planificar. Si necesitas hacer cambios, puedes modificar las comidas del plan actual o eliminarlo para crear uno nuevo a partir de hoy.",
+                style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cerrar", style: TextStyle(color: Colors.grey)),
+          ),
+          if (planVigente != null && planVigente['id'] != null) ...[
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _deletePlan((planVigente['id'] as num).toInt());
+              },
+              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+              label: const Text("Eliminar plan", style: TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _verDetallePlan(planVigente);
+              },
+              icon: const Icon(Icons.edit_note, size: 18),
+              label: const Text("Modificar plan"),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _verDetallePlan(Map<String, dynamic> plan) async {
@@ -1479,6 +1596,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
+        fit: StackFit.expand,
         children: [
           if (_isAssigningSingleMeal && _selectedPatient != null && _patientProfile != null)
             AsignacionComidaManualPage(
@@ -1904,6 +2022,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildHistoryLayout() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_patientProfile != null)
           PatientSummaryPanel(
@@ -1976,7 +2095,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildHistoryTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1989,7 +2108,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTema.azulPrincipal.withOpacity(0.1),
+                    color: AppTema.azulPrincipal.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Padding(
@@ -2246,7 +2365,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   Widget _buildEditorLayout() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_patientProfile != null)
           PatientSummaryPanel(
@@ -2703,7 +2822,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                           ),
                           child: InkWell(
                             onTap: () => mostrarDetalleRecetaVerde(
-                                context, (rec["id"] as num?)?.toInt() ?? 0, ref),
+                              context,
+                              (rec["id"] as num?)?.toInt() ?? 0,
+                              ref,
+                              semaforo: sem,
+                              idPaciente: _selectedPatient?["id"]?.toString(),
+                              mensajeRegla: rec["mensaje_regla"]?.toString(),
+                            ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -2739,21 +2864,25 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(rec["nombre"]?.toString() ?? "-",
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                              color: Color(0xFF1E293B))),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                          rec["mensaje_regla"]?.toString() ??
-                                              "Segura",
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              color: color,
-                                              fontWeight: FontWeight.w700)),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: Text(rec["nombre"]?.toString() ?? "-",
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                    color: Color(0xFF1E293B))),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          FoquitoSemaforo(
+                                            semaforo: sem,
+                                            size: 14,
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -2847,6 +2976,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     bool isGenerating = false;
 
     final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    if (!isAdjusting) {
+      _startDate = todayOnly;
+    }
     if (!isAdjusting && _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day) {
       try {
         final dio = ref.read(dioProvider);
@@ -2893,9 +3026,13 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       }
     }
     DateTime? maxAllowedEnd;
-    if (proximaCitaDate != null && proximaCitaDate.isAfter(_startDate)) {
-      maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day).subtract(const Duration(days: 1));
+    if (proximaCitaDate != null && !proximaCitaDate.isBefore(_startDate)) {
+      maxAllowedEnd = DateTime(proximaCitaDate.year, proximaCitaDate.month, proximaCitaDate.day);
     }
+
+    final int? diasHastaRevision = (maxAllowedEnd != null && !maxAllowedEnd.isBefore(_startDate))
+        ? maxAllowedEnd.difference(_startDate).inDays + 1
+        : null;
 
     if (_durationType == "un día") {
       _endDate = _startDate;
@@ -2903,6 +3040,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
       _endDate = _startDate.add(const Duration(days: 6));
     } else if (_durationType == "un mes") {
       _endDate = _startDate.add(const Duration(days: 29));
+    } else if (_durationType == "hasta revision" && maxAllowedEnd != null) {
+      _endDate = maxAllowedEnd;
     }
     if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
       _endDate = maxAllowedEnd;
@@ -2948,12 +3087,17 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: "una comida", child: Text("Una sola comida")),
-                        DropdownMenuItem(value: "un día", child: Text("Un día completo")),
-                        DropdownMenuItem(
+                      items: [
+                        const DropdownMenuItem(value: "una comida", child: Text("Una sola comida")),
+                        const DropdownMenuItem(value: "un día", child: Text("Un día completo")),
+                        const DropdownMenuItem(
                             value: "una semana", child: Text("Una semana")),
-                        DropdownMenuItem(value: "un mes", child: Text("Un mes (30 días)")),
+                        if (diasHastaRevision != null && diasHastaRevision > 0 && maxAllowedEnd != null)
+                          DropdownMenuItem(
+                            value: "hasta revision",
+                            child: Text("Hasta la revisión ($diasHastaRevision días - ${DateFormat('d MMM', 'es_EC').format(maxAllowedEnd)})"),
+                          ),
+                        const DropdownMenuItem(value: "un mes", child: Text("Un mes (30 días)")),
                       ],
                       onChanged: (v) {
                         if (v == "una comida") {
@@ -2969,8 +3113,10 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                             _endDate = _startDate.add(const Duration(days: 6));
                           } else if (_durationType == "un mes") {
                             _endDate = _startDate.add(const Duration(days: 29));
+                          } else if (_durationType == "hasta revision" && maxAllowedEnd != null) {
+                            _endDate = maxAllowedEnd;
                           }
-                          // REGLA CLÍNICA ESTRICTA: Nunca pasar de un día antes de la consulta
+                          // REGLA CLÍNICA ESTRICTA: Nunca pasar de la fecha de revisión
                           if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
                             _endDate = maxAllowedEnd;
                           }
@@ -3034,7 +3180,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                   Expanded(
                                     child: Text(
                                       (maxAllowedEnd != null && _endDate.isAtSameMomentAs(maxAllowedEnd))
-                                          ? "Próxima cita médica: ${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}. Plan delimitado hasta el ${DateFormat('d MMM', 'es_EC').format(maxAllowedEnd)} (un día antes)."
+                                          ? "Próxima cita médica: ${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}. Plan delimitado exactamente hasta la revisión (${DateFormat('d MMM', 'es_EC').format(maxAllowedEnd)})."
                                           : "Próxima cita médica: ${DateFormat('d MMM yyyy', 'es_EC').format(proximaCitaDate)}",
                                       style: TextStyle(
                                         fontSize: 11,
@@ -3058,7 +3204,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                     final picked = await showDatePicker(
                                       context: context,
                                       initialDate: _startDate,
-                                      firstDate: DateTime(2020),
+                                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
                                       lastDate: maxAllowedEnd ?? DateTime(2035),
                                     );
                                     if (picked != null) {
@@ -3070,6 +3216,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                                           _endDate = _startDate.add(const Duration(days: 6));
                                         } else if (_durationType == "un mes") {
                                           _endDate = _startDate.add(const Duration(days: 29));
+                                        } else if (_durationType == "hasta revision" && maxAllowedEnd != null) {
+                                          _endDate = maxAllowedEnd;
                                         }
                                         if (maxAllowedEnd != null && _endDate.isAfter(maxAllowedEnd)) {
                                           _endDate = maxAllowedEnd;
@@ -3363,41 +3511,57 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
       timer.cancel();
       final List<dynamic> diasData = resp['dias'] ?? [];
-      final List<PlanDay> plan = [];
-
+      final Map<String, List<dynamic>> comidasPorFecha = {};
       for (var diaData in diasData) {
-        final DateTime fecha = DateTime.parse(diaData['fecha']);
-        final List<dynamic> comidas = diaData['comidas'] ?? [];
-        final Map<int, MealSlot> groupedSlots = {};
+        final fStr = diaData['fecha']?.toString().split('T').first;
+        if (fStr != null) {
+          comidasPorFecha[fStr] = List<dynamic>.from(diaData['comidas'] ?? []);
+        }
+      }
+
+      final List<PlanDay> plan = [];
+      DateTime curr = _startDate;
+      while (!curr.isAfter(_endDate)) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(curr);
+        final comidas = comidasPorFecha[dateKey] ?? [];
+
+        final Map<int, List<dynamic>> recetasPorMomento = {};
+        for (var mId in momentosIds) {
+          recetasPorMomento[mId] = [];
+        }
 
         for (var comida in comidas) {
-          final int mId = comida['id_momento'];
+          final int mId = (comida['id_momento'] as num?)?.toInt() ?? 0;
           final recipe = {
             "id": comida['id_receta'],
             "nombre": comida['nombre_receta'],
             "semaforo": comida['semaforo'] ?? "neutral",
             "imagen_url": comida['imagen_url'],
           };
-          if (groupedSlots.containsKey(mId)) {
-            groupedSlots[mId]!.recipes.add(recipe);
-          } else {
-            groupedSlots[mId] = MealSlot(
-              mealType: comida['nombre_momento'],
-              momentId: mId,
-              recipes: [recipe],
-            );
+          if (!recetasPorMomento.containsKey(mId)) {
+            recetasPorMomento[mId] = [];
           }
+          recetasPorMomento[mId]!.add(recipe);
         }
-        final sortedSlots = groupedSlots.keys.toList()..sort();
-        plan.add(PlanDay(
-            date: fecha,
-            slots: sortedSlots.map((id) => groupedSlots[id]!).toList()));
+
+        final sortedMomentos = momentosIds.toSet().toList()..sort();
+        final List<MealSlot> daySlots = sortedMomentos.map((mId) {
+          return MealSlot(
+            mealType: _getMomentName(mId),
+            momentId: mId,
+            recipes: recetasPorMomento[mId] ?? [],
+          );
+        }).toList();
+
+        plan.add(PlanDay(date: curr, slots: daySlots));
+        curr = curr.add(const Duration(days: 1));
       }
 
       if (mounted) {
         setState(() {
           _weeklyPlan = plan;
           _planInitialized = true;
+          _isDirty = true;
           _isLoading = false;
           _loadingMessage = null;
         });
@@ -3596,9 +3760,134 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   // El método _mostrarDetalleReceta fue reemplazado por mostrarDetalleRecetaVerde
 
-  void _savePlan() async {
-    // ELIMINADA la restricción de que cada slot debe tener una receta.
-    // Esto permite guardar planes de una sola comida o con momentos omitidos por horario.
+  List<String> _detectarAdvertenciasSemaforo() {
+    final List<String> advertencias = [];
+    final Map<int, List<DateTime>> amarillosFechas = {};
+    final Map<int, String> nombres = {};
+
+    for (var d in _weeklyPlan) {
+      for (var s in d.slots) {
+        for (final recipe in s.recipes) {
+          final sem = (recipe["semaforo"] ?? "").toString().toLowerCase();
+          final esDisminuida = recipe["es_disminuida"] == true;
+          if (sem == "amarillo" || esDisminuida) {
+            final rid = int.tryParse(recipe["id"]?.toString() ?? "") ?? 0;
+            if (rid <= 0) continue;
+            nombres[rid] = recipe["nombre"]?.toString() ?? "Receta #$rid";
+            amarillosFechas.putIfAbsent(rid, () => []).add(DateTime(d.date.year, d.date.month, d.date.day));
+          }
+        }
+      }
+    }
+
+    amarillosFechas.forEach((rid, fechas) {
+      final fechasOrden = fechas.toSet().toList()..sort();
+      final nombre = nombres[rid] ?? "Receta #$rid";
+
+      // 1. Días consecutivos
+      for (int i = 1; i < fechasOrden.length; i++) {
+        if (fechasOrden[i].difference(fechasOrden[i - 1]).inDays == 1) {
+          final f1 = DateFormat('dd/MM').format(fechasOrden[i - 1]);
+          final f2 = DateFormat('dd/MM').format(fechasOrden[i]);
+          advertencias.add("'$nombre' (Semáforo Amarillo) está programada en días consecutivos ($f1 y $f2).");
+          break;
+        }
+      }
+
+      // 2. Más de 2 por semana
+      final Map<String, int> conteoSemana = {};
+      for (final f in fechasOrden) {
+        final semanaKey = "${f.year}-W${(f.difference(DateTime(f.year, 1, 1)).inDays / 7).ceil()}";
+        conteoSemana[semanaKey] = (conteoSemana[semanaKey] ?? 0) + 1;
+        if (conteoSemana[semanaKey]! > 2) {
+          advertencias.add("'$nombre' (Semáforo Amarillo) supera el límite de 2 veces en la misma semana.");
+          break;
+        }
+      }
+    });
+
+    return advertencias;
+  }
+
+  void _savePlan({bool forzarGuardado = false}) async {
+    // Si no está forzado, verificar advertencias clínicas antes de guardar
+    if (!forzarGuardado) {
+      final advertencias = _detectarAdvertenciasSemaforo();
+      if (advertencias.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 28),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    "Advertencia Nutricional",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Se detectaron recetas con semáforo amarillo (consumo moderado) que podrían requerir revisión clínica:",
+                  style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 12),
+                ...advertencias.map((adv) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Icon(Icons.circle, size: 6, color: Colors.amber.shade800),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          adv,
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 12),
+                const Text(
+                  "Como profesional de nutrición, puedes ajustar el plan o confirmar el guardado bajo tu criterio clínico.",
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Revisar plan", style: TextStyle(color: Colors.blueGrey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _savePlan(forzarGuardado: true);
+                },
+                child: const Text("Confirmar y Guardar"),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() {
       _isSaving = true;
@@ -3632,6 +3921,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         "id_paciente": patientId,
         "plan": planData,
         "boosters": _boostersSeleccionados,
+        "forzar_guardado": forzarGuardado,
         if (_editingPlanId != null) "id_plan_actualizar": _editingPlanId,
       });
 
@@ -3709,8 +3999,54 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           _saveSuccess = false;
           _savingMessage = null;
         });
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
+        final errStr = e.toString();
+        if (errStr.toLowerCase().contains("amarill") || errStr.toLowerCase().contains("consecutiv") || errStr.toLowerCase().contains("semana")) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+                  SizedBox(width: 8),
+                  Expanded(child: Text("Advertencia Clínica", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    errStr.replaceAll("Exception: ", "").replaceAll("DioException [bad response]: ", ""),
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Como profesional de nutrición, ¿deseas confirmar y guardar el plan bajo tu criterio clínico?",
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Revisar"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _savePlan(forzarGuardado: true);
+                  },
+                  child: const Text("Guardar de todos modos", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
+        }
       }
     }
   }
@@ -4374,104 +4710,72 @@ class _RecipePickerState extends ConsumerState<_RecipePicker> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      FoquitoSemaforo(
+                        semaforo: recipe["semaforo"]?.toString(),
+                        esPotenciada: isPotenciada,
+                        esDisminuida: recipe["es_disminuida"] == true,
+                        size: 15,
+                      ),
                       if (likes == true)
                         const Padding(
-                          padding: EdgeInsets.only(left: 4),
+                          padding: EdgeInsets.only(left: 6),
                           child: Icon(Icons.thumb_up,
                               color: Colors.green, size: 14),
                         ),
                       if (likes == false)
                         const Padding(
-                          padding: EdgeInsets.only(left: 4),
+                          padding: EdgeInsets.only(left: 6),
                           child: Icon(Icons.thumb_down,
                               color: Colors.red, size: 14),
                         ),
                     ],
                   ),
-                  if (isPotenciada || isPreferida) ...[
+                  if (isPreferida) ...[
                     const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        if (isPotenciada)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: const Color(0xFF22C55E),
-                                  width: 0.8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.verified_rounded,
-                                    size: 11,
-                                    color: Color(0xFF15803D)),
-                                SizedBox(width: 3),
-                                Text(
-                                  "Recomendada para su salud",
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF15803D),
-                                  ),
-                                ),
-                              ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: const Color(0xFF3B82F6),
+                            width: 0.8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.favorite,
+                              size: 11,
+                              color: Color(0xFF2563EB)),
+                          SizedBox(width: 3),
+                          Text(
+                            "Favorita del paciente",
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2563EB),
                             ),
                           ),
-                        if (isPreferida)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: const Color(0xFF3B82F6),
-                                  width: 0.8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.favorite,
-                                    size: 11,
-                                    color: Color(0xFF2563EB)),
-                                SizedBox(width: 3),
-                                Text(
-                                  "Favorita del paciente",
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 3),
-                  Text(
-                    recipe["mensaje_regla"]?.toString() ??
-                        recipe["recomendacion"]?.toString() ??
-                        "Segura para el paciente",
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isPotenciada
-                          ? const Color(0xFF166534)
-                          : const Color(0xFF64748B),
-                      fontWeight: isPotenciada
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+                  if (recipe["descripcion"] != null &&
+                      recipe["descripcion"].toString().trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      recipe["descripcion"].toString().trim(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.normal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ],
               ),
             ),

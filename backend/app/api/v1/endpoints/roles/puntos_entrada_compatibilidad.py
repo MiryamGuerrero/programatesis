@@ -100,7 +100,8 @@ def obtener_detalle_plan(id_plan: int, _=Depends(require_roles("admin", "nutrici
                 pi.id_receta,
                 r.nombre as nombre_receta,
                 r.imagen_url as imagen_url,
-                pi.consumida
+                pi.consumida,
+                coalesce(nullif(pi.semaforo, ''), 'neutral') as semaforo
             from interaccion.plan_item pi
             join nutricion.receta r on r.id = pi.id_receta
             where pi.id_plan = %s
@@ -686,15 +687,19 @@ def guardar_plan_manual(
     from app.infraestructura.database.db import db_cursor
     with db_cursor() as cur:
         id_plan = None
-        if plan_items:
+        forzar_guardado = bool(payload.get("forzar_guardado") or payload.get("ignorar_advertencias"))
+        if plan_items and not forzar_guardado:
             # Regla de seguridad nutricional para semáforo amarillo:
             # 1) máximo 2 veces por semana
             # 2) nunca en días consecutivos
             amarillos_por_receta: dict[int, list[date]] = {}
+            nombres_receta: dict[int, str] = {}
             for i in plan_items:
+                rid = int(i.get("id_receta") or 0)
+                if rid > 0 and (i.get("nombre") or i.get("nombre_receta")):
+                    nombres_receta[rid] = str(i.get("nombre") or i.get("nombre_receta"))
                 if str(i.get("semaforo", "")).lower() != "amarillo":
                     continue
-                rid = int(i.get("id_receta") or 0)
                 if rid <= 0:
                     continue
                 f = datetime.fromisoformat(str(i.get("fecha"))).date()
@@ -702,12 +707,13 @@ def guardar_plan_manual(
 
             for rid, fechas in amarillos_por_receta.items():
                 fechas_orden = sorted(set(fechas))
+                nombre_txt = f"'{nombres_receta[rid]}' (ID {rid})" if rid in nombres_receta else f"ID {rid}"
                 # no consecutivos
                 for idx in range(1, len(fechas_orden)):
                     if (fechas_orden[idx] - fechas_orden[idx - 1]).days == 1:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"La receta {rid} (amarilla) no puede estar en días consecutivos.",
+                            detail=f"La receta {nombre_txt} tiene semáforo amarillo (consumo moderado) y no puede programarse en días consecutivos ({fechas_orden[idx - 1]} y {fechas_orden[idx]}). Por seguridad clínica, altérnala con otras opciones.",
                         )
                 # máximo 2 por semana ISO
                 conteo_semana: dict[tuple[int, int], int] = {}
@@ -718,7 +724,7 @@ def guardar_plan_manual(
                     if conteo_semana[key] > 2:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"La receta {rid} (amarilla) supera 2 veces en la misma semana.",
+                            detail=f"La receta {nombre_txt} tiene semáforo amarillo y supera el máximo recomendado de 2 veces en la misma semana (Semana {key[1]} de {key[0]}).",
                         )
 
             fechas = sorted(
@@ -899,6 +905,13 @@ def guardar_plan_manual(
                     # check if they were consumed before deleting? The UI prevents editing, so they should still be in payload.
                     cur.execute("DELETE FROM interaccion.plan_item WHERE id = ANY(%s)", (to_delete,))
                     
+                # Actualizar semáforo en los items existentes que se conservan
+                for item in payload.get("plan", []):
+                    cur.execute(
+                        "UPDATE interaccion.plan_item SET semaforo = %s WHERE id_plan = %s AND fecha_programada = %s AND id_momento = %s AND id_receta = %s",
+                        (str(item.get("semaforo") or "neutral").lower(), id_plan, item.get("fecha"), item.get("id_momento"), item.get("id_receta"))
+                    )
+
                 new_plan_items = []
                 for item in plan_items:
                     key = (str(item.get("fecha")), item.get("id_momento"), item.get("id_receta"))
@@ -915,6 +928,16 @@ def guardar_plan_manual(
                         placeholders.append("%s")
                         params.append(v)
 
+                # Desactivar únicamente planes existentes que se solapen con el nuevo rango de fechas
+                cur.execute(
+                    """
+                    update interaccion.plan_nutricional 
+                    set vigente = false 
+                    where id_paciente = %s and coalesce(vigente, false) = true 
+                      and fecha_inicio <= %s and fecha_fin >= %s
+                    """,
+                    (id_paciente, fechas[-1], fechas[0])
+                )
                 cur.execute(
                     f"insert into interaccion.plan_nutricional ({', '.join(cols_sql)}) values ({', '.join(placeholders)}) returning id",
                     tuple(params),
@@ -937,6 +960,8 @@ def guardar_plan_manual(
                 item_cols.append("created_at")
             if "comidas_por_dia" in cols_item:
                 item_cols.append("comidas_por_dia")
+            if "semaforo" in cols_item:
+                item_cols.append("semaforo")
 
             bulk_params = []
             for item in plan_items:
@@ -945,6 +970,8 @@ def guardar_plan_manual(
                     row.append(datetime.now()) # Usamos datetime de python para executemany
                 if "comidas_por_dia" in cols_item:
                     row.append(item.get("comidas_por_dia"))
+                if "semaforo" in cols_item:
+                    row.append(str(item.get("semaforo") or "neutral").lower())
                 bulk_params.append(tuple(row))
 
             placeholders = ["%s"] * len(item_cols)
@@ -1105,14 +1132,15 @@ def crud_recetas_compat(
     return items
 
 @router.get("/crud/recetas/{id_receta}")
-def obtener_receta_detalle_completo(id_receta: int):
+def obtener_receta_detalle_completo(id_receta: int, id_paciente: Optional[str] = None):
     from app.infraestructura.repositorios.repositorio_receta import RepositorioRecetaPostgres
     repo = RepositorioRecetaPostgres()
-    res = repo.obtener_detalle_completo(id_receta)
+    res = repo.obtener_detalle_completo(id_receta, id_paciente)
     if not res:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Receta no encontrada")
     return res
+
 
 @router.post("/crud/recetas")
 def guardar_receta_completa(payload: dict):

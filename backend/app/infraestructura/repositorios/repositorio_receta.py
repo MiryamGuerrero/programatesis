@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Dict, Any
 from copy import deepcopy
 import threading
@@ -5,6 +6,9 @@ import time
 import json
 from app.infraestructura.database.db import db_cursor
 from ...domain.repositorios.interfaces import IRepositorioReceta
+
+logger = logging.getLogger(__name__)
+
 
 class RepositorioRecetaPostgres(IRepositorioReceta):
     _safe_recipes_cache: dict = {}
@@ -379,11 +383,16 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
             if not row: return None
             receta = dict(zip([d[0] for d in cur.description], row))
             
-            # Verificar si está en el plan de hoy para el paciente
+            # Verificar si está en el plan de hoy para el paciente y clasificar semáforo clínico
             receta['en_plan_hoy'] = False
+            receta['semaforo'] = 'neutral'
+            receta['mensaje_regla'] = 'Receta segura y balanceada para el paciente'
+            receta['es_potenciada'] = False
+            receta['es_disminuida'] = False
+
             if id_paciente:
                 cur.execute("""
-                    select pi.id, pi.consumida, m.hora_inicio, m.hora_fin
+                    select pi.id, pi.consumida, m.hora_inicio, m.hora_fin, pi.semaforo
                     from interaccion.plan_item pi
                     join interaccion.plan_nutricional p on p.id = pi.id_plan
                     join nutricion.momento_comida m on m.id = pi.id_momento
@@ -399,6 +408,81 @@ class RepositorioRecetaPostgres(IRepositorioReceta):
                     receta['consumida_hoy'] = plan_row[1]
                     receta['momento_hora_inicio_hoy'] = plan_row[2]
                     receta['momento_hora_fin_hoy'] = plan_row[3]
+                    if plan_row[4] and plan_row[4] in ('verde', 'amarillo', 'neutral'):
+                        receta['semaforo'] = plan_row[4]
+
+                # Si no está en el plan de hoy o es neutral, verificar si tiene semáforo guardado en algún plan reciente del paciente
+                if receta.get('semaforo') in (None, '', 'neutral'):
+                    cur.execute("""
+                        select pi.semaforo
+                        from interaccion.plan_item pi
+                        join interaccion.plan_nutricional p on p.id = pi.id_plan
+                        where p.id_paciente = %s and pi.id_receta = %s and pi.semaforo is not null and pi.semaforo != ''
+                        order by pi.fecha_programada desc
+                        limit 1
+                    """, (id_paciente, id_receta))
+                    saved_sem_row = cur.fetchone()
+                    if saved_sem_row and saved_sem_row[0] in ('verde', 'amarillo'):
+                        receta['semaforo'] = saved_sem_row[0]
+
+                if receta.get('semaforo') == 'verde':
+                    receta['es_potenciada'] = True
+                    receta['mensaje_regla'] = 'PRIORIZAR: rica en Omega-3 / antiinflamatoria'
+                elif receta.get('semaforo') == 'amarillo':
+                    receta['es_disminuida'] = True
+                    receta['mensaje_regla'] = 'DISMINUIR: consumo moderado (máx. 2 veces por semana)'
+                else:
+                    # Evaluar semaforo clínico heurístico específico para este paciente
+                    try:
+                        cur.execute("""
+                            with conds as (
+                              select id as id_condicion from heuristico.condicion 
+                              where activa = true and (indicador_codigo = 'GENERAL_REUMATICOS' or nombre = 'general reumaticos')
+                              union
+                              select id_condicion from clinico.diagnostico_paciente where id_paciente = %s::uuid and esta_activo = true
+                              union
+                              select cca.id_condicion from clinico.control_condicion_activa cca join clinico.control_paciente cp on cp.id = cca.id_control
+                              where cp.id_paciente = %s::uuid and cca.esta_activa = true
+                            ),
+                            reglas_aplicables as (
+                              select upper(ca.nombre) as accion, r.id_ingrediente, r.id_subgrupo_alimentario, r.id_grupo_alimentario, r.id_etiqueta, r.id_receta
+                              from heuristico.regla r join heuristico.catalogo_accion ca on ca.id = r.id_accion join heuristico.condicion_regla cr on cr.id_regla = r.id
+                              where cr.id_condicion in (select id_condicion from conds)
+                            ),
+                            recoms as (
+                               select id_ingrediente from clinico.recomendacion_ingrediente where id_paciente = %s::uuid and activa = true
+                            ),
+                            receta_info as (
+                               select * from nutricion.vista_recetas_detalle where id = %s
+                            )
+                            select
+                              (
+                                exists (select 1 from recoms rem join receta_info rec on rem.id_ingrediente = any(rec.ingredientes_ids))
+                                or exists (select 1 from reglas_aplicables ra where ra.accion = 'PRIORIZAR' and ra.id_receta = %s)
+                                or exists (select 1 from receta_info rec where 33 = any(rec.subgrupos_ids) or 18 = any(rec.subgrupos_ids) or 97 = any(rec.subgrupos_ids) or 'ETIQUETA_75' = any(rec.etiquetas_codigos) or (rec.ingredientes_nombres::text ilike '%%cúrcuma%%' or rec.ingredientes_nombres::text ilike '%%curcuma%%' or rec.ingredientes_nombres::text ilike '%%jengibre%%' or rec.ingredientes_nombres::text ilike '%%salmón%%' or rec.ingredientes_nombres::text ilike '%%salmon%%' or rec.ingredientes_nombres::text ilike '%%chía%%' or rec.ingredientes_nombres::text ilike '%%chia%%' or rec.ingredientes_nombres::text ilike '%%nuez%%' or rec.ingredientes_nombres::text ilike '%%nueces%%'))
+                              ) as es_potenciada,
+                              (
+                                exists (select 1 from reglas_aplicables ra join receta_info rec on ra.accion = 'DISMINUIR' and (ra.id_receta = rec.id or ra.id_ingrediente = any(rec.ingredientes_ids) or (ra.id_subgrupo_alimentario is not null and ra.id_subgrupo_alimentario = any(rec.subgrupos_ids) and ra.id_subgrupo_alimentario in (35, 36, 37, 49, 53))))
+                              ) as es_disminuida
+                        """, (id_paciente, id_paciente, id_paciente, id_receta, id_receta))
+                        row_eval = cur.fetchone()
+                        if row_eval:
+                            es_pot = bool(row_eval[0])
+                            es_dis = bool(row_eval[1])
+                            receta['es_potenciada'] = es_pot
+                            receta['es_disminuida'] = es_dis
+                            if es_pot:
+                                receta['semaforo'] = 'verde'
+                                receta['mensaje_regla'] = 'PRIORIZAR: rica en Omega-3 / antiinflamatoria'
+                            elif es_dis:
+                                receta['semaforo'] = 'amarillo'
+                                receta['mensaje_regla'] = 'DISMINUIR: consumo moderado (máx. 2 veces por semana)'
+                            else:
+                                receta['semaforo'] = 'neutral'
+                                receta['mensaje_regla'] = 'Segura y balanceada para el paciente'
+                    except Exception as ex:
+                        logger.warning(f"No se pudo evaluar semaforo de receta {id_receta} para paciente {id_paciente}: {ex}")
+
 
             cur.execute("SELECT id_momento FROM nutricion.receta_momento WHERE id_receta = %s", (id_receta,))
             receta['momentos'] = [r[0] for r in cur.fetchall()]

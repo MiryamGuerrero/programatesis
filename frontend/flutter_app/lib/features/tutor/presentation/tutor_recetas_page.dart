@@ -9,6 +9,7 @@ import '../../../core/theme/app_sizes.dart';
 import '../../../core/theme/app_responsive.dart';
 import '../data/seguimiento_provider.dart';
 import 'tutor_receta_detalle_page.dart';
+import '../../../shared/widgets/foquito_semaforo.dart';
 
 class TutorRecetasPage extends ConsumerStatefulWidget {
   const TutorRecetasPage({super.key});
@@ -196,7 +197,7 @@ class _TutorRecetasPageState extends ConsumerState<TutorRecetasPage>
         children: [
           SizeTransition(
             sizeFactor: anim,
-            alignment: Alignment.topCenter,
+            axisAlignment: -1.0,
             child: FadeTransition(
               opacity: anim,
               child: _buildSearchAndFilters(context),
@@ -914,47 +915,31 @@ class _RecipeCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            receta['nombre'] ?? "Sin nombre",
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              height: 1.2,
-                              color: const Color(0xFF1E293B),
-                            ),
-                          ),
-                          if (receta['es_potenciada'] == true ||
-                              receta['semaforo'] == 'verde') ...[
-                            const SizedBox(height: 3),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: const Color(0xFF22C55E), width: 0.8),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.verified_rounded,
-                                      size: 11, color: Color(0xFF15803D)),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    "Recomendada para su salud",
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF15803D),
-                                    ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  receta['nombre'] ?? "Sin nombre",
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    height: 1.2,
+                                    color: const Color(0xFF1E293B),
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              FoquitoSemaforo(
+                                semaforo: receta['semaforo']?.toString(),
+                                esPotenciada: receta['es_potenciada'] == true,
+                                esDisminuida: receta['es_disminuida'] == true,
+                                size: 14,
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             (receta['descripcion'] != null &&
@@ -964,7 +949,7 @@ class _RecipeCard extends StatelessWidget {
                                         .isNotEmpty)
                                 ? receta['descripcion'].toString().trim()
                                 : (receta['recomendacion']?.toString() ??
-                                    "Receta balanceada y segura para el paciente"),
+                                    "Receta recomendada para el paciente"),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/state/app_providers.dart';
+import '../../../../../shared/widgets/foquito_semaforo.dart';
 
 Future<void> mostrarDetalleRecetaVerde(
   BuildContext context,
   int idReceta,
   WidgetRef ref, {
   VoidCallback? onSelect,
+  String? semaforo,
+  String? idPaciente,
+  String? mensajeRegla,
 }) async {
   if (idReceta <= 0) return;
 
@@ -16,6 +20,9 @@ Future<void> mostrarDetalleRecetaVerde(
     barrierColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
     builder: (ctx) => _ModalRecetaContenido(
       idReceta: idReceta,
+      semaforoInicial: semaforo,
+      idPaciente: idPaciente,
+      mensajeReglaInicial: mensajeRegla,
       onSelect: onSelect != null
           ? () {
               Navigator.pop(ctx);
@@ -29,8 +36,17 @@ Future<void> mostrarDetalleRecetaVerde(
 class _ModalRecetaContenido extends ConsumerStatefulWidget {
   final int idReceta;
   final VoidCallback? onSelect;
+  final String? semaforoInicial;
+  final String? idPaciente;
+  final String? mensajeReglaInicial;
 
-  const _ModalRecetaContenido({required this.idReceta, this.onSelect});
+  const _ModalRecetaContenido({
+    required this.idReceta,
+    this.onSelect,
+    this.semaforoInicial,
+    this.idPaciente,
+    this.mensajeReglaInicial,
+  });
 
   @override
   ConsumerState<_ModalRecetaContenido> createState() =>
@@ -52,7 +68,14 @@ class _ModalRecetaContenidoState
   Future<void> _cargarReceta() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("crud/recetas/${widget.idReceta}");
+      final Map<String, dynamic> queryParams = {};
+      if (widget.idPaciente != null) {
+        queryParams["id_paciente"] = widget.idPaciente;
+      }
+      final res = await dio.get(
+        "crud/recetas/${widget.idReceta}",
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       if (mounted) {
         setState(() {
           receta = Map<String, dynamic>.from(res.data ?? {});
@@ -90,7 +113,7 @@ class _ModalRecetaContenidoState
           ],
         ),
         child: isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.green))
+            ? const Center(child: CircularProgressIndicator())
             : error != null
                 ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
                 : _buildContent(context),
@@ -102,6 +125,50 @@ class _ModalRecetaContenidoState
     final String? imgUrl = receta!["imagen_url"];
     final ingredientes =
         List<Map<String, dynamic>>.from(receta!["ingredientes"] ?? []);
+
+    final String semInicial = (widget.semaforoInicial ?? "").trim().toLowerCase();
+    final String semReceta = (receta?["semaforo"] ?? "").trim().toLowerCase();
+    final String sem = (semInicial.isNotEmpty && semInicial != "neutral")
+        ? semInicial
+        : (semReceta.isNotEmpty ? semReceta : (semInicial.isNotEmpty ? semInicial : "neutral"));
+
+    final String msjInicial = (widget.mensajeReglaInicial ?? "").trim();
+    final String msjReceta = (receta?["mensaje_regla"] ?? "").trim();
+    final String mensajeRegla = msjInicial.isNotEmpty
+        ? msjInicial
+        : (msjReceta.isNotEmpty
+            ? msjReceta
+            : (sem == "verde"
+                ? "PRIORIZAR: rica en Omega-3 / antiinflamatoria"
+                : (sem == "amarillo"
+                    ? "DISMINUIR: consumo moderado (máx. 2 veces por semana)"
+                    : "Segura y balanceada para el paciente")));
+
+    final Color primaryColor;
+    final Color bgColor;
+    final Color borderColor;
+    final IconData headerIcon;
+    final String semaforoLabel;
+
+    if (sem == "amarillo") {
+      primaryColor = const Color(0xFFD97706); // Amber 600
+      bgColor = const Color(0xFFFEF3C7); // Amber 100
+      borderColor = const Color(0xFFFDE68A); // Amber 200
+      headerIcon = Icons.lightbulb_rounded;
+      semaforoLabel = "Consumo moderado (máx. 2 por semana)";
+    } else if (sem == "verde") {
+      primaryColor = const Color(0xFF16A34A); // Green 600
+      bgColor = const Color(0xFFDCFCE7); // Green 100
+      borderColor = const Color(0xFFBBF7D0); // Green 200
+      headerIcon = Icons.eco_rounded;
+      semaforoLabel = "Recomendada / Potenciada";
+    } else {
+      primaryColor = const Color(0xFF0284C7); // Sky 600
+      bgColor = const Color(0xFFE0F2FE); // Sky 100
+      borderColor = const Color(0xFFBAE6FD); // Sky 200
+      headerIcon = Icons.restaurant_rounded;
+      semaforoLabel = "Segura y balanceada";
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -133,25 +200,73 @@ class _ModalRecetaContenidoState
                 // Header
                 Row(
                   children: [
-                    const Icon(Icons.local_dining, color: Colors.green, size: 32),
-                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Icon(headerIcon, color: primaryColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            receta!["nombre"] ?? "Receta sin nombre",
-                            style: GoogleFonts.montserrat(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 22,
-                                color: Colors.blueGrey.shade900),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  receta!["nombre"] ?? "Receta sin nombre",
+                                  style: GoogleFonts.montserrat(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 20,
+                                      color: Colors.blueGrey.shade900),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FoquitoSemaforo(
+                                semaforo: sem,
+                                size: 20,
+                              ),
+                            ],
                           ),
-                          Text(
-                            "Detalles Nutricionales",
-                            style: TextStyle(
-                                color: Colors.grey.shade600, fontSize: 13),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: borderColor, width: 0.8),
+                                ),
+                                child: Text(
+                                  semaforoLabel,
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (mensajeRegla.isNotEmpty)
+                                Text(
+                                  mensajeRegla,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 11,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -188,9 +303,9 @@ class _ModalRecetaContenidoState
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50.withValues(alpha: 0.3),
+                      color: bgColor.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.green.shade100),
+                      border: Border.all(color: borderColor),
                     ),
                     padding: const EdgeInsets.all(16),
                     child: ListView.separated(
@@ -204,11 +319,11 @@ class _ModalRecetaContenidoState
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
+                                color: bgColor,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.eco,
-                                  color: Colors.green, size: 16),
+                              child: Icon(Icons.check_circle_outline,
+                                  color: primaryColor, size: 16),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -239,7 +354,7 @@ class _ModalRecetaContenidoState
                     height: 54,
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
+                        backgroundColor: primaryColor,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
