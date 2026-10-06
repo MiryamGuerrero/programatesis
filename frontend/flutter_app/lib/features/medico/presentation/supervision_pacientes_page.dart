@@ -84,6 +84,7 @@ class _ListaPacientesView extends ConsumerStatefulWidget {
 }
 
 class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   bool _archiving = false;
@@ -151,6 +152,7 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
     _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     _searchDebounce?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -172,6 +174,8 @@ class _ListaPacientesViewState extends ConsumerState<_ListaPacientesView> {
               await ref.read(medicalPatientsProvider.notifier).loadPage(forceRefresh: true);
             },
             child: SingleChildScrollView(
+              controller: _scrollController,
+              primary: false,
               physics: const AlwaysScrollableScrollPhysics(),
               padding:
                   const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),

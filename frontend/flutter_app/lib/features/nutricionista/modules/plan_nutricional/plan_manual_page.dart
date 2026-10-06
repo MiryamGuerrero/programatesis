@@ -98,6 +98,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _historyScrollController = ScrollController();
+  final ScrollController _editorScrollController = ScrollController();
+  bool _showScrollToTop = false;
 
   String _selectedFilter = "Todos";
   final List<String> _filters = [
@@ -129,6 +131,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   @override
   void initState() {
     super.initState();
+    _editorScrollController.addListener(_onEditorScroll);
 
     Future.microtask(() {
       _fetchPatients("");
@@ -136,8 +139,30 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     });
   }
 
+  void _onEditorScroll() {
+    if (!_editorScrollController.hasClients) return;
+    final bool shouldShow = _editorScrollController.offset > 240;
+    if (shouldShow != _showScrollToTop) {
+      setState(() {
+        _showScrollToTop = shouldShow;
+      });
+    }
+  }
+
+  void _scrollToTop() {
+    if (_editorScrollController.hasClients) {
+      _editorScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _editorScrollController.removeListener(_onEditorScroll);
+    _editorScrollController.dispose();
     _realtimeChannel?.unsubscribe();
     _searchController.dispose();
     _historyScrollController.dispose();
@@ -2396,50 +2421,126 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
         Expanded(
           child: Container(
             color: const Color(0xFFF1F5F9),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildModernTopBar(),
-                  if (_isLoading && _weeklyPlan.isEmpty)
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(32),
-                      itemCount: 3,
-                      itemBuilder: (_, __) => Padding(
-                        padding: const EdgeInsets.only(bottom: 32),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const NutriShimmer(width: 100, height: 80),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const NutriShimmer(width: 200, height: 20),
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 16,
-                                    runSpacing: 16,
-                                    children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: _editorScrollController,
+                  primary: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildModernTopBar(),
+                      if (_isLoading && _weeklyPlan.isEmpty)
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(32),
+                          itemCount: 3,
+                          itemBuilder: (_, __) => Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const NutriShimmer(width: 100, height: 80),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const NutriShimmer(width: 200, height: 20),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        spacing: 16,
+                                        runSpacing: 16,
+                                        children: List.generate(3, (index) => const NutriShimmer(width: 220, height: 150)),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    _buildWeeklyTimeline(),
-                ],
-              ),
+                          ),
+                        )
+                      else
+                        _buildWeeklyTimeline(),
+                    ],
+                  ),
+                ),
+                _buildScrollToTopButton(),
+              ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScrollToTopButton() {
+    return Positioned(
+      right: 28,
+      bottom: 28,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        offset: _showScrollToTop ? Offset.zero : const Offset(0, 0.5),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          opacity: _showScrollToTop ? 1.0 : 0.0,
+          child: IgnorePointer(
+            ignoring: !_showScrollToTop,
+            child: Material(
+              color: Colors.transparent,
+              child: Tooltip(
+                message: "Subir a los botones de acción",
+                child: InkWell(
+                  onTap: _scrollToTop,
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTema.azulPrincipal,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTema.azulPrincipal.withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.arrow_upward_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Subir a acciones",
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

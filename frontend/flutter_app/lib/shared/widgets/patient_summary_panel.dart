@@ -24,6 +24,13 @@ class PatientSummaryPanel extends StatefulWidget {
 
 class _PatientSummaryPanelState extends State<PatientSummaryPanel> {
   bool _isCollapsed = false;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +119,8 @@ class _PatientSummaryPanelState extends State<PatientSummaryPanel> {
         ),
         Expanded(
           child: SingleChildScrollView(
+            controller: _scrollController,
+            primary: false,
             padding:
                 const EdgeInsets.only(left: 24, right: 24, bottom: 32, top: 8),
             child: Column(

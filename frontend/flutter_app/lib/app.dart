@@ -127,7 +127,13 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
               color: const Color(0xFF334155)),
         ),
         scrollbarTheme: ScrollbarThemeData(
-          thumbVisibility: const WidgetStatePropertyAll(true),
+          thumbVisibility: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.dragged)) {
+              return true;
+            }
+            return false;
+          }),
           trackVisibility: const WidgetStatePropertyAll(false),
           thickness: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered) ||
@@ -188,7 +194,7 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
     return Scrollbar(
       controller: details.controller,
       interactive: true,
-      thumbVisibility: true,
+      thumbVisibility: details.controller != null,
       trackVisibility: false,
       child: child,
     );
