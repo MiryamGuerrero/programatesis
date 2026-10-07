@@ -46,6 +46,7 @@ class NotificationService {
 
   /// Inicializa el plugin de notificaciones locales y la base de datos de zonas horarias.
   Future<void> init() async {
+    if (kIsWeb) return;
     if (_initialized) return;
 
     try {
@@ -92,6 +93,7 @@ class NotificationService {
 
   /// Solicita los permisos necesarios en Android (POST_NOTIFICATIONS y EXACT_ALARM).
   Future<bool> solicitarPermisos() async {
+    if (kIsWeb) return false;
     if (!_initialized) await init();
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
@@ -112,6 +114,7 @@ class NotificationService {
   Future<void> sincronizarNotificacionesPlanHoy({
     List<Map<String, dynamic>>? pacientesInput,
   }) async {
+    if (kIsWeb) return;
     if (!_initialized) await init();
 
     try {
@@ -271,15 +274,25 @@ class NotificationService {
 
   /// Cancela una notificación específica de un momento de comida si ya fue completada.
   Future<void> cancelarNotificacionMomento(int idMomento, DateTime fecha) async {
-    final notifId = ((fecha.year * 1000 + fecha.month * 100 + fecha.day) %
-                100000) *
-            10 +
-        (idMomento % 10);
-    await _plugin.cancel(notifId);
+    if (kIsWeb) return;
+    try {
+      final notifId = ((fecha.year * 1000 + fecha.month * 100 + fecha.day) %
+                  100000) *
+              10 +
+          (idMomento % 10);
+      await _plugin.cancel(notifId);
+    } catch (e) {
+      debugPrint("Error cancelando notificación de momento: $e");
+    }
   }
 
   /// Cancela todas las notificaciones pendientes (por ejemplo, al cerrar sesión).
   Future<void> cancelarTodasLasNotificaciones() async {
-    await _plugin.cancelAll();
+    if (kIsWeb) return;
+    try {
+      await _plugin.cancelAll();
+    } catch (e) {
+      debugPrint("Error cancelando todas las notificaciones: $e");
+    }
   }
 }

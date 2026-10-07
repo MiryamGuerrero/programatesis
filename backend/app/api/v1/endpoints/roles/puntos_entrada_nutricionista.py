@@ -176,11 +176,12 @@ def asignar_comida_manual_fechas(
 @router.get("/buscar-pacientes")
 def buscar_pacientes_nutri(
     q: str = Query(default=""), 
-    limit: int = Query(10, ge=1, le=50), 
+    limit: int = Query(default=100, ge=1, le=1000), 
+    offset: int = Query(default=0, ge=0),
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "nutricionista", "medico"))
 ):
-    return caso_uso.buscar(q, limit)
+    return caso_uso.buscar(q, limit, offset)
 
 @router.get("/nutricionista/subgrupos/catalogo-simple")
 def list_subgroups_simple_catalog_alt(

@@ -52,6 +52,8 @@ void _performCleanup(
 
   // 4. Cancelar notificaciones locales programadas para el usuario anterior
   try {
-    read(notificationServiceProvider).cancelarTodasLasNotificaciones();
+    read(notificationServiceProvider)
+        .cancelarTodasLasNotificaciones()
+        .catchError((_) {});
   } catch (_) {}
 }

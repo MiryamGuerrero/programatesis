@@ -162,11 +162,12 @@ def supervisar_adherencia(
 @router.get("/pacientes-buscar")
 def buscar_pacientes_clinicos(
     q: str = Query(default=""), 
-    limit: int = Query(10, ge=1, le=50), 
+    limit: int = Query(default=100, ge=1, le=1000), 
+    offset: int = Query(default=0, ge=0),
     caso_uso: CasoUsoGestionarPacientes = Depends(obtener_caso_uso_gestionar_pacientes),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
-    return caso_uso.buscar(q, limit)
+    return caso_uso.buscar(q, limit, offset)
 
 @router.get("/pacientes/cedula/{cedula}/existe")
 def verificar_paciente_por_cedula(

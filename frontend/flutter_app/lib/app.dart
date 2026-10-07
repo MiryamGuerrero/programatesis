@@ -22,11 +22,9 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
   @override
   void initState() {
     super.initState();
-    // Listener crítico para navegación inmediata y limpieza de estado
+    // Listener para limpieza de estado al cerrar sesión
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn ||
-          data.event == AuthChangeEvent.tokenRefreshed ||
-          data.event == AuthChangeEvent.signedOut) {
+      if (data.event == AuthChangeEvent.signedOut) {
         clearUserSessionState(ref);
       }
     });
@@ -63,23 +61,9 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
           return const LoginPage();
         }
 
-        final isSwitchingRole = ref.watch(roleSwitchLoadingProvider);
-        final targetRole = ref.watch(targetRoleProvider);
+        final overrideRole = ref.watch(activeRoleOverrideProvider);
         final roleAsync = ref.watch(appRoleProvider);
-        final currentRole = roleAsync.valueOrNull;
-
-        // Mantener la pantalla de carga activa mientras se procese el cambio
-        // o mientras el rol actual no coincida con el rol objetivo solicitado
-        if (isSwitchingRole || (targetRole != null && currentRole != targetRole)) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF8FAFC),
-            body: Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF0171BB),
-              ),
-            ),
-          );
-        }
+        final currentRole = overrideRole ?? roleAsync.valueOrNull;
 
         if (currentRole != null) {
           return RoleShell(key: ValueKey(currentRole.id), role: currentRole);

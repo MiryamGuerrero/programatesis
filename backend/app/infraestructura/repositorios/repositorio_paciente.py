@@ -1115,7 +1115,7 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
             cols = [d[0] for d in cur.description]
             return [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    def buscar_pacientes(self, query: str, limite: int = 50) -> List[dict]:
+    def buscar_pacientes(self, query: str, limite: int = 100, offset: int = 0) -> List[dict]:
         with db_cursor() as cur:
             sql = """
                 with validacion_actual as (
@@ -1148,9 +1148,9 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                 where (v.nombre_completo ilike %s or v.cedula ilike %s)
                   and coalesce(p.activo, true) = true
                 order by v.nombre_completo
-                limit %s
+                limit %s offset %s
             """
-            cur.execute(sql, (f"%{query}%", f"%{query}%", limite))
+            cur.execute(sql, (f"%{query}%", f"%{query}%", limite, offset))
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 

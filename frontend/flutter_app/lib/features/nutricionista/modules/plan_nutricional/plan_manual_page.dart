@@ -74,6 +74,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   int? _editingPlanId;
   bool _isDirty = false;
   Timer? _searchDebounce;
+  int _patientSearchToken = 0;
 
   List<PlanDay> _weeklyPlan = [];
   bool _planInitialized = false;
@@ -102,6 +103,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
   bool _showScrollToTop = false;
 
   String _selectedFilter = "Todos";
+  int _patientCurrentPage = 0;
+  static const int _patientsPerPage = 10;
   final List<String> _filters = [
     "Todos",
     "Plan activo",
@@ -323,7 +326,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     try {
       final dio = ref.read(dioProvider);
       final q = _searchController.text.trim();
-      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q});
+      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q, "limit": 1000});
       if (mounted && res.data != null) {
         setState(() {
           _patients = List<Map<String, dynamic>>.from(res.data);
@@ -332,17 +335,38 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     } catch (_) {}
   }
 
+  void _onPatientSearchChanged(String val) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    if (_patientCurrentPage != 0) {
+      setState(() => _patientCurrentPage = 0);
+    }
+    final query = val.trim();
+    if (query.isEmpty) {
+      _fetchPatients("");
+    } else {
+      _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+        _fetchPatients(query);
+      });
+    }
+  }
+
   Future<void> _fetchPatients(String q) async {
+    final token = ++_patientSearchToken;
     setState(() => _isLoading = true);
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q});
-      setState(() {
-        _patients = List<Map<String, dynamic>>.from(res.data);
-        _isLoading = false;
-      });
+      final res = await dio.get("buscar-pacientes", queryParameters: {"q": q, "limit": 1000});
+      if (mounted && token == _patientSearchToken) {
+        setState(() {
+          _patients = List<Map<String, dynamic>>.from(res.data);
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && token == _patientSearchToken) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -423,6 +447,24 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           return true;
       }
     }).toList();
+  }
+
+  int get _patientTotalPages {
+    final total = _patientsFiltrados.length;
+    if (total == 0) return 1;
+    return (total / _patientsPerPage).ceil();
+  }
+
+  List<Map<String, dynamic>> get _patientsPaginaActual {
+    final filtrados = _patientsFiltrados;
+    if (filtrados.isEmpty) return [];
+    final totalPages = _patientTotalPages;
+    final clampedPage = _patientCurrentPage.clamp(0, totalPages - 1);
+    final start = clampedPage * _patientsPerPage;
+    final end = (start + _patientsPerPage > filtrados.length)
+        ? filtrados.length
+        : start + _patientsPerPage;
+    return filtrados.sublist(start, end);
   }
 
   Future<void> _onPatientSelected(
@@ -1725,7 +1767,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             ),
             child: TextField(
               controller: _searchController,
-              onChanged: _fetchPatients,
+              onChanged: _onPatientSearchChanged,
               style:
                   GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
@@ -1734,6 +1776,19 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon:
                     const Icon(Icons.search, size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchDebounce?.cancel();
+                          if (_patientCurrentPage != 0) {
+                            setState(() => _patientCurrentPage = 0);
+                          }
+                          _fetchPatients("");
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1756,6 +1811,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
                     if (val) {
                       setState(() {
                         _selectedFilter = f;
+                        _patientCurrentPage = 0;
                         _isLoading = true;
                       });
                       await Future.delayed(const Duration(milliseconds: 300));
@@ -1801,18 +1857,219 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
             )
           else if (_patientsFiltrados.isEmpty)
             const Center(child: Text("No se encontraron pacientes"))
-          else
+          else ...[
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _patientsFiltrados.length,
+              itemCount: _patientsPaginaActual.length,
               itemBuilder: (context, index) {
-                return _buildPatientCard(_patientsFiltrados[index], index);
+                final globalIndex =
+                    (_patientCurrentPage.clamp(0, _patientTotalPages - 1) *
+                            _patientsPerPage) +
+                        index;
+                return _buildPatientCard(
+                    _patientsPaginaActual[index], globalIndex);
               },
             ),
+            const SizedBox(height: 16),
+            _buildPatientPaginationBar(),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildPatientPaginationBar() {
+    final total = _patientsFiltrados.length;
+    final totalPages = _patientTotalPages;
+    final clampedPage = _patientCurrentPage.clamp(0, totalPages - 1);
+    final start = clampedPage * _patientsPerPage;
+    final end = (start + _patientsPerPage > total) ? total : start + _patientsPerPage;
+    final startDisplay = total == 0 ? 0 : start + 1;
+    final canPrev = clampedPage > 0;
+    final canNext = clampedPage < totalPages - 1;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            total == 0
+                ? "0 pacientes"
+                : "Mostrando $startDisplay a $end de $total pacientes",
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPaginationButton(
+                icon: Icons.chevron_left_rounded,
+                isEnabled: canPrev,
+                tooltip: "Página anterior",
+                onTap: () {
+                  setState(() => _patientCurrentPage = clampedPage - 1);
+                },
+              ),
+              const SizedBox(width: 8),
+              ..._buildPageNumbers(clampedPage, totalPages),
+              const SizedBox(width: 8),
+              _buildPaginationButton(
+                icon: Icons.chevron_right_rounded,
+                isEnabled: canNext,
+                tooltip: "Página siguiente",
+                onTap: () {
+                  setState(() => _patientCurrentPage = clampedPage + 1);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationButton({
+    required IconData icon,
+    required bool isEnabled,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isEnabled ? Colors.white : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isEnabled
+                    ? const Color(0xFFE2E8F0)
+                    : const Color(0xFFF1F5F9),
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                size: 20,
+                color: isEnabled
+                    ? AppTema.azulPrincipal
+                    : const Color(0xFFCBD5E1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPageNumbers(int currentPage, int totalPages) {
+    if (totalPages <= 1) {
+      return [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppTema.azulPrincipal,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              "1",
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        )
+      ];
+    }
+
+    final List<Widget> items = [];
+    final List<int> pagesToShow = [];
+
+    if (totalPages <= 7) {
+      pagesToShow.addAll(List.generate(totalPages, (i) => i));
+    } else {
+      pagesToShow.add(0);
+      if (currentPage > 2) {
+        pagesToShow.add(-1); // ellipsis
+      }
+      for (int i = currentPage - 1; i <= currentPage + 1; i++) {
+        if (i > 0 && i < totalPages - 1) {
+          pagesToShow.add(i);
+        }
+      }
+      if (currentPage < totalPages - 3) {
+        pagesToShow.add(-2); // ellipsis
+      }
+      pagesToShow.add(totalPages - 1);
+    }
+
+    for (int i = 0; i < pagesToShow.length; i++) {
+      final pageIdx = pagesToShow[i];
+      if (pageIdx < 0) {
+        items.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text("...", style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+        );
+      } else {
+        final isCurrent = pageIdx == currentPage;
+        items.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isCurrent
+                    ? null
+                    : () => setState(() => _patientCurrentPage = pageIdx),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isCurrent ? AppTema.azulPrincipal : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isCurrent
+                        ? null
+                        : Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "${pageIdx + 1}",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight:
+                            isCurrent ? FontWeight.bold : FontWeight.w600,
+                        color: isCurrent
+                            ? Colors.white
+                            : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return items;
   }
 
   Color _getAvatarColor(String nombre) {
@@ -2376,8 +2633,8 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("AcciÃ³n no permitida", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-        content: const Text("El paciente ya marcÃ³ como consumida esta comida. No es posible editar ni eliminar recetas que ya han sido consumidas."),
+        title: const Text("Acción no permitida", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: const Text("El paciente ya marcó como consumida esta comida. No es posible editar ni eliminar recetas que ya han sido consumidas."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -4087,6 +4344,7 @@ class _PlanManualPageState extends ConsumerState<PlanManualPage> {
           _viewingHistory = true;
           _weeklyPlan = [];
           _planInitialized = false;
+          _editingPlanId = null;
           _boostersSeleccionados = [];
           _isSaving = false;
           _saveSuccess = false;

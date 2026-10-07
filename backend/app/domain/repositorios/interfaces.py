@@ -13,7 +13,7 @@ class IRepositorioPaciente(ABC):
         pass
 
     @abstractmethod
-    def buscar_pacientes(self, consulta: str, limite: int = 50) -> List[dict]:
+    def buscar_pacientes(self, consulta: str, limite: int = 100, offset: int = 0) -> List[dict]:
         pass
 
     @abstractmethod

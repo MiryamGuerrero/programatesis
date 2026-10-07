@@ -98,9 +98,12 @@ class InteligenciaApiRepository {
 
   // --- MÉTODOS DEL NUTRICIONISTA ---
 
-  Future<List<Map<String, dynamic>>> buscarPacientes(String query) async {
-    final response =
-        await _dio.get("buscar-pacientes", queryParameters: {"q": query});
+  Future<List<Map<String, dynamic>>> buscarPacientes(String query, {int limit = 1000, int offset = 0}) async {
+    final response = await _dio.get("buscar-pacientes", queryParameters: {
+      "q": query,
+      "limit": limit,
+      "offset": offset,
+    });
     return List<Map<String, dynamic>>.from(response.data as List);
   }
 

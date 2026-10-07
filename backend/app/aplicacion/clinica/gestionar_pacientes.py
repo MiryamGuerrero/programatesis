@@ -5,8 +5,8 @@ class CasoUsoGestionarPacientes:
     def __init__(self, repo_paciente: IRepositorioPaciente):
         self.repo_paciente = repo_paciente
 
-    def buscar(self, consulta: str, limite: int = 50) -> List[Dict[str, Any]]:
-        return self.repo_paciente.buscar_pacientes(consulta, limite)
+    def buscar(self, consulta: str, limite: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        return self.repo_paciente.buscar_pacientes(consulta, limite, offset)
 
     def listar_todos(self) -> List[Dict[str, Any]]:
         return self.repo_paciente.listar_todos_pacientes()

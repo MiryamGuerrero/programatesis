@@ -372,12 +372,13 @@ def etiquetas_lista_compat(
 @router.get("/buscar-pacientes")
 def buscar_pacientes_compat(
     q: str = Query(default=""),
-    limit: int = 50,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     _=Depends(require_roles("admin", "medico", "nutricionista"))
 ):
     from app.infraestructura.repositorios.repositorio_paciente import RepositorioPacientePostgres
     repo = RepositorioPacientePostgres()
-    return repo.buscar_pacientes(q, limit)
+    return repo.buscar_pacientes(q, limit, offset)
 
 @router.get("/gestion-pacientes/buscar")
 def gestion_pacientes_buscar_compat(q: str = Query(default="")):
@@ -727,6 +728,7 @@ def guardar_plan_manual(
                             detail=f"La receta {nombre_txt} tiene semáforo amarillo y supera el máximo recomendado de 2 veces en la misma semana (Semana {key[1]} de {key[0]}).",
                         )
 
+        if plan_items:
             fechas = sorted(
                 {
                     str(i.get("fecha"))
@@ -880,21 +882,44 @@ def guardar_plan_manual(
             params = []
             id_plan_actualizar = payload.get("id_plan_actualizar")
             if id_plan_actualizar:
+                cur.execute("SELECT id FROM interaccion.plan_nutricional WHERE id = %s", (id_plan_actualizar,))
+                if not cur.fetchone():
+                    id_plan_actualizar = None
+
+            if id_plan_actualizar:
                 id_plan = id_plan_actualizar
-                # Update existing plan dates just in case
-                if plan_items:
-                      fechas = sorted({item.get("fecha") for item in plan_items if item.get("fecha")})
-                      if fechas:
-                          cur.execute("UPDATE interaccion.plan_nutricional SET fecha_inicio = %s, fecha_fin = %s WHERE id = %s",
-                                      (fechas[0], fechas[-1], id_plan))
+                # Actualizar fechas, vigencia y comidas_por_dia del plan existente
+                if fechas:
+                    max_comidas = max((int(item.get("comidas_por_dia") or 0) for item in plan_items), default=3)
+                    if "comidas_por_dia" in cols_plan:
+                        cur.execute(
+                            "UPDATE interaccion.plan_nutricional SET fecha_inicio = %s, fecha_fin = %s, comidas_por_dia = %s, vigente = true WHERE id = %s",
+                            (fechas[0], fechas[-1], max_comidas, id_plan),
+                        )
+                    else:
+                        cur.execute(
+                            "UPDATE interaccion.plan_nutricional SET fecha_inicio = %s, fecha_fin = %s, vigente = true WHERE id = %s",
+                            (fechas[0], fechas[-1], id_plan),
+                        )
+
+                # Desactivar únicamente otros planes que se solapen con el nuevo rango de fechas
+                cur.execute(
+                    """
+                    update interaccion.plan_nutricional 
+                    set vigente = false 
+                    where id_paciente = %s and coalesce(vigente, false) = true 
+                      and fecha_inicio <= %s and fecha_fin >= %s and id != %s
+                    """,
+                    (id_paciente, fechas[-1], fechas[0], id_plan),
+                )
                 
                 # Diff the items
                 cur.execute("SELECT id, fecha_programada::date, id_momento, id_receta FROM interaccion.plan_item WHERE id_plan = %s", (id_plan,))
-                existing = {(str(r[1]), r[2], r[3]): r[0] for r in cur.fetchall()}
+                existing = {(str(r[1]), int(r[2]), int(r[3])): int(r[0]) for r in cur.fetchall()}
                 
                 payload_items_keys = set()
                 for item in plan_items:
-                    payload_items_keys.add((str(item.get("fecha")), item.get("id_momento"), item.get("id_receta")))
+                    payload_items_keys.add((str(item.get("fecha")), int(item.get("id_momento")), int(item.get("id_receta"))))
                 
                 to_delete = []
                 for key, item_id in existing.items():
@@ -902,19 +927,23 @@ def guardar_plan_manual(
                         to_delete.append(item_id)
                 
                 if to_delete:
-                    # check if they were consumed before deleting? The UI prevents editing, so they should still be in payload.
+                    cur.execute("DELETE FROM interaccion.seguimiento_plan_item WHERE id_plan_item = ANY(%s)", (to_delete,))
                     cur.execute("DELETE FROM interaccion.plan_item WHERE id = ANY(%s)", (to_delete,))
                     
                 # Actualizar semáforo en los items existentes que se conservan
                 for item in payload.get("plan", []):
                     cur.execute(
-                        "UPDATE interaccion.plan_item SET semaforo = %s WHERE id_plan = %s AND fecha_programada = %s AND id_momento = %s AND id_receta = %s",
-                        (str(item.get("semaforo") or "neutral").lower(), id_plan, item.get("fecha"), item.get("id_momento"), item.get("id_receta"))
+                        """
+                        UPDATE interaccion.plan_item 
+                        SET semaforo = %s 
+                        WHERE id_plan = %s AND fecha_programada = %s AND id_momento = %s AND id_receta = %s
+                        """,
+                        (str(item.get("semaforo") or "neutral").lower(), id_plan, item.get("fecha"), int(item.get("id_momento")), int(item.get("id_receta"))),
                     )
 
                 new_plan_items = []
                 for item in plan_items:
-                    key = (str(item.get("fecha")), item.get("id_momento"), item.get("id_receta"))
+                    key = (str(item.get("fecha")), int(item.get("id_momento")), int(item.get("id_receta")))
                     if key not in existing:
                         new_plan_items.append(item)
                 
@@ -936,7 +965,7 @@ def guardar_plan_manual(
                     where id_paciente = %s and coalesce(vigente, false) = true 
                       and fecha_inicio <= %s and fecha_fin >= %s
                     """,
-                    (id_paciente, fechas[-1], fechas[0])
+                    (id_paciente, fechas[-1], fechas[0]),
                 )
                 cur.execute(
                     f"insert into interaccion.plan_nutricional ({', '.join(cols_sql)}) values ({', '.join(placeholders)}) returning id",
@@ -965,7 +994,7 @@ def guardar_plan_manual(
 
             bulk_params = []
             for item in plan_items:
-                row = [id_plan, item.get("id_momento"), item.get("id_receta"), item.get("fecha")]
+                row = [id_plan, int(item.get("id_momento")), int(item.get("id_receta")), item.get("fecha")]
                 if "created_at" in cols_item:
                     row.append(datetime.now()) # Usamos datetime de python para executemany
                 if "comidas_por_dia" in cols_item:
@@ -974,10 +1003,10 @@ def guardar_plan_manual(
                     row.append(str(item.get("semaforo") or "neutral").lower())
                 bulk_params.append(tuple(row))
 
-            placeholders = ["%s"] * len(item_cols)
-            insert_sql = f"insert into interaccion.plan_item ({', '.join(item_cols)}) values ({', '.join(placeholders)})"
-            
-            cur.executemany(insert_sql, bulk_params)
+            if bulk_params:
+                placeholders = ["%s"] * len(item_cols)
+                insert_sql = f"insert into interaccion.plan_item ({', '.join(item_cols)}) values ({', '.join(placeholders)})"
+                cur.executemany(insert_sql, bulk_params)
 
         # 1. Limpiar recomendaciones previas
         cur.execute("""
