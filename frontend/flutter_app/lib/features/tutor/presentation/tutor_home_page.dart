@@ -158,12 +158,37 @@ class _TutorHomePageState extends ConsumerState<TutorHomePage>
         try {
           final p = list.firstWhere((p) => p["id"].toString() == idPaciente);
           nombrePaciente = (p["nombre_completo"] as String).split(' ').first;
-        } catch (_) {}
+        } catch (_) {
+          // Si el idPaciente actual no pertenece a la lista del usuario activo, corregir selección
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (list.isNotEmpty) {
+              ref.read(selectedPatientIdProvider.notifier).state =
+                  list.first["id"].toString();
+            } else {
+              ref.read(selectedPatientIdProvider.notifier).state = null;
+            }
+          });
+        }
       });
     }
 
     final List<Widget> vistas = [
-      DashboardView(idPaciente: idPaciente),
+      DashboardView(
+        idPaciente: idPaciente,
+        onNavigateTab: (index) {
+          if (_pageController.hasClients) {
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+          setState(() {
+            _oldBottomNavIndex = _bottomNavIndex;
+            _bottomNavIndex = index;
+          });
+        },
+      ),
       const TutorCalendarioPage(),
       const TutorRecetasPage(),
       const TutorComprasPage(),

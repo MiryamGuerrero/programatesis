@@ -10,7 +10,6 @@ import "../../../core/state/app_providers.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/theme/app_sizes.dart";
 import "../../../core/theme/app_responsive.dart";
-import "../../../core/services/notification_service.dart";
 import "../../../shared/widgets/error_conexion_widget.dart";
 import "../../auth/login_page.dart";
 import "widgets/cerrar_sesion_dialog.dart";
@@ -630,9 +629,7 @@ class _TutorPerfilPageState extends ConsumerState<TutorPerfilPage> {
     final confirm = await showCerrarSesionDialog(context);
 
     if (confirm == true) {
-      try {
-        await ref.read(notificationServiceProvider).cancelarTodasLasNotificaciones();
-      } catch (_) {}
+      clearUserSessionState(ref);
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(

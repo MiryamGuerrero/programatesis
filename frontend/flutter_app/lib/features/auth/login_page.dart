@@ -7,7 +7,7 @@ import "package:google_fonts/google_fonts.dart";
 import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../core/config/app_config.dart";
-import "../../core/state/providers/auth_providers.dart";
+import "../../core/state/app_providers.dart";
 import "../../core/theme/app_theme.dart";
 import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
@@ -115,7 +115,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           return;
         }
 
-        // Cuenta activa confirmada: limpiar cualquier error previo
+        // Cuenta activa confirmada: limpiar cualquier estado previo residual
+        clearUserSessionState(ref);
         ref.read(authErrorProvider.notifier).state = null;
       }
     } on AuthException catch (e) {

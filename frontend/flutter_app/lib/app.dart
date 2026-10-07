@@ -22,21 +22,26 @@ class _ReumaNutriAppState extends ConsumerState<ReumaNutriApp> {
   @override
   void initState() {
     super.initState();
-    // Listener crítico para navegación inmediata sin recargar
+    // Listener crítico para navegación inmediata y limpieza de estado
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn ||
-          data.event == AuthChangeEvent.tokenRefreshed) {
-        ref.invalidate(appRoleProvider);
-        ref.invalidate(miPerfilProvider);
-      } else if (data.event == AuthChangeEvent.signedOut) {
-        ref.read(activeRoleOverrideProvider.notifier).state = null;
-        ref.read(miPerfilOverrideProvider.notifier).state = null;
+          data.event == AuthChangeEvent.tokenRefreshed ||
+          data.event == AuthChangeEvent.signedOut) {
+        clearUserSessionState(ref);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authSessionProvider, (previous, next) {
+      final prevUserId = previous?.valueOrNull?.user.id;
+      final nextUserId = next.valueOrNull?.user.id;
+      if (prevUserId != nextUserId) {
+        clearUserSessionState(ref);
+      }
+    });
+
     final authSession = ref.watch(authSessionProvider);
     final authFlowIntent = ref.watch(authFlowIntentProvider);
     final authError = ref.watch(authErrorProvider);

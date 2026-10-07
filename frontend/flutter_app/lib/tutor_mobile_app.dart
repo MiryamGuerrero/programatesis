@@ -14,6 +14,14 @@ class TutorMobileApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authSessionProvider, (previous, next) {
+      final prevUserId = previous?.valueOrNull?.user.id;
+      final nextUserId = next.valueOrNull?.user.id;
+      if (prevUserId != nextUserId) {
+        clearUserSessionState(ref);
+      }
+    });
+
     final authSession = ref.watch(authSessionProvider);
     final authFlowIntent = ref.watch(authFlowIntentProvider);
 

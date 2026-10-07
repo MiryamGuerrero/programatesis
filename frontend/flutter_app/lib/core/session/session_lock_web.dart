@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import "dart:html" as html;
 
 const String _signedOutLockKey = "reuma_signed_out_lock";
@@ -20,4 +21,12 @@ void setSignedOutLock(bool value) {
   } catch (_) {
     // Ignore storage errors (private mode or blocked storage).
   }
+}
+
+void clearWebUrlAuthParams() {
+  try {
+    final location = html.window.location;
+    final cleanUrl = location.pathname ?? "/";
+    html.window.history.replaceState(null, "", cleanUrl);
+  } catch (_) {}
 }

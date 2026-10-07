@@ -25,42 +25,69 @@ final miPerfilProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 });
 
 final tipSaludableProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const {};
+  }
   final dio = ref.read(dioProvider);
   final resp = await dio.get('tutor/tips-saludables');
-  ref.keepAlive();
   return Map<String, dynamic>.from(resp.data);
 });
 
 final usersListProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const [];
+  }
   return ref.watch(supabaseCrudRepositoryProvider).fetchUsers();
 });
 
 final patientsListProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const [];
+  }
   return ref.watch(supabaseCrudRepositoryProvider).fetchPatients();
 });
 
 final misPacientesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const [];
+  }
   return ref.watch(supabaseCrudRepositoryProvider).fetchMyPatients();
 });
 
 final patientExpedienteProvider =
     FutureProvider.family<Map<String, dynamic>, String>(
         (ref, idPaciente) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const {};
+  }
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchExpedienteCompleto(idPaciente);
 });
 
 final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>,
     ({String idPaciente, DateTime fecha})>((ref, arg) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const [];
+  }
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchPlanItemsByPaciente(arg.idPaciente, fecha: arg.fecha);
 });
 
 final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>,
     ({String idPaciente, int mes, int anio})>((ref, arg) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const [];
+  }
   final dio = ref.watch(dioProvider);
   final resp =
       await dio.get('tutor/dias-con-plan/${arg.idPaciente}', queryParameters: {
@@ -79,6 +106,10 @@ final diasConPlanProvider = FutureProvider.family<List<Map<String, dynamic>>,
 final listaComprasProvider = FutureProvider.family<
     Map<String, List<Map<String, dynamic>>>,
     ({String idPaciente, DateTime start, DateTime end})>((ref, arg) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) {
+    return const {};
+  }
   final repo = ref.watch(supabaseCrudRepositoryProvider);
   return await repo.fetchShoppingList(arg.idPaciente,
       start: arg.start, end: arg.end);

@@ -602,6 +602,7 @@ class _RoleShellState extends ConsumerState<RoleShell>
 
   Future<void> _handleSignOut() async {
     setState(() => _signingOut = true);
+    clearUserSessionState(ref);
     await Supabase.instance.client.auth.signOut();
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(

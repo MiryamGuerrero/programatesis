@@ -7,6 +7,8 @@ import "../../core/theme/app_theme.dart";
 import "../../core/theme/app_sizes.dart";
 import "../../core/theme/app_responsive.dart";
 import "../../core/state/app_providers.dart";
+import "../../core/services/deep_link_service.dart";
+import "../../core/session/session_lock.dart";
 
 const String kLogoSinNombre = "assets/images/logo_reuma_nutri.png";
 
@@ -135,20 +137,29 @@ class _SetPasswordPageState extends ConsumerState<SetPasswordPage> {
         UserAttributes(password: password),
       );
 
+      // Refrescar la sesión para garantizar tokens vigentes en el cliente
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {
+        // Continuar si la sesión actual sigue siendo válida
+      }
+
+      // Limpiar enlaces y parámetros de recuperación para evitar relances a esta pantalla
+      DeepLinkService().clearInitialLink();
+      clearWebUrlAuthParams();
+
       if (!mounted) return;
 
       ref.read(authFlowIntentProvider.notifier).state = AuthFlowIntent.none;
 
-      // Mostrar feedback de exito y cerrar sesión para forzar el reingreso manual
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
-              "Contraseña configurada correctamente. Por favor, inicia sesión de nuevo."),
+              "¡Contraseña guardada exitosamente! Bienvenido a NutriReuma."),
           backgroundColor: AppTema.verdeSalud,
+          duration: Duration(seconds: 4),
         ));
       }
-
-      await Supabase.instance.client.auth.signOut();
     } on AuthException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);

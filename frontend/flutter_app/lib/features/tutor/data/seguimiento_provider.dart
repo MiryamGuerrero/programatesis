@@ -6,6 +6,8 @@ import "../../../core/state/app_providers.dart";
 /// Provider para obtener el plan del día
 final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>,
     ({String idPaciente, String fecha})>((ref, arg) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const [];
   final repo = ref.watch(repositorioTutorProvider);
   return repo.obtenerPlanDiario(arg.idPaciente, arg.fecha);
 });
@@ -13,6 +15,8 @@ final planDiarioProvider = FutureProvider.family<List<Map<String, dynamic>>,
 /// Provider para obtener estadísticas de adherencia
 final adherenciaProvider = FutureProvider.family<Map<String, dynamic>,
     ({String idPaciente, int dias})>((ref, arg) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const {};
   final repo = ref.watch(repositorioTutorProvider);
   return repo.obtenerEstadisticasAdherencia(arg.idPaciente, dias: arg.dias);
 });
@@ -20,6 +24,8 @@ final adherenciaProvider = FutureProvider.family<Map<String, dynamic>,
 /// Provider para obtener momentos de comida
 final momentosComidaProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const [];
   final dio = ref.watch(dioProvider);
   final resp = await dio.get('tutor/momentos-comida');
   return List<Map<String, dynamic>>.from(resp.data);
@@ -28,6 +34,8 @@ final momentosComidaProvider =
 /// Provider para obtener tipos de plato
 final tiposPlatoProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const [];
   final dio = ref.watch(dioProvider);
   final resp = await dio.get('tutor/tipos-plato');
   return List<Map<String, dynamic>>.from(resp.data);
@@ -37,6 +45,8 @@ final tiposPlatoProvider =
 final subgruposGustosProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>(
         (ref, idPaciente) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const [];
   final dio = ref.watch(dioProvider);
   final resp = await dio.get('tutor/subgrupos-preferencia/$idPaciente');
   return List<Map<String, dynamic>>.from(resp.data);
@@ -46,6 +56,8 @@ final subgruposGustosProvider =
 final recetasSegurasInicialesProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>(
         (ref, idPaciente) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return const [];
   final dio = ref.watch(dioProvider);
   final resp = await dio.get('tutor/recetas-seguras/$idPaciente',
       queryParameters: {'consulta': '', 'limite': 20, 'offset': 0});

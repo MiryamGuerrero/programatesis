@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../../../../../core/state/app_providers.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/app_sizes.dart';
@@ -17,7 +18,12 @@ import 'generar_plan_automatico_modal.dart';
 
 class DashboardView extends ConsumerStatefulWidget {
   final String? idPaciente;
-  const DashboardView({super.key, required this.idPaciente});
+  final void Function(int index)? onNavigateTab;
+  const DashboardView({
+    super.key,
+    required this.idPaciente,
+    this.onNavigateTab,
+  });
 
   @override
   ConsumerState<DashboardView> createState() => _DashboardViewState();
@@ -49,6 +55,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
             schema: 'interaccion',
             table: 'plan_nutricional',
             callback: (_) {
+              ref.invalidate(misPacientesProvider);
               if (widget.idPaciente != null) {
                 final now = DateTime.now();
                 final today = DateTime(now.year, now.month, now.day);
@@ -177,6 +184,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       ref.invalidate(planDiarioProvider((idPaciente: idPaciente, fecha: today)));
+      ref.invalidate(misPacientesProvider);
       ref.invalidate(tipSaludableProvider);
       await Future.delayed(const Duration(milliseconds: 700));
     }
@@ -248,6 +256,169 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     );
   }
 
+  Widget _buildPlanActivoSinComidasHoy({
+    required BuildContext context,
+    required ThemeData theme,
+    required bool isPlanFuturo,
+    required DateTime? dInicio,
+    required DateTime? dFin,
+  }) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: isPlanFuturo
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFECFDF5),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: (isPlanFuturo
+                            ? const Color(0xFF3B82F6)
+                            : AppTema.verdeSalud)
+                        .withOpacity(0.15),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isPlanFuturo
+                    ? Icons.calendar_today_rounded
+                    : Icons.event_available_rounded,
+                size: 56,
+                color: isPlanFuturo
+                    ? const Color(0xFF2563EB)
+                    : AppTema.verdeSalud,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              isPlanFuturo
+                  ? "Plan programado próximamente"
+                  : "Día sin menú programado",
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTema.azulOscuro,
+              ),
+            ),
+            if (dInicio != null && dFin != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.date_range_rounded,
+                        size: 15, color: Color(0xFF64748B)),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Plan activo: ${DateFormat('d MMM', 'es_EC').format(dInicio)} - ${DateFormat('d MMM yyyy', 'es_EC').format(dFin)}",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Text(
+              isPlanFuturo
+                  ? "Tu nutricionista ha programado un plan que iniciará el ${dInicio != null ? DateFormat("d 'de' MMMM", 'es_EC').format(dInicio) : 'próximamente'}.\n\nMientras tanto, puedes consultar las recetas seguras recomendadas para tu perfil."
+                  : "Tu plan nutricional está activo, pero hoy no tienes un menú específico programado por tu nutricionista (frecuencia asignada o día interdiario).\n\nPuedes consultar el recetario de opciones seguras y recomendadas especialmente para ti.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  if (widget.onNavigateTab != null) {
+                    widget.onNavigateTab!(2);
+                  }
+                },
+                icon: const Icon(Icons.restaurant_menu_rounded, size: 20),
+                label: const Text(
+                  "Explorar recetas seguras",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTema.verdeSalud,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  if (widget.onNavigateTab != null) {
+                    widget.onNavigateTab!(1);
+                  }
+                },
+                icon: const Icon(
+                  Icons.calendar_month_outlined,
+                  size: 20,
+                  color: AppTema.azulOscuro,
+                ),
+                label: const Text(
+                  "Ver calendario del plan",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppTema.azulOscuro,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(
+                    color: Color(0xFFCBD5E1),
+                    width: 1.2,
+                  ),
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -262,6 +433,43 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     }
 
     final planAsync = ref.watch(planDiarioProvider((idPaciente: idPaciente, fecha: today)));
+    final patientsAsync = ref.watch(misPacientesProvider);
+    final currentPatient = patientsAsync.valueOrNull
+        ?.cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (p) => p?["id"]?.toString() == idPaciente,
+          orElse: () => null,
+        );
+
+    final bool hasActivePlan =
+        currentPatient != null && (currentPatient["plan_activo"] == true);
+    final String? planInicioStr =
+        currentPatient?["plan_activo_inicio"]?.toString();
+    final String? planFinStr =
+        currentPatient?["plan_activo_fin"]?.toString();
+
+    DateTime? dInicio;
+    DateTime? dFin;
+    if (planInicioStr != null) {
+      dInicio = DateTime.tryParse(planInicioStr.split('T').first);
+    }
+    if (planFinStr != null) {
+      dFin = DateTime.tryParse(planFinStr.split('T').first);
+    }
+
+    bool isPlanFuturo = false;
+    bool isPlanEnCurso = false;
+    if (hasActivePlan) {
+      if (dInicio != null &&
+          today.isBefore(DateTime(dInicio.year, dInicio.month, dInicio.day))) {
+        isPlanFuturo = true;
+      } else if (dFin != null &&
+          today.isAfter(DateTime(dFin.year, dFin.month, dFin.day, 23, 59, 59))) {
+        isPlanEnCurso = false;
+      } else {
+        isPlanEnCurso = true;
+      }
+    }
 
     if (planAsync.isLoading && !planAsync.hasValue) {
       return _buildDashboardShimmer(context);
@@ -272,6 +480,16 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       child: planAsync.when(
         data: (meals) {
           if (meals.isEmpty) {
+            if (isPlanEnCurso || isPlanFuturo) {
+              return _buildPlanActivoSinComidasHoy(
+                context: context,
+                theme: theme,
+                isPlanFuturo: isPlanFuturo,
+                dInicio: dInicio,
+                dFin: dFin,
+              );
+            }
+
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Padding(
@@ -1104,7 +1322,6 @@ class _HealthyTipBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tipAsync = ref.watch(tipSaludableProvider);
-    final theme = Theme.of(context);
 
     return tipAsync.when(
       data: (tip) {

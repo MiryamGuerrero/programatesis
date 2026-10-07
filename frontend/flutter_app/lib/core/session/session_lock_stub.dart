@@ -5,3 +5,5 @@ bool isSignedOutLock() => _signedOutLock;
 void setSignedOutLock(bool value) {
   _signedOutLock = value;
 }
+
+void clearWebUrlAuthParams() {}

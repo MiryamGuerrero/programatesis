@@ -30,6 +30,12 @@ class DeepLinkService {
   /// se abrió normalmente (no desde un deep link).
   Uri? get initialLink => _initialUri;
 
+  /// Limpia el enlace inicial tras haber sido procesado para evitar que relances
+  /// o reinicios de estado vuelvan a activar flujos de recuperación.
+  void clearInitialLink() {
+    _initialUri = null;
+  }
+
   /// Stream de URIs entrantes mientras la app está corriendo.
   Stream<Uri> get linkStream => _controller.stream;
 

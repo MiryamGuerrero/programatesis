@@ -396,6 +396,20 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
 
             # 2. Listar pacientes vinculados
             sql = """
+                with plan_activo as (
+                    select distinct on (p.id_paciente)
+                        p.id_paciente,
+                        p.id,
+                        p.fecha_inicio,
+                        p.fecha_fin,
+                        p.id_origen_plan,
+                        coalesce(op.nombre, 'NUTRICIONISTA') as origen_nombre
+                    from interaccion.plan_nutricional p
+                    left join interaccion.catalogo_origen_plan op on op.id = p.id_origen_plan
+                    where coalesce(p.vigente, false) = true
+                      and p.fecha_fin >= current_date
+                    order by p.id_paciente, p.created_at desc nulls last, p.id desc
+                )
                 select p.id, p.nombre_completo, p.fecha_nacimiento, p.cedula,
                        par.nombre as parentesco,
                        (
@@ -404,16 +418,32 @@ class RepositorioPacientePostgres(IRepositorioPaciente):
                            join heuristico.condicion c on c.id = dp.id_condicion
                            where dp.id_paciente = p.id and dp.esta_activo = true
                            limit 1
-                       ) as diagnostico
+                       ) as diagnostico,
+                       (pa.id is not null) as plan_activo,
+                       pa.id as plan_activo_id,
+                       pa.fecha_inicio as plan_activo_inicio,
+                       pa.fecha_fin as plan_activo_fin,
+                       pa.id_origen_plan as plan_activo_origen,
+                       pa.origen_nombre as plan_activo_origen_nombre
                 from usuarios.paciente p
                 join usuarios.tutor_paciente tp on tp.id_paciente = p.id
                 join usuarios.parentesco par on par.id = tp.id_parentesco
+                left join plan_activo pa on pa.id_paciente = p.id
                 where tp.id_usuario_tutor = %s and tp.activo = true
                 order by p.nombre_completo
             """
             cur.execute(sql, (tutor_id,))
             cols = [desc[0] for desc in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            res = []
+            for row in cur.fetchall():
+                d = {}
+                for col, val in zip(cols, row):
+                    if hasattr(val, "isoformat"):
+                        d[col] = val.isoformat()
+                    else:
+                        d[col] = val
+                res.append(d)
+            return res
 
     def registrar_paciente_integral(self, payload: dict, id_usuario_creador: str = None) -> dict:
         from app.core.auth_onboarding import provision_auth_user_with_password_setup, delete_auth_user
